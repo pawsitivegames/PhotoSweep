@@ -10,11 +10,11 @@ For paid license, refund, privacy, or deletion requests, email:
 
 For public bug reports and feature requests, use the GitHub issue tracker:
 
-https://github.com/mtalcott/google-photos-deduper/issues/new/choose
+https://github.com/pawsitivegames/PhotoSweep/issues/new/choose
 
 For general questions and troubleshooting discussion, use GitHub Discussions:
 
-https://github.com/mtalcott/google-photos-deduper/discussions
+https://github.com/pawsitivegames/PhotoSweep/discussions
 
 ## What To Include
 
@@ -40,4 +40,3 @@ within 3 business days.
 Refund requests follow the published refund policy in `docs/REFUND_POLICY.md`.
 Privacy and deletion requests follow the published privacy policy in
 `docs/PRIVACY_POLICY.md`.
-

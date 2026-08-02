@@ -1,6 +1,6 @@
 # PhotoSweep
 
-[![CI Badge](https://github.com/mtalcott/google-photos-deduper/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mtalcott/google-photos-deduper/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI Badge](https://github.com/pawsitivegames/PhotoSweep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pawsitivegames/PhotoSweep/actions/workflows/ci.yml?query=branch%3Amain)
 
 A Chrome extension that finds duplicate photos in supported cloud photo libraries and moves reviewed duplicates to provider Trash where cleanup is supported.
 
@@ -12,7 +12,7 @@ Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolk
 
 ## Install
 
-**[⬇ Download latest release](https://github.com/mtalcott/google-photos-deduper/releases/latest/download/google-photos-deduper.zip)**
+**[⬇ Download latest release](https://github.com/pawsitivegames/PhotoSweep/releases/latest/download/photosweep.zip)**
 
 1. Unzip to a permanent folder (don't delete it — Chrome needs it to stay there)
 2. Open `chrome://extensions` → enable **Developer mode** (toggle, top-right)
@@ -69,8 +69,8 @@ Paid launch readiness is tracked in [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECK
 **Prerequisites:** Google Chrome, Node.js 24
 
 ```bash
-git clone https://github.com/mtalcott/google-photos-deduper.git
-cd google-photos-deduper
+git clone https://github.com/pawsitivegames/PhotoSweep.git
+cd PhotoSweep
 git submodule update --init --recursive
 npm install
 npm run dev  # builds into build/chrome-mv3-dev/
@@ -148,9 +148,9 @@ Google deprecated the Photos Library API's write access in 2025, and duplicate d
 
 For paid license, refund, privacy, or deletion requests, email `pawsitivegames@gmail.com`.
 
-Found a bug or have a feature request? [Open an issue](https://github.com/mtalcott/google-photos-deduper/issues/new/choose).
+Found a bug or have a feature request? [Open an issue](https://github.com/pawsitivegames/PhotoSweep/issues/new/choose).
 
-Have questions? [Post on the discussions page](https://github.com/mtalcott/google-photos-deduper/discussions).
+Have questions? [Post on the discussions page](https://github.com/pawsitivegames/PhotoSweep/discussions).
 
 ## Say Thanks
 
