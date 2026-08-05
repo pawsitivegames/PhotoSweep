@@ -111,27 +111,27 @@ jobs:
       - name: Run benchmarks
         run: npx vitest bench --run --outputJson bench-output.json
 
-      # Restore the baseline recorded on the most recent main-branch push.
+      # Restore the rolling history of recent main-branch runs.
       # restore-keys falls back to the latest matching entry when no exact hit.
-      - name: Restore baseline
+      - name: Restore benchmark history
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
-          path: tests/perf/bench-baseline.json
-          key: bench-baseline-${{ github.sha }}
-          restore-keys: bench-baseline-
+          path: tests/perf/bench-history.json
+          key: bench-history-${{ github.sha }}
+          restore-keys: bench-history-
 
+      # Compare against a rolling median to reduce shared-runner noise.
       - name: Check for regressions
         run: node tools/check-bench.mjs
 
-      # Overwrite the baseline with current results and cache under this SHA.
-      # Only runs on main so PRs always compare against a known-good baseline.
-      - name: Update baseline
+      # Append this run only on main; PRs compare against main history.
+      - name: Update benchmark history
         if: github.ref == 'refs/heads/main'
-        run: cp bench-output.json tests/perf/bench-baseline.json
+        run: node tools/update-bench-history.mjs
 
-      - name: Save baseline
+      - name: Save benchmark history
         if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
-          path: tests/perf/bench-baseline.json
-          key: bench-baseline-${{ github.sha }}
+          path: tests/perf/bench-history.json
+          key: bench-history-${{ github.sha }}

@@ -9,7 +9,7 @@
  * - Zoom button does not trigger onToggleKept (stopPropagation)
  */
 import { ThemeProvider } from "@mui/material/styles"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { DuplicateGroups } from "../../components/DuplicateGroups"
@@ -394,6 +394,31 @@ describe("DuplicateGroups — empty state", () => {
   it("shows no duplicates message when groups is empty", () => {
     wrap(<DuplicateGroups {...defaultProps} groups={[]} />)
     expect(screen.getByText(/no duplicates found/i)).toBeInTheDocument()
+  })
+})
+
+// ============================================================
+// Spacebar preview
+// ============================================================
+
+describe("DuplicateGroups — Spacebar preview", () => {
+  it("opens the viewer for the photo under the pointer", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    const firstPhoto = screen.getByTitle("img1.jpg").closest(".MuiBox-root")
+    expect(firstPhoto).toBeTruthy()
+
+    act(() => {
+      fireEvent.mouseEnter(firstPhoto!)
+      fireEvent.keyDown(window, { key: " ", code: "Space" })
+    })
+
+    expect(screen.getByTestId("viewer-modal")).toBeInTheDocument()
+  })
+
+  it("does not open the viewer when no photo is under the pointer", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    fireEvent.keyDown(window, { key: " ", code: "Space" })
+    expect(screen.queryByTestId("viewer-modal")).not.toBeInTheDocument()
   })
 })
 

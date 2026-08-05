@@ -315,7 +315,7 @@ function isInDateRange(item, range) {
   return item.timestamp >= range.fromMs && item.timestamp <= range.toMs
 }
 
-function mapMediaItem(item) {
+function mapMediaItem(item, accountUrlPrefix = "/") {
   return {
     mediaKey: item.mediaKey,
     dedupKey: item.dedupKey,
@@ -331,7 +331,8 @@ function mapMediaItem(item) {
     size: item.size,
     takesUpSpace: item.takesUpSpace ?? null,
     spaceTaken: item.spaceTaken,
-    productUrl: "https://photos.google.com/photo/" + item.mediaKey
+    productUrl:
+      "https://photos.google.com" + accountUrlPrefix + "photo/" + item.mediaKey
   }
 }
 
@@ -416,6 +417,10 @@ async function getAllMediaItems(requestId, args) {
     args && args.sinceTimestamp ? args.sinceTimestamp : null
   const dateRange = parseDateRange(args && args.dateRange)
   const albumScope = args && args.albumScope
+  // Google uses /u/{index}/ for secondary signed-in accounts. Keep the
+  // account context in links emitted by both album and timeline scans.
+  const accountUrlPrefix =
+    window.location.pathname.match(/^\/u\/\d+\//)?.[0] || "/"
 
   async function fetchUploadedDatePageWithRetry(nextPageId, scannedItems) {
     let lastError
@@ -464,7 +469,7 @@ async function getAllMediaItems(requestId, args) {
       )
       const mediaItems = (albumItems || [])
         .filter((item) => isInDateRange(item, dateRange))
-        .map(mapMediaItem)
+        .map((item) => mapMediaItem(item, accountUrlPrefix))
       postProgress(
         requestId,
         (albumItems || []).length,
@@ -502,7 +507,7 @@ async function getAllMediaItems(requestId, args) {
             break
           }
           if (!isInDateRange(item, dateRange)) continue
-          mediaItems.push(mapMediaItem(item))
+          mediaItems.push(mapMediaItem(item, accountUrlPrefix))
         }
       }
       nextPageId = page.nextPageId || null

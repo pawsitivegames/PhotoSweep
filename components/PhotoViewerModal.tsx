@@ -17,6 +17,7 @@ import Link from "@mui/material/Link"
 import Typography from "@mui/material/Typography"
 import { useCallback, useEffect, useState } from "react"
 
+import { buildThumbUrl } from "../lib/photo-url"
 import type { GpdMediaItem } from "../lib/types"
 import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 
@@ -33,13 +34,23 @@ interface MediaBlob {
   type: string
 }
 
+const EMPTY_MEDIA_ITEMS: GpdMediaItem[] = []
+
 function isVideoItem(item: GpdMediaItem): boolean {
   return Number.isFinite(item.duration) && (item.duration ?? 0) > 0
 }
 
+function getViewportSizedThumbUrl(thumb: string): string {
+  const width = Math.round(window.innerWidth * (window.devicePixelRatio || 1))
+  const height = Math.round(window.innerHeight * (window.devicePixelRatio || 1))
+  return buildThumbUrl(thumb, { width, height })
+}
+
 function mediaFetchUrl(item: GpdMediaItem): string {
   if (item.provider && item.provider !== "google") return item.thumb
-  return isVideoItem(item) ? `${item.thumb}=dv` : item.thumb
+  return isVideoItem(item)
+    ? `${item.thumb}=dv`
+    : getViewportSizedThumbUrl(item.thumb)
 }
 
 function providerLabel(item: GpdMediaItem): string {
@@ -93,6 +104,24 @@ function useGroupBlobUrls(
   }, [thumbKey])
 
   return blobUrls
+}
+
+function usePrefetchNextGroup(nextItems: GpdMediaItem[]) {
+  useEffect(() => {
+    if (nextItems.length === 0) return
+
+    const controllers: AbortController[] = []
+    nextItems.forEach((item) => {
+      const controller = new AbortController()
+      controllers.push(controller)
+      fetch(mediaFetchUrl(item), {
+        credentials: "include",
+        signal: controller.signal
+      }).catch(() => {})
+    })
+
+    return () => controllers.forEach((controller) => controller.abort())
+  }, [nextItems])
 }
 
 interface FullResMediaProps {
@@ -208,6 +237,7 @@ function FullResMedia({ item, blob }: FullResMediaProps) {
 export interface PhotoViewerModalProps {
   open: boolean
   items: GpdMediaItem[]
+  nextGroupItems?: GpdMediaItem[]
   initialIndex: number
   keptSet: Set<string>
   isGroupSelected: boolean
@@ -230,6 +260,7 @@ const slideInFromLeft = keyframes`
 export function PhotoViewerModal({
   open,
   items,
+  nextGroupItems = EMPTY_MEDIA_ITEMS,
   initialIndex,
   keptSet,
   isGroupSelected,
@@ -246,6 +277,7 @@ export function PhotoViewerModal({
 
   // Preload all images in the group up front
   const blobUrls = useGroupBlobUrls(items)
+  usePrefetchNextGroup(nextGroupItems)
 
   // Reset index when the modal opens, the initial photo changes, or the items change
   useEffect(() => {

@@ -9,6 +9,7 @@
 import { classifyDuplicateItems } from "./duplicate-classifier"
 import { createCachedMediaMetadata, EmbeddingCache } from "./embedding-cache"
 import { selectDefaultKeep } from "./keep-strategy"
+import { buildThumbUrl } from "./photo-url"
 import { StabilityTracker } from "./scan-log"
 import type { ScanLogger } from "./scan-log"
 import type { DuplicateGroup, GpdMediaItem } from "./types"
@@ -1004,7 +1005,7 @@ async function fetchThumbnails(
           ? entry.item.thumb
           : entry.item.provider && entry.item.provider !== "google"
             ? entry.item.thumb
-            : entry.item.thumb + `=h${THUMB_HEIGHT}`
+            : buildThumbUrl(entry.item.thumb, { height: THUMB_HEIGHT })
         const response = await fetch(url, {
           credentials: "include",
           signal: (

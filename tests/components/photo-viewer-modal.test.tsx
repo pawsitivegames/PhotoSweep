@@ -490,3 +490,55 @@ describe("PhotoViewerModal — Shift keyboard group shortcuts", () => {
     expect(onNextGroup).toHaveBeenCalledOnce()
   })
 })
+
+// ============================================================
+// Viewport-sized fetching and next-group prefetching
+// ============================================================
+
+describe("PhotoViewerModal — viewport fetching", () => {
+  it("requests Google thumbnails sized for the current viewport", () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1000
+    })
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 800
+    })
+    Object.defineProperty(window, "devicePixelRatio", {
+      configurable: true,
+      value: 2
+    })
+
+    wrap(<PhotoViewerModal {...defaultProps} />)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.com/img1=w2000-h1600",
+      expect.objectContaining({ credentials: "include" })
+    )
+  })
+
+  it("prefetches the next group without changing provider behavior", () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1000
+    })
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 800
+    })
+    Object.defineProperty(window, "devicePixelRatio", {
+      configurable: true,
+      value: 2
+    })
+
+    wrap(
+      <PhotoViewerModal {...defaultProps} nextGroupItems={[makeItem("img4")]} />
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.com/img4=w2000-h1600",
+      expect.objectContaining({ credentials: "include" })
+    )
+  })
+})

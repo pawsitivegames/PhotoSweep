@@ -179,7 +179,7 @@ export interface GpdMediaItem {
   mediaKey: string
   dedupKey: string
   exactContentHash?: string
-  thumb: string // thumbnail URL (append =w200-h200 for thumbnails; use bare for full-res)
+  thumb: string // bare thumbnail URL; use buildThumbUrl() for sized renditions
   productUrl?: string // link to item in the provider's web app
   provider?: PhotoProvider
   sequenceIndex?: number // provider list order, used as a smart-scan neighbor hint

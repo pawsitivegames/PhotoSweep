@@ -28,6 +28,7 @@ import { VariableSizeList } from "react-window"
 import type { ListChildComponentProps } from "react-window"
 
 import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
+import { buildThumbUrl } from "../lib/photo-url"
 import { photoSweepColors } from "../lib/theme"
 import type { DuplicateGroup, GpdMediaItem } from "../lib/types"
 import { PhotoViewerModal } from "./PhotoViewerModal"
@@ -308,6 +309,8 @@ interface DuplicateGroupRowProps {
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
+  onMouseEnterPhoto: (group: DuplicateGroup, index: number) => void
+  onMouseLeavePhoto: () => void
   readOnly?: boolean
   compact?: boolean
 }
@@ -323,6 +326,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   onToggleKept,
   onTrashAll,
   onOpenViewer,
+  onMouseEnterPhoto,
+  onMouseLeavePhoto,
   readOnly = false,
   compact = false
 }: DuplicateGroupRowProps) {
@@ -490,6 +495,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           return (
             <Box
               key={key}
+              onMouseEnter={() => onMouseEnterPhoto(group, itemIndex)}
+              onMouseLeave={onMouseLeavePhoto}
               sx={[
                 sxItemWrapper,
                 compact
@@ -558,7 +565,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         ? item.thumb
                         : item.provider && item.provider !== "google"
                           ? item.thumb
-                          : item.thumb + "=h200"
+                          : buildThumbUrl(item.thumb, { height: 200 })
                     }
                     alt={item.fileName || item.mediaKey}
                     height={compact ? 116 : 132}
@@ -733,6 +740,8 @@ interface VirtualGroupListData {
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
+  onMouseEnterPhoto: (group: DuplicateGroup, index: number) => void
+  onMouseLeavePhoto: () => void
   readOnly: boolean
 }
 
@@ -757,6 +766,8 @@ function VirtualGroupRow({
         onToggleKept={data.onToggleKept}
         onTrashAll={data.onTrashAll}
         onOpenViewer={data.onOpenViewer}
+        onMouseEnterPhoto={data.onMouseEnterPhoto}
+        onMouseLeavePhoto={data.onMouseLeavePhoto}
         readOnly={data.readOnly}
       />
     </Box>
@@ -806,6 +817,10 @@ export function DuplicateGroups({
     group: DuplicateGroup
     index: number
   } | null>(null)
+  const hoveredPhotoRef = useRef<{
+    group: DuplicateGroup
+    index: number
+  } | null>(null)
   const { ref: listContainerRef, width: listWidth } =
     useMeasuredWidth<HTMLDivElement>()
   const listRef = useRef<VariableSizeList<VirtualGroupListData>>(null)
@@ -813,6 +828,35 @@ export function DuplicateGroups({
   const onOpenViewer = useCallback((group: DuplicateGroup, index: number) => {
     setViewerState({ group, index })
   }, [])
+
+  const onMouseEnterPhoto = useCallback(
+    (group: DuplicateGroup, index: number) => {
+      hoveredPhotoRef.current = { group, index }
+    },
+    []
+  )
+
+  const onMouseLeavePhoto = useCallback(() => {
+    hoveredPhotoRef.current = null
+  }, [])
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== " " || viewerState || !hoveredPhotoRef.current) return
+      const target = event.target as HTMLElement | null
+      if (
+        typeof target?.closest === "function" &&
+        target.closest("button, a, input, textarea, [role=checkbox]")
+      ) {
+        return
+      }
+      event.preventDefault()
+      const hovered = hoveredPhotoRef.current
+      onOpenViewer(hovered.group, hovered.index)
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [viewerState, onOpenViewer])
 
   const currentGroupIndex = useMemo(() => {
     return viewerState
@@ -838,6 +882,19 @@ export function DuplicateGroups({
       .map((k) => mediaItems[k])
       .filter((item): item is GpdMediaItem => !!item)
   }, [viewerState, mediaItems])
+
+  const nextGroupItems = useMemo(() => {
+    if (
+      !viewerState ||
+      currentGroupIndex === -1 ||
+      currentGroupIndex >= groups.length - 1
+    ) {
+      return []
+    }
+    return groups[currentGroupIndex + 1].mediaKeys
+      .map((key) => mediaItems[key])
+      .filter((item): item is GpdMediaItem => !!item)
+  }, [viewerState, currentGroupIndex, groups, mediaItems])
 
   const listGroups = groups
 
@@ -876,6 +933,8 @@ export function DuplicateGroups({
       onToggleKept,
       onTrashAll,
       onOpenViewer,
+      onMouseEnterPhoto,
+      onMouseLeavePhoto,
       readOnly
     }),
     [
@@ -889,6 +948,8 @@ export function DuplicateGroups({
       onToggleKept,
       onTrashAll,
       onOpenViewer,
+      onMouseEnterPhoto,
+      onMouseLeavePhoto,
       readOnly
     ]
   )
@@ -958,6 +1019,8 @@ export function DuplicateGroups({
               onToggleKept={onToggleKept}
               onTrashAll={onTrashAll}
               onOpenViewer={onOpenViewer}
+              onMouseEnterPhoto={onMouseEnterPhoto}
+              onMouseLeavePhoto={onMouseLeavePhoto}
               readOnly={readOnly}
               compact
             />
@@ -986,6 +1049,7 @@ export function DuplicateGroups({
         <PhotoViewerModal
           open={true}
           items={viewerItems}
+          nextGroupItems={nextGroupItems}
           initialIndex={viewerState.index}
           keptSet={keptByGroupId.get(viewerState.group.id)!}
           isGroupSelected={selectedGroupIds.has(viewerState.group.id)}
