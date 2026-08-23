@@ -381,7 +381,7 @@ PhotoSweep - Duplicate Photo Finder
 
 ### Short Description
 
-Duplicate photo finder for Google Photos™, with iCloud and Amazon support where available. Review matches before cleanup.
+Find and review duplicate photos in Google Photos. Matching runs locally in your browser; iCloud and Amazon support varies.
 
 ### Detailed Description
 

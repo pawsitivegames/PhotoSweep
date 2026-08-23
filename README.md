@@ -12,7 +12,13 @@ Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolk
 
 ## Install
 
-**[⬇ Download latest release](https://github.com/pawsitivegames/PhotoSweep/releases/latest/download/photosweep.zip)**
+Install the published version with one click:
+
+**[Install PhotoSweep from the Chrome Web Store](https://chromewebstore.google.com/detail/photosweep-duplicate-phot/niggncodoibinbianpkdpepmhfljifbo)**
+
+For development or testing an unreleased build, use the manual install path:
+
+**[Download the latest release ZIP](https://github.com/pawsitivegames/PhotoSweep/releases/latest/download/photosweep.zip)**
 
 1. Unzip to a permanent folder (don't delete it — Chrome needs it to stay there)
 2. Open `chrome://extensions` → enable **Developer mode** (toggle, top-right)

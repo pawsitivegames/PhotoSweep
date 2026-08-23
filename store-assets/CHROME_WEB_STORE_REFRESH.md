@@ -8,7 +8,7 @@ PhotoSweep - Duplicate Photo Finder
 
 ### Short Description
 
-Duplicate photo finder for Google Photos™, with iCloud and Amazon support where available. Review matches before cleanup.
+Find and review duplicate photos in Google Photos. Matching runs locally in your browser; iCloud and Amazon support varies.
 
 ### First Paragraph
 
@@ -42,25 +42,30 @@ Screenshots must be product-dominant:
 
 ## Proposed Screenshot Set
 
-1. Choose your cloud photo library
-   - Shows provider selector with Google Photos, iCloud Photos, and Amazon Photos.
-   - Caption: "Find duplicates across supported cloud photo libraries."
+1. Review duplicate groups first
+   - File: `screenshots/04-review-groups.png`
+   - Shows the review screen with exact/similar grouping and keep decisions using local seeded example state.
+   - Caption: "Example review state: compare matches and choose what to keep."
 
-2. Scan a focused area first
+2. Confirm before cleanup
+   - File: `screenshots/05-export-safety.png`
+   - Shows typed confirmation and the audit-report warning using local seeded example state.
+   - Caption: "Example confirmation state: typed confirmation and an audit report come first."
+
+3. Scan a focused area first
+   - File: `screenshots/02-focused-scan.png`
    - Shows scan settings and date/batch/scope controls.
    - Caption: "Start with a focused scan before a large cleanup."
 
-3. Review duplicate groups
-   - Shows duplicate review screen with exact/similar grouping.
-   - Caption: "Compare matches and choose what to keep."
+4. Choose your cloud photo library
+   - File: `screenshots/01-provider-selector.png`
+   - Shows provider selector with Google Photos, iCloud Photos, and Amazon Photos.
+   - Caption: "Find duplicates across supported cloud photo libraries."
 
-4. Review duplicate groups
-   - Shows duplicate review screen with exact/similar grouping using local seeded example state.
-   - Caption: "Example review state: compare matches and choose what to keep."
-
-5. Confirm before cleanup
-   - Shows typed confirmation and audit-report warning using local seeded example state.
-   - Caption: "Example confirmation state: typed confirmation and an audit report come first."
+5. Scan before any cleanup action
+   - File: `screenshots/03-scan-progress.png`
+   - Shows scan progress and the review-before-cleanup safety message.
+   - Caption: "Scan before any cleanup action."
 
 ## Critic Gate
 

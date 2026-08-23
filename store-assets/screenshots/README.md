@@ -27,6 +27,18 @@ These assets are composed from the installed PhotoSweep extension UI captured in
    - Shows typed confirmation and the audit-report warning before any move action.
    - No Trash confirmation was completed and no provider library was modified.
 
+## Recommended upload order
+
+Upload the assets in this order so the first frames lead with user value and
+trust. The filename prefixes describe the captured screen, not the upload
+priority.
+
+1. `04-review-groups.png` — Example review state: compare matches and choose what to keep.
+2. `05-export-safety.png` — Example confirmation state: typed confirmation and an audit report come first.
+3. `02-focused-scan.png` — Start with a focused scan before a large cleanup.
+4. `01-provider-selector.png` — Find duplicates across supported cloud photo libraries.
+5. `03-scan-progress.png` — Scan before any cleanup action.
+
 ## Upload Rules
 
 - Do not upload if copy or screenshots imply official Google, Apple, or Amazon affiliation.
