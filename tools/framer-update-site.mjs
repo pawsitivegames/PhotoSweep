@@ -42,7 +42,7 @@ const products = [
 
 const checks = [
   "Local-first by default",
-  "No analytics or user tracking",
+  "Optional usage metrics only with consent",
   "Transparent and open communication",
   "Secure data handling",
 ]
@@ -60,7 +60,7 @@ export default function PawsitiveGamesHomeCodex() {
           <a href="#products">Products</a>
           <a href="#privacy">Privacy</a>
           <a href="#support">Support</a>
-          <a href="mailto:support@pawsitivegames.com">Contact</a>
+          <a href="mailto:pawsitivegames@gmail.com">Contact</a>
         </nav>
         <a className="pg-button pg-button-primary pg-header-button" href="#products">View products</a>
       </header>
@@ -74,7 +74,7 @@ export default function PawsitiveGamesHomeCodex() {
           </p>
           <div className="pg-actions">
             <a className="pg-button pg-button-primary" href="#products">View products</a>
-            <a className="pg-button pg-button-secondary" href="mailto:support@pawsitivegames.com">Contact support</a>
+            <a className="pg-button pg-button-secondary" href="mailto:pawsitivegames@gmail.com">Contact support</a>
           </div>
         </div>
 
@@ -128,21 +128,24 @@ export default function PawsitiveGamesHomeCodex() {
         <div>
           <h2>Privacy first. Always.</h2>
           <p>
-            We build software that respects your data and your time. No tracking,
-            no unnecessary permissions, and clear communication.
+            We build software that respects your data and your time. Photo
+            matching runs locally in the browser with MediaPipe. Provider CDNs
+            still serve thumbnails, while provider APIs or web sessions handle
+            library and Trash or Recently Deleted requests. External Stripe Checkout, licensing,
+            and optional consent-gated usage metrics are separate network paths.
           </p>
           <ul>
             {checks.map((item) => <li key={item}>{item}</li>)}
           </ul>
-          <a href="mailto:support@pawsitivegames.com">Ask about our privacy policy</a>
+          <a href="mailto:pawsitivegames@gmail.com">Ask about our privacy policy</a>
         </div>
         <div className="pg-lock" aria-hidden="true">
           <span></span>
           <div>
-            <b>No tracking</b>
+            <b>Matching stays local</b>
             <b>No ads</b>
             <b>No data selling</b>
-            <b>No surprises</b>
+            <b>Consent-gated analytics</b>
           </div>
         </div>
       </section>
@@ -151,8 +154,10 @@ export default function PawsitiveGamesHomeCodex() {
         <article>
           <h2>Secure payments with Stripe</h2>
           <p>
-            We use Stripe for secure payments and subscription management. Your
-            payment details are never stored on Pawsitive Games servers.
+            We use Stripe Checkout for secure payment processing and license
+            checkout. Stripe handles payment details; Pawsitive Games stores
+            only the license records and payment identifiers needed for
+            entitlements, refunds, and support.
           </p>
           <div className="pg-payments">
             <span>stripe</span><span>visa</span><span>mc</span><span>amex</span>
@@ -166,7 +171,7 @@ export default function PawsitiveGamesHomeCodex() {
             United States
           </p>
           <p>
-            Contact: <a href="mailto:support@pawsitivegames.com">support@pawsitivegames.com</a><br />
+            Contact: <a href="mailto:pawsitivegames@gmail.com">pawsitivegames@gmail.com</a><br />
             Website: <a href="https://pawsitivegames.com">https://pawsitivegames.com</a>
           </p>
         </article>
@@ -182,17 +187,17 @@ export default function PawsitiveGamesHomeCodex() {
           <a href="#products">Products</a>
           <a href="#privacy">Privacy</a>
           <a href="#support">Support</a>
-          <a href="mailto:support@pawsitivegames.com">Contact</a>
+          <a href="mailto:pawsitivegames@gmail.com">Contact</a>
         </div>
         <div>
           <h3>Support</h3>
-          <a href="mailto:support@pawsitivegames.com">Help center</a>
-          <a href="mailto:support@pawsitivegames.com">Contact support</a>
+          <a href="mailto:pawsitivegames@gmail.com">Help center</a>
+          <a href="mailto:pawsitivegames@gmail.com">Contact support</a>
           <a href="#support">Status</a>
         </div>
         <div>
           <h3>Get in touch</h3>
-          <p>Email: <a href="mailto:support@pawsitivegames.com">support@pawsitivegames.com</a></p>
+          <p>Email: <a href="mailto:pawsitivegames@gmail.com">pawsitivegames@gmail.com</a></p>
           <p>We typically reply within one business day.</p>
         </div>
       </footer>
