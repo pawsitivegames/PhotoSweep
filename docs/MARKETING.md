@@ -483,7 +483,7 @@ Tasks:
 
 - Stabilize iCloud Photos support.
 - Stabilize Amazon Photos support.
-- Rebrand listing from "Google Photos Deduper" to "PhotoSweep" with provider-specific landing pages.
+- Rebrand listing from "Google Photos Deduper" to "PhotoSweep" (done). Provider-specific landing pages remain planned and are not shipped.
 - Add provider matrix to pricing page.
 
 ## Funnel
@@ -550,7 +550,7 @@ Secondary keywords:
 - Google Photos cleanup tool
 - remove duplicate backed up photos
 
-Landing pages:
+Planned landing pages (not shipped; the extension does not link these paths):
 
 - `/google-photos-duplicate-finder`
 - `/google-photos-storage-cleanup`

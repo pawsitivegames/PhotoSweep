@@ -8,7 +8,7 @@ Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolk
 
 ## Demo
 
-[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-2026-l.webp?1)](https://youtu.be/SeOX98uTVwQ)
+[![Demo](store-assets/screenshots/04-review-groups.png)](https://youtu.be/SeOX98uTVwQ)
 
 ## Install
 
@@ -35,12 +35,12 @@ For development or testing an unreleased build, use the manual install path:
 6. Click **Move to Trash**, read the confirmation, type the exact item count, and confirm
 7. Check the Trash result report, then restore from provider Trash if anything looks wrong
 
-No OAuth setup. No Google Cloud project. Your photos are analyzed in your browser and never uploaded.
+No OAuth setup. No Google Cloud project. Duplicate matching runs locally in your browser; PhotoSweep does not upload your photo library for analysis. Provider CDNs and APIs still fetch thumbnails and handle list/Trash. License checkout and optional analytics still leave the device.
 
 ## Safety Model
 
 - Review-first workflow: the extension recommends keep items, but does not permanently delete photos or auto-delete entire groups.
-- Scoped scans: scan by album or taken-date range so large libraries can be processed in small sessions.
+- Scoped scans: scan by taken-date range, or by album on Google Photos, so large libraries can be processed in small sessions.
 - Resume support: interrupted scans can resume from checkpointed media lists or cached embeddings.
 - Local cache: embeddings and metadata snapshots stay in Chrome extension storage and can be cleared or rebuilt.
 - Explainable groups: exact and similar duplicate groups are separated, with similarity and match reasons shown in the review UI.
