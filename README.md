@@ -2,7 +2,7 @@
 
 [![CI Badge](https://github.com/pawsitivegames/PhotoSweep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pawsitivegames/PhotoSweep/actions/workflows/ci.yml?query=branch%3Amain)
 
-A Chrome extension that finds duplicate photos in supported cloud photo libraries and moves reviewed duplicates to provider Trash where cleanup is supported.
+A Chrome extension that finds duplicate photos in supported cloud photo libraries and moves reviewed duplicates to provider Trash or Recently Deleted where cleanup is supported.
 
 Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) for Google Photos access, plus provider web sessions for supported iCloud Photos and Amazon Photos scans. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/).
 
@@ -33,9 +33,11 @@ For development or testing an unreleased build, use the manual install path:
 4. Review each duplicate group, choose which item or items to keep, and skip any uncertain group
 5. Export the JSON or CSV review report before moving anything to Trash
 6. Click **Move to Trash**, read the confirmation, type the exact item count, and confirm
-7. Check the Trash result report, then restore from provider Trash if anything looks wrong
+7. Check the Trash result report, then restore from provider Trash or Recently Deleted if anything looks wrong
 
-No OAuth setup. No Google Cloud project. Duplicate matching runs locally in your browser; PhotoSweep does not upload your photo library for analysis. Provider CDNs and APIs still fetch thumbnails and handle list/Trash. License checkout and optional analytics still leave the device.
+Google Photos is the primary full workflow, including album, date-range, and full-library scopes. iCloud Photos and Amazon Photos are also supported through signed-in browser sessions, but they are not feature-equivalent: their available library scopes and Trash or Recently Deleted flows are provider-specific.
+
+No OAuth setup. No Google Cloud project. Duplicate matching runs locally in your browser with the bundled MediaPipe model; PhotoSweep does not upload your photo library to PhotoSweep services for analysis. Provider CDNs still serve thumbnails, and provider APIs or web sessions still list items and handle Trash or Recently Deleted. Paid licensing uses external Stripe Checkout, and optional usage metrics are sent only with consent.
 
 ## Safety Model
 
@@ -45,8 +47,9 @@ No OAuth setup. No Google Cloud project. Duplicate matching runs locally in your
 - Local cache: embeddings and metadata snapshots stay in Chrome extension storage and can be cleared or rebuilt.
 - Explainable groups: exact and similar duplicate groups are separated, with similarity and match reasons shown in the review UI.
 - Audit exports: JSON and CSV reports include kept items, Trash candidates, reasons, timestamps, links, and storage metadata when available.
-- Conservative Trash: where supported, items are moved to provider Trash in small batches with retry/backoff, typed count confirmation, result reporting, and an in-app undo path.
-- Local-first packaging: image embeddings run in the browser using the bundled MediaPipe model and WASM assets; there is no photo-analysis backend.
+- Conservative Trash: where supported, items are moved to provider Trash or Recently Deleted in small batches with retry/backoff, typed count confirmation, result reporting, and an in-app undo path.
+- Local-first packaging: photo and video-poster embeddings run in the browser using the bundled MediaPipe model and WASM assets; there is no photo-analysis backend.
+- Video matching: videos are compared using provider-supplied poster thumbnails and metadata such as duration, dimensions, filename, and size; video files are not uploaded to PhotoSweep for analysis.
 
 ## Recommended Large-Library Flow
 
@@ -148,7 +151,7 @@ GPD_E2E_ALBUM_TITLE="Tiny duplicate test" GPD_E2E_ALLOW_TRASH=1 npm run test:e2e
 
 ## Motivation
 
-Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to find visually identical photos.
+Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to find visually similar photo matches. Video matches use poster thumbnails and metadata.
 
 ## Support
 

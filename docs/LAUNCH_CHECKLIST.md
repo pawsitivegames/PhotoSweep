@@ -95,7 +95,9 @@ launch complete until every item has current evidence.
   - support page from `docs/SUPPORT.md`
 - Verify `pawsitivegames@gmail.com` receives mail.
 - Chrome Web Store listing must state paid support covers Google Photos, iCloud
-  Photos, and Amazon Photos under the same free and paid limits.
+  Photos, and Amazon Photos where supported, without implying feature parity.
+  It should describe the shared core plan limits and provider-specific
+  capabilities separately.
 - Store listing must disclose:
   - local photo analysis
   - external Stripe Checkout

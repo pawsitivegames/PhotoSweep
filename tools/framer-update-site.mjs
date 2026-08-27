@@ -42,7 +42,7 @@ const products = [
 
 const checks = [
   "Local-first by default",
-  "Optional analytics only with consent",
+  "Optional usage metrics only with consent",
   "Transparent and open communication",
   "Secure data handling",
 ]
@@ -128,9 +128,11 @@ export default function PawsitiveGamesHomeCodex() {
         <div>
           <h2>Privacy first. Always.</h2>
           <p>
-            We build software that respects your data and your time. Matching
-            runs locally. License checkout, Stripe payment, and optional
-            consent-gated analytics still leave the device.
+            We build software that respects your data and your time. Photo
+            matching runs locally in the browser with MediaPipe. Provider CDNs
+            still serve thumbnails, while provider APIs or web sessions handle
+            library and Trash or Recently Deleted requests. External Stripe Checkout, licensing,
+            and optional consent-gated usage metrics are separate network paths.
           </p>
           <ul>
             {checks.map((item) => <li key={item}>{item}</li>)}
@@ -152,8 +154,10 @@ export default function PawsitiveGamesHomeCodex() {
         <article>
           <h2>Secure payments with Stripe</h2>
           <p>
-            We use Stripe for secure payments and subscription management. Your
-            payment details are never stored on Pawsitive Games servers.
+            We use Stripe Checkout for secure payment processing and license
+            checkout. Stripe handles payment details; Pawsitive Games stores
+            only the license records and payment identifiers needed for
+            entitlements, refunds, and support.
           </p>
           <div className="pg-payments">
             <span>stripe</span><span>visa</span><span>mc</span><span>amex</span>
