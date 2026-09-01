@@ -123,18 +123,20 @@ Set these when building the production extension:
 
 ```bash
 PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://photosweep-license-api-206538169327.us-west1.run.app
+PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=https://photosweep-license-api-206538169327.us-west1.run.app/*
 PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=BASE64URL_SPKI_PUBLIC_KEY
 ```
 
 Do not set `PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1` for production
 builds. That flag exists only for integration tests and local development.
 
-The release and CI workflows currently inject the verified Cloud Run URL above,
-and the extension manifest receives its matching host permission from that
-build variable. If the license API is deployed somewhere else, update the build
-variable, workflow configuration, and `package.json` host permission together
-before building the production extension. Do not substitute an unverified custom
-domain for the deployed URL.
+The release and CI workflows currently inject the verified Cloud Run base URL
+above and its matching host permission. The extension manifest receives that
+permission from `PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION`. If the
+license API is deployed somewhere else, update both build variables, workflow
+configuration, and the `package.json` host-permission placeholder together
+before building the production extension. Do not substitute an unverified
+custom domain for the deployed URL.
 
 ## Store Adapter
 

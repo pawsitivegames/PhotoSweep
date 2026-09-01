@@ -5,21 +5,28 @@ Last updated: 2026-07-21
 ## Summary
 
 PhotoSweep finds duplicate and near-duplicate photos in supported online photo
-libraries. Duplicate analysis runs locally in the browser extension. PhotoSweep
-does not upload photo content for duplicate analysis.
+libraries. Duplicate matching runs locally in the browser extension with bundled
+MediaPipe assets. PhotoSweep does not upload photo content to PhotoSweep services
+for duplicate analysis.
 
 ## Data Processed Locally
 
 PhotoSweep may read and process these items inside the browser to provide scan,
-review, report, Trash, undo, and diagnostics features:
+review, report, Trash or Recently Deleted, undo, and diagnostics features:
 
-- photo and video thumbnails loaded by the supported provider page
+- photo and video poster thumbnails fetched from provider CDNs or APIs and loaded
+  in the browser
 - provider item identifiers needed to show results and move selected items to Trash
+  or Recently Deleted
 - basic media metadata shown by the provider page, such as dimensions, dates, and
   provider URLs
+- provider list and Trash or Recently Deleted requests made through the signed-in
+  provider page or API
 - duplicate groups, review decisions, keep/skip choices, scan checkpoints, and
   locally generated reports
 - local embedding/cache data used to avoid repeating expensive duplicate analysis
+- video matches based on poster-thumbnail embeddings and metadata such as
+  duration, dimensions, filename, and size
 - a provider account email or identifier exposed by a signed-in provider page,
   when needed to associate saved scan state with the provider account
 
@@ -28,9 +35,10 @@ Users can clear saved results and cache data from the extension UI.
 
 ## Data Sent To PhotoSweep Services
 
-PhotoSweep's license service receives only payment and license information
-needed to start checkout, recover a license, refresh entitlement state, prevent
-abuse, and support paid users.
+PhotoSweep's license service receives payment and license information needed to
+start checkout, recover a license, refresh entitlement state, prevent abuse,
+and support paid users. It may also receive limited product telemetry when the
+user has opted in.
 
 Allowed license/support data includes:
 

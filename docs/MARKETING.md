@@ -8,7 +8,7 @@ PhotoSweep is short, memorable, and action-oriented. It suggests cleaning up a p
 
 Tagline:
 
-> Clean up duplicate photos without uploading your library.
+> Clean up duplicate photos without uploading your library to PhotoSweep for analysis.
 
 ## Name Shortlist
 
@@ -27,9 +27,9 @@ Recommendation: use **PhotoSweep** unless trademark/domain checks fail.
 
 ## Product Definition
 
-PhotoSweep is a privacy-first browser extension that finds duplicate and near-duplicate photos in online photo libraries, lets users review every suggested match, and safely moves confirmed duplicates to Trash.
+PhotoSweep is a privacy-first browser extension that finds duplicate and near-duplicate photos in online photo libraries, lets users review every suggested match, and safely moves confirmed duplicates to provider Trash or Recently Deleted.
 
-The product should lead with Google Photos, because that is the current strongest use case and strongest search intent. The brand should not be locked to Google Photos, because the codebase is already expanding toward iCloud Photos and Amazon Photos.
+The product should lead with Google Photos, because that is the current strongest use case and strongest search intent. iCloud Photos and Amazon Photos are also real supported providers, but their workflows are not feature-equivalent.
 
 Primary product category:
 
@@ -47,10 +47,10 @@ PhotoSweep is the safe, local-first alternative to uploading your photo library 
 
 ### Differentiators
 
-- **Local-first analysis:** photo matching runs in the browser.
+- **Local-first analysis:** photo and video-poster matching runs in the browser with bundled MediaPipe assets.
 - **No OAuth setup:** users do not need a Google Cloud project or API credential setup.
-- **Review-first cleanup:** users approve groups before moving anything to Trash.
-- **Trash, not permanent delete:** cleanup remains reversible through the provider Trash flow.
+- **Review-first cleanup:** users approve groups before moving anything to Trash or Recently Deleted.
+- **Trash, not permanent delete:** cleanup remains reversible through the provider Trash or Recently Deleted flow.
 - **Large-library workflow:** scoped scans, checkpoints, cache diagnostics, and resume support.
 - **Explainable results:** exact and similar duplicate groups are separated with reasons.
 - **Portable reports:** CSV/JSON audit exports before destructive action.
@@ -139,7 +139,7 @@ Support points:
 - Conservative recommendations.
 - Typed confirmation before Trash actions.
 - Trash result report.
-- Restore path through provider Trash.
+- Restore path through provider Trash or Recently Deleted.
 - Exportable audit report.
 
 ### 3. Built for Real Libraries
@@ -150,7 +150,7 @@ Primary message:
 
 Support points:
 
-- Scoped scans by album/date range.
+- Google Photos album/date scopes, plus provider-specific library or test-batch scopes for iCloud Photos and Amazon Photos.
 - Resume interrupted scans.
 - Cache embeddings and metadata locally.
 - Exact and similar duplicate handling.
@@ -199,7 +199,7 @@ Include:
 - Show estimated duplicates and recoverable storage.
 - Review duplicate groups.
 - Export sample report.
-- Move a small number of confirmed duplicates to Trash.
+- Move a small number of confirmed duplicates to provider Trash or Recently Deleted.
 
 Limit:
 
@@ -218,7 +218,7 @@ Unlock:
   100 Trash moves per session.
 - Cleanup Pass: 10,000-photo sessions, full reports, full scan, and large resume for 7 days.
 - Lifetime Early Access: unlimited Google Photos, iCloud Photos, and Amazon
-  Photos workflows for early users.
+  Photos workflows where the provider supports the operation.
 - Advanced scan modes.
 - Similar-photo sensitivity controls.
 - Smart keep strategy.
@@ -227,8 +227,10 @@ Unlock:
 - Priority fixes for provider UI breakages.
 
 Use the same free and paid limits for Google Photos, iCloud Photos, and Amazon
-Photos. Keep provider-specific caveats tied to current validation evidence, not
-to separate pricing rules.
+Photos where the provider supports the operation. This does not mean feature
+parity: Google Photos has album, date-range, and full-library scopes, while
+iCloud Photos and Amazon Photos use provider-specific library and
+Trash/Recently Deleted flows.
 
 Do not gate:
 
@@ -240,7 +242,8 @@ Do not gate:
 
 ## Monetization Implementation
 
-Chrome Web Store native payments are deprecated, so monetization should use an external payment and license flow.
+Chrome Web Store native payments are deprecated. PhotoSweep uses external Stripe
+Checkout and a signed license API, not Chrome Web Store in-app payments.
 
 Recommended path:
 
@@ -321,12 +324,13 @@ Body:
 
 ### Section: How It Works
 
-1. Pick a scope: album, month, year, or full library.
-2. Scan locally in your browser.
+1. Pick a scope: Google Photos album, month, year, or full library; other
+   providers use their available library or test-batch scopes.
+2. Match locally in your browser with MediaPipe.
 3. Review exact and similar duplicate groups.
-4. Export a report.
-5. Move confirmed duplicates to Trash.
-6. Restore from Trash if anything looks wrong.
+4. Export a JSON or CSV report.
+5. Move confirmed duplicates to provider Trash or Recently Deleted.
+6. Restore from provider Trash or Recently Deleted if anything looks wrong.
 
 ### Section: Privacy
 
@@ -336,7 +340,7 @@ Headline:
 
 Body:
 
-> PhotoSweep runs duplicate matching locally in your browser using bundled analysis assets. The product is designed around local processing, clear review, and reversible cleanup.
+> PhotoSweep runs duplicate matching locally in your browser with bundled MediaPipe assets. Provider CDNs still serve thumbnails, and provider APIs or web sessions still list items and handle Trash or Recently Deleted. The product is designed around local processing, clear review, and reversible cleanup.
 
 ### Section: Safety
 
@@ -346,7 +350,7 @@ Headline:
 
 Body:
 
-> PhotoSweep can help find duplicate candidates quickly, but it keeps deletion deliberate: review groups, export reports, type the item count, and move items to Trash instead of permanently deleting them.
+> PhotoSweep can help find duplicate candidates quickly, but it keeps deletion deliberate: review groups, export reports, type the exact item count, and move items to provider Trash or Recently Deleted instead of permanently deleting them.
 
 ### Section: Pricing
 
@@ -377,15 +381,15 @@ Questions:
 
 ### Title
 
-PhotoSweep - Duplicate Photo Finder
+PhotoSweep for Google Photos™
 
 ### Short Description
 
-Find and review duplicate photos in Google Photos. Matching runs locally in your browser; iCloud and Amazon support varies.
+Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.
 
 ### Detailed Description
 
-PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support available where the provider flow, region, account state, loaded library area, and media type support it. Review matches first, then clean up confirmed items using each service's available Trash or Recently Deleted flow.
+PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support available where the provider flow, region, account state, loaded library area, and media type support it. Review matches first, then clean up confirmed items using each service's available Trash or Recently Deleted flow. Videos are matched using provider poster thumbnails and metadata such as duration, dimensions, filename, and size.
 
 PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Amazon, or their photo services. Google Photos is a trademark of Google LLC. Use of this trademark is subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its affiliates.
 
@@ -393,17 +397,17 @@ Choose a provider, scan a focused library area, review duplicate groups, choose 
 
 PhotoSweep is designed for careful cleanup:
 
-- Find exact and similar duplicate photos.
+- Find exact and similar duplicate photos and video matches.
 - Use Google Photos, with iCloud Photos and Amazon Photos support where available from signed-in browser sessions.
 - Scan smaller scopes before working through a large library.
 - Review duplicate groups before cleanup.
 - Keep exact and similar matches separate.
 - Choose which copy to keep.
-- Export JSON or spreadsheet reports.
-- Use typed confirmation before Trash actions.
+- Export JSON and CSV reports.
+- Use typed exact-item-count confirmation before Trash actions.
 - Use each provider's available Trash or Recently Deleted flow where supported.
 
-Photo matching runs locally in your browser using bundled analysis assets. PhotoSweep does not upload your photo library for analysis. Payment, licensing, and support diagnostics are handled separately from photo matching.
+Photo matching runs locally in your browser with bundled MediaPipe assets. PhotoSweep does not upload your photo library to PhotoSweep services for analysis. Provider CDNs and APIs still fetch thumbnails, list library items, and handle Trash or Recently Deleted. Payment, licensing, and support diagnostics are handled separately from photo matching.
 
 Availability and cleanup behavior can vary by provider, region, account state, loaded library area, and media type. Some cleanup steps may require the provider's own web interface. Always review results before moving photos to Trash or Recently Deleted.
 
@@ -483,7 +487,7 @@ Tasks:
 
 - Stabilize iCloud Photos support.
 - Stabilize Amazon Photos support.
-- Rebrand listing from "Google Photos Deduper" to "PhotoSweep" with provider-specific landing pages.
+- Rebrand listing from "Google Photos Deduper" to "PhotoSweep" (done). Provider-specific landing pages remain planned and are not shipped.
 - Add provider matrix to pricing page.
 
 ## Funnel

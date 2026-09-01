@@ -61,8 +61,9 @@ Required result:
 - The Trash result report matches the actual Google Photos outcome.
 - Restore from Google Photos Trash works for the moved item.
 - Google Photos, iCloud Photos, and Amazon Photos use the same free and paid
-  feature limits. Provider-specific live Trash/Restore evidence is recorded
-  below before making paid multi-provider claims.
+  feature limits for the shared plan entitlements, but scopes and cleanup flows
+  are provider-specific. Provider-specific live Trash/Restore evidence is
+  recorded below before making paid multi-provider claims.
 
 ## Paid Launch Validation
 
@@ -103,7 +104,7 @@ Environment:
 
 Evidence:
 
-- Extension manager showed `Google Photos Deduper 2.2.1` enabled.
+- Extension manager showed the version 2.2.1 extension enabled.
 - Google Photos page injected the extension scripts:
   - `scripts/unsafewindow-shim.js`
   - `scripts/google-photos-toolkit.user.js`
