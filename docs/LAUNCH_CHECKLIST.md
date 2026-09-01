@@ -72,6 +72,7 @@ launch complete until every item has current evidence.
 
   ```bash
   PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://photosweep-license-api-206538169327.us-west1.run.app
+  PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=https://photosweep-license-api-206538169327.us-west1.run.app/*
   PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=BASE64URL_SPKI_PUBLIC_KEY
   PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=0
   ```
