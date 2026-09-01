@@ -105,6 +105,8 @@ Environment:
 Evidence:
 
 - Extension manager showed the version 2.2.1 extension enabled.
+- This dated evidence used version 2.2.1 and does not validate the current 2.2.6
+  package.
 - Google Photos page injected the extension scripts:
   - `scripts/unsafewindow-shim.js`
   - `scripts/google-photos-toolkit.user.js`
@@ -184,7 +186,7 @@ Evidence:
   - `0 identical`
   - `1 similar`
   - `95% match`
-  - `Move 1 to Trash`
+  - `Review & move 1 to Trash`
 - Trash confirmation required typing the exact count `1`; the final
   **Move to Trash** button stayed disabled until the value was entered.
 - Trash operation completed with `1 item moved to trash`.
@@ -198,7 +200,7 @@ Current caveat:
   `.chrome-live-validation` profile before `GPD_E2E_ALBUM_TITLE="Tiny duplicate
   test" npm run test:e2e` can run automatically on this machine.
 
-## Live Amazon Photos Read-Only Smoke - 2026-06-30
+## Live Amazon Photos Smoke - 2026-06-30
 
 Environment:
 
@@ -288,7 +290,7 @@ App-driven validation:
 - Review kept `gpd-live-duplicate-copy-1.jpg` and selected
   `gpd-live-duplicate-copy-2.jpg` for trash.
 - The confirmation dialog required typing `1` before `Move to Trash` enabled.
-- After `Move 1 to Trash`, a live CloudKit normal-library query returned only:
+- After moving 1 item to Recently Deleted, a live CloudKit normal-library query returned only:
   - `gpd-live-control.jpg`
   - `gpd-live-duplicate-copy-1.jpg`
 - The first app-driven Undo attempt exposed a restore metadata bug when

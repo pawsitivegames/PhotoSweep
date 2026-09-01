@@ -42,6 +42,10 @@ Screenshots must be product-dominant:
 
 ## Proposed Screenshot Set
 
+The PR #3 conversion order below is retained. The seeded `04-review-groups.png`
+and `05-export-safety.png` captures predate the current compact controls, so
+verify or recapture them against the current build before a live submission.
+
 1. Review duplicate groups first
    - File: `screenshots/04-review-groups.png`
    - Shows the review screen with exact/similar grouping and keep decisions using local seeded example state.

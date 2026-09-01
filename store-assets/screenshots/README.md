@@ -4,6 +4,11 @@ Chrome Web Store screenshot size: 1280 x 800.
 
 These assets are composed from the installed PhotoSweep extension UI captured in Chrome. The caption band is outside the product UI and should not obscure the extension layout.
 
+The `04-review-groups.png` and `05-export-safety.png` captures are historical
+seeded examples from an earlier UI pass. Verify or recapture them against the
+current build before a live listing submission; their entries remain in the
+PR #3 conversion order below.
+
 ## Files
 
 1. `01-provider-selector.png`
@@ -17,12 +22,12 @@ These assets are composed from the installed PhotoSweep extension UI captured in
    - Real installed extension scan progress screen from a narrow Google Photos date-range scan.
 
 4. `04-review-groups.png`
-   - Real installed extension review UI using local seeded demo duplicate state for screenshot composition only.
+   - Historical installed extension review UI using local seeded demo duplicate state for screenshot composition only.
    - Caption labels this as an example review state.
    - No real photos were moved or modified.
 
 5. `05-export-safety.png`
-   - Real installed extension Trash confirmation dialog using local seeded demo duplicate state.
+   - Historical installed extension Trash confirmation dialog using local seeded demo duplicate state.
    - Caption labels this as an example confirmation state.
    - Shows typed confirmation and the audit-report warning before any move action.
    - No Trash confirmation was completed and no provider library was modified.

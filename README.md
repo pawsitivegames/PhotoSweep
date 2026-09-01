@@ -37,7 +37,7 @@ For development or testing an unreleased build, use the manual install path:
 
 Google Photos is the primary full workflow, including album, date-range, and full-library scopes. iCloud Photos and Amazon Photos are also supported through signed-in browser sessions, but their available scopes and Trash or Recently Deleted flows are provider-specific.
 
-No OAuth setup. No Google Cloud project. Duplicate matching runs locally in your browser with the bundled MediaPipe model; PhotoSweep does not upload your photo library to PhotoSweep services for analysis. Provider CDNs still serve thumbnails, and provider APIs or web sessions still list items and handle Trash or Recently Deleted. Paid licensing uses external Stripe Checkout, and optional usage metrics are sent only with consent.
+No OAuth setup for extension users and no Google Cloud project is needed to scan. Duplicate matching runs locally in your browser with the bundled MediaPipe model; PhotoSweep does not upload your photo library to PhotoSweep services for analysis. Provider CDNs still serve thumbnails, and provider APIs or web sessions still list items and handle Trash or Recently Deleted. Paid licensing uses external Stripe Checkout, and optional usage metrics are sent only with consent.
 
 ## Safety Model
 
@@ -55,7 +55,7 @@ No OAuth setup. No Google Cloud project. Duplicate matching runs locally in your
 
 For a library around 20k photos, avoid starting with an unscoped full-library comparison.
 
-1. Scan one year, month, or small album in **Smart** mode. With no scope selected, the first Smart scan uses the most recent 30-day range (today minus 29 days through today).
+1. Scan one year, month, or small album in **Smart** mode. With no scope selected, Smart mode uses the most recent 30-day range (today minus 29 days through today).
 2. Review and Trash only obvious exact duplicates.
 3. Export and keep the pre-Trash report.
 4. Confirm that the Trash result report shows the expected moved items.
