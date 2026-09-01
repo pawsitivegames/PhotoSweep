@@ -32,10 +32,10 @@ For development or testing an unreleased build, use the manual install path:
 3. Start with a scoped scan: choose a small album, month, or year before scanning a large library
 4. Review each duplicate group, choose which item or items to keep, and skip any uncertain group
 5. Export the JSON or CSV review report before moving anything to Trash
-6. Click **Move to Trash**, read the confirmation, type the exact item count, and confirm
+6. Click **Review & move N to Trash**, read the confirmation, type the exact item count, then click the final **Move to Trash** button
 7. Check the Trash result report, then restore from provider Trash if anything looks wrong
 
-No OAuth setup. No Google Cloud project. Your photos are analyzed in your browser and never uploaded.
+No OAuth setup. No Google Cloud project. Photo matching runs locally in your browser; PhotoSweep does not upload your photo library for analysis.
 
 ## Safety Model
 
@@ -52,7 +52,7 @@ No OAuth setup. No Google Cloud project. Your photos are analyzed in your browse
 
 For a library around 20k photos, avoid starting with an unscoped full-library comparison.
 
-1. Scan one year, month, or small album in **Smart** mode.
+1. Scan one year, month, or small album in **Smart** mode. With no scope selected, the first Smart scan uses the most recent 30-day range (today minus 29 days through today).
 2. Review and Trash only obvious exact duplicates.
 3. Export and keep the pre-Trash report.
 4. Confirm that the Trash result report shows the expected moved items.
@@ -148,7 +148,7 @@ GPD_E2E_ALBUM_TITLE="Tiny duplicate test" GPD_E2E_ALLOW_TRASH=1 npm run test:e2e
 
 ## Motivation
 
-Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to find visually identical photos.
+Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to identify exact and similar duplicate groups.
 
 ## Support
 

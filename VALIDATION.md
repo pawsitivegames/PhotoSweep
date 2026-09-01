@@ -47,9 +47,9 @@ GPD_E2E_DATE_FROM="2026-01-01" GPD_E2E_DATE_TO="2026-01-31" npm run test:e2e
 7. Confirm the scan result only contains the expected duplicate group.
 8. Export JSON and CSV reports.
 9. Confirm the reports list the expected keep item, Trash candidate, group id, similarity, reason, timestamp, and Google Photos link.
-10. Click **Move to Trash**.
+10. Click **Review & move N to Trash**.
 11. Confirm the dialog requires typing the exact item count before the final button enables.
-12. Move only the expected duplicate to Trash.
+12. Click the final **Move to Trash** button and move only the expected duplicate to Trash.
 13. Confirm the Trash result report shows the expected moved item and no unexpected failures.
 14. Open Google Photos Trash and restore the test item.
 15. Confirm the restored item appears back in Google Photos.

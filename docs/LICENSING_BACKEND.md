@@ -122,17 +122,19 @@ NODE
 Set these when building the production extension:
 
 ```bash
-PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://license.photosweep.app
+PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://photosweep-license-api-206538169327.us-west1.run.app
 PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=BASE64URL_SPKI_PUBLIC_KEY
 ```
 
 Do not set `PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1` for production
 builds. That flag exists only for integration tests and local development.
 
-The extension manifest includes host permission for
-`https://license.photosweep.app/*`. If the license API is deployed somewhere
-else, update `package.json` host permissions before building the production
-extension.
+The release and CI workflows currently inject the verified Cloud Run URL above,
+and the extension manifest receives its matching host permission from that
+build variable. If the license API is deployed somewhere else, update the build
+variable, workflow configuration, and `package.json` host permission together
+before building the production extension. Do not substitute an unverified custom
+domain for the deployed URL.
 
 ## Store Adapter
 
@@ -182,7 +184,7 @@ When a matching license email exists, the server posts:
 {
   "type": "license_recovery",
   "email": "buyer@example.com",
-  "recoveryUrl": "https://license.photosweep.app/license/recover/complete?token=..."
+  "recoveryUrl": "https://photosweep-license-api-206538169327.us-west1.run.app/license/recover/complete?token=..."
 }
 ```
 
