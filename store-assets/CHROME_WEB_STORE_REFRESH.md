@@ -47,22 +47,32 @@ Screenshots must be product-dominant:
    - Shows the review screen with exact/similar grouping and keep decisions using local seeded example state.
    - Caption: "Example review state: compare matches and choose what to keep."
 
-2. Confirm before cleanup
+2. Compare exact and similar results
+   - File: `screenshots/07-compact-exact-similar.png`
+   - Shows the compact side-panel review UI with All, Exact, and Similar filters plus Exact duplicate and Similar group labels using local seeded example state.
+   - Caption: "Example compact review: filter exact duplicates separately from visually similar sets."
+
+3. Confirm before cleanup
    - File: `screenshots/05-export-safety.png`
    - Shows typed confirmation and the audit-report warning using local seeded example state.
    - Caption: "Example confirmation state: typed confirmation and an audit report come first."
 
-3. Scan a focused area first
+4. Verify the cleanup outcome
+   - File: `screenshots/06-cleanup-outcome.png`
+   - Shows the completed Trash step and the exact `2 items moved to trash` Undo snackbar using local seeded example state.
+   - Caption: "Example post-cleanup state: Undo remains available while you verify the result."
+
+5. Scan a focused area first
    - File: `screenshots/02-focused-scan.png`
    - Shows scan settings and date/batch/scope controls.
    - Caption: "Start with a focused scan before a large cleanup."
 
-4. Choose your cloud photo library
+6. Choose your cloud photo library
    - File: `screenshots/01-provider-selector.png`
    - Shows provider selector with Google Photos, iCloud Photos, and Amazon Photos.
    - Caption: "Find duplicates across supported cloud photo libraries."
 
-5. Scan before any cleanup action
+7. Scan before any cleanup action
    - File: `screenshots/03-scan-progress.png`
    - Shows scan progress and the review-before-cleanup safety message.
    - Caption: "Scan before any cleanup action."
