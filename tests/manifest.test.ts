@@ -3,6 +3,15 @@ import { describe, expect, it } from "vitest"
 import packageJson from "../package.json"
 
 describe("extension manifest", () => {
+  it("locks the Chrome Web Store title and short description", () => {
+    expect(packageJson.displayName).toBe("PhotoSweep for Google Photos™")
+    expect(packageJson.description).toBe(
+      "Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm."
+    )
+    expect([...packageJson.displayName].length).toBeLessThanOrEqual(75)
+    expect([...packageJson.description].length).toBeLessThanOrEqual(132)
+  })
+
   it("uses an injected license API origin for release packages", () => {
     expect(packageJson.manifest.host_permissions).toContain(
       "$PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION"

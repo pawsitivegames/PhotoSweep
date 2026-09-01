@@ -1,6 +1,6 @@
 # Chrome Web Store Search Optimization (Reviewed Proposal)
 
-Status: **Ready for critic-gate re-review. Do not submit a title change until Google trademark and Chrome Web Store policy acceptance are confirmed.**
+Status: **Package metadata is set for the requested listing strings. This change builds an upload package only; it does not submit or publish to the Chrome Web Store.**
 
 ## What we know
 
@@ -10,47 +10,35 @@ The current live listing uses:
 
 "Google Photos duplicate finder" is a highly relevant search query for this product. However, Chrome Web Store does not publish a ranking formula. Any metadata change should be judged by policy safety, clarity, and observed search performance instead of assumed title weighting.
 
-## Safe metadata recommendation
+## Package metadata for the next listing submission
 
 ### Title (limit 75)
 
-Keep the current title:
+The package title is:
 
-> **PhotoSweep - Duplicate Photo Finder** (35/75)
+> **PhotoSweep for Google Photos™** (29/75)
 
-It is clear, provider-neutral, and the lowest-risk option for trademark and affiliation safety.
 
 ### Short Description (limit 132)
 
-Recommended update:
 
-> **Find and review duplicate photos in Google Photos. Matching runs locally in your browser; iCloud and Amazon support varies.** (123/132)
+> **Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.** (124/132)
 
-Why this is safer and clearer:
-
-- Includes the primary Google Photos use case without presenting the product as a Google offering.
-- Makes review-before-cleanup explicit, avoiding any one-click or automatic-deletion implication.
-- Uses scoped privacy wording: matching runs locally, rather than claiming no data ever leaves the browser.
-- Keeps multi-provider support visible while making parity limitations clear.
+These values are sourced from `package.json` and are checked in both the
+manifest tests and the release-package audit. The title uses Google Photos as
+the supported provider name; review trademark and affiliation requirements
+before submitting the package.
 
 ### Detailed Description
 
 Keep the current detailed description's provider-specific limitations, review-before-cleanup model, and scoped privacy language. The existing affiliation disclaimer should remain unchanged.
-
-## Optional title experiment: only after policy review
-
-If the business decides that title-level query coverage is essential, this is the lower-risk candidate:
-
-> PhotoSweep - Duplicate Photo Finder for Google Photos (53/75)
-
-This is not approved for submission yet. Obtain explicit trademark and Chrome Web Store policy acceptance before using a third-party product name in the title.
 
 ## Critic gate re-review
 
 Per `CHROME_WEB_STORE_REFRESH.md`, both critics must approve before any live listing change.
 
 - **Good cop:** confirm the short description is clear, useful, and trust-building.
-- **Bad cop:** confirm the scoped local-matching and provider-availability language is truthful; approve any title experiment only after policy/trademark review.
+- **Bad cop:** confirm the scoped local-matching and provider-availability language is truthful; review the title for policy and trademark compliance before submission.
 
 ## Submission notes
 

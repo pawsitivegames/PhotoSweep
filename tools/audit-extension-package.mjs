@@ -6,6 +6,7 @@ const buildDir = process.env.PHOTOSWEEP_EXTENSION_BUILD_DIR ?? "build/chrome-mv3
 const expectedApiBase = process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL
 const expectedHostPermission = process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION
 const expectedPublicKey = process.env.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY
+const packageJson = readJson(path.resolve("package.json"))
 
 function fail(message) {
   console.error(`audit failed: ${message}`)
@@ -38,6 +39,15 @@ if (!fs.existsSync(manifestPath)) fail(`missing ${manifestPath}`)
 const manifest = fs.existsSync(manifestPath) ? readJson(manifestPath) : {}
 
 if (manifest.manifest_version !== 3) fail("manifest_version must be 3")
+if (manifest.name !== packageJson.displayName) {
+  fail(`manifest.name must match package.json displayName: ${packageJson.displayName}`)
+}
+if (manifest.description !== packageJson.description) {
+  fail("manifest.description must match package.json description")
+}
+if (manifest.version !== packageJson.version) {
+  fail(`manifest.version must match package.json version: ${packageJson.version}`)
+}
 if (manifest.side_panel?.default_path !== "tabs/scanner-panel.html") {
   fail("side_panel.default_path must be tabs/scanner-panel.html")
 }
@@ -78,6 +88,9 @@ console.log(JSON.stringify({
   ok: true,
   buildDir,
   manifestVersion: manifest.manifest_version,
+  name: manifest.name,
+  description: manifest.description,
+  version: manifest.version,
   sidePanel: manifest.side_panel?.default_path,
   backendHostPermission: expectedHostPermission,
   hostPermissionCount: hostPermissions.length,
