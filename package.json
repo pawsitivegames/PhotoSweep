@@ -1,8 +1,8 @@
 {
   "name": "photosweep",
-  "displayName": "PhotoSweep - Duplicate Photo Finder",
-  "version": "2.2.5",
-  "description": "Find and review duplicate photos in Google Photos. Matching runs locally in your browser; iCloud and Amazon support varies.",
+  "displayName": "PhotoSweep for Google Photos™",
+  "version": "2.2.6",
+  "description": "Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.",
   "author": "Mack Talcott",
   "scripts": {
     "preinstall": "node tools/check-node-version.js",
@@ -25,6 +25,7 @@
     "prebuild": "node tools/write-build-flags.mjs && npm run build:gptk && npm run copy:wasm && npm run build:worker",
     "build": "plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
     "package": "npm run build && plasmo package",
+    "package:cws": "npm run package && npm run audit:extension-package && cp build/chrome-mv3-prod.zip build/photosweep-cws-v$(node -p \"require('./package.json').version\").zip",
     "release": "bash tools/release.sh",
     "framer:probe": "node tools/framer-probe.mjs",
     "start": "node server/node-server.mjs",
