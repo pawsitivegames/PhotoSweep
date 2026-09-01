@@ -226,9 +226,9 @@ Unlock:
 - Checkpoint/resume.
 - Priority fixes for provider UI breakages.
 
-Use shared plan limits where the provider flow supports them. Keep
-provider-specific scan, Trash, Restore, and availability caveats tied to current
-validation evidence rather than claiming identical provider parity.
+Use the same free and paid limits for Google Photos, iCloud Photos, and Amazon
+Photos. Keep provider-specific caveats tied to current validation evidence, not
+to separate pricing rules.
 
 Do not gate:
 

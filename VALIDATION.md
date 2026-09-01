@@ -60,9 +60,9 @@ Required result:
 - The pre-Trash report is saved before the Trash operation.
 - The Trash result report matches the actual Google Photos outcome.
 - Restore from Google Photos Trash works for the moved item.
-- Provider-specific scan, Trash, and Restore behavior is documented accurately.
-  Record current live evidence for each provider before making paid
-  multi-provider claims; do not claim identical provider parity.
+- Google Photos, iCloud Photos, and Amazon Photos use the same free and paid
+  feature limits. Provider-specific live Trash/Restore evidence is recorded
+  below before making paid multi-provider claims.
 
 ## Paid Launch Validation
 
