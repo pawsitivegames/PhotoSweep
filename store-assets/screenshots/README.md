@@ -46,10 +46,10 @@ trust. The filename prefixes describe the captured screen, not the upload
 priority.
 
 1. `04-review-groups.png` — Example review state: compare matches and choose what to keep.
-2. `07-compact-exact-similar.png` — Example compact review: filter exact duplicates separately from visually similar sets.
-3. `05-export-safety.png` — Example confirmation state: typed confirmation and an audit report come first.
-4. `06-cleanup-outcome.png` — Example post-cleanup state: Undo remains available while you verify the result.
-5. `02-focused-scan.png` — Start with a focused scan before a large cleanup.
+2. `05-export-safety.png` — Example confirmation state: typed confirmation and an audit report come first.
+3. `06-cleanup-outcome.png` — Example post-cleanup state: Undo remains available while you verify the result.
+4. `02-focused-scan.png` — Start with a focused scan before a large cleanup.
+5. `07-compact-exact-similar.png` — Example compact review: filter exact duplicates separately from visually similar sets.
 6. `01-provider-selector.png` — Find duplicates across supported cloud photo libraries.
 7. `03-scan-progress.png` — Scan before any cleanup action.
 
@@ -59,4 +59,4 @@ priority.
 - Do not upload if screenshots imply identical feature parity across providers.
 - Do not upload if the caption covers the product UI.
 - Keep the listing caveat near the first provider-support mention: availability and cleanup behavior can vary by provider, region, account state, loaded library area, and media type.
-- Do not remove the in-screenshot "Example" labels from seeded review, confirmation, or post-cleanup states unless those screenshots are replaced with non-seeded real-account captures.
+- Do not remove the in-screenshot "Example" labels from seeded review, confirmation, compact comparison, or post-cleanup states unless those screenshots are replaced with non-seeded real-account captures.

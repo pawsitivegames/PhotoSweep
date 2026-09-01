@@ -38,7 +38,7 @@ Screenshots must be product-dominant:
 - If iCloud/Amazon are mentioned or shown, the provider selector must be visible and functional in the captured UI.
 - Screenshots must not claim identical feature parity across Google Photos, iCloud Photos, and Amazon Photos.
 - Screenshots must show review-before-cleanup behavior, not one-click deletion.
-- Screenshots based on local seeded duplicate state must be labeled as example review or example confirmation states in the caption band.
+- Screenshots based on local seeded duplicate state must be labeled as example review, confirmation, compact comparison, or post-cleanup states in the caption band.
 
 ## Proposed Screenshot Set
 
@@ -47,25 +47,25 @@ Screenshots must be product-dominant:
    - Shows the review screen with exact/similar grouping and keep decisions using local seeded example state.
    - Caption: "Example review state: compare matches and choose what to keep."
 
-2. Compare exact and similar results
-   - File: `screenshots/07-compact-exact-similar.png`
-   - Shows the compact side-panel review UI with All, Exact, and Similar filters plus Exact duplicate and Similar group labels using local seeded example state.
-   - Caption: "Example compact review: filter exact duplicates separately from visually similar sets."
-
-3. Confirm before cleanup
+2. Confirm before cleanup
    - File: `screenshots/05-export-safety.png`
    - Shows typed confirmation and the audit-report warning using local seeded example state.
    - Caption: "Example confirmation state: typed confirmation and an audit report come first."
 
-4. Verify the cleanup outcome
+3. Verify the cleanup outcome
    - File: `screenshots/06-cleanup-outcome.png`
    - Shows the completed Trash step and the exact `2 items moved to trash` Undo snackbar using local seeded example state.
    - Caption: "Example post-cleanup state: Undo remains available while you verify the result."
 
-5. Scan a focused area first
+4. Scan a focused area first
    - File: `screenshots/02-focused-scan.png`
    - Shows scan settings and date/batch/scope controls.
    - Caption: "Start with a focused scan before a large cleanup."
+
+5. Compare exact and similar results
+   - File: `screenshots/07-compact-exact-similar.png`
+   - Shows the compact side-panel review UI with All, Exact, and Similar filters plus Exact duplicate and Similar group labels using local seeded example state.
+   - Caption: "Example compact review: filter exact duplicates separately from visually similar sets."
 
 6. Choose your cloud photo library
    - File: `screenshots/01-provider-selector.png`

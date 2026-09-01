@@ -1,6 +1,6 @@
 # PhotoSweep Paid Launch Checklist
 
-Last updated: 2026-07-28
+Last updated: 2026-09-01
 
 Use this as the release gate for paid multi-provider support. Do not mark a paid
 launch complete until every item has current evidence.
@@ -55,7 +55,9 @@ launch complete until every item has current evidence.
   - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL`
   - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET`
   - `PHOTOSWEEP_COOKIE_SECURE=1`
-- Point `https://license.photosweep.app` at the deployment.
+- Use the verified Cloud Run license API origin currently injected by the
+  release workflows:
+  `https://photosweep-license-api-206538169327.us-west1.run.app`.
 - Verify:
   - `POST /checkout` opens Stripe Checkout externally.
   - `GET /entitlement` returns a signed token.
@@ -69,7 +71,7 @@ launch complete until every item has current evidence.
 - Set extension build variables:
 
   ```bash
-  PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://license.photosweep.app
+  PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://photosweep-license-api-206538169327.us-west1.run.app
   PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=BASE64URL_SPKI_PUBLIC_KEY
   PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=0
   ```
@@ -94,8 +96,9 @@ launch complete until every item has current evidence.
   - refund policy from `docs/REFUND_POLICY.md`
   - support page from `docs/SUPPORT.md`
 - Verify `pawsitivegames@gmail.com` receives mail.
-- Chrome Web Store listing must state paid support covers Google Photos, iCloud
-  Photos, and Amazon Photos under the same free and paid limits.
+- Chrome Web Store listing must describe paid support for Google Photos, iCloud
+  Photos, and Amazon Photos only where current provider evidence supports the
+  advertised flow and limits; do not claim identical provider parity.
 - Store listing must disclose:
   - local photo analysis
   - external Stripe Checkout

@@ -43,9 +43,9 @@ Lifetime Early Access is refundable during the 7-day window if PhotoSweep cannot
 provide the advertised Google Photos, iCloud Photos, or Amazon Photos workflow
 on the user's supported setup.
 
-Google Photos, iCloud Photos, and Amazon Photos use the same free and paid
-feature limits. Provider-specific support claims require current live
-Trash/Restore validation evidence.
+Provider support, scan limits, and Trash/Restore behavior can vary by service.
+Advertised claims for Google Photos, iCloud Photos, or Amazon Photos require
+current live Trash/Restore validation evidence.
 
 ## How Users Request A Refund
 
