@@ -830,7 +830,7 @@ export async function handleRecoverLicense(request, env, store) {
       {
         email,
         sessionId,
-        expiresAt: now() + 30 * 60 * 1000
+        expiresAt: now() + 24 * 60 * 60 * 1000
       },
       env
     )
