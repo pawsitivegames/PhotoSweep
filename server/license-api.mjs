@@ -21,6 +21,7 @@ const COOKIE_NAME = "photosweep_license_session"
 const STRIPE_API_BASE = "https://api.stripe.com/v1"
 const STRIPE_API_VERSION = "2026-02-25.clover"
 const LONG_LIVED_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const RECOVERY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 const ANALYTICS_EVENT_NAMES = new Set([
   "app_opened",
   "scan_started",
@@ -386,7 +387,10 @@ export async function createStripeCheckoutSession(
   body.set("client_reference_id", input.sessionId)
   body.set("metadata[planId]", input.planId)
   body.set("metadata[licenseSessionId]", input.sessionId)
-  if (input.email) body.set("customer_email", input.email)
+  if (input.email) {
+    body.set("customer_email", input.email)
+    body.set("payment_intent_data[receipt_email]", input.email)
+  }
   const response = await fetchImpl(`${STRIPE_API_BASE}/checkout/sessions`, {
     method: "POST",
     headers: {
@@ -559,7 +563,8 @@ export function createJsonFileLicenseStore(filePath) {
         state.licensesBySessionId[license.sessionId] = license
         for (const purchase of purchasesForLicense(license)) {
           if (purchase.email) {
-            state.sessionByEmail[purchase.email.toLowerCase()] = license.sessionId
+            state.sessionByEmail[purchase.email.toLowerCase()] =
+              license.sessionId
           }
           if (purchase.stripeCustomerId) {
             state.sessionByStripeCustomerId[purchase.stripeCustomerId] =
@@ -830,7 +835,7 @@ export async function handleRecoverLicense(request, env, store) {
       {
         email,
         sessionId,
-        expiresAt: now() + 24 * 60 * 60 * 1000
+        expiresAt: now() + RECOVERY_TOKEN_TTL_MS
       },
       env
     )
