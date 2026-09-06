@@ -766,7 +766,6 @@ describe("license API", () => {
       store
     })
 
-    const recoveryRequestedAt = Date.now()
     const response = await api(
       new Request("https://license.test/license/recover", {
         method: "POST",
@@ -804,6 +803,7 @@ describe("license API", () => {
       }
     })
 
+    const recoveryRequestedAt = Date.now()
     const response = await api(
       new Request("https://license.test/license/recover", {
         method: "POST",
