@@ -766,6 +766,7 @@ describe("license API", () => {
       store
     })
 
+    const recoveryRequestedAt = Date.now()
     const response = await api(
       new Request("https://license.test/license/recover", {
         method: "POST",
@@ -826,6 +827,17 @@ describe("license API", () => {
     expect(sent[0].email).toBe("buyer@example.com")
     expect(sent[0].recoveryUrl).toMatch(
       /^https:\/\/license\.test\/license\/recover\/complete\?token=/
+    )
+    const recoveryToken = new URL(sent[0].recoveryUrl).searchParams.get("token")
+    expect(recoveryToken).toBeTruthy()
+    const recoveryPayload = JSON.parse(
+      Buffer.from(recoveryToken!.split(".")[0], "base64url").toString("utf8")
+    )
+    expect(recoveryPayload.expiresAt).toBeGreaterThanOrEqual(
+      recoveryRequestedAt + 24 * 60 * 60 * 1000
+    )
+    expect(recoveryPayload.expiresAt).toBeLessThanOrEqual(
+      Date.now() + 24 * 60 * 60 * 1000
     )
 
     const complete = await api(new Request(sent[0].recoveryUrl))
