@@ -4,6 +4,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY tools/check-node-version.js ./tools/check-node-version.js
 RUN npm ci --omit=dev --no-audit --no-fund
 
 COPY server ./server
