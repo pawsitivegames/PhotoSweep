@@ -20,6 +20,7 @@ By default it listens on `127.0.0.1:8787` and uses
 
   - Body: `{ "planId": "mini_cleanup" | "cleanup_pass" | "lifetime", "email"?: string }`
   - Creates a Stripe Checkout Session.
+  - When `email` is provided, also sets Stripe `payment_intent_data[receipt_email]` so Stripe can send the payment receipt.
   - Sets an HttpOnly `photosweep_license_session` cookie and stores the same
     session id in Stripe session metadata.
 
