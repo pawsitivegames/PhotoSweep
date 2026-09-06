@@ -37,8 +37,11 @@ By default it listens on `127.0.0.1:8787` and uses
   - If the store provides `sendRecoveryEmail({ email, recoveryUrl })`, the API
     sends a short-lived signed recovery link without revealing whether the email
     exists.
+  - Recovery links expire after 24 hours.
   - The included Node adapter can provide that method through a generic webhook
     by setting `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL`.
+  - The included Node adapter can also send email in-process over SMTP when
+    `PHOTOSWEEP_SMTP_HOST` and `PHOTOSWEEP_SMTP_FROM` are both set.
   - The included email-only cookie rebind is disabled unless
     `PHOTOSWEEP_UNSAFE_EMAIL_RECOVERY=1` is set for local/manual testing.
 
@@ -170,8 +173,13 @@ event ids so webhook handling remains idempotent across deploys and instances.
 
 ## Recovery Email Delivery
 
-For the included Node server, set these variables to connect any transactional
-email provider or automation endpoint:
+For the included Node server, sender selection is, in order: an explicit
+`recoveryEmailSender` passed to `createNodeRequestHandler()`, the webhook when
+`PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL` is set, the in-process SMTP sender when
+both SMTP activation variables are set, and then no sender. An existing
+`store.sendRecoveryEmail` implementation remains in place.
+
+The webhook sender accepts:
 
 ```bash
 PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL=https://mail-automation.example/photosweep/recovery
@@ -191,6 +199,72 @@ When a matching license email exists, the server posts:
 If `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET` is set, the request includes an
 `Authorization: Bearer ...` header. The mailer should send only the recovery
 link and should not echo whether a license exists back to the extension.
+
+The in-process SMTP sender accepts these variables. `USER` and `PASS` are
+optional, but must be supplied together when used:
+
+```bash
+PHOTOSWEEP_SMTP_HOST=<SMTP_HOST>
+PHOTOSWEEP_SMTP_PORT=<SMTP_PORT>
+PHOTOSWEEP_SMTP_USER=<SMTP_USERNAME>
+PHOTOSWEEP_SMTP_PASS=<SMTP_PASSWORD>
+PHOTOSWEEP_SMTP_FROM=<SMTP_FROM_ADDRESS>
+PHOTOSWEEP_SMTP_SECURE=0
+```
+
+`PHOTOSWEEP_SMTP_SECURE=0` selects a non-implicit-TLS connection (the default
+port is `587`); if the server advertises STARTTLS, the adapter upgrades the
+connection before authentication. If `PHOTOSWEEP_SMTP_SECURE` is omitted, the
+adapter uses implicit TLS with default port `465`. The SMTP message is plain
+text with subject `PhotoSweep license recovery`, and its body is exactly the
+`recoveryUrl` value with no additional text.
+
+### CoS-owned production secrets
+
+The Chief of Staff (CoS) owns the production SMTP credentials, Secret Manager
+entries, access grants, and rotation record. Keep secret values out of the
+repository and documentation. Use placeholders for the actual project, service,
+secret, version, and file identifiers:
+
+1. CoS creates or rotates separate Secret Manager entries for the SMTP username
+   and password, using the approved secret material outside this repository.
+
+   ```bash
+   gcloud secrets create <SMTP_USER_SECRET_NAME> \
+     --project=<GCP_PROJECT_ID> --replication-policy=automatic
+   gcloud secrets versions add <SMTP_USER_SECRET_NAME> \
+     --project=<GCP_PROJECT_ID> --data-file=<SMTP_USER_VALUE_FILE>
+   gcloud secrets create <SMTP_PASS_SECRET_NAME> \
+     --project=<GCP_PROJECT_ID> --replication-policy=automatic
+   gcloud secrets versions add <SMTP_PASS_SECRET_NAME> \
+     --project=<GCP_PROJECT_ID> --data-file=<SMTP_PASS_VALUE_FILE>
+   ```
+
+2. CoS grants the Cloud Run service account access to only those secret entries:
+
+   ```bash
+   gcloud secrets add-iam-policy-binding <SMTP_USER_SECRET_NAME> \
+     --project=<GCP_PROJECT_ID> \
+     --member=serviceAccount:<CLOUD_RUN_SERVICE_ACCOUNT> \
+     --role=roles/secretmanager.secretAccessor
+   gcloud secrets add-iam-policy-binding <SMTP_PASS_SECRET_NAME> \
+     --project=<GCP_PROJECT_ID> \
+     --member=serviceAccount:<CLOUD_RUN_SERVICE_ACCOUNT> \
+     --role=roles/secretmanager.secretAccessor
+   ```
+
+3. CoS maps the secrets and non-secret SMTP settings onto the existing Cloud Run
+   service. The values below are placeholders only:
+
+   ```bash
+   gcloud run services update <CLOUD_RUN_SERVICE_NAME> \
+     --project=<GCP_PROJECT_ID> --region=<GCP_REGION> \
+     --set-env-vars="PHOTOSWEEP_SMTP_HOST=<SMTP_HOST>,PHOTOSWEEP_SMTP_PORT=<SMTP_PORT>,PHOTOSWEEP_SMTP_FROM=<SMTP_FROM_ADDRESS>,PHOTOSWEEP_SMTP_SECURE=<SMTP_SECURE>" \
+     --set-secrets="PHOTOSWEEP_SMTP_USER=<SMTP_USER_SECRET_NAME>:<SECRET_VERSION>,PHOTOSWEEP_SMTP_PASS=<SMTP_PASS_SECRET_NAME>:<SECRET_VERSION>"
+   ```
+
+4. CoS records the owner and rotation date, then verifies a recovery request in
+   the deployed environment without exposing account-existence information.
 
 ## Chrome Extension Constraints
 

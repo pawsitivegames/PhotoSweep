@@ -1,6 +1,6 @@
 # PhotoSweep Paid Launch Checklist
 
-Last updated: 2026-09-01
+Last updated: 2026-09-06
 
 Use this as the release gate for paid multi-provider support. Do not mark a paid
 launch complete until every item has current evidence.
@@ -52,9 +52,30 @@ launch complete until every item has current evidence.
   - `PHOTOSWEEP_CHECKOUT_CANCEL_URL`
   - `PHOTOSWEEP_RECOVERY_BASE_URL`
   - `PHOTOSWEEP_RECOVERY_REDIRECT_URL`
-  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL`
-  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET`
+  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL` (optional webhook sender)
+  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET` (optional webhook auth)
+  - `PHOTOSWEEP_SMTP_HOST` (set with `PHOTOSWEEP_SMTP_FROM` for SMTP fallback)
+  - `PHOTOSWEEP_SMTP_PORT` (optional; placeholder value)
+  - `PHOTOSWEEP_SMTP_USER` (optional Secret Manager mapping)
+  - `PHOTOSWEEP_SMTP_PASS` (optional Secret Manager mapping)
+  - `PHOTOSWEEP_SMTP_FROM` (required with SMTP host)
+  - `PHOTOSWEEP_SMTP_SECURE=0` (optional non-implicit-TLS mode)
   - `PHOTOSWEEP_COOKIE_SECURE=1`
+- CoS owns the production SMTP credentials and their Secret Manager rotation
+  record. Create `<SMTP_USER_SECRET_NAME>` and `<SMTP_PASS_SECRET_NAME>`, grant
+  `<CLOUD_RUN_SERVICE_ACCOUNT>` the narrow `roles/secretmanager.secretAccessor`
+  role, and map them to Cloud Run with placeholder-only values:
+
+  ```bash
+  gcloud run services update <CLOUD_RUN_SERVICE_NAME> \
+    --project=<GCP_PROJECT_ID> --region=<GCP_REGION> \
+    --set-env-vars="PHOTOSWEEP_SMTP_HOST=<SMTP_HOST>,PHOTOSWEEP_SMTP_PORT=<SMTP_PORT>,PHOTOSWEEP_SMTP_FROM=<SMTP_FROM_ADDRESS>,PHOTOSWEEP_SMTP_SECURE=<SMTP_SECURE>" \
+    --set-secrets="PHOTOSWEEP_SMTP_USER=<SMTP_USER_SECRET_NAME>:<SECRET_VERSION>,PHOTOSWEEP_SMTP_PASS=<SMTP_PASS_SECRET_NAME>:<SECRET_VERSION>"
+  ```
+
+  Follow the Secret Manager creation, IAM, and rotation steps in
+  `docs/LICENSING_BACKEND.md`; do not put secret values in this repository.
+
 - Use the verified Cloud Run license API origin currently injected by the
   release workflows:
   `https://photosweep-license-api-206538169327.us-west1.run.app`.
@@ -62,7 +83,7 @@ launch complete until every item has current evidence.
   - `POST /checkout` opens Stripe Checkout externally.
   - `GET /entitlement` returns a signed token.
   - `POST /license/recover` returns a generic acknowledgement and sends a
-    signed recovery link through the configured email webhook.
+    signed recovery link through the selected webhook or SMTP sender.
   - `POST /analytics` accepts only sanitized bucketed events.
   - `POST /stripe/webhook` rejects unsigned requests.
 

@@ -91,7 +91,10 @@ describe("license API", () => {
           origin: "chrome-extension://abc",
           "content-type": "application/json"
         },
-        body: JSON.stringify({ planId: "cleanup_pass" })
+        body: JSON.stringify({
+          planId: "cleanup_pass",
+          email: "buyer@example.com"
+        })
       })
     )
 
@@ -102,6 +105,10 @@ describe("license API", () => {
     expect(stripeBody.get("line_items[0][price]")).toBe("price_pass")
     expect(stripeBody.get("metadata[planId]")).toBe("cleanup_pass")
     expect(stripeBody.get("metadata[licenseSessionId]")).toBe(licenseSessionId)
+    expect(stripeBody.get("customer_email")).toBe("buyer@example.com")
+    expect(stripeBody.get("payment_intent_data[receipt_email]")).toBe(
+      "buyer@example.com"
+    )
     expect(new Headers(stripeCalls[0].init.headers).get("stripe-version")).toBe(
       "2026-02-25.clover"
     )
@@ -610,8 +617,14 @@ describe("license API", () => {
     }
 
     expect(
-      (await sendPaidCheckout("evt_lifetime", "cs_multi_1", "pi_lifetime", "lifetime"))
-        .status
+      (
+        await sendPaidCheckout(
+          "evt_lifetime",
+          "cs_multi_1",
+          "pi_lifetime",
+          "lifetime"
+        )
+      ).status
     ).toBe(200)
     expect(
       (
@@ -631,7 +644,7 @@ describe("license API", () => {
     )
     await expect(
       verifyToken(
-        (await entitlementBeforeRefund.json() as { token: string }).token,
+        ((await entitlementBeforeRefund.json()) as { token: string }).token,
         keys.publicKey
       )
     ).resolves.toMatchObject({ planId: "lifetime", active: true })
@@ -671,7 +684,7 @@ describe("license API", () => {
     )
     await expect(
       verifyToken(
-        (await entitlementAfterRefund.json() as { token: string }).token,
+        ((await entitlementAfterRefund.json()) as { token: string }).token,
         keys.publicKey
       )
     ).resolves.toMatchObject({ planId: "cleanup_pass", active: true })
