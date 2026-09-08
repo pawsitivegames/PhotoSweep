@@ -4,7 +4,7 @@ The upload package is generated from the root `package.json` metadata:
 
 - Title: `PhotoSweep for Google Photos™`
 - Short description: `Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.`
-- Version: `2.2.6`
+- Version: `2.2.7`
 
 The title and short description are 29 and 124 characters respectively, within
 the Chrome Web Store limits. `npm run package:cws` audits the generated
@@ -29,12 +29,12 @@ export PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY="<release public key>"
 npm run package:cws
 ```
 
-The resulting `build/photosweep-cws-v2.2.6.zip` is the Chrome Web Store upload
+The resulting `build/photosweep-cws-v2.2.7.zip` is the Chrome Web Store upload
 package. The command only builds and audits the zip; it does not submit or
 publish it.
 
 To inspect the locked listing metadata in the generated package:
 
 ```bash
-unzip -p build/photosweep-cws-v2.2.6.zip manifest.json
+unzip -p build/photosweep-cws-v2.2.7.zip manifest.json
 ```
