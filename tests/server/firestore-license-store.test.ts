@@ -139,6 +139,45 @@ describe("createFirestoreLicenseStore", () => {
     await expect(store.hasProcessedStripeEvent("evt_1")).resolves.toBe(true)
   })
 
+  it("stores pending Stripe revocations for lookup by payment identifiers", async () => {
+    const firestore = new FakeFirestore()
+    const store = createFirestoreLicenseStore({ firestore: firestore as never })
+
+    await store.recordPendingStripeRevocation({
+      paymentIntentId: "pi_pending",
+      checkoutSessionId: "cs_pending",
+      chargeId: "ch_pending",
+      reason: "charge.dispute.created"
+    })
+
+    await expect(
+      store.getPendingStripeRevocation({ paymentIntentId: "pi_pending" })
+    ).resolves.toMatchObject({
+      reason: "charge.dispute.created",
+      checkoutSessionId: "cs_pending",
+      chargeId: "ch_pending"
+    })
+    await expect(
+      store.getPendingStripeRevocation({ checkoutSessionId: "cs_pending" })
+    ).resolves.toMatchObject({
+      paymentIntentId: "pi_pending",
+      reason: "charge.dispute.created"
+    })
+    await expect(
+      store.getPendingStripeRevocation({ chargeId: "ch_pending" })
+    ).resolves.toMatchObject({
+      reason: "charge.dispute.created"
+    })
+    await expect(
+      store.getPendingStripeRevocation({ paymentIntentId: "pi_other" })
+    ).resolves.toBeUndefined()
+
+    const snapshot = await store.snapshot()
+    expect(snapshot.pendingStripeRevocations["pi:pi_pending"]).toMatchObject({
+      reason: "charge.dispute.created"
+    })
+  })
+
   it("records analytics events and exposes a snapshot", async () => {
     const firestore = new FakeFirestore()
     const store = createFirestoreLicenseStore({ firestore: firestore as never })

@@ -11,6 +11,18 @@ function now() {
   return Date.now()
 }
 
+function pendingStripeRevocationKeys({
+  paymentIntentId,
+  checkoutSessionId,
+  chargeId
+} = {}) {
+  return [
+    paymentIntentId ? `pi:${paymentIntentId}` : undefined,
+    checkoutSessionId ? `cs:${checkoutSessionId}` : undefined,
+    chargeId ? `ch:${chargeId}` : undefined
+  ].filter(Boolean)
+}
+
 function stripUndefined(value) {
   if (!value || typeof value !== "object") return value
   if (Array.isArray(value)) return value.map(stripUndefined)
@@ -29,6 +41,9 @@ export function createFirestoreLicenseStore({
   const licenses = firestore.collection(`${collectionPrefix}_licenses`)
   const indexes = firestore.collection(`${collectionPrefix}_license_indexes`)
   const stripeEvents = firestore.collection(`${collectionPrefix}_stripe_events`)
+  const pendingRevocations = firestore.collection(
+    `${collectionPrefix}_pending_stripe_revocations`
+  )
   const analytics = firestore.collection(`${collectionPrefix}_analytics_events`)
 
   async function setIndex(kind, value, sessionId, transaction) {
@@ -108,6 +123,31 @@ export function createFirestoreLicenseStore({
       return getIndex("stripe_payment_intent", paymentIntentId)
     },
 
+    async recordPendingStripeRevocation(revocation) {
+      const keys = pendingStripeRevocationKeys(revocation)
+      if (keys.length === 0) return
+      const recorded = stripUndefined({
+        ...revocation,
+        recordedAt: revocation.recordedAt ?? now()
+      })
+      await firestore.runTransaction(async (transaction) => {
+        for (const key of keys) {
+          transaction.set(
+            pendingRevocations.doc(encodeKey(key)),
+            { ...recorded, key },
+            { merge: true }
+          )
+        }
+      })
+    },
+
+    async getPendingStripeRevocation(query) {
+      for (const key of pendingStripeRevocationKeys(query)) {
+        const snapshot = await pendingRevocations.doc(encodeKey(key)).get()
+        if (snapshot.exists) return snapshot.data()
+      }
+    },
+
     async hasProcessedStripeEvent(eventId) {
       const snapshot = await stripeEvents.doc(eventId).get()
       return snapshot.exists
@@ -125,17 +165,28 @@ export function createFirestoreLicenseStore({
     },
 
     async snapshot() {
-      const [licenseDocs, indexDocs, eventDocs, analyticsDocs] = await Promise.all([
-        licenses.get(),
-        indexes.get(),
-        stripeEvents.get(),
-        analytics.orderBy("recordedAt", "desc").limit(MAX_STORED_ANALYTICS_EVENTS).get()
-      ])
+      const [licenseDocs, indexDocs, eventDocs, pendingDocs, analyticsDocs] =
+        await Promise.all([
+          licenses.get(),
+          indexes.get(),
+          stripeEvents.get(),
+          pendingRevocations.get(),
+          analytics
+            .orderBy("recordedAt", "desc")
+            .limit(MAX_STORED_ANALYTICS_EVENTS)
+            .get()
+        ])
       return {
         licensesBySessionId: Object.fromEntries(
           licenseDocs.docs.map((doc) => [doc.id, doc.data()])
         ),
         indexes: Object.fromEntries(indexDocs.docs.map((doc) => [doc.id, doc.data()])),
+        pendingStripeRevocations: Object.fromEntries(
+          pendingDocs.docs.map((doc) => {
+            const data = doc.data()
+            return [data?.key ?? doc.id, data]
+          })
+        ),
         processedStripeEvents: eventDocs.docs.map((doc) => doc.id),
         analyticsEvents: analyticsDocs.docs.map((doc) => doc.data()).reverse()
       }

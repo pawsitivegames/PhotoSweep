@@ -44,6 +44,23 @@ function webhookSignature(
   return `t=${timestamp},v1=${signature}`
 }
 
+async function sendWebhook(
+  api: (request: Request) => Promise<Response>,
+  secret: string,
+  event: { id: string; type: string; data: { object: Record<string, unknown> } }
+): Promise<Response> {
+  const body = JSON.stringify(event)
+  return api(
+    new Request("https://license.test/stripe/webhook", {
+      method: "POST",
+      headers: {
+        "stripe-signature": webhookSignature(body, secret)
+      },
+      body
+    })
+  )
+}
+
 function envFor(privateKey: string): Record<string, string> {
   return {
     STRIPE_SECRET_KEY: "sk_test_photosweep",
@@ -792,6 +809,244 @@ describe("license API", () => {
     })
   })
 
+  it("does not unlock paid access when a dispute arrives before activation", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const licenseSessionId = "pls_dispute_before_activate"
+    const checkoutSession = {
+      id: "cs_disputed",
+      customer: "cus_disputed",
+      payment_intent: "pi_disputed",
+      payment_status: "paid",
+      client_reference_id: licenseSessionId,
+      metadata: { planId: "lifetime", licenseSessionId }
+    }
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_dispute_first",
+          type: "charge.dispute.created",
+          data: {
+            object: {
+              id: "dp_disputed",
+              charge: "ch_disputed",
+              payment_intent: "pi_disputed"
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+    expect(store.snapshot().licensesBySessionId).toEqual({})
+    expect(store.snapshot().pendingStripeRevocations).toMatchObject({
+      "pi:pi_disputed": expect.objectContaining({
+        reason: "charge.dispute.created",
+        paymentIntentId: "pi_disputed",
+        chargeId: "ch_disputed"
+      }),
+      "ch:ch_disputed": expect.objectContaining({
+        reason: "charge.dispute.created"
+      })
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_activate_after_dispute",
+          type: "checkout.session.completed",
+          data: { object: checkoutSession }
+        })
+      ).status
+    ).toBe(200)
+
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      planId: "lifetime",
+      status: "inactive",
+      inactiveReason: "charge.dispute.created",
+      stripePaymentIntentId: "pi_disputed",
+      stripeCheckoutSessionId: "cs_disputed"
+    })
+    expect(store.snapshot().analyticsEvents).toEqual([
+      expect.objectContaining({
+        name: "purchase_failed",
+        planId: "lifetime"
+      })
+    ])
+
+    const entitlementResponse = await api(
+      new Request("https://license.test/entitlement", {
+        headers: { "x-photosweep-license-session": licenseSessionId }
+      })
+    )
+    const entitlement = (await entitlementResponse.json()) as { token: string }
+    await expect(
+      verifyToken(entitlement.token, keys.publicKey)
+    ).resolves.toMatchObject({
+      planId: "free",
+      active: true,
+      source: "signed_token"
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_activate_after_dispute",
+          type: "checkout.session.completed",
+          data: { object: checkoutSession }
+        })
+      ).status
+    ).toBe(200)
+    expect(store.snapshot().analyticsEvents).toHaveLength(1)
+    expect(store.snapshot().licensesBySessionId[licenseSessionId].status).toBe(
+      "inactive"
+    )
+  })
+
+  it("does not unlock paid access when a full refund arrives before activation", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const licenseSessionId = "pls_refund_before_activate"
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_refund_first",
+          type: "charge.refunded",
+          data: {
+            object: {
+              id: "ch_refund_first",
+              payment_intent: "pi_refund_first",
+              amount: 1499,
+              amount_refunded: 1499
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+    expect(store.snapshot().licensesBySessionId).toEqual({})
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_activate_after_refund",
+          type: "checkout.session.async_payment_succeeded",
+          data: {
+            object: {
+              id: "cs_refund_first",
+              payment_intent: { id: "pi_refund_first" },
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              metadata: { planId: "mini_cleanup", licenseSessionId }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      planId: "mini_cleanup",
+      status: "inactive",
+      inactiveReason: "charge.refunded"
+    })
+    expect(store.snapshot().analyticsEvents).toEqual([
+      expect.objectContaining({
+        name: "purchase_refunded",
+        planId: "mini_cleanup"
+      })
+    ])
+
+    const entitlementResponse = await api(
+      new Request("https://license.test/entitlement", {
+        headers: { "x-photosweep-license-session": licenseSessionId }
+      })
+    )
+    const entitlement = (await entitlementResponse.json()) as { token: string }
+    await expect(
+      verifyToken(entitlement.token, keys.publicKey)
+    ).resolves.toMatchObject({
+      planId: "free",
+      active: true,
+      source: "signed_token"
+    })
+  })
+
+  it("does not apply a pending dispute to a different payment on the same session", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const licenseSessionId = "pls_unrelated_payment"
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_other_dispute",
+          type: "charge.dispute.created",
+          data: {
+            object: {
+              payment_intent: "pi_other_disputed"
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_unrelated_paid",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_unrelated_paid",
+              payment_intent: "pi_unrelated_paid",
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              metadata: { planId: "lifetime", licenseSessionId }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      planId: "lifetime",
+      status: "active"
+    })
+    const entitlementResponse = await api(
+      new Request("https://license.test/entitlement", {
+        headers: { "x-photosweep-license-session": licenseSessionId }
+      })
+    )
+    const entitlement = (await entitlementResponse.json()) as { token: string }
+    await expect(
+      verifyToken(entitlement.token, keys.publicKey)
+    ).resolves.toMatchObject({
+      planId: "lifetime",
+      active: true,
+      source: "signed_token"
+    })
+  })
+
   it("rejects unsigned webhooks", async () => {
     const keys = testKeys()
     const api = createLicenseApi({
@@ -1173,6 +1428,11 @@ describe("license API", () => {
       purchasedAt: Date.now()
     })
     await store.markStripeEventProcessed("evt_file")
+    await store.recordPendingStripeRevocation({
+      paymentIntentId: "pi_file",
+      checkoutSessionId: "cs_file_pending",
+      reason: "charge.dispute.created"
+    })
     await store.recordAnalyticsEvent({
       name: "upgrade_prompt_shown",
       provider: "google",
@@ -1193,6 +1453,12 @@ describe("license API", () => {
     await expect(reloaded.hasProcessedStripeEvent("evt_file")).resolves.toBe(
       true
     )
+    await expect(
+      reloaded.getPendingStripeRevocation({ paymentIntentId: "pi_file" })
+    ).resolves.toMatchObject({
+      reason: "charge.dispute.created",
+      checkoutSessionId: "cs_file_pending"
+    })
     const snapshot = await reloaded.snapshot()
     expect(snapshot.analyticsEvents).toHaveLength(1)
     expect(snapshot.analyticsEvents[0]).toMatchObject({

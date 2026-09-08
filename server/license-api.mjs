@@ -418,12 +418,64 @@ function licenseFromPurchases(sessionId, purchases) {
   }
 }
 
-function purchaseMatchesStripeObject(purchase, object) {
+function expandableStripeId(value) {
+  if (typeof value === "string" && value) return value
+  if (value && typeof value.id === "string" && value.id) return value.id
+  return undefined
+}
+
+function stripePaymentIntentId(object) {
   return (
-    (typeof object?.payment_intent === "string" &&
-      purchase.stripePaymentIntentId === object.payment_intent) ||
-    (typeof object?.checkout_session === "string" &&
-      purchase.stripeCheckoutSessionId === object.checkout_session) ||
+    expandableStripeId(object?.payment_intent) ??
+    expandableStripeId(object?.charge?.payment_intent)
+  )
+}
+
+function stripeCheckoutSessionId(object) {
+  const checkoutSession = expandableStripeId(object?.checkout_session)
+  if (checkoutSession) return checkoutSession
+  if (typeof object?.id === "string" && object.id.startsWith("cs_")) {
+    return object.id
+  }
+  return undefined
+}
+
+function stripeChargeId(object) {
+  const charge = expandableStripeId(object?.charge)
+  if (charge) return charge
+  if (typeof object?.id === "string" && object.id.startsWith("ch_")) {
+    return object.id
+  }
+  return undefined
+}
+
+function pendingStripeRevocationKeys({
+  paymentIntentId,
+  checkoutSessionId,
+  chargeId
+} = {}) {
+  return [
+    paymentIntentId ? `pi:${paymentIntentId}` : undefined,
+    checkoutSessionId ? `cs:${checkoutSessionId}` : undefined,
+    chargeId ? `ch:${chargeId}` : undefined
+  ].filter(Boolean)
+}
+
+function pendingStripeRevocationFromObject(object, reason) {
+  const paymentIntentId = stripePaymentIntentId(object)
+  const checkoutSessionId = stripeCheckoutSessionId(object)
+  const chargeId = stripeChargeId(object)
+  if (!paymentIntentId && !checkoutSessionId && !chargeId) return undefined
+  return { paymentIntentId, checkoutSessionId, chargeId, reason }
+}
+
+function purchaseMatchesStripeObject(purchase, object) {
+  const paymentIntentId = stripePaymentIntentId(object)
+  const checkoutSessionId = stripeCheckoutSessionId(object)
+  return (
+    (paymentIntentId && purchase.stripePaymentIntentId === paymentIntentId) ||
+    (checkoutSessionId &&
+      purchase.stripeCheckoutSessionId === checkoutSessionId) ||
     (typeof object?.id === "string" &&
       (purchase.stripeCheckoutSessionId === object.id ||
         purchase.stripePaymentIntentId === object.id))
@@ -618,6 +670,9 @@ export function createMemoryLicenseStore(seed = {}) {
     sessionByStripePaymentIntentId: new Map(
       Object.entries(seed.sessionByStripePaymentIntentId ?? {})
     ),
+    pendingStripeRevocations: new Map(
+      Object.entries(seed.pendingStripeRevocations ?? {})
+    ),
     processedStripeEvents: new Set(seed.processedStripeEvents ?? []),
     analyticsEvents: [...(seed.analyticsEvents ?? [])]
   }
@@ -679,6 +734,21 @@ export function createMemoryLicenseStore(seed = {}) {
     async getSessionIdByStripePaymentIntentId(paymentIntentId) {
       return state.sessionByStripePaymentIntentId.get(paymentIntentId)
     },
+    async recordPendingStripeRevocation(revocation) {
+      const recorded = {
+        ...revocation,
+        recordedAt: revocation.recordedAt ?? now()
+      }
+      for (const key of pendingStripeRevocationKeys(revocation)) {
+        state.pendingStripeRevocations.set(key, recorded)
+      }
+    },
+    async getPendingStripeRevocation(query) {
+      for (const key of pendingStripeRevocationKeys(query)) {
+        const found = state.pendingStripeRevocations.get(key)
+        if (found) return found
+      }
+    },
     async hasProcessedStripeEvent(eventId) {
       return state.processedStripeEvents.has(eventId)
     },
@@ -710,6 +780,9 @@ export function createMemoryLicenseStore(seed = {}) {
         sessionByStripePaymentIntentId: Object.fromEntries(
           state.sessionByStripePaymentIntentId
         ),
+        pendingStripeRevocations: Object.fromEntries(
+          state.pendingStripeRevocations
+        ),
         processedStripeEvents: [...state.processedStripeEvents],
         analyticsEvents: [...state.analyticsEvents]
       }
@@ -729,6 +802,7 @@ export function createJsonFileLicenseStore(filePath) {
           sessionByStripeCustomerId: {},
           sessionByStripeCheckoutSessionId: {},
           sessionByStripePaymentIntentId: {},
+          pendingStripeRevocations: {},
           processedStripeEvents: [],
           analyticsEvents: []
         }
@@ -810,6 +884,25 @@ export function createJsonFileLicenseStore(filePath) {
       const state = await readState()
       return state.sessionByStripePaymentIntentId[paymentIntentId]
     },
+    async recordPendingStripeRevocation(revocation) {
+      await mutate((state) => {
+        state.pendingStripeRevocations ??= {}
+        const recorded = {
+          ...revocation,
+          recordedAt: revocation.recordedAt ?? now()
+        }
+        for (const key of pendingStripeRevocationKeys(revocation)) {
+          state.pendingStripeRevocations[key] = recorded
+        }
+      })
+    },
+    async getPendingStripeRevocation(query) {
+      const state = await readState()
+      const pending = state.pendingStripeRevocations ?? {}
+      for (const key of pendingStripeRevocationKeys(query)) {
+        if (pending[key]) return pending[key]
+      }
+    },
     async hasProcessedStripeEvent(eventId) {
       const state = await readState()
       return state.processedStripeEvents.includes(eventId)
@@ -852,6 +945,27 @@ function sessionFromStripeObject(object) {
   return object?.metadata?.licenseSessionId ?? object?.client_reference_id
 }
 
+async function applyPendingStripeRevocation(purchase, store) {
+  if (typeof store.getPendingStripeRevocation !== "function") return purchase
+  const pending = await store.getPendingStripeRevocation({
+    paymentIntentId: purchase.stripePaymentIntentId,
+    checkoutSessionId: purchase.stripeCheckoutSessionId
+  })
+  if (!pending) return purchase
+  return {
+    ...purchase,
+    status: "inactive",
+    inactiveReason: pending.reason
+  }
+}
+
+async function recordPendingStripeRevocation(store, object, reason) {
+  if (typeof store.recordPendingStripeRevocation !== "function") return
+  const revocation = pendingStripeRevocationFromObject(object, reason)
+  if (!revocation) return
+  await store.recordPendingStripeRevocation(revocation)
+}
+
 async function activateCheckoutSession(session, store) {
   const planId = session?.metadata?.planId
   const sessionId = sessionFromStripeObject(session)
@@ -868,7 +982,7 @@ async function activateCheckoutSession(session, store) {
     return undefined
   }
   const purchasedAt = now()
-  const purchase = {
+  let purchase = {
     planId,
     status: "active",
     email:
@@ -878,45 +992,60 @@ async function activateCheckoutSession(session, store) {
     stripeCustomerId:
       typeof session.customer === "string" ? session.customer : undefined,
     stripeCheckoutSessionId: session.id,
-    stripePaymentIntentId:
-      typeof session.payment_intent === "string"
-        ? session.payment_intent
-        : undefined,
+    stripePaymentIntentId: stripePaymentIntentId(session),
     purchasedAt,
     expiresAt: planExpiry(planId, purchasedAt)
   }
-  const license = licenseFromPurchases(sessionId, [...purchases, purchase])
-  await store.upsertLicense(license)
+  purchase = await applyPendingStripeRevocation(purchase, store)
+  await store.upsertLicense(
+    licenseFromPurchases(sessionId, [...purchases, purchase])
+  )
+  if (purchase.status === "active") {
+    const revoked = await applyPendingStripeRevocation(purchase, store)
+    if (revoked.status !== "active") {
+      const latest = await store.getLicenseBySessionId(sessionId)
+      const nextPurchases = purchasesForLicense(latest).map((item) =>
+        item.stripeCheckoutSessionId === session.id ? revoked : item
+      )
+      await store.upsertLicense(licenseFromPurchases(sessionId, nextPurchases))
+      purchase = revoked
+    }
+  }
   return purchase
 }
 
 async function deactivateStripeObject(object, store, reason) {
+  const paymentIntentId = stripePaymentIntentId(object)
+  const checkoutSessionId = stripeCheckoutSessionId(object)
   let sessionId = sessionFromStripeObject(object)
-  if (!sessionId && typeof object?.payment_intent === "string") {
-    sessionId = await store.getSessionIdByStripePaymentIntentId(
-      object.payment_intent
-    )
+  if (!sessionId && paymentIntentId) {
+    sessionId = await store.getSessionIdByStripePaymentIntentId(paymentIntentId)
   }
-  if (!sessionId && typeof object?.checkout_session === "string") {
-    sessionId = await store.getSessionIdByStripeCheckoutSessionId(
-      object.checkout_session
-    )
+  if (!sessionId && checkoutSessionId) {
+    sessionId =
+      await store.getSessionIdByStripeCheckoutSessionId(checkoutSessionId)
   }
-  if (!sessionId) return undefined
-  const license = await store.getLicenseBySessionId(sessionId)
-  if (!license) return undefined
   let deactivated
-  const purchases = purchasesForLicense(license).map((purchase) => {
-    if (!purchaseMatchesStripeObject(purchase, object)) return purchase
-    deactivated = purchase
-    return {
-      ...purchase,
-      status: "inactive",
-      inactiveReason: reason
+  if (sessionId) {
+    const license = await store.getLicenseBySessionId(sessionId)
+    if (license) {
+      const purchases = purchasesForLicense(license).map((purchase) => {
+        if (!purchaseMatchesStripeObject(purchase, object)) return purchase
+        deactivated = purchase
+        return {
+          ...purchase,
+          status: "inactive",
+          inactiveReason: reason
+        }
+      })
+      if (deactivated) {
+        await store.upsertLicense(licenseFromPurchases(sessionId, purchases))
+      }
     }
-  })
-  if (!deactivated) return undefined
-  await store.upsertLicense(licenseFromPurchases(sessionId, purchases))
+  }
+  if (!deactivated) {
+    await recordPendingStripeRevocation(store, object, reason)
+  }
   return deactivated
 }
 
@@ -957,11 +1086,19 @@ export async function handleStripeWebhook(request, env, store) {
     event.type === "checkout.session.completed" ||
     event.type === "checkout.session.async_payment_succeeded"
   ) {
-    const license = await activateCheckoutSession(object, store)
-    if (license) {
+    const purchase = await activateCheckoutSession(object, store)
+    if (purchase?.status === "active") {
       await recordMonetizationEvent(store, {
         name: "purchase_completed",
-        planId: license.planId
+        planId: purchase.planId
+      })
+    } else if (purchase?.status === "inactive") {
+      await recordMonetizationEvent(store, {
+        name:
+          purchase.inactiveReason === "charge.refunded"
+            ? "purchase_refunded"
+            : "purchase_failed",
+        planId: purchase.planId
       })
     }
   } else if (event.type === "checkout.session.expired") {
