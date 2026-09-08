@@ -337,11 +337,26 @@ export async function readLocalStorage(
 }
 
 export async function clearStorage(context: BrowserContext): Promise<void> {
-  await withExtensionStorage(context, (page) =>
-    page.evaluate(
-      () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+  // Best-effort: Playwright Chromium extension contexts sometimes reject
+  // helper tabs during teardown (createTarget / closed context). Do not fail
+  // an otherwise-passing test from cleanup alone.
+  try {
+    await withExtensionStorage(context, (page) =>
+      page.evaluate(
+        () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+      )
     )
-  )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (
+      message.includes("Target.createTarget") ||
+      message.includes("Failed to open a new tab") ||
+      message.includes("has been closed")
+    ) {
+      return
+    }
+    throw error
+  }
 }
 
 // ============================================================

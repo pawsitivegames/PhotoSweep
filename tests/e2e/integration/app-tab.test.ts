@@ -563,10 +563,10 @@ test("does not open a stale checkout tab after results reset", async () => {
     ).toHaveLength(0)
   } finally {
     releaseCheckout()
-    await page.close()
-    await stub.close()
     await context.unroute(`${apiBaseUrl}/checkout`)
     await clearStorage(context)
+    await page.close()
+    await stub.close()
   }
 })
 
@@ -657,6 +657,9 @@ test("keeps the free-results exit clickable after an unverified checkout return"
     ).toBeVisible()
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
   } finally {
+    await context.unroute(`${apiBaseUrl}/checkout`)
+    await context.unroute(`${apiBaseUrl}/entitlement`)
+    await clearStorage(context)
     for (const candidate of context.pages()) {
       if (candidate !== page && candidate !== stub) {
         await candidate.close().catch(() => {})
@@ -664,9 +667,6 @@ test("keeps the free-results exit clickable after an unverified checkout return"
     }
     await page.close()
     await stub.close()
-    await context.unroute(`${apiBaseUrl}/checkout`)
-    await context.unroute(`${apiBaseUrl}/entitlement`)
-    await clearStorage(context)
   }
 })
 
