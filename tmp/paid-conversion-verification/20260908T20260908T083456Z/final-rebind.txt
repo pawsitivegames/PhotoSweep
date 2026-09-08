@@ -1,0 +1,265 @@
+=== rebind timestamp ===
+Tue Sep  8 09:02:20 UTC 2026
+=== base ===
+expected dd28bca987f107210304a85e13a4f3844525d459
+dd28bca987f107210304a85e13a4f3844525d459
+=== current status ===
+ M components/RatingPromptDialog.tsx
+ M components/UpgradeDialog.tsx
+ M lib/license-client.ts
+ M lib/paid-access-lifecycle.ts
+ M lib/privacy-analytics.ts
+ M lib/rating-prompt.ts
+ M server/license-api.mjs
+ M tabs/app.tsx
+ M tests/components/rating-prompt-dialog.test.tsx
+ M tests/components/upgrade-dialog.test.tsx
+ M tests/e2e/fixtures/extension.ts
+ M tests/e2e/fixtures/gptk-stub.html
+ M tests/e2e/integration/app-tab.test.ts
+ M tests/e2e/integration/trash-undo.test.ts
+ M tests/lib/license-client.test.ts
+ M tests/lib/paid-access-lifecycle.test.ts
+ M tests/lib/privacy-analytics.test.ts
+ M tests/lib/rating-prompt.test.ts
+ M tests/server/license-api.test.ts
+?? docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+?? docs/PAID_CONVERSION_PLAN.md
+?? lib/paid-conversion.ts
+?? tests/lib/paid-conversion.test.ts
+?? tmp/ocr.swift
+?? tmp/paid-conversion-implementation-20260908/CANDIDATE_FREEZE.md
+?? tmp/paid-conversion-implementation-20260908/base-sha.txt
+?? tmp/paid-conversion-implementation-20260908/build-commandline-tools-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-commandline-tools.log
+?? tmp/paid-conversion-implementation-20260908/build-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-final-production-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-final-production-flags.txt
+?? tmp/paid-conversion-implementation-20260908/build-final-production-repair2-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-final-production-repair2-flags.txt
+?? tmp/paid-conversion-implementation-20260908/build-final-production-repair2.log
+?? tmp/paid-conversion-implementation-20260908/build-final-production.log
+?? tmp/paid-conversion-implementation-20260908/build-free-exit-repair-dev-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-free-exit-repair-dev.log
+?? tmp/paid-conversion-implementation-20260908/build-free-exit-repair-production-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-free-exit-repair-production-flags.txt
+?? tmp/paid-conversion-implementation-20260908/build-free-exit-repair-production.log
+?? tmp/paid-conversion-implementation-20260908/build-repair-dev-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-repair-dev.log
+?? tmp/paid-conversion-implementation-20260908/build-repair-production-bundle-flag.txt
+?? tmp/paid-conversion-implementation-20260908/build-repair-production-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-repair-production-flags.txt
+?? tmp/paid-conversion-implementation-20260908/build-repair-production.log
+?? tmp/paid-conversion-implementation-20260908/build-repair2-dev-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-repair2-dev-full-exit.txt
+?? tmp/paid-conversion-implementation-20260908/build-repair2-dev-full.log
+?? tmp/paid-conversion-implementation-20260908/build-repair2-dev.log
+?? tmp/paid-conversion-implementation-20260908/build.log
+?? tmp/paid-conversion-implementation-20260908/candidate-sha256.txt
+?? tmp/paid-conversion-implementation-20260908/candidate-status.txt
+?? tmp/paid-conversion-implementation-20260908/candidate-tracked.patch
+?? tmp/paid-conversion-implementation-20260908/candidate-untracked.patch
+?? tmp/paid-conversion-implementation-20260908/diff-check-exit.txt
+?? tmp/paid-conversion-implementation-20260908/diff-check-free-exit-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/diff-check-free-exit-repair.log
+?? tmp/paid-conversion-implementation-20260908/diff-check-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/diff-check-repair.log
+?? tmp/paid-conversion-implementation-20260908/diff-check-repair2-exit.txt
+?? tmp/paid-conversion-implementation-20260908/diff-check-repair2.log
+?? tmp/paid-conversion-implementation-20260908/diff-check.log
+?? tmp/paid-conversion-implementation-20260908/final-runtime-probes-free-exit-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/final-runtime-probes-free-exit-repair.log
+?? tmp/paid-conversion-implementation-20260908/focused-final-exit.txt
+?? tmp/paid-conversion-implementation-20260908/focused-final.log
+?? tmp/paid-conversion-implementation-20260908/focused-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/focused-repair.log
+?? tmp/paid-conversion-implementation-20260908/focused-repair2-exit.txt
+?? tmp/paid-conversion-implementation-20260908/focused-repair2.log
+?? tmp/paid-conversion-implementation-20260908/full-test-exit.txt
+?? tmp/paid-conversion-implementation-20260908/full-test-final-exit.txt
+?? tmp/paid-conversion-implementation-20260908/full-test-final-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/full-test-final-repair.log
+?? tmp/paid-conversion-implementation-20260908/full-test-final.log
+?? tmp/paid-conversion-implementation-20260908/full-test-free-exit-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/full-test-free-exit-repair.log
+?? tmp/paid-conversion-implementation-20260908/full-test-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/full-test-repair.log
+?? tmp/paid-conversion-implementation-20260908/full-test-repair2-exit.txt
+?? tmp/paid-conversion-implementation-20260908/full-test-repair2.log
+?? tmp/paid-conversion-implementation-20260908/full-test.log
+?? tmp/paid-conversion-implementation-20260908/integration-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-free-exit-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-free-exit-repair-full-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-free-exit-repair-full.log
+?? tmp/paid-conversion-implementation-20260908/integration-free-exit-repair.log
+?? tmp/paid-conversion-implementation-20260908/integration-repair-dev-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-repair-dev.log
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-deferred-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-deferred.log
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-full-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-full.log
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-targeted-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-targeted-final-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-targeted-final.log
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-targeted.log
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-targeted2-exit.txt
+?? tmp/paid-conversion-implementation-20260908/integration-repair2-targeted2.log
+?? tmp/paid-conversion-implementation-20260908/integration.log
+?? tmp/paid-conversion-implementation-20260908/paywall-claim-search.log
+?? tmp/paid-conversion-implementation-20260908/prettier-final-exit.txt
+?? tmp/paid-conversion-implementation-20260908/prettier-final.log
+?? tmp/paid-conversion-implementation-20260908/prettier-free-exit-repair-check-exit.txt
+?? tmp/paid-conversion-implementation-20260908/prettier-free-exit-repair-check.log
+?? tmp/paid-conversion-implementation-20260908/prettier-free-exit-repair-write-exit.txt
+?? tmp/paid-conversion-implementation-20260908/prettier-free-exit-repair-write.log
+?? tmp/paid-conversion-implementation-20260908/prettier-repair2-check-exit.txt
+?? tmp/paid-conversion-implementation-20260908/prettier-repair2-check.log
+?? tmp/paid-conversion-implementation-20260908/prettier-repair2-tests-exit.txt
+?? tmp/paid-conversion-implementation-20260908/prettier-repair2-tests.log
+?? tmp/paid-conversion-implementation-20260908/prettier-repair2-write-exit.txt
+?? tmp/paid-conversion-implementation-20260908/prettier-repair2-write.log
+?? tmp/paid-conversion-implementation-20260908/typecheck-exit.txt
+?? tmp/paid-conversion-implementation-20260908/typecheck-free-exit-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/typecheck-free-exit-repair.log
+?? tmp/paid-conversion-implementation-20260908/typecheck-repair-exit.txt
+?? tmp/paid-conversion-implementation-20260908/typecheck-repair.log
+?? tmp/paid-conversion-implementation-20260908/typecheck-repair2-exit.txt
+?? tmp/paid-conversion-implementation-20260908/typecheck-repair2.log
+?? tmp/paid-conversion-implementation-20260908/typecheck.log
+?? tmp/paid-conversion-verification/20260908T075254Z/interim-review-failures.md
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/CANDIDATE_FREEZE.md
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/audit-extension-package-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/audit-extension-package.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-fixture-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-fixture-final-probe-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-fixture-final-probe.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-fixture-flags.ts
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-fixture.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-production-default-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/build-production-default.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/candidate-binding.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/candidate-sha256.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/candidate-status.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/candidate-tracked.patch
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/candidate-untracked.patch
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/checkout-free-exit-failure.md
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/current-tracked.diff
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/evidence-artifact-sha256.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-rebind.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-final-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-final.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-rerun-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-rerun.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-rerun2-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes-rerun2.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.config.ts
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/fixture-probe-flags.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/focused-fixture-flags.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/focused-unit-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/focused-unit-fixture-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/focused-unit-fixture.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/focused-unit.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/freeze-bind.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/full-unit-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/full-unit.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/integration-app-trash-cross-tab-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/integration-app-trash-cross-tab.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/post-verification-binding.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/prettier-check-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/prettier-check.log
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/production-flags-and-package.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/reclaimed-task-downloads.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/static-searches.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/typecheck-exit.txt
+?? tmp/paid-conversion-verification/20260908T20260908T083456Z/typecheck.log
+?? tmp/release-gate/20260728T222128Z/benchmarks.log
+?? tmp/release-gate/20260728T222128Z/diff-check.log
+?? tmp/release-gate/20260728T222128Z/install-gptk.log
+?? tmp/release-gate/20260728T222128Z/install-root.log
+?? tmp/release-gate/20260728T222128Z/integration-build.log
+?? tmp/release-gate/20260728T222128Z/integration-tests.log
+?? tmp/release-gate/20260728T222128Z/production-audit.log
+?? tmp/release-gate/20260728T222128Z/results.json
+?? tmp/release-gate/20260728T222128Z/results.md
+?? tmp/release-gate/20260728T222128Z/signature-audit.log
+?? tmp/release-gate/20260728T222128Z/tests.log
+?? tmp/release-gate/20260728T222128Z/typecheck.log
+=== frozen status ===
+ M components/RatingPromptDialog.tsx
+ M components/UpgradeDialog.tsx
+ M lib/license-client.ts
+ M lib/paid-access-lifecycle.ts
+ M lib/privacy-analytics.ts
+ M lib/rating-prompt.ts
+ M server/license-api.mjs
+ M tabs/app.tsx
+ M tests/components/rating-prompt-dialog.test.tsx
+ M tests/components/upgrade-dialog.test.tsx
+ M tests/e2e/fixtures/extension.ts
+ M tests/e2e/fixtures/gptk-stub.html
+ M tests/e2e/integration/app-tab.test.ts
+ M tests/e2e/integration/trash-undo.test.ts
+ M tests/lib/license-client.test.ts
+ M tests/lib/paid-access-lifecycle.test.ts
+ M tests/lib/privacy-analytics.test.ts
+ M tests/lib/rating-prompt.test.ts
+ M tests/server/license-api.test.ts
+?? docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+?? docs/PAID_CONVERSION_PLAN.md
+?? lib/paid-conversion.ts
+?? tests/lib/paid-conversion.test.ts
+?? tmp/
+=== changed-file hash check ===
+components/RatingPromptDialog.tsx: OK
+components/UpgradeDialog.tsx: OK
+lib/license-client.ts: OK
+lib/paid-access-lifecycle.ts: OK
+lib/paid-conversion.ts: OK
+lib/privacy-analytics.ts: OK
+lib/rating-prompt.ts: OK
+server/license-api.mjs: OK
+tabs/app.tsx: OK
+tests/components/rating-prompt-dialog.test.tsx: OK
+tests/components/upgrade-dialog.test.tsx: OK
+tests/e2e/fixtures/extension.ts: OK
+tests/e2e/fixtures/gptk-stub.html: OK
+tests/e2e/integration/app-tab.test.ts: OK
+tests/e2e/integration/trash-undo.test.ts: OK
+tests/lib/license-client.test.ts: OK
+tests/lib/paid-access-lifecycle.test.ts: OK
+tests/lib/paid-conversion.test.ts: OK
+tests/lib/privacy-analytics.test.ts: OK
+tests/lib/rating-prompt.test.ts: OK
+tests/server/license-api.test.ts: OK
+docs/PAID_CONVERSION_PLAN.md: OK
+docs/PAID_CONVERSION_FORMAL_VERIFICATION.md: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/base-sha.txt: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-status.txt: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-tracked.patch: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-untracked.patch: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/CANDIDATE_FREEZE.md: OK
+=== diff check ===
+=== tracked diff stat ===
+ components/RatingPromptDialog.tsx              |   2 +-
+ components/UpgradeDialog.tsx                   |  90 ++-
+ lib/license-client.ts                          |  42 +-
+ lib/paid-access-lifecycle.ts                   | 153 ++++-
+ lib/privacy-analytics.ts                       | 118 +++-
+ lib/rating-prompt.ts                           |  31 +-
+ server/license-api.mjs                         | 100 ++-
+ tabs/app.tsx                                   | 866 +++++++++++++++++++++----
+ tests/components/rating-prompt-dialog.test.tsx |   2 +-
+ tests/components/upgrade-dialog.test.tsx       |  38 ++
+ tests/e2e/fixtures/extension.ts                |  23 +-
+ tests/e2e/fixtures/gptk-stub.html              |   8 +
+ tests/e2e/integration/app-tab.test.ts          | 444 ++++++++++++-
+ tests/e2e/integration/trash-undo.test.ts       | 102 ++-
+ tests/lib/license-client.test.ts               |  62 +-
+ tests/lib/paid-access-lifecycle.test.ts        | 217 ++++++-
+ tests/lib/privacy-analytics.test.ts            |  38 ++
+ tests/lib/rating-prompt.test.ts                |  34 +-
+ tests/server/license-api.test.ts               |  51 +-
+ 19 files changed, 2201 insertions(+), 220 deletions(-)

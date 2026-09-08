@@ -1,0 +1,17 @@
+(node:28735) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:28736) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:28736) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:28736) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:262:5 › closes a paid prompt when a connected account changes (922ms)
+  ✓  2 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:327:5 › drops a delayed old-account trash result after identity changes (2.0s)
+  ✓  3 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:406:5 › retires a deferred scan upgrade suggestion after identity changes (913ms)
+  ✓  4 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:497:5 › does not open a stale checkout tab after results reset (1.4s)
+  ✓  5 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:422:5 › retires an old Undo restore when the connected account changes (2.5s)
+
+  5 passed (9.3s)

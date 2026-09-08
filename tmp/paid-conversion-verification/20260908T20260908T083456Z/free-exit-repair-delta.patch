@@ -1,0 +1,227 @@
+--- tmp/paid-conversion-verification/20260908T20260908T083456Z/candidate-tracked.patch	2026-09-08 01:36:07
++++ tmp/paid-conversion-implementation-20260908/candidate-tracked.patch	2026-09-08 02:01:07
+@@ -843,7 +843,7 @@
+    )
+  }
+ diff --git a/tabs/app.tsx b/tabs/app.tsx
+-index 7eadf53..dc44776 100644
++index 7eadf53..98e4166 100644
+ --- a/tabs/app.tsx
+ +++ b/tabs/app.tsx
+ @@ -93,16 +93,23 @@ import {
+@@ -2223,6 +2223,15 @@
+            void completeRatingPrompt()
+          }}
+        />
++@@ -4000,7 +4637,7 @@ export default function App() {
++ 
++       {/* Undo trash snackbar */}
++       <Snackbar
++-        open={!!undoData && !trashWarning}
+++        open={!!undoData && !trashWarning && !upgradePrompt}
++         autoHideDuration={null}
++         onClose={handleUndoClose}
++         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+ @@ -4014,7 +4651,11 @@ export default function App() {
+              <Button color="secondary" size="small" onClick={handleUndo}>
+                Undo
+@@ -2236,9 +2245,12 @@
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </>
+-@@ -4024,7 +4665,7 @@ export default function App() {
++@@ -4022,9 +4663,9 @@ export default function App() {
++       />
++ 
+        <Snackbar
+-         open={!!trashWarning}
++-        open={!!trashWarning}
+++        open={!!trashWarning && !upgradePrompt}
+          autoHideDuration={null}
+ -        onClose={() => setTrashWarning(null)}
+ +        onClose={() => setTrashWarningSafely(null)}
+@@ -2389,7 +2401,7 @@
+            replyError(
+              command,
+ diff --git a/tests/e2e/integration/app-tab.test.ts b/tests/e2e/integration/app-tab.test.ts
+-index e87df5b..11145a8 100644
++index e87df5b..1a2001c 100644
+ --- a/tests/e2e/integration/app-tab.test.ts
+ +++ b/tests/e2e/integration/app-tab.test.ts
+ @@ -237,7 +237,9 @@ test("clears saved results and selections when a different Google account is det
+@@ -2403,7 +2415,7 @@
+      timeout: 8_000
+    })
+    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+-@@ -257,6 +259,316 @@ test("clears saved results and selections when a different Google account is det
++@@ -257,6 +259,415 @@ test("clears saved results and selections when a different Google account is det
+    await clearStorage(context)
+  })
+  
+@@ -2716,11 +2728,110 @@
+ +    await clearStorage(context)
+ +  }
+ +})
+++
+++test("keeps the free-results exit clickable after an unverified checkout return", async () => {
+++  await clearStorage(context)
+++  const apiBaseUrl =
+++    process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
+++    "https://photosweep-license-api-206538169327.us-west1.run.app"
+++  const { groups, mediaItems } = makeGroups(2, 7)
+++  await injectScanResults(
+++    context,
+++    groups,
+++    mediaItems,
+++    Object.keys(mediaItems).length,
+++    "test@example.com"
+++  )
+++  await injectSelections(
+++    context,
+++    groups.map((group) => group.id)
+++  )
+ +
+++  let checkoutStarts = 0
+++  let entitlementRefreshes = 0
+++  await context.route(`${apiBaseUrl}/checkout`, async (route) => {
+++    checkoutStarts += 1
+++    await route.fulfill({
+++      status: 200,
+++      contentType: "application/json",
+++      body: JSON.stringify({
+++        url: "https://checkout.test/return",
+++        planId: "lifetime"
+++      })
+++    })
+++  })
+++  await context.route(`${apiBaseUrl}/entitlement`, async (route) => {
+++    entitlementRefreshes += 1
+++    await route.fulfill({
+++      status: 200,
+++      contentType: "application/json",
+++      body: JSON.stringify({ token: "not-a-signed-entitlement" })
+++    })
+++  })
+++
+++  const stub = await openGptkStubPage(context)
+++  const page = await openAppTab(context, extensionId)
+++  try {
+++    await expect(
+++      page.getByRole("heading", {
+++        name: "2 Duplicate Sets to Review",
+++        exact: true
+++      })
+++    ).toBeVisible({ timeout: 8_000 })
+++    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+++    await page
+++      .getByRole("button", { name: /Review & move 12 to Trash/i })
+++      .click()
+++    await expect(
+++      page.getByRole("heading", { name: "Unlock larger cleanup" })
+++    ).toBeVisible()
+++    await page
+++      .getByRole("button", { name: /Choose Lifetime Early Access/i })
+++      .click()
+++    await expect.poll(() => checkoutStarts).toBe(1)
+++
+++    // The checkout-opened recovery message is retained for after-close
+++    // visibility but must not render an alert above the open dialog.
+++    await expect(
+++      page.getByRole("alert").filter({ hasText: /Checkout opened/i })
+++    ).not.toBeVisible()
+++
+++    await page.bringToFront()
+++    await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+++    await expect.poll(() => entitlementRefreshes).toBeGreaterThan(0)
+++    await expect(
+++      page.getByText(
+++        /Payment is still being confirmed|Payment could not be verified yet/i
+++      )
+++    ).toBeVisible({ timeout: 8_000 })
+++
+++    // This is intentionally a normal pointer click. A persistent Snackbar
+++    // must not intercept the dialog's free exit.
+++    await page
+++      .getByRole("button", { name: "Keep reviewing free results" })
+++      .click()
+++    await expect(
+++      page.getByRole("button", { name: /Review & move 12 to Trash/i })
+++    ).toBeVisible()
+++    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
+++  } finally {
+++    for (const candidate of context.pages()) {
+++      if (candidate !== page && candidate !== stub) {
+++        await candidate.close().catch(() => {})
+++      }
+++    }
+++    await page.close()
+++    await stub.close()
+++    await context.unroute(`${apiBaseUrl}/checkout`)
+++    await context.unroute(`${apiBaseUrl}/entitlement`)
+++    await clearStorage(context)
+++  }
+++})
+++
+  test("clears legacy saved results when the current Google account is known", async () => {
+    await clearStorage(context)
+    await injectScanResults(
+-@@ -286,7 +598,9 @@ test("clears legacy saved results when the current Google account is known", asy
++@@ -286,7 +697,9 @@ test("clears legacy saved results when the current Google account is known", asy
+    })
+    const page = await openAppTab(context, extensionId)
+  
+@@ -2731,7 +2842,7 @@
+      timeout: 8_000
+    })
+    await expect(page.getByText("Signed in as known@example.com")).toBeVisible()
+-@@ -465,7 +779,9 @@ test("clears resumable checkpoint when a different Google account is detected",
++@@ -465,7 +878,9 @@ test("clears resumable checkpoint when a different Google account is detected",
+  
+    const page = await openAppTab(context, extensionId)
+  
+@@ -2742,15 +2853,15 @@
+      timeout: 8_000
+    })
+    await expect(
+-@@ -517,14 +833,9 @@ test("resumes duplicate detection from a checkpointed media list without refetch
++@@ -517,14 +932,9 @@ test("resumes duplicate detection from a checkpointed media list without refetch
+    await expect(page.getByText(/No duplicates found/i)).toBeVisible({
+      timeout: 10_000
+    })
+ -  await expect(page.getByText("How was your PhotoSweep scan?")).toBeVisible()
+--  await expect(
++   await expect(
+ -    page.getByRole("button", { name: "Leave an honest review" })
+ -  ).toBeVisible()
+-   await expect(
++-  await expect(
+ -    page.getByRole("button", { name: "Send feedback" })
+ -  ).toBeVisible()
+ -  await page.getByRole("button", { name: "Maybe later" }).click()
+@@ -2759,7 +2870,7 @@
+  
+    const ratingPrompt = await context.serviceWorkers()[0].evaluate(
+      () =>
+-@@ -532,11 +843,7 @@ test("resumes duplicate detection from a checkpointed media list without refetch
++@@ -532,11 +942,7 @@ test("resumes duplicate detection from a checkpointed media list without refetch
+          chrome.storage.local.get("ratingPrompt", resolve)
+        })
+    )
+@@ -2772,7 +2883,7 @@
+  
+    const commands = await gpPage.evaluate(
+      () =>
+-@@ -762,7 +1069,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
++@@ -762,7 +1168,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
+    })
+  
+    await page.getByRole("button", { name: /Scan again/i }).click()
+@@ -2783,7 +2894,7 @@
+      timeout: 8_000
+    })
+  
+-@@ -781,7 +1090,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
++@@ -781,7 +1189,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
+    expect(stored.scanCheckpoint).toBeUndefined()
+  
+    await page.reload()

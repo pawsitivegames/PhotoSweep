@@ -1,0 +1,105 @@
+{
+  "metadata": {
+    "repo": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder",
+    "utc": "20260728T222128Z",
+    "mode": "full",
+    "head": "e7a073e43cefe64d7f147a9c0d90e79858e34218",
+    "branch": "main",
+    "version": "2.2.5",
+    "node": "v22.23.1",
+    "npm": "10.9.8"
+  },
+  "results": [
+    {
+      "gate": "install-root",
+      "status": "FAIL",
+      "seconds": 42.24,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/install-root.log",
+      "note": "exit 1"
+    },
+    {
+      "gate": "install-gptk",
+      "status": "FAIL",
+      "seconds": 3.8,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/install-gptk.log",
+      "note": "exit 1"
+    },
+    {
+      "gate": "diff-check",
+      "status": "PASS",
+      "seconds": 0.03,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/diff-check.log",
+      "note": "exit 0"
+    },
+    {
+      "gate": "typecheck",
+      "status": "FAIL",
+      "seconds": 0.1,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/typecheck.log",
+      "note": "exit 127"
+    },
+    {
+      "gate": "tests",
+      "status": "FAIL",
+      "seconds": 0.1,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/tests.log",
+      "note": "exit 127"
+    },
+    {
+      "gate": "production-audit",
+      "status": "FAIL",
+      "seconds": 0.43,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/production-audit.log",
+      "note": "exit 1"
+    },
+    {
+      "gate": "signature-audit",
+      "status": "FAIL",
+      "seconds": 0.81,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/signature-audit.log",
+      "note": "exit 1"
+    },
+    {
+      "gate": "benchmarks",
+      "status": "FAIL",
+      "seconds": 8.36,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/benchmarks.log",
+      "note": "exit 1"
+    },
+    {
+      "gate": "integration-build",
+      "status": "FAIL",
+      "seconds": 0.63,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/integration-build.log",
+      "note": "exit 127"
+    },
+    {
+      "gate": "integration-tests",
+      "status": "FAIL",
+      "seconds": 2.06,
+      "log": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/release-gate/20260728T222128Z/integration-tests.log",
+      "note": "exit 1"
+    },
+    {
+      "gate": "production-package",
+      "status": "UNVERIFIED",
+      "seconds": 0.0,
+      "log": null,
+      "note": "missing required variable names: PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL, PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION, PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY"
+    },
+    {
+      "gate": "package-audit",
+      "status": "UNVERIFIED",
+      "seconds": 0.0,
+      "log": null,
+      "note": "production package was not built"
+    },
+    {
+      "gate": "live-google",
+      "status": "UNVERIFIED",
+      "seconds": 0.0,
+      "log": null,
+      "note": "not requested; live provider evidence is separate"
+    }
+  ]
+}

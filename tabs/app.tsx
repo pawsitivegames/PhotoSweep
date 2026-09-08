@@ -94,15 +94,22 @@ import {
   saveVerifiedEntitlementToken
 } from "../lib/license-client"
 import {
+  PaidAccessLifecycle,
+  PaidAccessNotConfiguredError
+} from "../lib/paid-access-lifecycle"
+import {
+  describePaidReturnOutcome,
+  shouldShowDeferredUpgrade,
+  type CheckoutReturnState,
+  type DeferredUpgradePrompt,
+  type UpgradeValueFacts
+} from "../lib/paid-conversion"
+import {
   ANALYTICS_CONSENT_STORAGE_KEY,
   countBucket,
   sendPrivacySafeAnalyticsEvent,
   type PrivacySafeAnalyticsEvent
 } from "../lib/privacy-analytics"
-import {
-  PaidAccessLifecycle,
-  PaidAccessNotConfiguredError
-} from "../lib/paid-access-lifecycle"
 import {
   providerBatchLimit as configuredProviderBatchLimit,
   providerFromUrl,
@@ -112,7 +119,7 @@ import {
   chromeWebStoreReviewUrl,
   completeRatingPrompt,
   deferRatingPrompt,
-  recordSuccessfulScan
+  recordSuccessfulCleanup
 } from "../lib/rating-prompt"
 import { reviewReportToCsv } from "../lib/review-report"
 import {
@@ -436,6 +443,76 @@ function fullScanSettingsPatch(
     amazonBatchLimit: scanSettings.amazonBatchLimit,
     icloudBatchLimit: scanSettings.icloudBatchLimit
   }
+}
+
+function scanScopeLabel(settings: ScanSettings): {
+  label: string
+  fullLibrary: boolean
+} {
+  const provider = providerLabel(settings.sourceProvider ?? "google")
+  if (settings.albumScope?.title) {
+    return { label: settings.albumScope.title, fullLibrary: false }
+  }
+  if (settings.albumScope?.mediaKey) {
+    return { label: `selected ${provider} album`, fullLibrary: false }
+  }
+  if (settings.dateRange?.from || settings.dateRange?.to) {
+    return { label: `selected ${provider} date range`, fullLibrary: false }
+  }
+  if (providerBatchLimitForEntitlement(settings) !== undefined) {
+    return { label: `selected ${provider} test batch`, fullLibrary: false }
+  }
+  return { label: `${provider} library currently loaded`, fullLibrary: true }
+}
+
+function DeferredUpgradeBanner({
+  prompt,
+  onOpen,
+  onDismiss
+}: {
+  prompt: DeferredUpgradePrompt
+  onOpen: () => void
+  onDismiss: () => void
+}) {
+  const { facts } = prompt
+  const scope =
+    facts.scopeLabel ??
+    (facts.scopeIsFullLibrary ? "your loaded library" : "the checked scope")
+  const detail =
+    facts.additionalItemsUnavailable !== undefined &&
+    facts.additionalItemsUnavailable > 0
+      ? `${facts.itemsChecked?.toLocaleString() ?? "The checked"} items were analyzed in ${scope}. ${facts.additionalItemsUnavailable.toLocaleString()} additional items were outside this scan.`
+      : facts.duplicateGroupCount !== undefined
+        ? `${facts.duplicateGroupCount.toLocaleString()} duplicate sets were found in ${scope}.`
+        : `Review the duplicate sets found in ${scope}.`
+
+  return (
+    <Alert
+      severity="info"
+      sx={{ mb: 1.5, alignItems: "center" }}
+      action={
+        <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+          <Button size="small" color="inherit" onClick={onOpen}>
+            Compare plans
+          </Button>
+          <IconButton
+            size="small"
+            color="inherit"
+            aria-label="Dismiss upgrade suggestion"
+            onClick={onDismiss}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      }>
+      <Typography variant="body2" fontWeight={800}>
+        Keep reviewing or unlock more of this cleanup
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {detail} Paid access is optional and does not change provider
+        availability.
+      </Typography>
+    </Alert>
+  )
 }
 
 function providerBatchLimitForEntitlement(
@@ -1061,6 +1138,12 @@ type PendingSelections = DuplicateReviewSelections
 // App component
 // ============================================================
 
+type UpgradePromptState = {
+  reason: UpgradeReason
+  detail?: string
+  valueFacts?: UpgradeValueFacts
+}
+
 export default function App() {
   const isSidePanel =
     typeof window !== "undefined" &&
@@ -1113,11 +1196,12 @@ export default function App() {
   }, [])
 
   // Confirm dialog state
-  const [trashConfirm, setTrashConfirm] = useState<DuplicateTrashPlan | null>(
-    null
-  )
+  const [trashConfirm, setTrashConfirmState] =
+    useState<DuplicateTrashPlan | null>(null)
+  const trashConfirmRef = useRef<DuplicateTrashPlan | null>(null)
   const [trashConfirmCount, setTrashConfirmCount] = useState("")
-  const [trashWarning, setTrashWarning] = useState<string | null>(null)
+  const [trashWarning, setTrashWarningState] = useState<string | null>(null)
+  const trashWarningRef = useRef<string | null>(null)
   const [trashMovesThisSession, setTrashMovesThisSession] = useState(0)
   const [reportError, setReportError] = useState<string | null>(null)
   const [cacheEntryCount, setCacheEntryCount] = useState<number | null>(null)
@@ -1137,11 +1221,144 @@ export default function App() {
     source: "none"
   })
   const [entitlementLoaded, setEntitlementLoaded] = useState(false)
-  const [upgradePrompt, setUpgradePrompt] = useState<{
-    reason: UpgradeReason
-    detail?: string
-  } | null>(null)
+  const [upgradePrompt, setUpgradePrompt] = useState<UpgradePromptState | null>(
+    null
+  )
+  const [deferredUpgrade, setDeferredUpgrade] =
+    useState<DeferredUpgradePrompt | null>(null)
+  const deferredUpgradeRef = useRef<DeferredUpgradePrompt | null>(null)
   const [ratingPromptOpen, setRatingPromptOpen] = useState(false)
+  const ratingPromptOpenRef = useRef(false)
+  const ratingPromptDeferredRef = useRef(false)
+  const [checkoutState, setCheckoutState] = useState<CheckoutReturnState>({
+    status: "idle"
+  })
+  const checkoutStateRef = useRef<CheckoutReturnState>({ status: "idle" })
+  const upgradePromptRef = useRef<UpgradePromptState | null>(null)
+  const checkoutPlanRef = useRef<Exclude<PlanId, "free"> | null>(null)
+  const checkoutStartInFlightRef = useRef(false)
+  const checkoutReconcileInFlightRef = useRef(false)
+  const checkoutReconcilePlanRef = useRef<Exclude<PlanId, "free"> | null>(null)
+  const checkoutReconcileAttemptsRef = useRef(0)
+  const paidConversionGenerationRef = useRef(0)
+  const restoreInFlightRef = useRef(false)
+  const restoreGenerationRef = useRef<number | null>(null)
+  const trashGenerationByRequestRef = useRef(new Map<string, number>())
+  const [undoData, setUndoDataState] = useState<TrashUndoData | null>(null)
+  const undoDataRef = useRef<TrashUndoData | null>(null)
+
+  const setTrashConfirmSafely = useCallback(
+    (next: SetStateAction<DuplicateTrashPlan | null>) => {
+      const resolved =
+        typeof next === "function" ? next(trashConfirmRef.current) : next
+      trashConfirmRef.current = resolved
+      setTrashConfirmState(resolved)
+    },
+    []
+  )
+
+  const setTrashWarningSafely = useCallback(
+    (next: SetStateAction<string | null>) => {
+      const resolved =
+        typeof next === "function" ? next(trashWarningRef.current) : next
+      trashWarningRef.current = resolved
+      setTrashWarningState(resolved)
+    },
+    []
+  )
+
+  const setUndoDataSafely = useCallback(
+    (next: SetStateAction<TrashUndoData | null>) => {
+      const resolved =
+        typeof next === "function" ? next(undoDataRef.current) : next
+      undoDataRef.current = resolved
+      setUndoDataState(resolved)
+    },
+    []
+  )
+
+  const setUpgradePromptSafely = useCallback(
+    (next: UpgradePromptState | null) => {
+      upgradePromptRef.current = next
+      setUpgradePrompt(next)
+    },
+    []
+  )
+
+  const setRatingPromptSafely = useCallback((open: boolean) => {
+    ratingPromptOpenRef.current = open
+    setRatingPromptOpen(open)
+  }, [])
+
+  const maybeShowDeferredRatingPrompt = useCallback(() => {
+    if (!ratingPromptDeferredRef.current || ratingPromptOpenRef.current) {
+      return
+    }
+    if (
+      upgradePromptRef.current ||
+      checkoutStateRef.current.status === "pending" ||
+      checkoutStateRef.current.status === "refreshing" ||
+      trashConfirmRef.current ||
+      trashWarningRef.current ||
+      undoDataRef.current ||
+      restoreInFlightRef.current
+    ) {
+      return
+    }
+    ratingPromptDeferredRef.current = false
+    setRatingPromptSafely(true)
+  }, [setRatingPromptSafely])
+
+  useEffect(() => {
+    maybeShowDeferredRatingPrompt()
+  }, [
+    checkoutState,
+    maybeShowDeferredRatingPrompt,
+    trashConfirm,
+    trashWarning,
+    undoData,
+    upgradePrompt
+  ])
+
+  const setCheckoutStateSafely = useCallback(
+    (
+      next:
+        | CheckoutReturnState
+        | ((current: CheckoutReturnState) => CheckoutReturnState)
+    ) => {
+      const resolved =
+        typeof next === "function" ? next(checkoutStateRef.current) : next
+      checkoutStateRef.current = resolved
+      setCheckoutState(resolved)
+    },
+    []
+  )
+
+  const invalidatePaidConversionContext = useCallback(() => {
+    paidConversionGenerationRef.current += 1
+    paidAccessLifecycleRef.current?.invalidateCheckoutContext()
+    trashLifecycleRef.current?.reset()
+    checkoutPlanRef.current = null
+    checkoutReconcilePlanRef.current = null
+    checkoutReconcileAttemptsRef.current = 0
+    checkoutStartInFlightRef.current = false
+    checkoutReconcileInFlightRef.current = false
+    restoreInFlightRef.current = false
+    restoreGenerationRef.current = null
+    trashGenerationByRequestRef.current.clear()
+    deferredUpgradeRef.current = null
+    upgradePromptRef.current = null
+    ratingPromptOpenRef.current = false
+    ratingPromptDeferredRef.current = false
+    checkoutStateRef.current = { status: "idle" }
+    setDeferredUpgrade(null)
+    setTrashConfirmSafely(null)
+    setTrashWarningSafely(null)
+    setUndoDataSafely(null)
+    setUpgradePrompt(null)
+    setRatingPromptOpen(false)
+    setCheckoutState({ status: "idle" })
+  }, [])
   const [licenseApiBaseUrl, setLicenseApiBaseUrl] = useState<
     string | undefined
   >()
@@ -1183,8 +1400,6 @@ export default function App() {
   }
   const storedReviewScope = storedReviewScopeRef.current
 
-  // Undo trash state: stored after a successful trash operation
-  const [undoData, setUndoData] = useState<TrashUndoData | null>(null)
   const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
@@ -1216,10 +1431,21 @@ export default function App() {
   }, [paidAccessLifecycle])
 
   const openUpgradePrompt = useCallback(
-    (reason: UpgradeReason, detail?: string) => {
-      setUpgradePrompt({ reason, detail })
+    (
+      reason: UpgradeReason,
+      detail?: string,
+      valueFacts?: UpgradeValueFacts
+    ) => {
+      if (ratingPromptOpenRef.current) {
+        ratingPromptDeferredRef.current = true
+        setRatingPromptSafely(false)
+      }
+      if (checkoutStateRef.current.status === "active") {
+        setCheckoutStateSafely({ status: "idle" })
+      }
+      setUpgradePromptSafely({ reason, detail, valueFacts })
     },
-    []
+    [setCheckoutStateSafely, setRatingPromptSafely, setUpgradePromptSafely]
   )
 
   const trackEvent = useCallback(
@@ -1274,32 +1500,148 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [
-    entitlementLoaded,
-    licenseApiBaseUrl,
-    paidAccessLifecycle,
-    trackEvent
-  ])
+  }, [entitlementLoaded, licenseApiBaseUrl, paidAccessLifecycle, trackEvent])
 
   const openTrackedUpgradePrompt = useCallback(
-    (reason: UpgradeReason, detail?: string) => {
-      trackEvent({ name: "upgrade_prompt_shown" })
-      openUpgradePrompt(reason, detail)
+    (
+      reason: UpgradeReason,
+      detail?: string,
+      valueFacts?: UpgradeValueFacts
+    ) => {
+      trackEvent({ name: "upgrade_prompt_shown", upgradeReason: reason })
+      openUpgradePrompt(reason, detail, valueFacts)
     },
     [openUpgradePrompt, trackEvent]
   )
 
+  const reconcileCheckoutOnReturn = useCallback(async () => {
+    const pendingPlan = checkoutPlanRef.current
+    const generation = paidConversionGenerationRef.current
+    if (!pendingPlan || checkoutReconcileInFlightRef.current) return
+    if (checkoutReconcilePlanRef.current !== pendingPlan) {
+      checkoutReconcilePlanRef.current = pendingPlan
+      checkoutReconcileAttemptsRef.current = 0
+    }
+    const remainingAttempts = 6 - checkoutReconcileAttemptsRef.current
+    if (remainingAttempts <= 0) return
+    checkoutReconcileInFlightRef.current = true
+    setCheckoutStateSafely((current) => ({
+      ...current,
+      status: "refreshing",
+      planId: pendingPlan,
+      message: "Checking the payment provider for a verified license..."
+    }))
+    try {
+      const result = await paidAccessLifecycle.reconcileCheckoutReturn({
+        planId: pendingPlan,
+        maxAttempts: Math.min(3, remainingAttempts),
+        initialDelayMs: 0,
+        backoffMs: 500
+      })
+      if (
+        generation !== paidConversionGenerationRef.current ||
+        checkoutPlanRef.current !== pendingPlan
+      ) {
+        return
+      }
+      checkoutReconcileAttemptsRef.current += result.attempts
+      const refreshedPlanId = result.stored
+        ? getEffectivePlanId(result.stored.entitlement)
+        : getEffectivePlanId(entitlement)
+      if (result.stored) {
+        setEntitlement(result.stored.entitlement)
+        setEntitlementLoaded(true)
+      }
+      if (result.outcome === "activated" && result.stored) {
+        checkoutPlanRef.current = null
+        checkoutReconcilePlanRef.current = null
+        checkoutReconcileAttemptsRef.current = 0
+        setCheckoutStateSafely({
+          status: "active",
+          planId: pendingPlan,
+          outcome: result.outcome,
+          activation: result.activation,
+          message: describePaidReturnOutcome(
+            result.outcome,
+            PLAN_LABELS[refreshedPlanId]
+          )
+        })
+        setUpgradePromptSafely(null)
+        setTrashWarningSafely(`${PLAN_LABELS[refreshedPlanId]} is active.`)
+      } else {
+        const mismatchMessage =
+          refreshedPlanId !== "free" && refreshedPlanId !== pendingPlan
+            ? `${PLAN_LABELS[refreshedPlanId]} is already active, but ${PLAN_LABELS[pendingPlan]} is not verified. Your review results remain available.`
+            : undefined
+        setCheckoutStateSafely({
+          status: "retryable",
+          planId: pendingPlan,
+          outcome: result.outcome,
+          activation: result.activation,
+          message:
+            mismatchMessage ??
+            describePaidReturnOutcome(result.outcome, PLAN_LABELS[pendingPlan])
+        })
+      }
+      trackEvent({
+        name: "paid_return",
+        planId: refreshedPlanId === "free" ? pendingPlan : refreshedPlanId,
+        paidReturnOutcome: result.outcome,
+        activationOutcome: result.activation
+      })
+    } catch (error) {
+      if (
+        generation !== paidConversionGenerationRef.current ||
+        checkoutPlanRef.current !== pendingPlan
+      ) {
+        return
+      }
+      const message = error instanceof Error ? error.message : String(error)
+      checkoutReconcileAttemptsRef.current += 1
+      setCheckoutStateSafely({
+        status: "retryable",
+        planId: pendingPlan,
+        outcome: "failed",
+        activation: "not_activated",
+        message: `Could not verify payment yet: ${message}`
+      })
+      trackEvent({
+        name: "paid_return",
+        planId: pendingPlan,
+        paidReturnOutcome: "failed",
+        activationOutcome: "not_activated"
+      })
+    } finally {
+      if (generation === paidConversionGenerationRef.current) {
+        checkoutReconcileInFlightRef.current = false
+      }
+    }
+  }, [
+    entitlement,
+    paidAccessLifecycle,
+    setCheckoutStateSafely,
+    setUpgradePromptSafely,
+    trackEvent
+  ])
+
   const handleRefreshEntitlement = useCallback(async () => {
+    const pendingPlan = checkoutPlanRef.current
+    if (pendingPlan) {
+      await reconcileCheckoutOnReturn()
+      return
+    }
+    const generation = paidConversionGenerationRef.current
     try {
       const refreshed = await paidAccessLifecycle.refresh()
+      if (generation !== paidConversionGenerationRef.current) return
       const { stored } = refreshed
       setEntitlement(stored.entitlement)
       setEntitlementLoaded(true)
+      const refreshedPlanId = getEffectivePlanId(stored.entitlement)
       trackEvent({
         name: "entitlement_refreshed",
-        planId: getEffectivePlanId(stored.entitlement)
+        planId: refreshedPlanId
       })
-      const refreshedPlanId = getEffectivePlanId(stored.entitlement)
       if (refreshed.recovery) {
         trackEvent({
           name:
@@ -1309,23 +1651,42 @@ export default function App() {
           planId: refreshedPlanId
         })
       }
-      setTrashWarning(
+      setTrashWarningSafely(
         refreshedPlanId === "free"
           ? "No active paid license was found for this browser session."
           : `${PLAN_LABELS[refreshedPlanId]} is active.`
       )
-      setUpgradePrompt(null)
+      if (refreshedPlanId !== "free") setUpgradePromptSafely(null)
     } catch (error) {
+      if (generation !== paidConversionGenerationRef.current) return
       if (error instanceof PaidAccessNotConfiguredError) {
-        setTrashWarning(
+        setTrashWarningSafely(
           "License refresh is not configured yet. Paid access will unlock once the Stripe license API is connected."
         )
         return
       }
       const message = error instanceof Error ? error.message : String(error)
-      setTrashWarning(`Could not refresh license: ${message}`)
+      setTrashWarningSafely(`Could not refresh license: ${message}`)
     }
-  }, [paidAccessLifecycle, trackEvent])
+  }, [
+    paidAccessLifecycle,
+    reconcileCheckoutOnReturn,
+    setUpgradePromptSafely,
+    trackEvent
+  ])
+
+  useEffect(() => {
+    const handleReturnSignal = () => {
+      if (document.visibilityState === "hidden") return
+      void reconcileCheckoutOnReturn()
+    }
+    window.addEventListener("focus", handleReturnSignal)
+    document.addEventListener("visibilitychange", handleReturnSignal)
+    return () => {
+      window.removeEventListener("focus", handleReturnSignal)
+      document.removeEventListener("visibilitychange", handleReturnSignal)
+    }
+  }, [reconcileCheckoutOnReturn])
 
   const refreshTimeLimitedEntitlementForAction = useCallback(async () => {
     try {
@@ -1335,39 +1696,104 @@ export default function App() {
       return authorized
     } catch (error) {
       if (error instanceof PaidAccessNotConfiguredError) {
-        setTrashWarning(
+        setTrashWarningSafely(
           "Cleanup Pass needs an online license refresh before paid actions. Connect to the internet and refresh your license."
         )
         return null
       }
       const message = error instanceof Error ? error.message : String(error)
-      setTrashWarning(`Could not refresh Cleanup Pass: ${message}`)
+      setTrashWarningSafely(`Could not refresh Cleanup Pass: ${message}`)
       return null
     }
   }, [paidAccessLifecycle])
 
   const handleChooseUpgradePlan = useCallback(
     async (planId: Exclude<PlanId, "free">) => {
+      if (checkoutStartInFlightRef.current) return
+      if (
+        checkoutStateRef.current.status === "pending" ||
+        checkoutStateRef.current.status === "refreshing"
+      ) {
+        return
+      }
+      const generation = paidConversionGenerationRef.current
+      checkoutStartInFlightRef.current = true
+      checkoutPlanRef.current = planId
+      checkoutReconcilePlanRef.current = planId
+      checkoutReconcileAttemptsRef.current = 0
+      setCheckoutStateSafely({
+        status: "pending",
+        planId,
+        message:
+          "Opening secure checkout. Return here after payment so PhotoSweep can verify the license."
+      })
       try {
         const checkout = await paidAccessLifecycle.createCheckout(planId)
-        trackEvent({ name: "checkout_started", planId })
+        if (
+          generation !== paidConversionGenerationRef.current ||
+          checkoutPlanRef.current !== planId
+        ) {
+          return
+        }
+        trackEvent({
+          name: "checkout_started",
+          planId,
+          upgradeReason: upgradePrompt?.reason
+        })
         await chrome.tabs.create({ url: checkout.url })
-        setTrashWarning(
-          "Checkout opened in a new tab. After payment, return here and refresh your license."
+        if (
+          generation !== paidConversionGenerationRef.current ||
+          checkoutPlanRef.current !== planId
+        ) {
+          return
+        }
+        setTrashWarningSafely(
+          "Checkout opened in a new tab. Return here after payment; PhotoSweep will verify the license without changing your review."
         )
       } catch (error) {
+        if (
+          generation !== paidConversionGenerationRef.current ||
+          checkoutPlanRef.current !== planId
+        ) {
+          return
+        }
+        checkoutPlanRef.current = null
+        checkoutReconcilePlanRef.current = null
+        checkoutReconcileAttemptsRef.current = 0
         if (error instanceof PaidAccessNotConfiguredError) {
-          setTrashWarning(
+          setCheckoutStateSafely({
+            status: "failed",
+            planId,
+            outcome: "failed",
+            activation: "not_activated",
+            message: `${PLAN_LABELS[planId]} checkout is not configured yet.`
+          })
+          setTrashWarningSafely(
             `${PLAN_LABELS[planId]} checkout is not configured yet. The extension is enforcing free limits until the Stripe license API is connected.`
           )
-          setUpgradePrompt(null)
           return
         }
         const message = error instanceof Error ? error.message : String(error)
-        setTrashWarning(`Could not start checkout: ${message}`)
+        setCheckoutStateSafely({
+          status: "failed",
+          planId,
+          outcome: "failed",
+          activation: "not_activated",
+          message: `Could not start checkout: ${message}`
+        })
+        setTrashWarningSafely(`Could not start checkout: ${message}`)
+      } finally {
+        if (generation === paidConversionGenerationRef.current) {
+          checkoutStartInFlightRef.current = false
+        }
       }
     },
-    [paidAccessLifecycle, trackEvent]
+    [
+      paidAccessLifecycle,
+      setCheckoutStateSafely,
+      trackEvent,
+      upgradePrompt?.reason
+    ]
   )
 
   const handleRecoverLicense = useCallback(
@@ -1386,6 +1812,24 @@ export default function App() {
     },
     [paidAccessLifecycle, trackEvent]
   )
+
+  const handleOpenDeferredUpgrade = useCallback(() => {
+    if (!deferredUpgrade) return
+    const prompt = deferredUpgrade
+    setDeferredUpgrade(null)
+    openTrackedUpgradePrompt(prompt.reason, undefined, prompt.facts)
+  }, [deferredUpgrade, openTrackedUpgradePrompt])
+
+  const handleDismissDeferredUpgrade = useCallback(() => {
+    if (!deferredUpgrade) return
+    trackEvent({
+      name: "upgrade_prompt_dismissed",
+      upgradeReason: deferredUpgrade.reason,
+      dismissalReason: "continue_free"
+    })
+    deferredUpgradeRef.current = null
+    setDeferredUpgrade(null)
+  }, [deferredUpgrade, trackEvent])
 
   const scanLifecycleRef = useRef(
     new ScanLifecycle({
@@ -1478,6 +1922,16 @@ export default function App() {
 
   const handleTrashProviderResult = useCallback(
     (result: GptkResultMessage) => {
+      const generation = trashGenerationByRequestRef.current.get(
+        result.requestId
+      )
+      trashGenerationByRequestRef.current.delete(result.requestId)
+      if (
+        generation === undefined ||
+        generation !== paidConversionGenerationRef.current
+      ) {
+        return
+      }
       void trashLifecycle
         .reconcile({
           success: result.success,
@@ -1485,13 +1939,14 @@ export default function App() {
           error: result.error
         })
         .then((outcome) => {
+          if (generation !== paidConversionGenerationRef.current) return
           if (outcome.kind === "dry_run") {
             dispatch({ type: "TRASH_COMPLETE", trashedKeys: [] })
             trackEvent({
               name: "trash_completed",
               photoCountBucket: countBucket(0)
             })
-            setTrashWarning(outcome.message)
+            setTrashWarningSafely(outcome.message)
             return
           }
           if (outcome.kind === "failed") {
@@ -1512,28 +1967,57 @@ export default function App() {
               ? { errorCategory: "trash_partial" }
               : {})
           })
-          setUndoData(outcome.undo)
-          if (outcome.message) setTrashWarning(outcome.message)
+          setUndoDataSafely(outcome.undo)
+          if (outcome.message) setTrashWarningSafely(outcome.message)
+          void recordSuccessfulCleanup(
+            outcome.kind === "complete" ? outcome.movedCount : 0
+          )
+            .then((shouldPrompt) => {
+              if (!shouldPrompt) return
+              if (generation !== paidConversionGenerationRef.current) return
+              if (restoreInFlightRef.current) return
+              ratingPromptDeferredRef.current = true
+              maybeShowDeferredRatingPrompt()
+            })
+            .catch(() => {
+              // A storage failure must never interrupt the cleanup result.
+            })
         })
         .catch((error) => {
+          if (generation !== paidConversionGenerationRef.current) return
           const message = error instanceof Error ? error.message : String(error)
           setReportError(`Could not reconcile the trash result: ${message}`)
           dispatch({ type: "TRASH_ERROR", error: message })
         })
     },
-    [trackEvent, trashLifecycle]
+    [
+      maybeShowDeferredRatingPrompt,
+      setUndoDataSafely,
+      setTrashWarningSafely,
+      trackEvent,
+      trashLifecycle
+    ]
   )
 
   const handleRestoreProviderResult = useCallback(
     (result: GptkResultMessage) => {
+      if (
+        restoreGenerationRef.current === null ||
+        restoreGenerationRef.current !== paidConversionGenerationRef.current
+      ) {
+        return
+      }
       const failedUndo = trashLifecycle.reconcileRestore({
         requestId: result.requestId,
         success: result.success
       })
-      if (failedUndo === undefined || failedUndo === null) return
+      if (failedUndo === undefined) return
+      restoreGenerationRef.current = null
+      restoreInFlightRef.current = false
+      if (failedUndo === null) return
       console.error("GPD: Restore failed:", result.error)
-      setUndoData(failedUndo)
-      setTrashWarning(
+      setUndoDataSafely(failedUndo)
+      setTrashWarningSafely(
         `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
       )
     },
@@ -1588,8 +2072,11 @@ export default function App() {
           if (
             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
           ) {
+            invalidatePaidConversionContext()
             scanLifecycle.reset()
             cachedMediaItemsRef.current = null
+            deferredUpgradeRef.current = null
+            setDeferredUpgrade(null)
             pendingSelectionsRef.current = null
             setResumeCheckpoint(null)
             setSelectedGroupIds(new Set())
@@ -1639,7 +2126,7 @@ export default function App() {
       disposed = true
       port.disconnect()
     }
-  }, [isSidePanel, storedReviewScope])
+  }, [invalidatePaidConversionContext, isSidePanel, storedReviewScope])
 
   useEffect(() => {
     if (pendingSelectionsRef.current) {
@@ -1695,7 +2182,10 @@ export default function App() {
     ) {
       return
     }
+    invalidatePaidConversionContext()
     pendingSelectionsRef.current = null
+    deferredUpgradeRef.current = null
+    setDeferredUpgrade(null)
     setSelectedGroupIds(new Set())
     setReviewedGroupIds(new Set())
     setKeptOverrides({})
@@ -1710,7 +2200,12 @@ export default function App() {
         accountEmail: currentAccountEmail
       }
     })
-  }, [accountValidationComplete, state, storedReviewScope])
+  }, [
+    accountValidationComplete,
+    invalidatePaidConversionContext,
+    state,
+    storedReviewScope
+  ])
 
   const handleToggleGroup = useCallback(
     (groupId: string) => {
@@ -1749,6 +2244,18 @@ export default function App() {
       switch (message.action) {
         case "healthCheck.result": {
           const msg = message as HealthCheckResultMessage
+          const currentState = stateRef.current
+          const previousAccountEmail =
+            currentAccountEmailRef.current ??
+            ("accountEmail" in currentState
+              ? currentState.accountEmail
+              : undefined)
+          const accountIdentityChanged = Boolean(
+            msg.success &&
+              previousAccountEmail &&
+              msg.accountEmail &&
+              previousAccountEmail !== msg.accountEmail
+          )
           if (
             !msg.success &&
             healthCheckAttemptsRef.current < HEALTH_CHECK_MAX_ATTEMPTS - 1
@@ -1775,6 +2282,9 @@ export default function App() {
           }
           if (msg.success) {
             healthCheckAttemptsRef.current = 0
+            if (accountIdentityChanged) {
+              invalidatePaidConversionContext()
+            }
             currentAccountEmailRef.current = msg.accountEmail
             currentHasGptkRef.current = msg.hasGptk
             // Health and restore may resolve in either order. Check the
@@ -1784,25 +2294,23 @@ export default function App() {
               msg.accountEmail &&
               (settingsRef.current.sourceProvider ?? "google") === "google"
             ) {
-              void chrome.storage.local
-                .get("scanResults")
-                .then((stored) => {
-                  const scanResults = stored.scanResults as
-                    | { accountEmail?: string; sourceProvider?: string }
-                    | undefined
-                  if (
-                    scanResults &&
-                    !areScanResultsValid(scanResults, {
-                      accountEmail: msg.accountEmail,
-                      sourceProvider: settingsRef.current.sourceProvider ?? "google"
-                    })
-                  ) {
-                    return storedReviewScope.invalidateReview()
-                  }
-                })
+              void chrome.storage.local.get("scanResults").then((stored) => {
+                const scanResults = stored.scanResults as
+                  | { accountEmail?: string; sourceProvider?: string }
+                  | undefined
+                if (
+                  scanResults &&
+                  !areScanResultsValid(scanResults, {
+                    accountEmail: msg.accountEmail,
+                    sourceProvider:
+                      settingsRef.current.sourceProvider ?? "google"
+                  })
+                ) {
+                  return storedReviewScope.invalidateReview()
+                }
+              })
             }
           }
-          const currentState = stateRef.current
           const checkpoint = scanLifecycle.checkpoint
           if (
             msg.success &&
@@ -1928,6 +2436,8 @@ export default function App() {
                   error,
                   message: error
                 })
+                deferredUpgradeRef.current = null
+                setDeferredUpgrade(null)
                 setResumeCheckpoint(scanLifecycle.checkpoint)
                 dispatch({
                   type: "SCAN_ERROR",
@@ -1938,11 +2448,17 @@ export default function App() {
               }
               const limited = limitScanItems(items, entitlement)
               if (limited.lockedItemCount > 0) {
-                const effectivePlanId = getEffectivePlanId(entitlement)
-                openTrackedUpgradePrompt(
-                  "scan",
-                  `Scanned the first ${limited.items.length.toLocaleString()} items for ${PLAN_LABELS[effectivePlanId]}. Upgrade to check the remaining ${limited.lockedItemCount.toLocaleString()} items.`
-                )
+                const scope = scanScopeLabel(settingsRef.current)
+                deferredUpgradeRef.current = {
+                  reason: "scan",
+                  facts: {
+                    provider: settingsRef.current.sourceProvider ?? "google",
+                    scopeLabel: scope.label,
+                    scopeIsFullLibrary: scope.fullLibrary,
+                    itemsChecked: limited.items.length,
+                    additionalItemsUnavailable: limited.lockedItemCount
+                  }
+                }
                 items = limited.items
               }
               dispatch({
@@ -1963,6 +2479,8 @@ export default function App() {
                 result.requestId
               )
             } else {
+              deferredUpgradeRef.current = null
+              setDeferredUpgrade(null)
               patchScanCheckpoint({
                 status: "error",
                 error: result.error || "Scan failed",
@@ -2026,6 +2544,7 @@ export default function App() {
     entitlement,
     handleRestoreProviderResult,
     handleTrashProviderResult,
+    invalidatePaidConversionContext,
     openUpgradePrompt,
     patchScanCheckpoint,
     storedReviewScope
@@ -2130,6 +2649,23 @@ export default function App() {
           }
         }
 
+        const deferredScanPrompt = deferredUpgradeRef.current
+        deferredUpgradeRef.current = null
+        if (deferredScanPrompt && groups.length > 0) {
+          const visibleGroupCount = getVisibleGroups(groups, entitlement).length
+          setDeferredUpgrade({
+            ...deferredScanPrompt,
+            facts: {
+              ...deferredScanPrompt.facts,
+              duplicateGroupCount: groups.length,
+              visibleGroupCount,
+              lockedGroupCount: getLockedGroupCount(groups, entitlement)
+            }
+          })
+        } else {
+          setDeferredUpgrade(null)
+        }
+
         autoSelectNextResultsRef.current = true
         dispatch({
           type: "SCAN_COMPLETE",
@@ -2142,13 +2678,6 @@ export default function App() {
           photoCountBucket: countBucket(items.length),
           duplicateGroupCountBucket: countBucket(groups.length)
         })
-        void recordSuccessfulScan()
-          .then((shouldPrompt) => {
-            if (shouldPrompt) setRatingPromptOpen(true)
-          })
-          .catch(() => {
-            // A storage failure must never interfere with scan results.
-          })
         refreshEmbeddingCacheCount()
         // Refresh account email after scan — the email in state may be stale
         // if the user switched accounts since the last health check.
@@ -2160,6 +2689,8 @@ export default function App() {
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           await logger.finalize("paused")
+          deferredUpgradeRef.current = null
+          setDeferredUpgrade(null)
           const paused = scanLifecycle.pause(requestId)
           if (paused) {
             setResumeCheckpoint(paused)
@@ -2167,6 +2698,8 @@ export default function App() {
           }
         } else {
           await logger.finalize("error", { error: String(error) })
+          deferredUpgradeRef.current = null
+          setDeferredUpgrade(null)
           const failed = scanLifecycle.fail(requestId, error)
           if (!failed) return
           setResumeCheckpoint(failed)
@@ -2183,7 +2716,8 @@ export default function App() {
       refreshEmbeddingCacheCount,
       requestAlbums,
       scanLifecycle,
-      trackEvent
+      trackEvent,
+      entitlement
     ]
   )
 
@@ -2204,9 +2738,7 @@ export default function App() {
     void storedReviewScope
       .restore({
         fallbackSettings: settingsRef.current,
-        hostProvider: isSidePanel
-          ? sidePanelHostProviderRef.current
-          : null,
+        hostProvider: isSidePanel ? sidePanelHostProviderRef.current : null,
         accountEmail: currentAccountEmailRef.current
       })
       .then(async (restored) => {
@@ -2375,7 +2907,16 @@ export default function App() {
     if (!canExportFullReport(actionEntitlement) && lockedGroupCount > 0) {
       openTrackedUpgradePrompt(
         "export",
-        `This free report includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`
+        `This free report includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`,
+        {
+          provider: settings.sourceProvider ?? "google",
+          scopeLabel: scanScopeLabel(settings).label,
+          scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
+          itemsChecked: totalItems,
+          duplicateGroupCount: groups.length,
+          visibleGroupCount: visibleGroups.length,
+          lockedGroupCount: lockedGroupCount
+        }
       )
     }
     trackEvent({
@@ -2404,7 +2945,16 @@ export default function App() {
     if (!canExportFullReport(actionEntitlement) && lockedGroupCount > 0) {
       openTrackedUpgradePrompt(
         "export",
-        `This free spreadsheet includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`
+        `This free spreadsheet includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`,
+        {
+          provider: settings.sourceProvider ?? "google",
+          scopeLabel: scanScopeLabel(settings).label,
+          scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
+          itemsChecked: totalItems,
+          duplicateGroupCount: groups.length,
+          visibleGroupCount: visibleGroups.length,
+          lockedGroupCount: lockedGroupCount
+        }
       )
     }
     trackEvent({
@@ -2587,6 +3137,7 @@ export default function App() {
         )
         return
       }
+      invalidatePaidConversionContext()
       trackEvent({
         name: "scan_started",
         provider: scanSettings.sourceProvider ?? "google",
@@ -2594,6 +3145,8 @@ export default function App() {
         photoCountBucket:
           estimatedCount !== undefined ? countBucket(estimatedCount) : undefined
       })
+      deferredUpgradeRef.current = null
+      setDeferredUpgrade(null)
       settingsRef.current = scanSettings
       storedReviewScope.startReview()
       setTrashMovesThisSession(0)
@@ -2684,6 +3237,7 @@ export default function App() {
     },
     [
       settings,
+      invalidatePaidConversionContext,
       refreshTimeLimitedEntitlementForAction,
       openTrackedUpgradePrompt,
       storedReviewScope,
@@ -2819,6 +3373,7 @@ export default function App() {
       return
     }
 
+    invalidatePaidConversionContext()
     const checkpointItems = resumeCheckpoint.mediaItems
     if (checkpointItems && checkpointItems.length > 0) {
       const scanSettings = resumeCheckpoint.settings
@@ -2851,6 +3406,7 @@ export default function App() {
   }, [
     entitlement,
     handleStartScan,
+    invalidatePaidConversionContext,
     openTrackedUpgradePrompt,
     resumeCheckpoint,
     runDuplicateDetection,
@@ -2865,7 +3421,7 @@ export default function App() {
   const handleTrash = useCallback(async () => {
     if (state.status !== "results") return
     if (!allVisibleGroupsReviewed) {
-      setTrashWarning(
+      setTrashWarningSafely(
         `Review all ${visibleGroups.length.toLocaleString()} visible duplicate sets before moving anything to Trash.`
       )
       return
@@ -2880,7 +3436,7 @@ export default function App() {
         item.provider !== "amazon"
     )
     if (unsupportedProvider) {
-      setTrashWarning(
+      setTrashWarningSafely(
         `Trash is not available for ${providerLabel(unsupportedProvider.provider)} yet. Review and export the duplicate report instead.`
       )
       return
@@ -2898,11 +3454,25 @@ export default function App() {
         limit === "unlimited"
           ? "unlimited"
           : Math.max(0, limit - trashMovesThisSession).toLocaleString()
+      const remainingCount =
+        limit === "unlimited"
+          ? "unlimited"
+          : Math.max(0, limit - trashMovesThisSession)
       openTrackedUpgradePrompt(
         "trash",
         `Your ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]} plan can move ${
           limit === "unlimited" ? "unlimited" : limit.toLocaleString()
-        } item${limit === 1 ? "" : "s"} to Trash per session. You have ${remaining} remaining and selected ${dedupKeys.length.toLocaleString()}.`
+        } item${limit === 1 ? "" : "s"} to Trash per session. You have ${remaining} remaining and selected ${dedupKeys.length.toLocaleString()}.`,
+        {
+          provider: settings.sourceProvider ?? "google",
+          scopeLabel: scanScopeLabel(settings).label,
+          scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
+          itemsChecked: state.totalItems,
+          duplicateGroupCount: groups.length,
+          visibleGroupCount: visibleGroups.length,
+          selectedCleanupCount: dedupKeys.length,
+          remainingTrashMoves: remainingCount
+        }
       )
       return
     }
@@ -2911,10 +3481,12 @@ export default function App() {
       photoCountBucket: countBucket(dedupKeys.length)
     })
     setTrashConfirmCount("")
-    setTrashConfirm(plan)
+    setTrashConfirmSafely(plan)
   }, [
     allVisibleGroupsReviewed,
     state,
+    settings,
+    groups,
     visibleGroups.length,
     reviewSession,
     visibleGroups,
@@ -2925,13 +3497,14 @@ export default function App() {
   ])
 
   const handleCloseTrashConfirm = useCallback(() => {
-    setTrashConfirm(null)
+    setTrashConfirmSafely(null)
     setTrashConfirmCount("")
   }, [])
 
   const handleTrashConfirmed = useCallback(async () => {
     if (!trashConfirm || state.status !== "results") return
     setReportError(null)
+    const generation = paidConversionGenerationRef.current
 
     let command
     try {
@@ -2956,11 +3529,16 @@ export default function App() {
       setReportError(`Could not save the pre-trash report: ${message}`)
       return
     }
+    if (generation !== paidConversionGenerationRef.current) {
+      trashLifecycle.reset()
+      return
+    }
 
     handleCloseTrashConfirm()
-    setTrashWarning(null)
+    setTrashWarningSafely(null)
 
     const requestId = generateRequestId()
+    trashGenerationByRequestRef.current.set(requestId, generation)
 
     dispatch({
       type: "TRASH_STARTED",
@@ -2988,27 +3566,33 @@ export default function App() {
   ])
 
   const handlePauseScan = useCallback(() => {
+    invalidatePaidConversionContext()
     const paused = scanLifecycle.pause()
+    deferredUpgradeRef.current = null
+    setDeferredUpgrade(null)
     if (paused) setResumeCheckpoint(paused)
     dispatch({ type: "SCAN_CANCELLED" })
-  }, [scanLifecycle])
+  }, [invalidatePaidConversionContext, scanLifecycle])
 
   const handleReset = useCallback(() => {
+    invalidatePaidConversionContext()
     scanLifecycle.reset()
     trashLifecycle.reset()
     cachedMediaItemsRef.current = null
+    deferredUpgradeRef.current = null
+    setDeferredUpgrade(null)
     pendingSelectionsRef.current = null
     autoSelectNextResultsRef.current = false
     setResumeCheckpoint(null)
     setSelectedGroupIds(new Set())
     setReviewedGroupIds(new Set())
     setKeptOverrides({})
-    setTrashConfirm(null)
+    setTrashConfirmSafely(null)
     setTrashConfirmCount("")
-    setTrashWarning(null)
+    setTrashWarningSafely(null)
     setTrashMovesThisSession(0)
     setReportError(null)
-    setUndoData(null)
+    setUndoDataSafely(null)
     void storedReviewScope.invalidateReview()
     void storedReviewScope.write({ checkpoint: null })
     dispatch({ type: "RESET" })
@@ -3018,7 +3602,12 @@ export default function App() {
       action: "healthCheck",
       provider: settingsRef.current.sourceProvider ?? "google"
     })
-  }, [scanLifecycle, storedReviewScope, trashLifecycle])
+  }, [
+    invalidatePaidConversionContext,
+    scanLifecycle,
+    storedReviewScope,
+    trashLifecycle
+  ])
 
   const openProviderFromSidePanel = useCallback(
     async (provider: PhotoProvider): Promise<LaunchProviderResult> => {
@@ -3070,9 +3659,12 @@ export default function App() {
 
   const handleOpenProvider = useCallback(
     (provider: PhotoProvider) => {
+      invalidatePaidConversionContext()
       setSidePanelSourceConfirmed(true)
       scanLifecycle.reset()
       cachedMediaItemsRef.current = null
+      deferredUpgradeRef.current = null
+      setDeferredUpgrade(null)
       pendingSelectionsRef.current = null
       setResumeCheckpoint(null)
       setSelectedGroupIds(new Set())
@@ -3114,13 +3706,21 @@ export default function App() {
         )
       })
     },
-    [openProviderFromSidePanel, scanLifecycle, storedReviewScope]
+    [
+      invalidatePaidConversionContext,
+      openProviderFromSidePanel,
+      scanLifecycle,
+      storedReviewScope
+    ]
   )
 
   const handleUndo = useCallback(() => {
     if (!undoData) return
     const requestId = generateRequestId()
     const restore = trashLifecycle.beginRestore(undoData, requestId)
+    restoreInFlightRef.current = true
+    restoreGenerationRef.current = paidConversionGenerationRef.current
+    ratingPromptDeferredRef.current = false
     autoSelectNextResultsRef.current = false
     pendingSelectionsRef.current = {
       selectedGroupIds: new Set(),
@@ -3143,12 +3743,12 @@ export default function App() {
       provider: restore.provider,
       args: restore.args
     })
-    setUndoData(null)
-    setTrashWarning(null)
+    setUndoDataSafely(null)
+    setTrashWarningSafely(null)
   }, [trashLifecycle, undoData])
 
   const handleUndoClose = useCallback(() => {
-    setUndoData(null)
+    setUndoDataSafely(null)
   }, [])
 
   // Fire confetti when trash completes
@@ -3597,6 +4197,17 @@ export default function App() {
                 )}
               {state.status === "results" && groups.length > 0 && (
                 <>
+                  {shouldShowDeferredUpgrade(
+                    deferredUpgrade,
+                    groups.length,
+                    state.status === "results"
+                  ) && (
+                    <DeferredUpgradeBanner
+                      prompt={deferredUpgrade}
+                      onOpen={handleOpenDeferredUpgrade}
+                      onDismiss={handleDismissDeferredUpgrade}
+                    />
+                  )}
                   <ActionBar
                     totalItems={state.totalItems}
                     groupCount={visibleGroups.length}
@@ -3791,6 +4402,17 @@ export default function App() {
 
               {state.status === "results" && groups.length > 0 && (
                 <>
+                  {shouldShowDeferredUpgrade(
+                    deferredUpgrade,
+                    groups.length,
+                    state.status === "results"
+                  ) && (
+                    <DeferredUpgradeBanner
+                      prompt={deferredUpgrade}
+                      onOpen={handleOpenDeferredUpgrade}
+                      onDismiss={handleDismissDeferredUpgrade}
+                    />
+                  )}
                   <ActionBar
                     totalItems={state.totalItems}
                     groupCount={visibleGroups.length}
@@ -3900,7 +4522,18 @@ export default function App() {
         open={!!upgradePrompt}
         reason={upgradePrompt?.reason ?? "groups"}
         detail={upgradePrompt?.detail}
-        onClose={() => setUpgradePrompt(null)}
+        valueFacts={upgradePrompt?.valueFacts}
+        checkoutState={checkoutState}
+        onClose={() => {
+          if (upgradePrompt) {
+            trackEvent({
+              name: "upgrade_prompt_dismissed",
+              upgradeReason: upgradePrompt.reason,
+              dismissalReason: "continue_free"
+            })
+          }
+          setUpgradePromptSafely(null)
+        }}
         onChoosePlan={handleChooseUpgradePlan}
         onRefreshLicense={handleRefreshEntitlement}
         onRecoverLicense={handleRecoverLicense}
@@ -3909,25 +4542,29 @@ export default function App() {
       <RatingPromptDialog
         open={ratingPromptOpen}
         onReview={() => {
-          setRatingPromptOpen(false)
+          ratingPromptDeferredRef.current = false
+          setRatingPromptSafely(false)
           void completeRatingPrompt()
           void chrome.tabs.create({
             url: chromeWebStoreReviewUrl(chrome.runtime.id)
           })
         }}
         onFeedback={() => {
-          setRatingPromptOpen(false)
+          ratingPromptDeferredRef.current = false
+          setRatingPromptSafely(false)
           void completeRatingPrompt()
           void chrome.tabs.create({
             url: "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
           })
         }}
         onLater={() => {
-          setRatingPromptOpen(false)
+          ratingPromptDeferredRef.current = false
+          setRatingPromptSafely(false)
           void deferRatingPrompt()
         }}
         onNever={() => {
-          setRatingPromptOpen(false)
+          ratingPromptDeferredRef.current = false
+          setRatingPromptSafely(false)
           void completeRatingPrompt()
         }}
       />
@@ -4000,7 +4637,7 @@ export default function App() {
 
       {/* Undo trash snackbar */}
       <Snackbar
-        open={!!undoData && !trashWarning}
+        open={!!undoData && !trashWarning && !upgradePrompt}
         autoHideDuration={null}
         onClose={handleUndoClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
@@ -4014,7 +4651,11 @@ export default function App() {
             <Button color="secondary" size="small" onClick={handleUndo}>
               Undo
             </Button>
-            <IconButton size="small" color="inherit" onClick={handleUndoClose}>
+            <IconButton
+              aria-label="Dismiss undo notification"
+              size="small"
+              color="inherit"
+              onClick={handleUndoClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           </>
@@ -4022,9 +4663,9 @@ export default function App() {
       />
 
       <Snackbar
-        open={!!trashWarning}
+        open={!!trashWarning && !upgradePrompt}
         autoHideDuration={null}
-        onClose={() => setTrashWarning(null)}
+        onClose={() => setTrashWarningSafely(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         message={trashWarning ?? ""}
         action={
@@ -4035,9 +4676,10 @@ export default function App() {
               </Button>
             )}
             <IconButton
+              aria-label="Dismiss warning"
               size="small"
               color="inherit"
-              onClick={() => setTrashWarning(null)}>
+              onClick={() => setTrashWarningSafely(null)}>
               <CloseIcon fontSize="small" />
             </IconButton>
           </>

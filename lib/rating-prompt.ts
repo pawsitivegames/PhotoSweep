@@ -4,12 +4,14 @@ const SCANS_BEFORE_REPROMPT = 3
 
 export type RatingPromptState = {
   successfulScans: number
+  successfulCleanups: number
   nextPromptAt: number
   completed: boolean
 }
 
 const DEFAULT_STATE: RatingPromptState = {
   successfulScans: 0,
+  successfulCleanups: 0,
   nextPromptAt: 1,
   completed: false
 }
@@ -24,6 +26,12 @@ function normalizeState(value: unknown): RatingPromptState {
       Number.isFinite(candidate.successfulScans) &&
       candidate.successfulScans >= 0
         ? Math.floor(candidate.successfulScans)
+        : 0,
+    successfulCleanups:
+      typeof candidate.successfulCleanups === "number" &&
+      Number.isFinite(candidate.successfulCleanups) &&
+      candidate.successfulCleanups >= 0
+        ? Math.floor(candidate.successfulCleanups)
         : 0,
     nextPromptAt:
       typeof candidate.nextPromptAt === "number" &&
@@ -44,7 +52,10 @@ async function saveState(state: RatingPromptState): Promise<void> {
   await chrome.storage.local.set({ [RATING_PROMPT_STORAGE_KEY]: state })
 }
 
-/** Records only a newly completed scan, never restored results. */
+/**
+ * Legacy migration hook. Scan completion no longer makes a review prompt
+ * eligible; eligibility is tied to confirmed positive cleanup instead.
+ */
 export async function recordSuccessfulScan(): Promise<boolean> {
   const current = await loadState()
   const next = {
@@ -52,14 +63,28 @@ export async function recordSuccessfulScan(): Promise<boolean> {
     successfulScans: current.successfulScans + 1
   }
   await saveState(next)
-  return !next.completed && next.successfulScans >= next.nextPromptAt
+  return false
+}
+
+/** Records a newly confirmed positive provider cleanup. */
+export async function recordSuccessfulCleanup(
+  movedCount: number
+): Promise<boolean> {
+  if (!Number.isFinite(movedCount) || movedCount <= 0) return false
+  const current = await loadState()
+  const next = {
+    ...current,
+    successfulCleanups: current.successfulCleanups + 1
+  }
+  await saveState(next)
+  return !next.completed && next.successfulCleanups >= next.nextPromptAt
 }
 
 export async function deferRatingPrompt(): Promise<void> {
   const current = await loadState()
   await saveState({
     ...current,
-    nextPromptAt: current.successfulScans + SCANS_BEFORE_REPROMPT
+    nextPromptAt: current.successfulCleanups + SCANS_BEFORE_REPROMPT
   })
 }
 

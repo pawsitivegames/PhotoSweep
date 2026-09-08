@@ -70,6 +70,44 @@ describe("privacy analytics", () => {
     ])
     expect(JSON.stringify(calls)).not.toContain("photos.example")
   })
+
+  it("keeps funnel fields allowlisted at the client boundary", () => {
+    const event = buildAnalyticsEvent({
+      name: "paid_return",
+      provider: "google",
+      upgradeReason: "scan",
+      paidReturnOutcome: "activated",
+      activationOutcome: "access_reconciled",
+      unknownOutcome: "paid" as never
+    } as Parameters<typeof buildAnalyticsEvent>[0])
+
+    expect(event).toMatchObject({
+      name: "paid_return",
+      upgradeReason: "scan",
+      paidReturnOutcome: "activated",
+      activationOutcome: "access_reconciled"
+    })
+    expect(event).not.toHaveProperty("unknownOutcome")
+
+    const invalid = buildAnalyticsEvent({
+      name: "paid_return",
+      paidReturnOutcome: "definitely_paid"
+    } as unknown as Parameters<typeof buildAnalyticsEvent>[0])
+    expect(invalid).not.toHaveProperty("paidReturnOutcome")
+  })
+
+  it("keeps bucket and error fields on their finite allowlists", () => {
+    const invalid = buildAnalyticsEvent({
+      name: "error",
+      photoCountBucket: "123-private-count",
+      duplicateGroupCountBucket: "exact-42",
+      errorCategory: "private-error-details"
+    })
+
+    expect(invalid.photoCountBucket).toBeUndefined()
+    expect(invalid.duplicateGroupCountBucket).toBeUndefined()
+    expect(invalid.errorCategory).toBeUndefined()
+  })
 })
 
 describe("support diagnostics", () => {

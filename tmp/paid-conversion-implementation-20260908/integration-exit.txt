@@ -1,0 +1,2 @@
+command=npx playwright test --config playwright.config.ts tests/e2e/integration/app-tab.test.ts tests/e2e/integration/trash-undo.test.ts tests/e2e/integration/cross-tab-messaging.test.ts
+exit_code=1

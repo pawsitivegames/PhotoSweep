@@ -1,0 +1,44 @@
+(node:29430) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 32 tests using 1 worker
+
+(node:29431) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:29431) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:29431) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:35:5 › restores saved scan results from storage on load (479ms)
+  ✓   2 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:127:5 › filters review groups by exact and similar classification (483ms)
+  ✓   3 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:211:5 › clears saved results and selections when a different Google account is detected (799ms)
+  ✓   4 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:262:5 › closes a paid prompt when a connected account changes (788ms)
+  ✓   5 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:327:5 › drops a delayed old-account trash result after identity changes (2.0s)
+  ✓   6 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:406:5 › retires a deferred scan upgrade suggestion after identity changes (892ms)
+  ✓   7 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:497:5 › does not open a stale checkout tab after results reset (1.4s)
+  ✓   8 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:572:5 › clears legacy saved results when the current Google account is known (791ms)
+  ✓   9 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:623:5 › shows 'no duplicates found' when scan returns zero groups (341ms)
+  ✓  10 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:637:5 › migrates untouched old smart defaults to full scan (529ms)
+  ✓  11 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:671:5 › preserves intentional strict similarity settings (493ms)
+  ✓  12 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:705:5 › shows disconnected state when GP tab is not open and no saved results (240ms)
+  ✓  13 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:717:5 › offers resume when a previous scan checkpoint was interrupted (579ms)
+  ✓  14 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:752:5 › clears resumable checkpoint when a different Google account is detected (580ms)
+  ✓  15 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:805:5 › resumes duplicate detection from a checkpointed media list without refetching (740ms)
+  ✓  16 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:865:5 › loads albums and allows choosing an album scan scope (810ms)
+  ✓  17 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:966:5 › persists group selections through page reload (587ms)
+  ✓  18 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:1027:5 › re-scan clears saved results, selections, and resumable checkpoint (1.0s)
+  ✓  19 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:1110:5 › persists kept overrides through page reload (578ms)
+  ✓  20 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:1158:5 › persists trash-all copy choices through page reload (485ms)
+  ✓  21 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:1232:5 › ignores stale kept override keys from saved selections (573ms)
+  ✓  22 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:1284:5 › ignores malformed saved selections without crashing on load (468ms)
+  ✓  23 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:69:5 › trashes selected groups and removes them from the UI (1.3s)
+  ✓  24 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:148:5 › free Trash cap is cumulative across the cleanup session (1.0s)
+  ✓  25 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:220:5 › shows trashing state for multi-batch trash (> 25 items) (2.1s)
+  ✓  26 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:270:5 › undo restores all groups to the UI (969ms)
+  ✓  27 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:323:5 › undo after multi-batch trash restores all groups (2.3s)
+  ✓  28 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:369:5 › shows a retryable warning when restore undo fails (980ms)
+  ✓  29 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:422:5 › retires an old Undo restore when the connected account changes (2.4s)
+  ✓  30 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:505:5 › shows error state when trashItems fails (976ms)
+  ✓  31 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:545:5 › keeps failed items visible and reports partial trash results (729ms)
+  ✓  32 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:621:5 › cancel dialog does not trigger trash (964ms)
+
+  32 passed (31.2s)

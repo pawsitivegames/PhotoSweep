@@ -1,0 +1,257 @@
+truthfulness-search
+docs/PAID_CONVERSION_PLAN.md:90:3. Storage estimates are optional and must be omitted unless source metadata is
+docs/PAID_CONVERSION_PLAN.md:91:   reliable. No guaranteed storage-saving claim or invented estimate.
+docs/PAID_CONVERSION_PLAN.md:93:   imply that paid access guarantees provider availability.
+docs/PAID_CONVERSION_PLAN.md:206:- Unknown/undefined facts are omitted, and no copy claims full library coverage
+tabs/app.tsx:91:  LICENSE_API_BASE_STORAGE_KEY,
+tabs/app.tsx:108:  ANALYTICS_CONSENT_STORAGE_KEY,
+tabs/app.tsx:1019:    const stored = await chrome.storage.local.get(DELETE_REPORTS_KEY)
+tabs/app.tsx:1024:    await chrome.storage.local.set({ [DELETE_REPORTS_KEY]: reports })
+tabs/app.tsx:1043:    const stored = await chrome.storage.local.get(TRASH_RESULT_REPORTS_KEY)
+tabs/app.tsx:1049:    await chrome.storage.local.set({ [TRASH_RESULT_REPORTS_KEY]: reports })
+tabs/app.tsx:1081:  await chrome.storage.local
+tabs/app.tsx:1087:  await chrome.storage.local.remove(SCAN_CHECKPOINT_KEY).catch(() => {})
+tabs/app.tsx:1122:function formatStorageBytes(bytes: number): string {
+tabs/app.tsx:1155:  const [storageChecked, setStorageChecked] = useState(false)
+tabs/app.tsx:1373:          chrome.storage.local.get(LICENSE_API_BASE_STORAGE_KEY)
+tabs/app.tsx:1378:            licenseConfig[LICENSE_API_BASE_STORAGE_KEY] as string | undefined
+tabs/app.tsx:1391:        return chrome.storage.local.get(keys) as Promise<Partial<StoredState>>
+tabs/app.tsx:1394:        await chrome.storage.local.set(values)
+tabs/app.tsx:1397:        await chrome.storage.local.remove(keys)
+tabs/app.tsx:1409:      chrome.storage.local.get(ANALYTICS_CONSENT_STORAGE_KEY)
+tabs/app.tsx:1415:        const storedConsent = privacyConfig[ANALYTICS_CONSENT_STORAGE_KEY]
+tabs/app.tsx:1472:    void chrome.storage.local.set({
+tabs/app.tsx:1473:      [ANALYTICS_CONSENT_STORAGE_KEY]: allowed
+tabs/app.tsx:1868:  // Persisted scan performance logger — survives page reloads via chrome.storage.local
+tabs/app.tsx:1883:  // Holds selections loaded from storage; applied once when groups first load.
+tabs/app.tsx:1983:              // A storage failure must never interrupt the cleanup result.
+tabs/app.tsx:2297:              void chrome.storage.local.get("scanResults").then((stored) => {
+tabs/app.tsx:2553:  // Keep refs so async callbacks always see latest values
+tabs/app.tsx:2746:        // The health check and storage read run concurrently. Re-check against
+tabs/app.tsx:2747:        // the account learned while storage was loading before showing or
+tabs/app.tsx:2791:        setStorageChecked(true)
+tabs/app.tsx:2794:        if (!cancelled) setStorageChecked(true)
+tabs/app.tsx:3022:  const accountEmailForStorage =
+tabs/app.tsx:3048:          accountEmail: accountEmailForStorage,
+tabs/app.tsx:3065:    accountEmailForStorage,
+tabs/app.tsx:3076:      (!accountEmailForStorage && currentAccountEmailRef.current === undefined)
+tabs/app.tsx:3088:    accountEmailForStorage,
+tabs/app.tsx:3191:        const stored = (await chrome.storage.local.get(
+tabs/app.tsx:3839:        : "Entire library"
+tabs/app.tsx:4184:                storageChecked && (
+tabs/app.tsx:4381:                storageChecked && (
+analytics-sensitive-search
+server/license-api.mjs:23:const LONG_LIVED_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
+server/license-api.mjs:335:      expiresAt: issuedAt + LONG_LIVED_TOKEN_TTL_MS
+server/license-api.mjs:343:      expiresAt: issuedAt + LONG_LIVED_TOKEN_TTL_MS
+server/license-api.mjs:346:  const tokenExpiresAt = issuedAt + LONG_LIVED_TOKEN_TTL_MS
+server/license-api.mjs:352:      ? Math.min(license.expiresAt, tokenExpiresAt)
+server/license-api.mjs:353:      : tokenExpiresAt
+server/license-api.mjs:386:function createRecoveryToken(payload, env) {
+server/license-api.mjs:391:function verifyRecoveryToken(token, env) {
+server/license-api.mjs:392:  const [payloadPart, signature] = String(token ?? "").split(".")
+server/license-api.mjs:402:    if (typeof payload.email !== "string") return undefined
+server/license-api.mjs:445:export function signEntitlementToken(payload, env) {
+server/license-api.mjs:474:  if (input.email) body.set("customer_email", input.email)
+server/license-api.mjs:496:    sessionByEmail: new Map(Object.entries(seed.sessionByEmail ?? {})),
+server/license-api.mjs:516:        if (purchase.email) {
+server/license-api.mjs:517:          state.sessionByEmail.set(
+server/license-api.mjs:518:            purchase.email.toLowerCase(),
+server/license-api.mjs:555:    async getSessionIdByEmail(email) {
+server/license-api.mjs:556:      return state.sessionByEmail.get(email.toLowerCase())
+server/license-api.mjs:588:        sessionByEmail: Object.fromEntries(state.sessionByEmail),
+server/license-api.mjs:613:          sessionByEmail: {},
+server/license-api.mjs:646:          if (purchase.email) {
+server/license-api.mjs:647:            state.sessionByEmail[purchase.email.toLowerCase()] =
+server/license-api.mjs:682:    async getSessionIdByEmail(email) {
+server/license-api.mjs:684:      return state.sessionByEmail[email.toLowerCase()]
+server/license-api.mjs:759:    email:
+server/license-api.mjs:760:      session.customer_details?.email ??
+server/license-api.mjs:761:      session.customer_email ??
+server/license-api.mjs:762:      session.metadata?.email,
+server/license-api.mjs:884:    { planId, sessionId, email: body.email },
+server/license-api.mjs:903:  const token = signEntitlementToken(activeLicenseToEntitlement(license), env)
+server/license-api.mjs:904:  return jsonResponse({ token })
+server/license-api.mjs:909:  const email =
+server/license-api.mjs:910:    typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+server/license-api.mjs:911:  if (!email || !email.includes("@"))
+server/license-api.mjs:912:    return badRequest("A valid email is required.")
+server/license-api.mjs:913:  const sessionId = await store.getSessionIdByEmail(email)
+server/license-api.mjs:914:  if (sessionId && typeof store.sendRecoveryEmail === "function") {
+server/license-api.mjs:915:    const token = createRecoveryToken(
+server/license-api.mjs:917:        email,
+server/license-api.mjs:925:    recoveryUrl.searchParams.set("token", token)
+server/license-api.mjs:926:    await store.sendRecoveryEmail({
+server/license-api.mjs:927:      email,
+server/license-api.mjs:931:  if (env.PHOTOSWEEP_UNSAFE_EMAIL_RECOVERY !== "1") {
+server/license-api.mjs:943:  const payload = verifyRecoveryToken(url.searchParams.get("token"), env)
+server/license-api.mjs:957:    license.email?.toLowerCase() !== payload.email.toLowerCase()
+generation-snippets
+lib/paid-access-lifecycle.ts:159:   * generation guard then ignores the stale result and never opens its URL.
+tabs/app.tsx:1203:  const [trashWarning, setTrashWarningState] = useState<string | null>(null)
+tabs/app.tsx:1204:  const trashWarningRef = useRef<string | null>(null)
+tabs/app.tsx:1244:  const restoreInFlightRef = useRef(false)
+tabs/app.tsx:1247:  const [undoData, setUndoDataState] = useState<TrashUndoData | null>(null)
+tabs/app.tsx:1248:  const undoDataRef = useRef<TrashUndoData | null>(null)
+tabs/app.tsx:1263:        typeof next === "function" ? next(trashWarningRef.current) : next
+tabs/app.tsx:1264:      trashWarningRef.current = resolved
+tabs/app.tsx:1273:        typeof next === "function" ? next(undoDataRef.current) : next
+tabs/app.tsx:1274:      undoDataRef.current = resolved
+tabs/app.tsx:1302:      trashWarningRef.current ||
+tabs/app.tsx:1303:      undoDataRef.current ||
+tabs/app.tsx:1304:      restoreInFlightRef.current
+tabs/app.tsx:1318:    trashWarning,
+tabs/app.tsx:1319:    undoData,
+tabs/app.tsx:1337:  const invalidatePaidConversionContext = useCallback(() => {
+tabs/app.tsx:1346:    restoreInFlightRef.current = false
+tabs/app.tsx:1519:    const generation = paidConversionGenerationRef.current
+tabs/app.tsx:1542:        generation !== paidConversionGenerationRef.current ||
+tabs/app.tsx:1594:        generation !== paidConversionGenerationRef.current ||
+tabs/app.tsx:1615:      if (generation === paidConversionGenerationRef.current) {
+tabs/app.tsx:1633:    const generation = paidConversionGenerationRef.current
+tabs/app.tsx:1636:      if (generation !== paidConversionGenerationRef.current) return
+tabs/app.tsx:1661:      if (generation !== paidConversionGenerationRef.current) return
+tabs/app.tsx:1719:      const generation = paidConversionGenerationRef.current
+tabs/app.tsx:1733:          generation !== paidConversionGenerationRef.current ||
+tabs/app.tsx:1745:          generation !== paidConversionGenerationRef.current ||
+tabs/app.tsx:1755:          generation !== paidConversionGenerationRef.current ||
+tabs/app.tsx:1786:        if (generation === paidConversionGenerationRef.current) {
+tabs/app.tsx:1925:      const generation = trashGenerationByRequestRef.current.get(
+tabs/app.tsx:1930:        generation === undefined ||
+tabs/app.tsx:1931:        generation !== paidConversionGenerationRef.current
+tabs/app.tsx:1942:          if (generation !== paidConversionGenerationRef.current) return
+tabs/app.tsx:1977:              if (generation !== paidConversionGenerationRef.current) return
+tabs/app.tsx:1978:              if (restoreInFlightRef.current) return
+tabs/app.tsx:1987:          if (generation !== paidConversionGenerationRef.current) return
+tabs/app.tsx:2016:      restoreInFlightRef.current = false
+tabs/app.tsx:2075:            invalidatePaidConversionContext()
+tabs/app.tsx:2129:  }, [invalidatePaidConversionContext, isSidePanel, storedReviewScope])
+tabs/app.tsx:2185:    invalidatePaidConversionContext()
+tabs/app.tsx:2205:    invalidatePaidConversionContext,
+tabs/app.tsx:2286:              invalidatePaidConversionContext()
+tabs/app.tsx:2547:    invalidatePaidConversionContext,
+tabs/app.tsx:3140:      invalidatePaidConversionContext()
+tabs/app.tsx:3240:      invalidatePaidConversionContext,
+tabs/app.tsx:3335:            : trashWarning
+tabs/app.tsx:3338:      recentLogs: [cacheStatus, reportError, trashWarning].filter(
+tabs/app.tsx:3348:  }, [cacheStatus, entitlement, reportError, trashWarning])
+tabs/app.tsx:3376:    invalidatePaidConversionContext()
+tabs/app.tsx:3409:    invalidatePaidConversionContext,
+tabs/app.tsx:3507:    const generation = paidConversionGenerationRef.current
+tabs/app.tsx:3532:    if (generation !== paidConversionGenerationRef.current) {
+tabs/app.tsx:3541:    trashGenerationByRequestRef.current.set(requestId, generation)
+tabs/app.tsx:3569:    invalidatePaidConversionContext()
+tabs/app.tsx:3575:  }, [invalidatePaidConversionContext, scanLifecycle])
+tabs/app.tsx:3578:    invalidatePaidConversionContext()
+tabs/app.tsx:3606:    invalidatePaidConversionContext,
+tabs/app.tsx:3662:      invalidatePaidConversionContext()
+tabs/app.tsx:3710:      invalidatePaidConversionContext,
+tabs/app.tsx:3718:    if (!undoData) return
+tabs/app.tsx:3720:    const restore = trashLifecycle.beginRestore(undoData, requestId)
+tabs/app.tsx:3721:    restoreInFlightRef.current = true
+tabs/app.tsx:3733:      mediaItems: undoData.snapshot.mediaItems,
+tabs/app.tsx:3734:      groups: undoData.snapshot.groups,
+tabs/app.tsx:3735:      totalItems: undoData.snapshot.totalItems
+tabs/app.tsx:3748:  }, [trashLifecycle, undoData])
+tabs/app.tsx:3756:    if (!undoData) return
+tabs/app.tsx:3763:  }, [undoData, prefersReducedMotion])
+tabs/app.tsx:4640:        open={!!undoData && !trashWarning && !upgradePrompt}
+tabs/app.tsx:4645:          undoData
+tabs/app.tsx:4646:            ? `${undoData.count} item${undoData.count !== 1 ? "s" : ""} moved to trash`
+tabs/app.tsx:4666:        open={!!trashWarning && !upgradePrompt}
+tabs/app.tsx:4670:        message={trashWarning ?? ""}
+tabs/app.tsx:4673:            {undoData && (
+rating-snippets
+components/RatingPromptDialog.tsx:33:      aria-labelledby="rating-prompt-title"
+components/RatingPromptDialog.tsx:51:      <DialogTitle id="rating-prompt-title">
+tabs/app.tsx:123:} from "../lib/rating-prompt"
+tabs/app.tsx:1230:  const [ratingPromptOpen, setRatingPromptOpen] = useState(false)
+tabs/app.tsx:1231:  const ratingPromptOpenRef = useRef(false)
+tabs/app.tsx:1232:  const ratingPromptDeferredRef = useRef(false)
+tabs/app.tsx:1244:  const restoreInFlightRef = useRef(false)
+tabs/app.tsx:1245:  const restoreGenerationRef = useRef<number | null>(null)
+tabs/app.tsx:1289:    ratingPromptOpenRef.current = open
+tabs/app.tsx:1294:    if (!ratingPromptDeferredRef.current || ratingPromptOpenRef.current) {
+tabs/app.tsx:1304:      restoreInFlightRef.current
+tabs/app.tsx:1308:    ratingPromptDeferredRef.current = false
+tabs/app.tsx:1346:    restoreInFlightRef.current = false
+tabs/app.tsx:1347:    restoreGenerationRef.current = null
+tabs/app.tsx:1351:    ratingPromptOpenRef.current = false
+tabs/app.tsx:1352:    ratingPromptDeferredRef.current = false
+tabs/app.tsx:1439:      if (ratingPromptOpenRef.current) {
+tabs/app.tsx:1440:        ratingPromptDeferredRef.current = true
+tabs/app.tsx:1649:              ? "restore_not_found"
+tabs/app.tsx:1650:              : "restore_completed",
+tabs/app.tsx:1811:      trackEvent({ name: "restore_requested" })
+tabs/app.tsx:1962:          setTrashMovesThisSession((count) => count + outcome.movedCount)
+tabs/app.tsx:1965:            photoCountBucket: countBucket(outcome.movedCount),
+tabs/app.tsx:1966:            ...(outcome.kind === "partial"
+tabs/app.tsx:1967:              ? { errorCategory: "trash_partial" }
+tabs/app.tsx:1973:            outcome.kind === "complete" ? outcome.movedCount : 0
+tabs/app.tsx:1978:              if (restoreInFlightRef.current) return
+tabs/app.tsx:1979:              ratingPromptDeferredRef.current = true
+tabs/app.tsx:2005:        restoreGenerationRef.current === null ||
+tabs/app.tsx:2006:        restoreGenerationRef.current !== paidConversionGenerationRef.current
+tabs/app.tsx:2015:      restoreGenerationRef.current = null
+tabs/app.tsx:2016:      restoreInFlightRef.current = false
+tabs/app.tsx:2021:        `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
+tabs/app.tsx:2039:        ? state.partialGroups ?? null
+tabs/app.tsx:2046:        ? state.partialMediaItems ?? {}
+tabs/app.tsx:2135:      const restoredSession = new DuplicateReviewSession({
+tabs/app.tsx:2140:      setReviewSelections(restoredSession.selections)
+tabs/app.tsx:2145:          selections: restoredSession.serialize()
+tabs/app.tsx:2290:            // Health and restore may resolve in either order. Check the
+tabs/app.tsx:2498:          } else if (result.command === "restoreItems") {
+tabs/app.tsx:2526:          } else if (progress.command === "restoreItems") {
+tabs/app.tsx:2527:            console.log(`[GPD] restore progress: ${progress.itemsProcessed}`)
+tabs/app.tsx:2610:        const onPartialGroupsCallback = (partialGroups: DuplicateGroup[]) => {
+tabs/app.tsx:2612:          const partialKeys = new Set(
+tabs/app.tsx:2613:            partialGroups.flatMap((group) => group.mediaKeys)
+tabs/app.tsx:2615:          const partialMediaItems: Record<string, GpdMediaItem> = {}
+tabs/app.tsx:2617:            if (partialKeys.has(item.mediaKey)) {
+tabs/app.tsx:2618:              partialMediaItems[item.mediaKey] = item
+tabs/app.tsx:2623:            mediaItems: partialMediaItems,
+tabs/app.tsx:2624:            groups: partialGroups,
+tabs/app.tsx:2739:      .restore({
+tabs/app.tsx:2744:      .then(async (restored) => {
+tabs/app.tsx:2751:          restored.scanResults &&
+tabs/app.tsx:2753:          !areScanResultsValid(restored.scanResults, {
+tabs/app.tsx:2755:            sourceProvider: restored.settings.sourceProvider ?? "google"
+tabs/app.tsx:2759:          restored = {
+tabs/app.tsx:2760:            ...restored,
+tabs/app.tsx:2767:        settingsRef.current = restored.settings
+tabs/app.tsx:2768:        setSettings(restored.settings)
+tabs/app.tsx:2769:        const restoredCheckpoint = scanLifecycle.restore(restored.checkpoint)
+tabs/app.tsx:2771:          shouldOfferResume(restoredCheckpoint) &&
+tabs/app.tsx:2772:          canResumeScanCheckpoint(restoredCheckpoint, {
+tabs/app.tsx:2773:            sourceProvider: restored.settings.sourceProvider
+tabs/app.tsx:2776:          setResumeCheckpoint(restoredCheckpoint)
+tabs/app.tsx:2778:        pendingSelectionsRef.current = restored.selections
+tabs/app.tsx:2780:          restored.scanResults?.totalItems &&
+tabs/app.tsx:2781:          Array.isArray(restored.scanResults.groups)
+tabs/app.tsx:2785:            mediaItems: restored.scanResults.mediaItems,
+tabs/app.tsx:2786:            groups: restored.scanResults.groups,
+tabs/app.tsx:2787:            totalItems: restored.scanResults.totalItems,
+tabs/app.tsx:2788:            accountEmail: restored.scanResults.accountEmail
+tabs/app.tsx:3317:          ? currentState.partialGroups?.length
+tabs/app.tsx:3720:    const restore = trashLifecycle.beginRestore(undoData, requestId)
+tabs/app.tsx:3721:    restoreInFlightRef.current = true
+tabs/app.tsx:3722:    restoreGenerationRef.current = paidConversionGenerationRef.current
+tabs/app.tsx:3723:    ratingPromptDeferredRef.current = false
+tabs/app.tsx:3730:    // Optimistically restore the UI to the pre-trash state
+tabs/app.tsx:3737:    // Call GPTK to restore from trash
+tabs/app.tsx:3741:      command: "restoreItems",
+tabs/app.tsx:3743:      provider: restore.provider,
+tabs/app.tsx:3744:      args: restore.args
+tabs/app.tsx:3782:        ? state.partialTotalItems ?? state.totalEstimate
+tabs/app.tsx:3788:        ? state.partialGroups ?? []
+tabs/app.tsx:4543:        open={ratingPromptOpen}
+tabs/app.tsx:4545:          ratingPromptDeferredRef.current = false
+tabs/app.tsx:4553:          ratingPromptDeferredRef.current = false
+tabs/app.tsx:4561:          ratingPromptDeferredRef.current = false
+tabs/app.tsx:4566:          ratingPromptDeferredRef.current = false
+tabs/app.tsx:4607:            restore them from the {providerLabel(settings.sourceProvider)}{" "}
+lib/rating-prompt.ts:1:export const RATING_PROMPT_STORAGE_KEY = "ratingPrompt"
+lib/rating-prompt.ts:57: * eligible; eligibility is tied to confirmed positive cleanup instead.
+lib/rating-prompt.ts:71:  movedCount: number
+lib/rating-prompt.ts:73:  if (!Number.isFinite(movedCount) || movedCount <= 0) return false

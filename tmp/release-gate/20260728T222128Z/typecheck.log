@@ -1,0 +1,6 @@
+$ npm run typecheck
+
+> google-photos-deduper@2.2.5 typecheck
+> tsc --noEmit --project tsconfig.json
+
+sh: tsc: command not found

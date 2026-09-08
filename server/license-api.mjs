@@ -27,7 +27,9 @@ const ANALYTICS_EVENT_NAMES = new Set([
   "scan_started",
   "scan_completed",
   "upgrade_prompt_shown",
+  "upgrade_prompt_dismissed",
   "checkout_started",
+  "paid_return",
   "restore_requested",
   "restore_completed",
   "restore_not_found",
@@ -39,11 +41,45 @@ const ANALYTICS_EVENT_NAMES = new Set([
 ])
 const ANALYTICS_PROVIDERS = new Set(["google", "icloud", "amazon"])
 const ANALYTICS_SCAN_MODES = new Set(["smart", "full"])
+const ANALYTICS_COUNT_BUCKETS = new Set([
+  "0-99",
+  "100-999",
+  "1k-5k",
+  "5k-10k",
+  "10k-50k",
+  "50k+"
+])
+const ANALYTICS_ERROR_CATEGORIES = new Set([
+  "license_refresh",
+  "scan",
+  "trash",
+  "trash_partial"
+])
 const ANALYTICS_PLAN_IDS = new Set([
   "free",
   "mini_cleanup",
   "cleanup_pass",
   "lifetime"
+])
+const ANALYTICS_UPGRADE_REASONS = new Set([
+  "scan",
+  "groups",
+  "trash",
+  "export",
+  "resume",
+  "provider"
+])
+const ANALYTICS_DISMISSAL_REASONS = new Set(["continue_free", "dismissed"])
+const ANALYTICS_PAID_RETURN_OUTCOMES = new Set([
+  "activated",
+  "pending",
+  "failed",
+  "offline"
+])
+const ANALYTICS_ACTIVATION_OUTCOMES = new Set([
+  "access_reconciled",
+  "restore",
+  "not_activated"
 ])
 const MAX_STORED_ANALYTICS_EVENTS = 1000
 
@@ -236,16 +272,52 @@ function optionalEnum(value, allowed) {
   return typeof value === "string" && allowed.has(value) ? value : undefined
 }
 
+function hasInvalidOptionalEnum(input, key, allowed) {
+  return (
+    input[key] !== undefined && optionalEnum(input[key], allowed) === undefined
+  )
+}
+
 function optionalBucket(value) {
-  return typeof value === "string" && /^[0-9k+<>=-]+$/.test(value)
+  return typeof value === "string" && ANALYTICS_COUNT_BUCKETS.has(value)
     ? value
     : undefined
+}
+
+function hasInvalidOptionalBucket(input, key) {
+  return input[key] !== undefined && optionalBucket(input[key]) === undefined
 }
 
 function sanitizeAnalyticsEvent(input) {
   if (!input || typeof input !== "object") return undefined
   const name = optionalEnum(input.name, ANALYTICS_EVENT_NAMES)
   if (!name) return undefined
+  if (
+    hasInvalidOptionalEnum(input, "provider", ANALYTICS_PROVIDERS) ||
+    hasInvalidOptionalEnum(input, "scanMode", ANALYTICS_SCAN_MODES) ||
+    hasInvalidOptionalEnum(input, "planId", ANALYTICS_PLAN_IDS) ||
+    hasInvalidOptionalEnum(input, "upgradeReason", ANALYTICS_UPGRADE_REASONS) ||
+    hasInvalidOptionalEnum(
+      input,
+      "dismissalReason",
+      ANALYTICS_DISMISSAL_REASONS
+    ) ||
+    hasInvalidOptionalEnum(
+      input,
+      "paidReturnOutcome",
+      ANALYTICS_PAID_RETURN_OUTCOMES
+    ) ||
+    hasInvalidOptionalEnum(
+      input,
+      "activationOutcome",
+      ANALYTICS_ACTIVATION_OUTCOMES
+    ) ||
+    hasInvalidOptionalBucket(input, "photoCountBucket") ||
+    hasInvalidOptionalBucket(input, "duplicateGroupCountBucket") ||
+    hasInvalidOptionalEnum(input, "errorCategory", ANALYTICS_ERROR_CATEGORIES)
+  ) {
+    return undefined
+  }
   return {
     name,
     provider: optionalEnum(input.provider, ANALYTICS_PROVIDERS),
@@ -253,10 +325,23 @@ function sanitizeAnalyticsEvent(input) {
     planId: optionalEnum(input.planId, ANALYTICS_PLAN_IDS),
     photoCountBucket: optionalBucket(input.photoCountBucket),
     duplicateGroupCountBucket: optionalBucket(input.duplicateGroupCountBucket),
-    errorCategory:
-      typeof input.errorCategory === "string"
-        ? input.errorCategory.slice(0, 80)
-        : undefined
+    errorCategory: optionalEnum(
+      input.errorCategory,
+      ANALYTICS_ERROR_CATEGORIES
+    ),
+    upgradeReason: optionalEnum(input.upgradeReason, ANALYTICS_UPGRADE_REASONS),
+    dismissalReason: optionalEnum(
+      input.dismissalReason,
+      ANALYTICS_DISMISSAL_REASONS
+    ),
+    paidReturnOutcome: optionalEnum(
+      input.paidReturnOutcome,
+      ANALYTICS_PAID_RETURN_OUTCOMES
+    ),
+    activationOutcome: optionalEnum(
+      input.activationOutcome,
+      ANALYTICS_ACTIVATION_OUTCOMES
+    )
   }
 }
 
@@ -921,7 +1006,7 @@ export async function handleCheckout(request, env, store, fetchImpl = fetch) {
       { status: 502 }
     )
   return jsonResponse(
-    { url: checkout.url, sessionId },
+    { url: checkout.url, sessionId, planId },
     { headers: { "set-cookie": sessionCookie(sessionId, env) } }
   )
 }

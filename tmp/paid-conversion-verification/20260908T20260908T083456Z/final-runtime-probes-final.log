@@ -1,0 +1,64 @@
+=== final runtime probes rerun: cleanup-only failure removed ===
+(node:35190) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:35191) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35191) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:35191) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:34:5 › consent opt-out is silent and allow sends only an allowlisted event (1.6s)
+  ✘  2 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:100:5 › checkout return with an unverifiable token stays retryable and preserves review (30.0s)
+
+
+  1) [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:100:5 › checkout return with an unverifiable token stays retryable and preserves review 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Target page, context or browser has been closed
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Keep reviewing free results' })[22m
+    [2m    - locator resolved to <button tabindex="0" type="button" class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary MuiButton-disableElevation MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary MuiButton-disableElevation css-14pv4co">Keep reviewing free results</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div role="alert" direction="up" class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation6 MuiSnackbarContent-root css-1828pdj">…</div> from <div id="__plasmo" aria-hidden="true">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div role="alert" direction="up" class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation6 MuiSnackbarContent-root css-1828pdj">…</div> from <div id="__plasmo" aria-hidden="true">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    41 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is visible, enabled and stable[22m
+    [2m       - scrolling into view if needed[22m
+    [2m       - done scrolling[22m
+    [2m       - <div role="alert" direction="up" class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation6 MuiSnackbarContent-root css-1828pdj">…</div> from <div id="__plasmo" aria-hidden="true">…</div> subtree intercepts pointer events[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      159 |     ).toBeVisible({ timeout: 8_000 })
+      160 |     await expect(page.getByText(/3 Duplicate Sets to Review|2 Duplicate Sets to Review/i)).not.toHaveCount(0)
+    > 161 |     await page.getByRole("button", { name: "Keep reviewing free results" }).click()
+          |                                                                             ^
+      162 |     await expect(
+      163 |       page.getByRole("button", { name: /Review & move 12 to Trash/i })
+      164 |     ).toBeVisible()
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:161:77
+
+    Error Context: test-results/final-runtime-probes-check-6b0ca-ryable-and-preserves-review-chromium-extension/error-context.md
+
+    Error Context: test-results/final-runtime-probes-check-6b0ca-ryable-and-preserves-review-chromium-extension/error-context.md
+
+  1 failed
+    [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:100:5 › checkout return with an unverifiable token stays retryable and preserves review 
+  1 passed (32.7s)
+=== exit: 1 ===

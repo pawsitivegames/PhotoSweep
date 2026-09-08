@@ -112,6 +112,7 @@ describe("license API", () => {
     expect(licenseSessionId).toBeTruthy()
     expect(checkoutBody).toEqual({
       url: "https://checkout.stripe.test/cs_test_123",
+      planId: "cleanup_pass",
       sessionId: licenseSessionId
     })
     expect(checkoutResponse.headers.get("set-cookie")).toContain(
@@ -312,7 +313,8 @@ describe("license API", () => {
     const checkoutBody = await checkout.json()
     expect(checkoutBody).toMatchObject({
       url: "https://checkout.stripe.test/cs_test_456",
-      sessionId: expect.stringMatching(/^pls_/)
+      sessionId: expect.stringMatching(/^pls_/),
+      planId: "lifetime"
     })
     const snapshotBeforeWebhook = store.snapshot()
     expect(snapshotBeforeWebhook.licensesBySessionId).toEqual({})
@@ -1074,6 +1076,10 @@ describe("license API", () => {
           planId: "free",
           photoCountBucket: "1k-5k",
           duplicateGroupCountBucket: "0-99",
+          upgradeReason: "scan",
+          dismissalReason: "continue_free",
+          paidReturnOutcome: "pending",
+          activationOutcome: "not_activated",
           photoUrl: "https://photos.google.com/photo/private",
           filename: "IMG_1234.JPG"
         })
@@ -1090,6 +1096,10 @@ describe("license API", () => {
       planId: "free",
       photoCountBucket: "1k-5k",
       duplicateGroupCountBucket: "0-99",
+      upgradeReason: "scan",
+      dismissalReason: "continue_free",
+      paidReturnOutcome: "pending",
+      activationOutcome: "not_activated",
       errorCategory: undefined
     })
     expect(typeof snapshot.analyticsEvents[0].recordedAt).toBe("number")
@@ -1114,6 +1124,32 @@ describe("license API", () => {
         body: JSON.stringify({
           name: "purchase_completed",
           planId: "lifetime"
+        })
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(store.snapshot().analyticsEvents).toEqual([])
+  })
+
+  it("rejects malformed funnel enum values instead of recording ambiguous events", async () => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    const response = await api(
+      new Request("https://license.test/analytics", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "paid_return",
+          paidReturnOutcome: "definitely_paid",
+          activationOutcome: "access_reconciled",
+          photoCountBucket: "exact-42",
+          errorCategory: "private-error-details"
         })
       })
     )

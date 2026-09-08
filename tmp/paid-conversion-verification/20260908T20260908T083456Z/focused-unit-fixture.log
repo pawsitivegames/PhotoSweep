@@ -1,0 +1,10 @@
+npm warn Unknown cli config "--reporter". This will stop working in the next major version of npm.
+
+ RUN  v4.1.2 /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder
+
+
+ Test Files  9 passed (9)
+      Tests  85 passed (85)
+   Start at  01:37:44
+   Duration  850ms (transform 515ms, setup 555ms, import 898ms, tests 342ms, environment 1.92s)
+

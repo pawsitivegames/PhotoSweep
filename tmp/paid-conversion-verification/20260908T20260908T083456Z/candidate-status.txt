@@ -1,0 +1,24 @@
+ M components/RatingPromptDialog.tsx
+ M components/UpgradeDialog.tsx
+ M lib/license-client.ts
+ M lib/paid-access-lifecycle.ts
+ M lib/privacy-analytics.ts
+ M lib/rating-prompt.ts
+ M server/license-api.mjs
+ M tabs/app.tsx
+ M tests/components/rating-prompt-dialog.test.tsx
+ M tests/components/upgrade-dialog.test.tsx
+ M tests/e2e/fixtures/extension.ts
+ M tests/e2e/fixtures/gptk-stub.html
+ M tests/e2e/integration/app-tab.test.ts
+ M tests/e2e/integration/trash-undo.test.ts
+ M tests/lib/license-client.test.ts
+ M tests/lib/paid-access-lifecycle.test.ts
+ M tests/lib/privacy-analytics.test.ts
+ M tests/lib/rating-prompt.test.ts
+ M tests/server/license-api.test.ts
+?? docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+?? docs/PAID_CONVERSION_PLAN.md
+?? lib/paid-conversion.ts
+?? tests/lib/paid-conversion.test.ts
+?? tmp/

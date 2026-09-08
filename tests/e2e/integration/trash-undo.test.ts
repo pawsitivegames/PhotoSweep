@@ -56,9 +56,7 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
 }
 
 async function includeAllAndOpenTrashDialog(page: Page): Promise<void> {
-  await page
-    .getByRole("button", { name: /^Include all(?: sets)?$/i })
-    .click()
+  await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })
     .click()
@@ -107,6 +105,12 @@ test("trashes selected groups and removes them from the UI", async () => {
   await expect(page.getByText(/moved to trash/i)).toBeVisible({
     timeout: 10_000
   })
+  await expect(
+    page.getByText("How was your PhotoSweep cleanup?")
+  ).not.toBeVisible()
+  await page.getByRole("button", { name: "Dismiss undo notification" }).click()
+  await expect(page.getByText("How was your PhotoSweep cleanup?")).toBeVisible()
+  await page.getByRole("button", { name: "Maybe later" }).click()
 
   // Review list should no longer show duplicate sets
   await expect(
@@ -144,7 +148,10 @@ test("trashes selected groups and removes them from the UI", async () => {
 test("free Trash cap is cumulative across the cleanup session", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = makeGroups(2, 2)
-  groups[0].mediaKeys = Array.from({ length: 11 }, (_, i) => `cap-group0-item${i}`)
+  groups[0].mediaKeys = Array.from(
+    { length: 11 },
+    (_, i) => `cap-group0-item${i}`
+  )
   for (let i = 0; i < 11; i++) {
     const key = `cap-group0-item${i}`
     mediaItems[key] = {
@@ -194,9 +201,7 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
   // Select the one remaining group directly. This preserves the same cleanup
   // session, so the dialog must enforce the already-used free allowance.
   await page.locator('input[type="checkbox"]').first().click()
-  await page
-    .getByRole("button", { name: /Review & move 1 to Trash/i })
-    .click()
+  await page.getByRole("button", { name: /Review & move 1 to Trash/i }).click()
 
   await expect(page.getByRole("dialog")).toBeVisible()
   await expect(
@@ -292,7 +297,7 @@ test("undo restores all groups to the UI", async () => {
   })
 
   // Click Undo in the snackbar
-  await page.getByRole("button", { name: /undo/i }).click()
+  await page.getByRole("button", { name: /^Undo$/i }).click()
 
   // All 3 groups should be restored
   await expect(
@@ -345,7 +350,7 @@ test("undo after multi-batch trash restores all groups", async () => {
     timeout: 15_000
   })
 
-  await page.getByRole("button", { name: /undo/i }).click()
+  await page.getByRole("button", { name: /^Undo$/i }).click()
 
   // Pre-trash state fully restored
   await expect(
@@ -412,6 +417,85 @@ test("shows a retryable warning when restore undo fails", async () => {
 
   await stub.close()
   await page.close()
+})
+
+test("retires an old Undo restore when the connected account changes", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = smallPayload()
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "alice@example.com"
+  )
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    },
+    restoreItems: { data: {}, delayMs: 1_000 }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  await expect(
+    page.getByRole("heading", {
+      name: "3 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+
+  await includeAllAndOpenTrashDialog(page)
+  await confirmTrashDialog(page, 3)
+  await expect(page.getByText(/moved to trash/i)).toBeVisible({
+    timeout: 10_000
+  })
+  await page.getByRole("button", { name: /^Undo$/i }).click()
+
+  await stub.evaluate(() => {
+    ;(
+      window as unknown as {
+        __gptkOverrides: Record<string, unknown>
+      }
+    ).__gptkOverrides.healthCheck = {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "bob@example.com"
+      }
+    }
+  })
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage({
+      app: "GPD",
+      action: "healthCheck",
+      provider: "google"
+    })
+  })
+
+  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+    timeout: 8_000
+  })
+  await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Undo moved items/i })
+  ).not.toBeVisible()
+
+  // The delayed response belongs to Alice's retired restore operation. It must
+  // not recreate Alice's Undo state or a recovery warning for Bob.
+  await page.waitForTimeout(1_200)
+  await expect(page.getByText(/Restore failed:/i)).not.toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Undo moved items/i })
+  ).not.toBeVisible()
+
+  await stub.close()
+  await page.close()
+  await clearStorage(context)
 })
 
 // ============================================================

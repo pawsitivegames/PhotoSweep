@@ -22,11 +22,16 @@ export const extensionPath = path.resolve(
 
 const extensionIds = new WeakMap<BrowserContext, string>()
 
-function rememberExtensionId(context: BrowserContext, extensionId: string): void {
+function rememberExtensionId(
+  context: BrowserContext,
+  extensionId: string
+): void {
   extensionIds.set(context, extensionId)
 }
 
-async function openExtensionStoragePage(context: BrowserContext): Promise<Page> {
+async function openExtensionStoragePage(
+  context: BrowserContext
+): Promise<Page> {
   const extensionId = extensionIds.get(context)
   if (!extensionId) {
     throw new Error("Extension ID is unavailable for the test context.")
@@ -334,13 +339,15 @@ const gptkStubHtml = fs.readFileSync(
  * Per-command response overrides for the GPTK stub.
  * Set `success: false` to force a command to fail.
  */
+export interface GptkOverride {
+  success?: false
+  error?: string
+  data?: unknown
+  delayMs?: number
+}
+
 export interface GptkOverrides {
-  trashItems?: { success: false; error: string; data?: unknown }
-  restoreItems?: { success: false; error: string; data?: unknown }
-  [command: string]:
-    | { success: false; error: string; data?: unknown }
-    | { data: unknown }
-    | undefined
+  [command: string]: GptkOverride | undefined
 }
 
 /**

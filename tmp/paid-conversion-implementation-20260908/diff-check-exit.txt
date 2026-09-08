@@ -1,0 +1,2 @@
+command=fallback git diff --check
+exit_code=0

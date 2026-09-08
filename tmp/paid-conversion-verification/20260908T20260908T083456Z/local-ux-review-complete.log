@@ -1,0 +1,106 @@
+(node:40513) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:40514) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:40514) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:40514) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+upgrade-narrow-metrics {
+  viewportHeight: [33m800[39m,
+  paperClientHeight: [33m736[39m,
+  paperScrollHeight: [33m736[39m,
+  paperScrollTop: [33m0[39m,
+  paperOverflowY: [32m'auto'[39m,
+  contentClientHeight: [33m595[39m,
+  contentScrollHeight: [33m1208[39m,
+  contentScrollTop: [33m0[39m,
+  contentOverflowY: [32m'auto'[39m,
+  buttons: [
+    {
+      name: [32m'Choose Lifetime Early Access for $14.99 USD'[39m,
+      top: [33m578.2265625[39m,
+      bottom: [33m616.2265625[39m,
+      height: [33m38[39m
+    },
+    {
+      name: [32m'Choose Cleanup Pass for $4.99 USD'[39m,
+      top: [33m785.1875[39m,
+      bottom: [33m823.1875[39m,
+      height: [33m38[39m
+    },
+    {
+      name: [32m'Choose Mini Cleanup for $2.99 USD'[39m,
+      top: [33m969.1640625[39m,
+      bottom: [33m1007.1640625[39m,
+      height: [33m38[39m
+    },
+    { name: [32m'Recover'[39m, top: [33m1247.875[39m, bottom: [33m1284.375[39m, height: [33m36.5[39m },
+    { name: [32m'Refresh license'[39m, top: [33m699.5[39m, bottom: [33m759.5[39m, height: [33m60[39m },
+    {
+      name: [32m'Keep reviewing free results'[39m,
+      top: [33m699[39m,
+      bottom: [33m760[39m,
+      height: [33m61[39m
+    }
+  ]
+}
+upgrade-narrow-after-wheel {
+  paperScrollTop: [33m0[39m,
+  contentScrollTop: [33m613.5[39m,
+  paperScrollHeight: [33m736[39m,
+  contentScrollHeight: [33m1208[39m,
+  buttons: [
+    {
+      name: [32m'Choose Cleanup Pass for $4.99 USD'[39m,
+      top: [33m171.6875[39m,
+      bottom: [33m209.6875[39m
+    },
+    {
+      name: [32m'Choose Mini Cleanup for $2.99 USD'[39m,
+      top: [33m355.6640625[39m,
+      bottom: [33m393.6640625[39m
+    },
+    { name: [32m'Recover'[39m, top: [33m634.375[39m, bottom: [33m670.875[39m }
+  ]
+}
+upgrade-narrow-tab-stops [
+  {
+    ariaLabel: [32m'Choose Cleanup Pass for $4.99 USD'[39m,
+    text: [32m'$4.99 USD'[39m,
+    contentScrollTop: [33m410.5[39m
+  },
+  {
+    ariaLabel: [32m'Choose Mini Cleanup for $2.99 USD'[39m,
+    text: [32m'$2.99 USD'[39m,
+    contentScrollTop: [33m410.5[39m
+  },
+  { ariaLabel: [1mnull[22m, text: [32m''[39m, contentScrollTop: [33m613.5[39m },
+  { ariaLabel: [1mnull[22m, text: [32m'Refresh license'[39m, contentScrollTop: [33m613.5[39m },
+  {
+    ariaLabel: [1mnull[22m,
+    text: [32m'Keep reviewing free results'[39m,
+    contentScrollTop: [33m613.5[39m
+  },
+  {
+    ariaLabel: [32m'Choose Lifetime Early Access for $14.99 USD'[39m,
+    text: [32m'$14.99 USD'[39m,
+    contentScrollTop: [33m203.5[39m
+  },
+  {
+    ariaLabel: [32m'Choose Cleanup Pass for $4.99 USD'[39m,
+    text: [32m'$4.99 USD'[39m,
+    contentScrollTop: [33m203.5[39m
+  },
+  {
+    ariaLabel: [32m'Choose Mini Cleanup for $2.99 USD'[39m,
+    text: [32m'$2.99 USD'[39m,
+    contentScrollTop: [33m594.5[39m
+  }
+]
+  ✓  1 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:120:5 › upgrade scope copy, plan comparison, responsive bounds, and keyboard free exit (2.5s)
+  ✓  2 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:342:5 › positive cleanup rating copy offers honest review and feedback (1.5s)
+
+  2 passed (5.0s)

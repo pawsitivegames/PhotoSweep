@@ -1,0 +1,3 @@
+$ npm audit signatures
+npm error found no dependencies to audit that were installed from a supported registry
+npm error A complete log of this run can be found in: /Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_logs/2026-07-28T22_22_15_612Z-debug-0.log

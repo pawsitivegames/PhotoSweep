@@ -1,0 +1,145 @@
+=== candidate freeze manifest ===
+# Paid conversion candidate freeze
+
+Freeze captured 2026-09-08 in `/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder` after the scoped verifier repairs.
+
+## Candidate identity
+
+- Base commit: `dd28bca987f107210304a85e13a4f3844525d459` (see `base-sha.txt`).
+- Branch/worktree: `main`, uncommitted working tree; pre-existing `tmp/ocr.swift` is preserved.
+- Git status: `candidate-status.txt`.
+- Tracked patch: `candidate-tracked.patch`.
+- New-file patch: `candidate-untracked.patch`.
+- SHA-256 manifest for changed/new source, tests, docs, and patch artifacts: `candidate-sha256.txt`.
+- Git executable used for status/diff: `/Users/mustafadungarpurwala/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/git`.
+- Build workaround: `DEVELOPER_DIR=/Library/Developer/CommandLineTools`; global Xcode selection was not changed. The task-local workaround was needed because the default Xcode-beta `xcrun` loader has an arm64/arm64e mismatch.
+
+## Scoped repairs since the prior freeze
+
+- Cross-context checkout invalidation now retires the lifecycle's in-flight promise and rejects mismatched concurrent plans, so a later context cannot reuse or open an old checkout URL.
+- Common paid-conversion invalidation now clears deferred scan CTA state, upgrade/rating surfaces, Trash confirmation/warning, Undo state, pending TrashLifecycle operations, checkout state, and restore/trash generation maps.
+- Trash and restore provider responses are bound to the request's start generation and request identity. Late responses from a retired account/provider are discarded before they can recreate Undo, recovery warnings, rating eligibility, cleanup counts, or review state.
+- Identity-change and reset integration regressions cover stale checkout tabs, paid prompt closure, deferred scan CTA retirement, delayed old-account Trash responses, and delayed old-account Undo responses. Current-context restore failure remains covered and still restores valid Undo.
+
+## Changed behavior delivered for P1–P7
+
+- P1: scan-cap conversion is deferred until completed results with useful duplicate groups; result CTA facts are scoped, dismissible, and cleared on error/cancel/new scan/reset/provider/account invalidation.
+- P2: signed entitlement refresh remains authoritative; checkout starts are deduplicated, server response plan IDs and HTTPS URLs are validated, return reconciliation has a cumulative bounded retry budget and generation guards, mismatched existing plans remain pending, and review state is not mutated by payment reconciliation.
+- P3/P4: paywall facts are current-session values with an explicit scope, exact existing prices/durations/limits/disclosures, Mini retained, recovery and free exit retained, and provider availability qualified.
+- P5: rating eligibility is tied to a confirmed complete cleanup with a positive moved count; scan-only, zero, failed, partial, dry-run, restore, and stale async outcomes do not prompt.
+- P6: consent-controlled funnel fields have finite client/server allowlists; access reconciliation is distinct from server-authoritative `purchase_completed`; no client cancellation claim is emitted without an authoritative signal.
+- P7: plan documentation records truthful acquisition/measurement definitions and keeps provider, Stripe, store, public, and revenue proof outside local claims.
+
+## Fresh local evidence
+
+- `npm test -- --reporter=dot` — PASS; 43 files, 538 tests; `full-test-repair2.log`, `full-test-repair2-exit.txt`.
+- `DEVELOPER_DIR=/Library/Developer/CommandLineTools npm run typecheck` — PASS; `typecheck-repair2.log`, `typecheck-repair2-exit.txt`.
+- Focused lifecycle/rating/trash tests — PASS; 3 files, 23 tests; `focused-repair2.log`, `focused-repair2-exit.txt`.
+- Dev entitlement fixture build with `PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1` — PASS; `build-repair2-dev-full.log`, `build-repair2-dev-full-exit.txt`. This build exists only to exercise mocked browser fixtures.
+- Mocked Playwright integration suites — PASS; 32 tests, `integration-repair2-full.log`, `integration-repair2-full-exit.txt`. This evidence is limited to the local headed Playwright fixture and must not be treated as live provider/payment proof.
+- Production-default build with no dev entitlement override — PASS; `build-final-production-repair2.log`, `build-final-production-repair2-exit.txt`; generated flags captured in `build-final-production-repair2-flags.txt` show `ALLOW_DEV_ENTITLEMENT = false` and no dev entitlement storage key.
+- Prettier check over changed implementation/docs/tests excluding the independent verifier report — PASS; `prettier-repair2-check.log`, `prettier-repair2-check-exit.txt`.
+- Fallback `git diff --check` — PASS; `diff-check-repair2.log`, `diff-check-repair2-exit.txt`.
+- Earlier focused and integration logs remain in this directory for audit history; the files named above are the final post-repair gates.
+
+## Verification mapping
+
+- P1: `tabs/app.tsx`, `lib/paid-conversion.ts`, app-tab integration tests, and lifecycle/component tests cover deferred state, scoped result CTA, reset guards, and account retirement.
+- P2: `lib/paid-access-lifecycle.ts`, `lib/license-client.ts`, `server/license-api.mjs`, lifecycle/license/server tests, and stale-checkout integration cover dedupe, secure plan echo, signed refresh, exact target matching, bounded retry, offline/pending behavior, and server webhook authority.
+- P3/P4: `components/UpgradeDialog.tsx` and upgrade-dialog tests cover scoped facts, existing offer contract, recovery, pending actions, and free exit; human accessibility/copy review remains separate.
+- P5: `lib/rating-prompt.ts`, `tabs/app.tsx`, rating tests, and trash/Undo integration cover positive complete cleanup and negative paths.
+- P6: client/server analytics allowlists and tests cover consent boundary, buckets, enum rejection, unknown-field stripping, and purchase-versus-refresh distinction.
+- P7: `docs/PAID_CONVERSION_PLAN.md` records hypotheses, denominators, sequential experiments, evidence limits, and external gates without claiming uplift or revenue.
+
+## Proof boundaries and limitations
+
+Local tests, mocked provider/license responses, typecheck, build, and source review do not establish live provider behavior, Stripe payment/refund/dispute delivery, deployed service configuration, store/public listing state, analytics consented cohort results, revenue, or conversion uplift. The public listing observation supplied in task context (21 users/no ratings) remains labeled as prior conversational observation rather than repository evidence.
+
+The independent verifier must rebind `docs/PAID_CONVERSION_FORMAL_VERIFICATION.md` to this exact base SHA, worktree diff, and file hashes before issuing formal verdicts. That verifier-owned report was preserved unchanged during this repair. No implementation files are edited after this freeze unless the independent verifier returns a concrete defect.
+=== candidate status ===
+ M components/RatingPromptDialog.tsx
+ M components/UpgradeDialog.tsx
+ M lib/license-client.ts
+ M lib/paid-access-lifecycle.ts
+ M lib/privacy-analytics.ts
+ M lib/rating-prompt.ts
+ M server/license-api.mjs
+ M tabs/app.tsx
+ M tests/components/rating-prompt-dialog.test.tsx
+ M tests/components/upgrade-dialog.test.tsx
+ M tests/e2e/fixtures/extension.ts
+ M tests/e2e/fixtures/gptk-stub.html
+ M tests/e2e/integration/app-tab.test.ts
+ M tests/e2e/integration/trash-undo.test.ts
+ M tests/lib/license-client.test.ts
+ M tests/lib/paid-access-lifecycle.test.ts
+ M tests/lib/privacy-analytics.test.ts
+ M tests/lib/rating-prompt.test.ts
+ M tests/server/license-api.test.ts
+?? docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+?? docs/PAID_CONVERSION_PLAN.md
+?? lib/paid-conversion.ts
+?? tests/lib/paid-conversion.test.ts
+?? tmp/
+=== candidate sha256 ===
+c7be9da2014ba3ef3cd04ba6ea4ec94da140103400887e4618289987b24623dc  components/RatingPromptDialog.tsx
+c41b7d6624e0003725d743516b9271472716c2085cdbf8d81040ea92e8de2549  components/UpgradeDialog.tsx
+b290d218cfaeb6d6e9832dceb0f9cb1d57cb52b09036060d6681f53bb719b76b  lib/license-client.ts
+1fbf4386cd8842e9fd778c0498ad8c235f972a1d165d70e5028e540104269039  lib/paid-access-lifecycle.ts
+bb4216c11035f567bf04f8eb0e275e81dcc7a779e7bc607c1b75f0b240b74138  lib/paid-conversion.ts
+b407237b048b379d08c40f6b28fb55bfeb6d519b82095fe869d86a6429604203  lib/privacy-analytics.ts
+2ffb738df45949ba16cf5a9c436409abd45e9817a2d2b8c4ca2818705315f467  lib/rating-prompt.ts
+385c1b74aa0822e9538fa3e0481b094431354e22cdc1e7b4e873c20617211cee  server/license-api.mjs
+f42785f681297c633085a757e55c0630e884428eca600f3b6a3d159c682bb04c  tabs/app.tsx
+94ecff12ae36a6764a23ac693e905142b359c70e90bee57a1ba67a99cfe6d03f  tests/components/rating-prompt-dialog.test.tsx
+69db83532d7db3eb3ac0de10656a6339296648e4f500115bb118ddf3a29dad31  tests/components/upgrade-dialog.test.tsx
+29fc8b7455798d6701186aaf847239cb4fc6d6606bbed2ff8807170025eca014  tests/e2e/fixtures/extension.ts
+ec837d40da05df5a83841cbccaff5224e21c2b578f65bb31e0f4510e71e525a8  tests/e2e/fixtures/gptk-stub.html
+c069bbe782808bb38c8e077fd08b24cc33b034a2d2db36cf8b7f9a7d6c41a2fe  tests/e2e/integration/app-tab.test.ts
+2e6412760cefb4978e11a19ff299e217c9a0d3f85836f7e45899006fea258ae0  tests/e2e/integration/trash-undo.test.ts
+22436fb5d41f5c58ce6321eadb5ac1cb7831e4395f17c9ea5e46a72e0ae750ea  tests/lib/license-client.test.ts
+745914d35439e0ba3a99bfb3f27b8dfebd0a634cd1994e8068be693df0027806  tests/lib/paid-access-lifecycle.test.ts
+d9e4f5fda99049ed248e27c19edd6f4bf7ef4ed069caf05621b72cde254827f0  tests/lib/paid-conversion.test.ts
+c23b21f62927bc85b5a69416b3f2982a0b49e1e4068e881322c0d8190d0c4b2d  tests/lib/privacy-analytics.test.ts
+d030ef2f021535dc5c10db6fb31cc5b09385272773e12e0ebdd2172f8614bba0  tests/lib/rating-prompt.test.ts
+01e7a1fa48a302cd94455c88c60e61026f83a70e6038cc1700a09afce865a397  tests/server/license-api.test.ts
+431d1dcc07ffbcd999fc4a09c378be3c8441618ec93f5c2ddaae027d2e781f5f  docs/PAID_CONVERSION_PLAN.md
+25c8a3de8d58b44bc6a84d6971f017f767592a5406c2d94470fbea6fb9ab0831  docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+1ebc9950c091e1210df80e7808b25a4730b83b6399609c63181627ebfa31754e  /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/base-sha.txt
+6d9e773feb3c72a2b0f2a3c2d2a0725740737fef03c5eded8cd0ee5bbad8b2a7  /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-status.txt
+7ff9a61189324649216b399f1d6ab2063982bcb2712179c80def7c631da14b7d  /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-tracked.patch
+7b594a58a784b88256cd3a2ca4d7f22918f1b76bd1a66e9ae45e78cf62d0fd49  /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-untracked.patch
+e2943e47c7b0c267d6a0be6776f4cb2d22aded83ed2a76e1e8c9bc3c18c4576c  /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/CANDIDATE_FREEZE.md
+=== current HEAD ===
+dd28bca987f107210304a85e13a4f3844525d459
+=== current status ===
+ M components/RatingPromptDialog.tsx
+ M components/UpgradeDialog.tsx
+ M lib/license-client.ts
+ M lib/paid-access-lifecycle.ts
+ M lib/privacy-analytics.ts
+ M lib/rating-prompt.ts
+ M server/license-api.mjs
+ M tabs/app.tsx
+ M tests/components/rating-prompt-dialog.test.tsx
+ M tests/components/upgrade-dialog.test.tsx
+ M tests/e2e/fixtures/extension.ts
+ M tests/e2e/fixtures/gptk-stub.html
+ M tests/e2e/integration/app-tab.test.ts
+ M tests/e2e/integration/trash-undo.test.ts
+ M tests/lib/license-client.test.ts
+ M tests/lib/paid-access-lifecycle.test.ts
+ M tests/lib/privacy-analytics.test.ts
+ M tests/lib/rating-prompt.test.ts
+ M tests/server/license-api.test.ts
+?? docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+?? docs/PAID_CONVERSION_PLAN.md
+?? lib/paid-conversion.ts
+?? tests/lib/paid-conversion.test.ts
+?? tmp/
+=== artifact hashes ===
+7ff9a61189324649216b399f1d6ab2063982bcb2712179c80def7c631da14b7d  tmp/paid-conversion-implementation-20260908/candidate-tracked.patch
+7b594a58a784b88256cd3a2ca4d7f22918f1b76bd1a66e9ae45e78cf62d0fd49  tmp/paid-conversion-implementation-20260908/candidate-untracked.patch
+6d9e773feb3c72a2b0f2a3c2d2a0725740737fef03c5eded8cd0ee5bbad8b2a7  tmp/paid-conversion-implementation-20260908/candidate-status.txt
+09a7097c3e110e23f06425e8ace9b650c913f43774a2d3f0d00653fe3a9f7b30  tmp/paid-conversion-implementation-20260908/candidate-sha256.txt
+e2943e47c7b0c267d6a0be6776f4cb2d22aded83ed2a76e1e8c9bc3c18c4576c  tmp/paid-conversion-implementation-20260908/CANDIDATE_FREEZE.md

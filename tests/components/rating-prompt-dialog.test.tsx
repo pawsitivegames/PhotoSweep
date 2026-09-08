@@ -26,7 +26,7 @@ describe("RatingPromptDialog", () => {
     renderDialog()
 
     expect(
-      screen.getByText("How was your PhotoSweep scan?")
+      screen.getByText("How was your PhotoSweep cleanup?")
     ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Leave an honest review" })

@@ -1,0 +1,259 @@
+--- tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts	2026-09-08 02:22:48
++++ tmp/paid-conversion-verification/20260908T20260908T083456Z/formatted-local-ux-review.spec.ts	2026-09-08 02:30:43
+@@ -1,5 +1,5 @@
+-import { expect, test, type BrowserContext, type Page } from "@playwright/test"
+ import path from "path"
++import { expect, test, type BrowserContext, type Page } from "@playwright/test"
+ 
+ import {
+   clearStorage,
+@@ -25,16 +25,23 @@
+   await context.close()
+ })
+ 
+-async function assertDialogFitsViewport(page: Page, label: string): Promise<void> {
++async function assertDialogFitsViewport(
++  page: Page,
++  label: string
++): Promise<void> {
+   const metrics = await page.evaluate(() => {
+     const visible = (element: Element): boolean => {
+       const style = getComputedStyle(element)
+       const rect = element.getBoundingClientRect()
+-      return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0
++      return (
++        style.visibility !== "hidden" &&
++        style.display !== "none" &&
++        rect.width > 0
++      )
+     }
+-    const dialog = Array.from(document.querySelectorAll('[role="dialog"]')).find(
+-      visible
+-    )
++    const dialog = Array.from(
++      document.querySelectorAll('[role="dialog"]')
++    ).find(visible)
+     if (!dialog) return { error: "no visible dialog" }
+     const paper = dialog.querySelector(".MuiDialog-paper")
+     const rect = (paper ?? dialog).getBoundingClientRect()
+@@ -45,7 +52,8 @@
+       .map((element) => {
+         const bounds = element.getBoundingClientRect()
+         return {
+-          name: element.getAttribute("aria-label") || element.textContent?.trim(),
++          name:
++            element.getAttribute("aria-label") || element.textContent?.trim(),
+           left: bounds.left,
+           right: bounds.right,
+           top: bounds.top,
+@@ -69,21 +77,31 @@
+   })
+ 
+   expect(metrics, `${label}: dialog metrics`).not.toHaveProperty("error")
+-  expect(metrics.documentScrollWidth, `${label}: document horizontal overflow`).toBeLessThanOrEqual(
+-    metrics.viewport.width + 1
+-  )
+-  expect(metrics.bodyScrollWidth, `${label}: body horizontal overflow`).toBeLessThanOrEqual(
+-    metrics.viewport.width + 1
+-  )
+-  expect(metrics.paper.left, `${label}: dialog left edge`).toBeGreaterThanOrEqual(-1)
+-  expect(metrics.paper.right, `${label}: dialog right edge`).toBeLessThanOrEqual(
+-    metrics.viewport.width + 1
+-  )
++  expect(
++    metrics.documentScrollWidth,
++    `${label}: document horizontal overflow`
++  ).toBeLessThanOrEqual(metrics.viewport.width + 1)
++  expect(
++    metrics.bodyScrollWidth,
++    `${label}: body horizontal overflow`
++  ).toBeLessThanOrEqual(metrics.viewport.width + 1)
++  expect(
++    metrics.paper.left,
++    `${label}: dialog left edge`
++  ).toBeGreaterThanOrEqual(-1)
++  expect(
++    metrics.paper.right,
++    `${label}: dialog right edge`
++  ).toBeLessThanOrEqual(metrics.viewport.width + 1)
+   for (const control of metrics.controls) {
+-    expect(control.left, `${label}: ${control.name} left edge`).toBeGreaterThanOrEqual(-1)
+-    expect(control.right, `${label}: ${control.name} right edge`).toBeLessThanOrEqual(
+-      metrics.viewport.width + 1
+-    )
++    expect(
++      control.left,
++      `${label}: ${control.name} left edge`
++    ).toBeGreaterThanOrEqual(-1)
++    expect(
++      control.right,
++      `${label}: ${control.name} right edge`
++    ).toBeLessThanOrEqual(metrics.viewport.width + 1)
+   }
+ }
+ 
+@@ -109,19 +127,29 @@
+     Object.keys(mediaItems).length,
+     "test@example.com"
+   )
+-  await injectSelections(context, groups.map((group) => group.id))
++  await injectSelections(
++    context,
++    groups.map((group) => group.id)
++  )
+ 
+   const stub = await openGptkStubPage(context)
+   const page = await openAppTab(context, extensionId)
+   try {
+     await expect(
+-      page.getByRole("heading", { name: "2 Duplicate Sets to Review", exact: true })
++      page.getByRole("heading", {
++        name: "2 Duplicate Sets to Review",
++        exact: true
++      })
+     ).toBeVisible({ timeout: 8_000 })
+     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+-    const trigger = page.getByRole("button", { name: /Review & move 12 to Trash/i })
++    const trigger = page.getByRole("button", {
++      name: /Review & move 12 to Trash/i
++    })
+     await trigger.click()
+     const dialog = page.getByRole("dialog")
+-    await expect(dialog.getByRole("heading", { name: "Unlock larger cleanup" })).toBeVisible()
++    await expect(
++      dialog.getByRole("heading", { name: "Unlock larger cleanup" })
++    ).toBeVisible()
+ 
+     const copy = await dialog.innerText()
+     expect(copy).toContain("Scope:")
+@@ -134,7 +162,9 @@
+     expect(copy).toContain("Purchase email")
+     expect(copy).toContain("Recover")
+     expect(copy).toContain("Keep reviewing free results")
+-    expect(copy).not.toMatch(/free up|storage saved|entire library[^ ]* coverage|guarantee/i)
++    expect(copy).not.toMatch(
++      /free up|storage saved|entire library[^ ]* coverage|guarantee/i
++    )
+ 
+     for (const plan of [
+       /Choose Mini Cleanup for \$2\.99 USD/i,
+@@ -158,7 +188,8 @@
+         ).map((button) => {
+           const rect = button.getBoundingClientRect()
+           return {
+-            name: button.getAttribute("aria-label") || button.textContent?.trim(),
++            name:
++              button.getAttribute("aria-label") || button.textContent?.trim(),
+             top: rect.top,
+             bottom: rect.bottom,
+             height: rect.height
+@@ -173,7 +204,9 @@
+           contentClientHeight: content?.clientHeight,
+           contentScrollHeight: content?.scrollHeight,
+           contentScrollTop: content?.scrollTop,
+-          contentOverflowY: content ? getComputedStyle(content).overflowY : undefined,
++          contentOverflowY: content
++            ? getComputedStyle(content).overflowY
++            : undefined,
+           buttons
+         }
+       })
+@@ -197,10 +230,21 @@
+         const buttons = Array.from(
+           document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')
+         )
+-          .filter((button) => names.includes(button.getAttribute("aria-label") || button.textContent?.trim() || ""))
++          .filter((button) =>
++            names.includes(
++              button.getAttribute("aria-label") ||
++                button.textContent?.trim() ||
++                ""
++            )
++          )
+           .map((button) => {
+             const rect = button.getBoundingClientRect()
+-            return { name: button.getAttribute("aria-label") || button.textContent?.trim(), top: rect.top, bottom: rect.bottom }
++            return {
++              name:
++                button.getAttribute("aria-label") || button.textContent?.trim(),
++              top: rect.top,
++              bottom: rect.bottom
++            }
+           })
+         return {
+           paperScrollTop: paper?.scrollTop,
+@@ -269,19 +313,25 @@
+       fullPage: false
+     })
+ 
+-    await dialog.getByRole("button", { name: "Keep reviewing free results" }).focus()
++    await dialog
++      .getByRole("button", { name: "Keep reviewing free results" })
++      .focus()
+     expect((await activeElementSummary(page)).text).toContain(
+       "Keep reviewing free results"
+     )
+     await page.keyboard.press("Enter")
+     await expect(dialog).not.toBeVisible()
+-    expect((await activeElementSummary(page)).text).toMatch(/Review & move 12 to Trash/i)
++    expect((await activeElementSummary(page)).text).toMatch(
++      /Review & move 12 to Trash/i
++    )
+ 
+     await trigger.click()
+     await expect(dialog).toBeVisible()
+     await page.keyboard.press("Escape")
+     await expect(dialog).not.toBeVisible()
+-    expect((await activeElementSummary(page)).text).toMatch(/Review & move 12 to Trash/i)
++    expect((await activeElementSummary(page)).text).toMatch(
++      /Review & move 12 to Trash/i
++    )
+   } finally {
+     await page.close()
+     await stub.close()
+@@ -305,22 +355,38 @@
+   const page = await openAppTab(context, extensionId)
+   try {
+     await expect(
+-      page.getByRole("heading", { name: "3 Duplicate Sets to Review", exact: true })
++      page.getByRole("heading", {
++        name: "3 Duplicate Sets to Review",
++        exact: true
++      })
+     ).toBeVisible({ timeout: 8_000 })
+     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+-    await page.getByRole("button", { name: /Review & move 3 to Trash/i }).click()
+-    await expect(page.getByRole("heading", { name: "Move to Trash" })).toBeVisible()
++    await page
++      .getByRole("button", { name: /Review & move 3 to Trash/i })
++      .click()
++    await expect(
++      page.getByRole("heading", { name: "Move to Trash" })
++    ).toBeVisible()
+     await page.getByLabel("Type 3 to confirm").fill("3")
+-    await page.getByRole("button", { name: /^Move to Trash$/i }).last().click()
+-    await expect(page.getByText(/moved to trash/i)).toBeVisible({ timeout: 10_000 })
+-    await page.getByRole("button", { name: "Dismiss undo notification" }).click()
++    await page
++      .getByRole("button", { name: /^Move to Trash$/i })
++      .last()
++      .click()
++    await expect(page.getByText(/moved to trash/i)).toBeVisible({
++      timeout: 10_000
++    })
++    await page
++      .getByRole("button", { name: "Dismiss undo notification" })
++      .click()
+ 
+     const dialog = page.getByRole("dialog")
+     await expect(
+       dialog.getByRole("heading", { name: "How was your PhotoSweep cleanup?" })
+     ).toBeVisible()
+     const copy = await dialog.innerText()
+-    expect(copy).toContain("Whether everything worked well or something could be better")
++    expect(copy).toContain(
++      "Whether everything worked well or something could be better"
++    )
+     expect(copy).toContain("honest public review")
+     expect(copy).toContain("Send feedback")
+     expect(copy).toContain("Maybe later")

@@ -51,7 +51,7 @@ export function RatingPromptDialog({
       <DialogTitle id="rating-prompt-title">
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <RateReviewRoundedIcon color="primary" />
-          How was your PhotoSweep scan?
+          How was your PhotoSweep cleanup?
         </Box>
       </DialogTitle>
       <DialogContent>

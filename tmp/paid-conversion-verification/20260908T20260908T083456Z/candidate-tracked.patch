@@ -1,0 +1,3570 @@
+diff --git a/components/RatingPromptDialog.tsx b/components/RatingPromptDialog.tsx
+index 453eff6..454186c 100644
+--- a/components/RatingPromptDialog.tsx
++++ b/components/RatingPromptDialog.tsx
+@@ -51,7 +51,7 @@ export function RatingPromptDialog({
+       <DialogTitle id="rating-prompt-title">
+         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+           <RateReviewRoundedIcon color="primary" />
+-          How was your PhotoSweep scan?
++          How was your PhotoSweep cleanup?
+         </Box>
+       </DialogTitle>
+       <DialogContent>
+diff --git a/components/UpgradeDialog.tsx b/components/UpgradeDialog.tsx
+index 08081c6..b3d6ebf 100644
+--- a/components/UpgradeDialog.tsx
++++ b/components/UpgradeDialog.tsx
+@@ -11,15 +11,15 @@ import Typography from "@mui/material/Typography"
+ import { useState } from "react"
+ 
+ import { PLAN_LABELS, PLAN_PRICES, type PlanId } from "../lib/entitlement"
++import {
++  formatUpgradeScope,
++  type CheckoutReturnState,
++  type UpgradeReason,
++  type UpgradeValueFacts
++} from "../lib/paid-conversion"
+ import { photoSweepColors } from "../lib/theme"
+ 
+-export type UpgradeReason =
+-  | "scan"
+-  | "groups"
+-  | "trash"
+-  | "export"
+-  | "resume"
+-  | "provider"
++export type { UpgradeReason } from "../lib/paid-conversion"
+ 
+ interface UpgradeDialogProps {
+   open: boolean
+@@ -29,6 +29,8 @@ interface UpgradeDialogProps {
+   onChoosePlan?: (planId: Exclude<PlanId, "free">) => void
+   onRefreshLicense?: () => void
+   onRecoverLicense?: (email: string) => Promise<void> | void
++  valueFacts?: UpgradeValueFacts
++  checkoutState?: CheckoutReturnState
+ }
+ 
+ const PLANS: Exclude<PlanId, "free">[] = [
+@@ -68,7 +70,9 @@ export function UpgradeDialog({
+   onClose,
+   onChoosePlan,
+   onRefreshLicense,
+-  onRecoverLicense
++  onRecoverLicense,
++  valueFacts,
++  checkoutState
+ }: UpgradeDialogProps) {
+   const [recoveryEmail, setRecoveryEmail] = useState("")
+   const [recoveryBusy, setRecoveryBusy] = useState(false)
+@@ -83,6 +87,34 @@ export function UpgradeDialog({
+     onRefreshLicense?.()
+   }
+ 
++  const scope = valueFacts ? formatUpgradeScope(valueFacts) : undefined
++  const valueLines = valueFacts
++    ? [
++        scope ? `Scope: ${scope}` : undefined,
++        valueFacts.itemsChecked !== undefined
++          ? `${valueFacts.itemsChecked.toLocaleString()} items checked`
++          : undefined,
++        valueFacts.additionalItemsUnavailable !== undefined &&
++        valueFacts.additionalItemsUnavailable > 0
++          ? `${valueFacts.additionalItemsUnavailable.toLocaleString()} additional items are outside this scan`
++          : undefined,
++        valueFacts.duplicateGroupCount !== undefined
++          ? `${valueFacts.duplicateGroupCount.toLocaleString()} duplicate sets found in the checked scope`
++          : undefined,
++        valueFacts.visibleGroupCount !== undefined &&
++        valueFacts.lockedGroupCount !== undefined &&
++        valueFacts.lockedGroupCount > 0
++          ? `${valueFacts.visibleGroupCount.toLocaleString()} sets visible on the current plan; ${valueFacts.lockedGroupCount.toLocaleString()} more are unavailable`
++          : undefined,
++        valueFacts.selectedCleanupCount !== undefined
++          ? `${valueFacts.selectedCleanupCount.toLocaleString()} items selected for cleanup`
++          : undefined,
++        valueFacts.remainingTrashMoves !== undefined
++          ? `${valueFacts.remainingTrashMoves === "unlimited" ? "Unlimited" : valueFacts.remainingTrashMoves.toLocaleString()} Trash moves remaining this session`
++          : undefined
++      ].filter((line): line is string => Boolean(line))
++    : []
++
+   async function handleRecoverLicense() {
+     if (!canRecover || !onRecoverLicense) return
+     setRecoveryBusy(true)
+@@ -110,11 +142,49 @@ export function UpgradeDialog({
+         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+           {reasonBody(reason)}
+         </Typography>
++        {valueLines.length > 0 && (
++          <Box
++            component="ul"
++            aria-label="Current cleanup value"
++            sx={{
++              mt: 0,
++              mb: 2,
++              pl: 2.5,
++              color: "text.secondary",
++              "& li": { mb: 0.5 }
++            }}>
++            {valueLines.map((line) => (
++              <Typography component="li" variant="body2" key={line}>
++                {line}
++              </Typography>
++            ))}
++          </Box>
++        )}
+         {detail && (
+           <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
+             {detail}
+           </Typography>
+         )}
++        {checkoutState && checkoutState.status !== "idle" && (
++          <Typography
++            role="status"
++            variant="body2"
++            color={
++              checkoutState.status === "active"
++                ? "success.main"
++                : "text.secondary"
++            }
++            sx={{ mb: 2, fontWeight: 700 }}>
++            {checkoutState.message ??
++              (checkoutState.status === "pending"
++                ? "Checkout opened. Return here after payment and PhotoSweep will verify the license."
++                : checkoutState.status === "refreshing"
++                  ? "Checking the payment provider for a verified license..."
++                  : checkoutState.status === "active"
++                    ? "Paid access is active. Your review stays open."
++                    : "Payment is not verified yet. Refresh the license or retry.")}
++          </Typography>
++        )}
+         <Stack spacing={1}>
+           {PLANS.map((planId) => (
+             <Box
+@@ -153,6 +223,10 @@ export function UpgradeDialog({
+                 type="button"
+                 aria-label={`Choose ${PLAN_LABELS[planId]} for ${PLAN_PRICES[planId]} USD`}
+                 onClick={() => choosePlan(planId)}
++                disabled={
++                  checkoutState?.status === "pending" ||
++                  checkoutState?.status === "refreshing"
++                }
+                 sx={{
+                   appearance: "none",
+                   border: "1px solid",
+diff --git a/lib/license-client.ts b/lib/license-client.ts
+index fc4eb61..02ee1dd 100644
+--- a/lib/license-client.ts
++++ b/lib/license-client.ts
+@@ -30,6 +30,7 @@ export interface StoredEntitlement {
+ 
+ export interface CheckoutResponse {
+   url: string
++  planId: Exclude<PlanId, "free">
+ }
+ 
+ export interface LicenseClientOptions {
+@@ -43,10 +44,10 @@ export interface LoadStoredEntitlementOptions {
+ }
+ 
+ function base64UrlToBytes(value: string): Uint8Array {
+-  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(
+-    Math.ceil(value.length / 4) * 4,
+-    "="
+-  )
++  const padded = value
++    .replace(/-/g, "+")
++    .replace(/_/g, "/")
++    .padEnd(Math.ceil(value.length / 4) * 4, "=")
+   const binary = atob(padded)
+   const bytes = new Uint8Array(binary.length)
+   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+@@ -74,7 +75,8 @@ function isSignedEntitlementPayload(
+   }
+   if (
+     payload.expiresAt !== undefined &&
+-    (typeof payload.expiresAt !== "number" || !Number.isFinite(payload.expiresAt))
++    (typeof payload.expiresAt !== "number" ||
++      !Number.isFinite(payload.expiresAt))
+   ) {
+     return false
+   }
+@@ -134,7 +136,10 @@ function devEntitlementAllowed(override?: boolean): boolean {
+ export function getEffectiveLicenseApiBaseUrl(
+   storedApiBaseUrl?: string
+ ): string | undefined {
+-  return LICENSE_API_BASE_URL ?? (ALLOW_DEV_ENTITLEMENT ? storedApiBaseUrl : undefined)
++  return (
++    LICENSE_API_BASE_URL ??
++    (ALLOW_DEV_ENTITLEMENT ? storedApiBaseUrl : undefined)
++  )
+ }
+ 
+ export async function verifyEntitlementTokenWithBundledKey(
+@@ -154,7 +159,8 @@ export async function loadStoredEntitlement(
+   options: LoadStoredEntitlementOptions = {}
+ ): Promise<StoredEntitlement> {
+   const storageKeys = [ENTITLEMENT_STORAGE_KEY, ENTITLEMENT_TOKEN_STORAGE_KEY]
+-  if (DEV_ENTITLEMENT_STORAGE_KEY) storageKeys.unshift(DEV_ENTITLEMENT_STORAGE_KEY)
++  if (DEV_ENTITLEMENT_STORAGE_KEY)
++    storageKeys.unshift(DEV_ENTITLEMENT_STORAGE_KEY)
+   const stored = await chrome.storage.local.get(storageKeys)
+   const devEntitlement = DEV_ENTITLEMENT_STORAGE_KEY
+     ? (stored[DEV_ENTITLEMENT_STORAGE_KEY] as Entitlement | undefined)
+@@ -228,7 +234,9 @@ export class LicenseClient {
+     return Boolean(this.apiBaseUrl)
+   }
+ 
+-  async createCheckout(planId: Exclude<PlanId, "free">): Promise<CheckoutResponse> {
++  async createCheckout(
++    planId: Exclude<PlanId, "free">
++  ): Promise<CheckoutResponse> {
+     if (!this.apiBaseUrl) throw new Error("License API is not configured.")
+     const response = await this.fetchImpl(`${this.apiBaseUrl}/checkout`, {
+       method: "POST",
+@@ -242,12 +250,15 @@ export class LicenseClient {
+ 
+   async recoverLicense(email: string): Promise<void> {
+     if (!this.apiBaseUrl) throw new Error("License API is not configured.")
+-    const response = await this.fetchImpl(`${this.apiBaseUrl}/license/recover`, {
+-      method: "POST",
+-      credentials: "include",
+-      headers: { "content-type": "application/json" },
+-      body: JSON.stringify({ email })
+-    })
++    const response = await this.fetchImpl(
++      `${this.apiBaseUrl}/license/recover`,
++      {
++        method: "POST",
++        credentials: "include",
++        headers: { "content-type": "application/json" },
++        body: JSON.stringify({ email })
++      }
++    )
+     if (!response.ok) throw new Error("Could not recover license.")
+   }
+ 
+@@ -258,7 +269,8 @@ export class LicenseClient {
+     })
+     if (!response.ok) throw new Error("Could not refresh entitlement.")
+     const data = (await response.json()) as { token?: string }
+-    if (!data.token) throw new Error("Entitlement response did not include a token.")
++    if (!data.token)
++      throw new Error("Entitlement response did not include a token.")
+     return data.token
+   }
+ }
+diff --git a/lib/paid-access-lifecycle.ts b/lib/paid-access-lifecycle.ts
+index e0aa866..960c6be 100644
+--- a/lib/paid-access-lifecycle.ts
++++ b/lib/paid-access-lifecycle.ts
+@@ -5,6 +5,11 @@ import {
+   type PlanId
+ } from "./entitlement"
+ import type { CheckoutResponse, StoredEntitlement } from "./license-client"
++import {
++  boundedRetryDelays,
++  type ActivationOutcome,
++  type CheckoutReturnOutcome
++} from "./paid-conversion"
+ 
+ export interface PaidAccessClient {
+   isConfigured(): boolean
+@@ -34,12 +39,33 @@ export interface PaidAccessRefresh {
+   recovery: "completed" | "not_found" | null
+ }
+ 
++export interface PaidAccessCheckoutReconciliation {
++  outcome: CheckoutReturnOutcome
++  activation: ActivationOutcome
++  stored?: StoredEntitlement
++  attempts: number
++  error?: unknown
++}
++
++export interface PaidAccessCheckoutReconciliationOptions {
++  planId: Exclude<PlanId, "free">
++  maxAttempts?: number
++  initialDelayMs?: number
++  backoffMs?: number
++  sleep?: (delayMs: number) => Promise<void>
++}
++
+ export class PaidAccessLifecycle {
+   private entitlement: Entitlement = FREE_ENTITLEMENT
+   private apiBaseUrl?: string
+   private storedTokenPresent = false
+   private startupRefreshAttempted = false
+   private recoveryPending = false
++  private checkoutInFlight: {
++    planId: Exclude<PlanId, "free">
++    promise: Promise<CheckoutResponse>
++  } | null = null
++  private refreshInFlight: Promise<PaidAccessRefresh> | null = null
+ 
+   constructor(private readonly adapter: PaidAccessAdapter) {}
+ 
+@@ -66,6 +92,17 @@ export class PaidAccessLifecycle {
+   }
+ 
+   async refresh(): Promise<PaidAccessRefresh> {
++    if (this.refreshInFlight) return this.refreshInFlight
++    const operation = this.refreshInternal()
++    this.refreshInFlight = operation
++    try {
++      return await operation
++    } finally {
++      if (this.refreshInFlight === operation) this.refreshInFlight = null
++    }
++  }
++
++  private async refreshInternal(): Promise<PaidAccessRefresh> {
+     const client = this.configuredClient()
+     const token = await client.fetchEntitlementToken()
+     const stored = await this.adapter.saveVerifiedToken(token)
+@@ -90,7 +127,92 @@ export class PaidAccessLifecycle {
+   async createCheckout(
+     planId: Exclude<PlanId, "free">
+   ): Promise<CheckoutResponse> {
+-    return this.configuredClient().createCheckout(planId)
++    if (this.checkoutInFlight) {
++      if (this.checkoutInFlight.planId === planId) {
++        return this.checkoutInFlight.promise
++      }
++      return Promise.reject(
++        new Error(
++          "Another checkout is already in progress for a different plan."
++        )
++      )
++    }
++    const operation = this.configuredClient()
++      .createCheckout(planId)
++      .then((response) => validateCheckoutResponse(response, planId))
++    this.checkoutInFlight = { planId, promise: operation }
++    try {
++      return await operation
++    } finally {
++      if (this.checkoutInFlight?.promise === operation) {
++        this.checkoutInFlight = null
++      }
++    }
++  }
++
++  /**
++   * Drops an in-flight checkout from the current app identity/context.
++   *
++   * The underlying request cannot be cancelled reliably across browsers, but
++   * its promise must not be reused by a later account/provider context. The
++   * completion still validates the plan it was created for; the app's
++   * generation guard then ignores the stale result and never opens its URL.
++   */
++  invalidateCheckoutContext(): void {
++    this.checkoutInFlight = null
++  }
++
++  async reconcileCheckoutReturn(
++    options: PaidAccessCheckoutReconciliationOptions
++  ): Promise<PaidAccessCheckoutReconciliation> {
++    const delays = boundedRetryDelays(
++      options.maxAttempts,
++      options.initialDelayMs,
++      options.backoffMs
++    )
++    const sleep = options.sleep ?? defaultSleep
++    let lastError: unknown
++
++    for (let index = 0; index < delays.length; index += 1) {
++      if (delays[index] > 0) await sleep(delays[index])
++      try {
++        const refreshed = await this.refresh()
++        const refreshedPlan = getEffectivePlanId(refreshed.stored.entitlement)
++        if (refreshedPlan === options.planId) {
++          return {
++            outcome: "activated",
++            activation: "access_reconciled",
++            stored: refreshed.stored,
++            attempts: index + 1
++          }
++        }
++        if (index === delays.length - 1) {
++          return {
++            outcome: "pending",
++            activation: "not_activated",
++            stored: refreshed.stored,
++            attempts: index + 1
++          }
++        }
++      } catch (error) {
++        lastError = error
++        if (index === delays.length - 1) {
++          return {
++            outcome: isOfflineLikeError(error) ? "offline" : "failed",
++            activation: "not_activated",
++            attempts: index + 1,
++            error
++          }
++        }
++      }
++    }
++
++    return {
++      outcome: lastError ? "failed" : "pending",
++      activation: "not_activated",
++      attempts: delays.length,
++      ...(lastError ? { error: lastError } : {})
++    }
+   }
+ 
+   async recover(email: string): Promise<void> {
+@@ -104,3 +226,32 @@ export class PaidAccessLifecycle {
+     return client
+   }
+ }
++
++function defaultSleep(delayMs: number): Promise<void> {
++  return new Promise((resolve) => setTimeout(resolve, delayMs))
++}
++
++function validateCheckoutResponse(
++  response: CheckoutResponse,
++  expectedPlanId: Exclude<PlanId, "free">
++): CheckoutResponse {
++  if (!response || response.planId !== expectedPlanId) {
++    throw new Error("Checkout response did not match the requested plan.")
++  }
++  let parsed: URL
++  try {
++    parsed = new URL(response.url)
++  } catch {
++    throw new Error("Checkout response did not contain a valid URL.")
++  }
++  if (parsed.protocol !== "https:") {
++    throw new Error("Checkout response did not contain a secure URL.")
++  }
++  return response
++}
++
++function isOfflineLikeError(error: unknown): boolean {
++  if (error instanceof TypeError) return true
++  const message = error instanceof Error ? error.message.toLowerCase() : ""
++  return message.includes("network") || message.includes("offline")
++}
+diff --git a/lib/privacy-analytics.ts b/lib/privacy-analytics.ts
+index c9383c2..8f88fb9 100644
+--- a/lib/privacy-analytics.ts
++++ b/lib/privacy-analytics.ts
+@@ -1,14 +1,68 @@
+ import type { Entitlement } from "./entitlement"
++import type {
++  ActivationOutcome,
++  CheckoutReturnOutcome,
++  UpgradeReason
++} from "./paid-conversion"
+ import type { PhotoProvider, ScanMode } from "./types"
+ 
+ export const ANALYTICS_CONSENT_STORAGE_KEY = "photoSweepAnalyticsConsent"
+ 
++const ANALYTICS_PROVIDERS = new Set<PhotoProvider>([
++  "google",
++  "icloud",
++  "amazon"
++])
++const ANALYTICS_SCAN_MODES = new Set<ScanMode>(["smart", "full"])
++const ANALYTICS_COUNT_BUCKETS = new Set([
++  "0-99",
++  "100-999",
++  "1k-5k",
++  "5k-10k",
++  "10k-50k",
++  "50k+"
++])
++const ANALYTICS_ERROR_CATEGORIES = new Set([
++  "license_refresh",
++  "scan",
++  "trash",
++  "trash_partial"
++])
++const ANALYTICS_PLAN_IDS = new Set<Entitlement["planId"]>([
++  "free",
++  "mini_cleanup",
++  "cleanup_pass",
++  "lifetime"
++])
++const ANALYTICS_UPGRADE_REASONS = new Set<UpgradeReason>([
++  "scan",
++  "groups",
++  "trash",
++  "export",
++  "resume",
++  "provider"
++])
++const ANALYTICS_DISMISSAL_REASONS = new Set(["continue_free", "dismissed"])
++const ANALYTICS_PAID_RETURN_OUTCOMES = new Set<CheckoutReturnOutcome>([
++  "activated",
++  "pending",
++  "failed",
++  "offline"
++])
++const ANALYTICS_ACTIVATION_OUTCOMES = new Set<ActivationOutcome>([
++  "access_reconciled",
++  "restore",
++  "not_activated"
++])
++
+ export type AnalyticsEventName =
+   | "app_opened"
+   | "scan_started"
+   | "scan_completed"
+   | "upgrade_prompt_shown"
++  | "upgrade_prompt_dismissed"
+   | "checkout_started"
++  | "paid_return"
+   | "restore_requested"
+   | "restore_completed"
+   | "restore_not_found"
+@@ -26,6 +80,10 @@ export interface PrivacySafeAnalyticsEvent {
+   photoCountBucket?: string
+   duplicateGroupCountBucket?: string
+   errorCategory?: string
++  upgradeReason?: UpgradeReason
++  dismissalReason?: "continue_free" | "dismissed"
++  paidReturnOutcome?: CheckoutReturnOutcome
++  activationOutcome?: ActivationOutcome
+ }
+ 
+ export function countBucket(count: number): string {
+@@ -42,15 +100,63 @@ export function buildAnalyticsEvent(
+ ): PrivacySafeAnalyticsEvent {
+   return {
+     name: event.name,
+-    provider: event.provider,
+-    scanMode: event.scanMode,
+-    planId: event.planId,
+-    photoCountBucket: event.photoCountBucket,
+-    duplicateGroupCountBucket: event.duplicateGroupCountBucket,
+-    errorCategory: event.errorCategory
++    provider: optionalAllowed(event.provider, ANALYTICS_PROVIDERS),
++    scanMode: optionalAllowed(event.scanMode, ANALYTICS_SCAN_MODES),
++    planId: optionalAllowed(event.planId, ANALYTICS_PLAN_IDS),
++    photoCountBucket: optionalAllowed(
++      event.photoCountBucket,
++      ANALYTICS_COUNT_BUCKETS
++    ),
++    duplicateGroupCountBucket: optionalAllowed(
++      event.duplicateGroupCountBucket,
++      ANALYTICS_COUNT_BUCKETS
++    ),
++    errorCategory: optionalAllowed(
++      event.errorCategory,
++      ANALYTICS_ERROR_CATEGORIES
++    ),
++    ...(optionalAllowed(event.upgradeReason, ANALYTICS_UPGRADE_REASONS)
++      ? {
++          upgradeReason: optionalAllowed(
++            event.upgradeReason,
++            ANALYTICS_UPGRADE_REASONS
++          )
++        }
++      : {}),
++    ...(optionalAllowed(event.dismissalReason, ANALYTICS_DISMISSAL_REASONS)
++      ? {
++          dismissalReason: optionalAllowed(
++            event.dismissalReason,
++            ANALYTICS_DISMISSAL_REASONS
++          )
++        }
++      : {}),
++    ...(optionalAllowed(event.paidReturnOutcome, ANALYTICS_PAID_RETURN_OUTCOMES)
++      ? {
++          paidReturnOutcome: optionalAllowed(
++            event.paidReturnOutcome,
++            ANALYTICS_PAID_RETURN_OUTCOMES
++          )
++        }
++      : {}),
++    ...(optionalAllowed(event.activationOutcome, ANALYTICS_ACTIVATION_OUTCOMES)
++      ? {
++          activationOutcome: optionalAllowed(
++            event.activationOutcome,
++            ANALYTICS_ACTIVATION_OUTCOMES
++          )
++        }
++      : {})
+   }
+ }
+ 
++function optionalAllowed<T extends string>(
++  value: T | undefined,
++  allowed: ReadonlySet<string>
++): T | undefined {
++  return typeof value === "string" && allowed.has(value) ? value : undefined
++}
++
+ export async function sendPrivacySafeAnalyticsEvent(
+   apiBaseUrl: string | undefined,
+   event: PrivacySafeAnalyticsEvent,
+diff --git a/lib/rating-prompt.ts b/lib/rating-prompt.ts
+index 9f30675..f88853a 100644
+--- a/lib/rating-prompt.ts
++++ b/lib/rating-prompt.ts
+@@ -4,12 +4,14 @@ const SCANS_BEFORE_REPROMPT = 3
+ 
+ export type RatingPromptState = {
+   successfulScans: number
++  successfulCleanups: number
+   nextPromptAt: number
+   completed: boolean
+ }
+ 
+ const DEFAULT_STATE: RatingPromptState = {
+   successfulScans: 0,
++  successfulCleanups: 0,
+   nextPromptAt: 1,
+   completed: false
+ }
+@@ -25,6 +27,12 @@ function normalizeState(value: unknown): RatingPromptState {
+       candidate.successfulScans >= 0
+         ? Math.floor(candidate.successfulScans)
+         : 0,
++    successfulCleanups:
++      typeof candidate.successfulCleanups === "number" &&
++      Number.isFinite(candidate.successfulCleanups) &&
++      candidate.successfulCleanups >= 0
++        ? Math.floor(candidate.successfulCleanups)
++        : 0,
+     nextPromptAt:
+       typeof candidate.nextPromptAt === "number" &&
+       Number.isFinite(candidate.nextPromptAt) &&
+@@ -44,7 +52,10 @@ async function saveState(state: RatingPromptState): Promise<void> {
+   await chrome.storage.local.set({ [RATING_PROMPT_STORAGE_KEY]: state })
+ }
+ 
+-/** Records only a newly completed scan, never restored results. */
++/**
++ * Legacy migration hook. Scan completion no longer makes a review prompt
++ * eligible; eligibility is tied to confirmed positive cleanup instead.
++ */
+ export async function recordSuccessfulScan(): Promise<boolean> {
+   const current = await loadState()
+   const next = {
+@@ -52,14 +63,28 @@ export async function recordSuccessfulScan(): Promise<boolean> {
+     successfulScans: current.successfulScans + 1
+   }
+   await saveState(next)
+-  return !next.completed && next.successfulScans >= next.nextPromptAt
++  return false
++}
++
++/** Records a newly confirmed positive provider cleanup. */
++export async function recordSuccessfulCleanup(
++  movedCount: number
++): Promise<boolean> {
++  if (!Number.isFinite(movedCount) || movedCount <= 0) return false
++  const current = await loadState()
++  const next = {
++    ...current,
++    successfulCleanups: current.successfulCleanups + 1
++  }
++  await saveState(next)
++  return !next.completed && next.successfulCleanups >= next.nextPromptAt
+ }
+ 
+ export async function deferRatingPrompt(): Promise<void> {
+   const current = await loadState()
+   await saveState({
+     ...current,
+-    nextPromptAt: current.successfulScans + SCANS_BEFORE_REPROMPT
++    nextPromptAt: current.successfulCleanups + SCANS_BEFORE_REPROMPT
+   })
+ }
+ 
+diff --git a/server/license-api.mjs b/server/license-api.mjs
+index 77a8733..b9c8b9e 100644
+--- a/server/license-api.mjs
++++ b/server/license-api.mjs
+@@ -26,7 +26,9 @@ const ANALYTICS_EVENT_NAMES = new Set([
+   "scan_started",
+   "scan_completed",
+   "upgrade_prompt_shown",
++  "upgrade_prompt_dismissed",
+   "checkout_started",
++  "paid_return",
+   "restore_requested",
+   "restore_completed",
+   "restore_not_found",
+@@ -38,12 +40,46 @@ const ANALYTICS_EVENT_NAMES = new Set([
+ ])
+ const ANALYTICS_PROVIDERS = new Set(["google", "icloud", "amazon"])
+ const ANALYTICS_SCAN_MODES = new Set(["smart", "full"])
++const ANALYTICS_COUNT_BUCKETS = new Set([
++  "0-99",
++  "100-999",
++  "1k-5k",
++  "5k-10k",
++  "10k-50k",
++  "50k+"
++])
++const ANALYTICS_ERROR_CATEGORIES = new Set([
++  "license_refresh",
++  "scan",
++  "trash",
++  "trash_partial"
++])
+ const ANALYTICS_PLAN_IDS = new Set([
+   "free",
+   "mini_cleanup",
+   "cleanup_pass",
+   "lifetime"
+ ])
++const ANALYTICS_UPGRADE_REASONS = new Set([
++  "scan",
++  "groups",
++  "trash",
++  "export",
++  "resume",
++  "provider"
++])
++const ANALYTICS_DISMISSAL_REASONS = new Set(["continue_free", "dismissed"])
++const ANALYTICS_PAID_RETURN_OUTCOMES = new Set([
++  "activated",
++  "pending",
++  "failed",
++  "offline"
++])
++const ANALYTICS_ACTIVATION_OUTCOMES = new Set([
++  "access_reconciled",
++  "restore",
++  "not_activated"
++])
+ const MAX_STORED_ANALYTICS_EVENTS = 1000
+ 
+ function jsonResponse(body, init = {}) {
+@@ -131,16 +167,52 @@ function optionalEnum(value, allowed) {
+   return typeof value === "string" && allowed.has(value) ? value : undefined
+ }
+ 
++function hasInvalidOptionalEnum(input, key, allowed) {
++  return (
++    input[key] !== undefined && optionalEnum(input[key], allowed) === undefined
++  )
++}
++
+ function optionalBucket(value) {
+-  return typeof value === "string" && /^[0-9k+<>=-]+$/.test(value)
++  return typeof value === "string" && ANALYTICS_COUNT_BUCKETS.has(value)
+     ? value
+     : undefined
+ }
+ 
++function hasInvalidOptionalBucket(input, key) {
++  return input[key] !== undefined && optionalBucket(input[key]) === undefined
++}
++
+ function sanitizeAnalyticsEvent(input) {
+   if (!input || typeof input !== "object") return undefined
+   const name = optionalEnum(input.name, ANALYTICS_EVENT_NAMES)
+   if (!name) return undefined
++  if (
++    hasInvalidOptionalEnum(input, "provider", ANALYTICS_PROVIDERS) ||
++    hasInvalidOptionalEnum(input, "scanMode", ANALYTICS_SCAN_MODES) ||
++    hasInvalidOptionalEnum(input, "planId", ANALYTICS_PLAN_IDS) ||
++    hasInvalidOptionalEnum(input, "upgradeReason", ANALYTICS_UPGRADE_REASONS) ||
++    hasInvalidOptionalEnum(
++      input,
++      "dismissalReason",
++      ANALYTICS_DISMISSAL_REASONS
++    ) ||
++    hasInvalidOptionalEnum(
++      input,
++      "paidReturnOutcome",
++      ANALYTICS_PAID_RETURN_OUTCOMES
++    ) ||
++    hasInvalidOptionalEnum(
++      input,
++      "activationOutcome",
++      ANALYTICS_ACTIVATION_OUTCOMES
++    ) ||
++    hasInvalidOptionalBucket(input, "photoCountBucket") ||
++    hasInvalidOptionalBucket(input, "duplicateGroupCountBucket") ||
++    hasInvalidOptionalEnum(input, "errorCategory", ANALYTICS_ERROR_CATEGORIES)
++  ) {
++    return undefined
++  }
+   return {
+     name,
+     provider: optionalEnum(input.provider, ANALYTICS_PROVIDERS),
+@@ -148,10 +220,23 @@ function sanitizeAnalyticsEvent(input) {
+     planId: optionalEnum(input.planId, ANALYTICS_PLAN_IDS),
+     photoCountBucket: optionalBucket(input.photoCountBucket),
+     duplicateGroupCountBucket: optionalBucket(input.duplicateGroupCountBucket),
+-    errorCategory:
+-      typeof input.errorCategory === "string"
+-        ? input.errorCategory.slice(0, 80)
+-        : undefined
++    errorCategory: optionalEnum(
++      input.errorCategory,
++      ANALYTICS_ERROR_CATEGORIES
++    ),
++    upgradeReason: optionalEnum(input.upgradeReason, ANALYTICS_UPGRADE_REASONS),
++    dismissalReason: optionalEnum(
++      input.dismissalReason,
++      ANALYTICS_DISMISSAL_REASONS
++    ),
++    paidReturnOutcome: optionalEnum(
++      input.paidReturnOutcome,
++      ANALYTICS_PAID_RETURN_OUTCOMES
++    ),
++    activationOutcome: optionalEnum(
++      input.activationOutcome,
++      ANALYTICS_ACTIVATION_OUTCOMES
++    )
+   }
+ }
+ 
+@@ -559,7 +644,8 @@ export function createJsonFileLicenseStore(filePath) {
+         state.licensesBySessionId[license.sessionId] = license
+         for (const purchase of purchasesForLicense(license)) {
+           if (purchase.email) {
+-            state.sessionByEmail[purchase.email.toLowerCase()] = license.sessionId
++            state.sessionByEmail[purchase.email.toLowerCase()] =
++              license.sessionId
+           }
+           if (purchase.stripeCustomerId) {
+             state.sessionByStripeCustomerId[purchase.stripeCustomerId] =
+@@ -805,7 +891,7 @@ export async function handleCheckout(request, env, store, fetchImpl = fetch) {
+       { status: 502 }
+     )
+   return jsonResponse(
+-    { url: checkout.url },
++    { url: checkout.url, planId },
+     { headers: { "set-cookie": sessionCookie(sessionId, env) } }
+   )
+ }
+diff --git a/tabs/app.tsx b/tabs/app.tsx
+index 7eadf53..dc44776 100644
+--- a/tabs/app.tsx
++++ b/tabs/app.tsx
+@@ -93,16 +93,23 @@ import {
+   loadStoredEntitlement,
+   saveVerifiedEntitlementToken
+ } from "../lib/license-client"
++import {
++  PaidAccessLifecycle,
++  PaidAccessNotConfiguredError
++} from "../lib/paid-access-lifecycle"
++import {
++  describePaidReturnOutcome,
++  shouldShowDeferredUpgrade,
++  type CheckoutReturnState,
++  type DeferredUpgradePrompt,
++  type UpgradeValueFacts
++} from "../lib/paid-conversion"
+ import {
+   ANALYTICS_CONSENT_STORAGE_KEY,
+   countBucket,
+   sendPrivacySafeAnalyticsEvent,
+   type PrivacySafeAnalyticsEvent
+ } from "../lib/privacy-analytics"
+-import {
+-  PaidAccessLifecycle,
+-  PaidAccessNotConfiguredError
+-} from "../lib/paid-access-lifecycle"
+ import {
+   providerBatchLimit as configuredProviderBatchLimit,
+   providerFromUrl,
+@@ -112,7 +119,7 @@ import {
+   chromeWebStoreReviewUrl,
+   completeRatingPrompt,
+   deferRatingPrompt,
+-  recordSuccessfulScan
++  recordSuccessfulCleanup
+ } from "../lib/rating-prompt"
+ import { reviewReportToCsv } from "../lib/review-report"
+ import {
+@@ -438,6 +445,76 @@ function fullScanSettingsPatch(
+   }
+ }
+ 
++function scanScopeLabel(settings: ScanSettings): {
++  label: string
++  fullLibrary: boolean
++} {
++  const provider = providerLabel(settings.sourceProvider ?? "google")
++  if (settings.albumScope?.title) {
++    return { label: settings.albumScope.title, fullLibrary: false }
++  }
++  if (settings.albumScope?.mediaKey) {
++    return { label: `selected ${provider} album`, fullLibrary: false }
++  }
++  if (settings.dateRange?.from || settings.dateRange?.to) {
++    return { label: `selected ${provider} date range`, fullLibrary: false }
++  }
++  if (providerBatchLimitForEntitlement(settings) !== undefined) {
++    return { label: `selected ${provider} test batch`, fullLibrary: false }
++  }
++  return { label: `${provider} library currently loaded`, fullLibrary: true }
++}
++
++function DeferredUpgradeBanner({
++  prompt,
++  onOpen,
++  onDismiss
++}: {
++  prompt: DeferredUpgradePrompt
++  onOpen: () => void
++  onDismiss: () => void
++}) {
++  const { facts } = prompt
++  const scope =
++    facts.scopeLabel ??
++    (facts.scopeIsFullLibrary ? "your loaded library" : "the checked scope")
++  const detail =
++    facts.additionalItemsUnavailable !== undefined &&
++    facts.additionalItemsUnavailable > 0
++      ? `${facts.itemsChecked?.toLocaleString() ?? "The checked"} items were analyzed in ${scope}. ${facts.additionalItemsUnavailable.toLocaleString()} additional items were outside this scan.`
++      : facts.duplicateGroupCount !== undefined
++        ? `${facts.duplicateGroupCount.toLocaleString()} duplicate sets were found in ${scope}.`
++        : `Review the duplicate sets found in ${scope}.`
++
++  return (
++    <Alert
++      severity="info"
++      sx={{ mb: 1.5, alignItems: "center" }}
++      action={
++        <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
++          <Button size="small" color="inherit" onClick={onOpen}>
++            Compare plans
++          </Button>
++          <IconButton
++            size="small"
++            color="inherit"
++            aria-label="Dismiss upgrade suggestion"
++            onClick={onDismiss}>
++            <CloseIcon fontSize="small" />
++          </IconButton>
++        </Box>
++      }>
++      <Typography variant="body2" fontWeight={800}>
++        Keep reviewing or unlock more of this cleanup
++      </Typography>
++      <Typography variant="caption" color="text.secondary">
++        {detail} Paid access is optional and does not change provider
++        availability.
++      </Typography>
++    </Alert>
++  )
++}
++
+ function providerBatchLimitForEntitlement(
+   settings: ScanSettings,
+   entitlement?: Entitlement | null
+@@ -1061,6 +1138,12 @@ type PendingSelections = DuplicateReviewSelections
+ // App component
+ // ============================================================
+ 
++type UpgradePromptState = {
++  reason: UpgradeReason
++  detail?: string
++  valueFacts?: UpgradeValueFacts
++}
++
+ export default function App() {
+   const isSidePanel =
+     typeof window !== "undefined" &&
+@@ -1113,11 +1196,12 @@ export default function App() {
+   }, [])
+ 
+   // Confirm dialog state
+-  const [trashConfirm, setTrashConfirm] = useState<DuplicateTrashPlan | null>(
+-    null
+-  )
++  const [trashConfirm, setTrashConfirmState] =
++    useState<DuplicateTrashPlan | null>(null)
++  const trashConfirmRef = useRef<DuplicateTrashPlan | null>(null)
+   const [trashConfirmCount, setTrashConfirmCount] = useState("")
+-  const [trashWarning, setTrashWarning] = useState<string | null>(null)
++  const [trashWarning, setTrashWarningState] = useState<string | null>(null)
++  const trashWarningRef = useRef<string | null>(null)
+   const [trashMovesThisSession, setTrashMovesThisSession] = useState(0)
+   const [reportError, setReportError] = useState<string | null>(null)
+   const [cacheEntryCount, setCacheEntryCount] = useState<number | null>(null)
+@@ -1137,11 +1221,144 @@ export default function App() {
+     source: "none"
+   })
+   const [entitlementLoaded, setEntitlementLoaded] = useState(false)
+-  const [upgradePrompt, setUpgradePrompt] = useState<{
+-    reason: UpgradeReason
+-    detail?: string
+-  } | null>(null)
++  const [upgradePrompt, setUpgradePrompt] = useState<UpgradePromptState | null>(
++    null
++  )
++  const [deferredUpgrade, setDeferredUpgrade] =
++    useState<DeferredUpgradePrompt | null>(null)
++  const deferredUpgradeRef = useRef<DeferredUpgradePrompt | null>(null)
+   const [ratingPromptOpen, setRatingPromptOpen] = useState(false)
++  const ratingPromptOpenRef = useRef(false)
++  const ratingPromptDeferredRef = useRef(false)
++  const [checkoutState, setCheckoutState] = useState<CheckoutReturnState>({
++    status: "idle"
++  })
++  const checkoutStateRef = useRef<CheckoutReturnState>({ status: "idle" })
++  const upgradePromptRef = useRef<UpgradePromptState | null>(null)
++  const checkoutPlanRef = useRef<Exclude<PlanId, "free"> | null>(null)
++  const checkoutStartInFlightRef = useRef(false)
++  const checkoutReconcileInFlightRef = useRef(false)
++  const checkoutReconcilePlanRef = useRef<Exclude<PlanId, "free"> | null>(null)
++  const checkoutReconcileAttemptsRef = useRef(0)
++  const paidConversionGenerationRef = useRef(0)
++  const restoreInFlightRef = useRef(false)
++  const restoreGenerationRef = useRef<number | null>(null)
++  const trashGenerationByRequestRef = useRef(new Map<string, number>())
++  const [undoData, setUndoDataState] = useState<TrashUndoData | null>(null)
++  const undoDataRef = useRef<TrashUndoData | null>(null)
++
++  const setTrashConfirmSafely = useCallback(
++    (next: SetStateAction<DuplicateTrashPlan | null>) => {
++      const resolved =
++        typeof next === "function" ? next(trashConfirmRef.current) : next
++      trashConfirmRef.current = resolved
++      setTrashConfirmState(resolved)
++    },
++    []
++  )
++
++  const setTrashWarningSafely = useCallback(
++    (next: SetStateAction<string | null>) => {
++      const resolved =
++        typeof next === "function" ? next(trashWarningRef.current) : next
++      trashWarningRef.current = resolved
++      setTrashWarningState(resolved)
++    },
++    []
++  )
++
++  const setUndoDataSafely = useCallback(
++    (next: SetStateAction<TrashUndoData | null>) => {
++      const resolved =
++        typeof next === "function" ? next(undoDataRef.current) : next
++      undoDataRef.current = resolved
++      setUndoDataState(resolved)
++    },
++    []
++  )
++
++  const setUpgradePromptSafely = useCallback(
++    (next: UpgradePromptState | null) => {
++      upgradePromptRef.current = next
++      setUpgradePrompt(next)
++    },
++    []
++  )
++
++  const setRatingPromptSafely = useCallback((open: boolean) => {
++    ratingPromptOpenRef.current = open
++    setRatingPromptOpen(open)
++  }, [])
++
++  const maybeShowDeferredRatingPrompt = useCallback(() => {
++    if (!ratingPromptDeferredRef.current || ratingPromptOpenRef.current) {
++      return
++    }
++    if (
++      upgradePromptRef.current ||
++      checkoutStateRef.current.status === "pending" ||
++      checkoutStateRef.current.status === "refreshing" ||
++      trashConfirmRef.current ||
++      trashWarningRef.current ||
++      undoDataRef.current ||
++      restoreInFlightRef.current
++    ) {
++      return
++    }
++    ratingPromptDeferredRef.current = false
++    setRatingPromptSafely(true)
++  }, [setRatingPromptSafely])
++
++  useEffect(() => {
++    maybeShowDeferredRatingPrompt()
++  }, [
++    checkoutState,
++    maybeShowDeferredRatingPrompt,
++    trashConfirm,
++    trashWarning,
++    undoData,
++    upgradePrompt
++  ])
++
++  const setCheckoutStateSafely = useCallback(
++    (
++      next:
++        | CheckoutReturnState
++        | ((current: CheckoutReturnState) => CheckoutReturnState)
++    ) => {
++      const resolved =
++        typeof next === "function" ? next(checkoutStateRef.current) : next
++      checkoutStateRef.current = resolved
++      setCheckoutState(resolved)
++    },
++    []
++  )
++
++  const invalidatePaidConversionContext = useCallback(() => {
++    paidConversionGenerationRef.current += 1
++    paidAccessLifecycleRef.current?.invalidateCheckoutContext()
++    trashLifecycleRef.current?.reset()
++    checkoutPlanRef.current = null
++    checkoutReconcilePlanRef.current = null
++    checkoutReconcileAttemptsRef.current = 0
++    checkoutStartInFlightRef.current = false
++    checkoutReconcileInFlightRef.current = false
++    restoreInFlightRef.current = false
++    restoreGenerationRef.current = null
++    trashGenerationByRequestRef.current.clear()
++    deferredUpgradeRef.current = null
++    upgradePromptRef.current = null
++    ratingPromptOpenRef.current = false
++    ratingPromptDeferredRef.current = false
++    checkoutStateRef.current = { status: "idle" }
++    setDeferredUpgrade(null)
++    setTrashConfirmSafely(null)
++    setTrashWarningSafely(null)
++    setUndoDataSafely(null)
++    setUpgradePrompt(null)
++    setRatingPromptOpen(false)
++    setCheckoutState({ status: "idle" })
++  }, [])
+   const [licenseApiBaseUrl, setLicenseApiBaseUrl] = useState<
+     string | undefined
+   >()
+@@ -1183,8 +1400,6 @@ export default function App() {
+   }
+   const storedReviewScope = storedReviewScopeRef.current
+ 
+-  // Undo trash state: stored after a successful trash operation
+-  const [undoData, setUndoData] = useState<TrashUndoData | null>(null)
+   const prefersReducedMotion = usePrefersReducedMotion()
+ 
+   useEffect(() => {
+@@ -1216,10 +1431,21 @@ export default function App() {
+   }, [paidAccessLifecycle])
+ 
+   const openUpgradePrompt = useCallback(
+-    (reason: UpgradeReason, detail?: string) => {
+-      setUpgradePrompt({ reason, detail })
++    (
++      reason: UpgradeReason,
++      detail?: string,
++      valueFacts?: UpgradeValueFacts
++    ) => {
++      if (ratingPromptOpenRef.current) {
++        ratingPromptDeferredRef.current = true
++        setRatingPromptSafely(false)
++      }
++      if (checkoutStateRef.current.status === "active") {
++        setCheckoutStateSafely({ status: "idle" })
++      }
++      setUpgradePromptSafely({ reason, detail, valueFacts })
+     },
+-    []
++    [setCheckoutStateSafely, setRatingPromptSafely, setUpgradePromptSafely]
+   )
+ 
+   const trackEvent = useCallback(
+@@ -1274,32 +1500,148 @@ export default function App() {
+     return () => {
+       cancelled = true
+     }
+-  }, [
+-    entitlementLoaded,
+-    licenseApiBaseUrl,
+-    paidAccessLifecycle,
+-    trackEvent
+-  ])
++  }, [entitlementLoaded, licenseApiBaseUrl, paidAccessLifecycle, trackEvent])
+ 
+   const openTrackedUpgradePrompt = useCallback(
+-    (reason: UpgradeReason, detail?: string) => {
+-      trackEvent({ name: "upgrade_prompt_shown" })
+-      openUpgradePrompt(reason, detail)
++    (
++      reason: UpgradeReason,
++      detail?: string,
++      valueFacts?: UpgradeValueFacts
++    ) => {
++      trackEvent({ name: "upgrade_prompt_shown", upgradeReason: reason })
++      openUpgradePrompt(reason, detail, valueFacts)
+     },
+     [openUpgradePrompt, trackEvent]
+   )
+ 
++  const reconcileCheckoutOnReturn = useCallback(async () => {
++    const pendingPlan = checkoutPlanRef.current
++    const generation = paidConversionGenerationRef.current
++    if (!pendingPlan || checkoutReconcileInFlightRef.current) return
++    if (checkoutReconcilePlanRef.current !== pendingPlan) {
++      checkoutReconcilePlanRef.current = pendingPlan
++      checkoutReconcileAttemptsRef.current = 0
++    }
++    const remainingAttempts = 6 - checkoutReconcileAttemptsRef.current
++    if (remainingAttempts <= 0) return
++    checkoutReconcileInFlightRef.current = true
++    setCheckoutStateSafely((current) => ({
++      ...current,
++      status: "refreshing",
++      planId: pendingPlan,
++      message: "Checking the payment provider for a verified license..."
++    }))
++    try {
++      const result = await paidAccessLifecycle.reconcileCheckoutReturn({
++        planId: pendingPlan,
++        maxAttempts: Math.min(3, remainingAttempts),
++        initialDelayMs: 0,
++        backoffMs: 500
++      })
++      if (
++        generation !== paidConversionGenerationRef.current ||
++        checkoutPlanRef.current !== pendingPlan
++      ) {
++        return
++      }
++      checkoutReconcileAttemptsRef.current += result.attempts
++      const refreshedPlanId = result.stored
++        ? getEffectivePlanId(result.stored.entitlement)
++        : getEffectivePlanId(entitlement)
++      if (result.stored) {
++        setEntitlement(result.stored.entitlement)
++        setEntitlementLoaded(true)
++      }
++      if (result.outcome === "activated" && result.stored) {
++        checkoutPlanRef.current = null
++        checkoutReconcilePlanRef.current = null
++        checkoutReconcileAttemptsRef.current = 0
++        setCheckoutStateSafely({
++          status: "active",
++          planId: pendingPlan,
++          outcome: result.outcome,
++          activation: result.activation,
++          message: describePaidReturnOutcome(
++            result.outcome,
++            PLAN_LABELS[refreshedPlanId]
++          )
++        })
++        setUpgradePromptSafely(null)
++        setTrashWarningSafely(`${PLAN_LABELS[refreshedPlanId]} is active.`)
++      } else {
++        const mismatchMessage =
++          refreshedPlanId !== "free" && refreshedPlanId !== pendingPlan
++            ? `${PLAN_LABELS[refreshedPlanId]} is already active, but ${PLAN_LABELS[pendingPlan]} is not verified. Your review results remain available.`
++            : undefined
++        setCheckoutStateSafely({
++          status: "retryable",
++          planId: pendingPlan,
++          outcome: result.outcome,
++          activation: result.activation,
++          message:
++            mismatchMessage ??
++            describePaidReturnOutcome(result.outcome, PLAN_LABELS[pendingPlan])
++        })
++      }
++      trackEvent({
++        name: "paid_return",
++        planId: refreshedPlanId === "free" ? pendingPlan : refreshedPlanId,
++        paidReturnOutcome: result.outcome,
++        activationOutcome: result.activation
++      })
++    } catch (error) {
++      if (
++        generation !== paidConversionGenerationRef.current ||
++        checkoutPlanRef.current !== pendingPlan
++      ) {
++        return
++      }
++      const message = error instanceof Error ? error.message : String(error)
++      checkoutReconcileAttemptsRef.current += 1
++      setCheckoutStateSafely({
++        status: "retryable",
++        planId: pendingPlan,
++        outcome: "failed",
++        activation: "not_activated",
++        message: `Could not verify payment yet: ${message}`
++      })
++      trackEvent({
++        name: "paid_return",
++        planId: pendingPlan,
++        paidReturnOutcome: "failed",
++        activationOutcome: "not_activated"
++      })
++    } finally {
++      if (generation === paidConversionGenerationRef.current) {
++        checkoutReconcileInFlightRef.current = false
++      }
++    }
++  }, [
++    entitlement,
++    paidAccessLifecycle,
++    setCheckoutStateSafely,
++    setUpgradePromptSafely,
++    trackEvent
++  ])
++
+   const handleRefreshEntitlement = useCallback(async () => {
++    const pendingPlan = checkoutPlanRef.current
++    if (pendingPlan) {
++      await reconcileCheckoutOnReturn()
++      return
++    }
++    const generation = paidConversionGenerationRef.current
+     try {
+       const refreshed = await paidAccessLifecycle.refresh()
++      if (generation !== paidConversionGenerationRef.current) return
+       const { stored } = refreshed
+       setEntitlement(stored.entitlement)
+       setEntitlementLoaded(true)
++      const refreshedPlanId = getEffectivePlanId(stored.entitlement)
+       trackEvent({
+         name: "entitlement_refreshed",
+-        planId: getEffectivePlanId(stored.entitlement)
++        planId: refreshedPlanId
+       })
+-      const refreshedPlanId = getEffectivePlanId(stored.entitlement)
+       if (refreshed.recovery) {
+         trackEvent({
+           name:
+@@ -1309,23 +1651,42 @@ export default function App() {
+           planId: refreshedPlanId
+         })
+       }
+-      setTrashWarning(
++      setTrashWarningSafely(
+         refreshedPlanId === "free"
+           ? "No active paid license was found for this browser session."
+           : `${PLAN_LABELS[refreshedPlanId]} is active.`
+       )
+-      setUpgradePrompt(null)
++      if (refreshedPlanId !== "free") setUpgradePromptSafely(null)
+     } catch (error) {
++      if (generation !== paidConversionGenerationRef.current) return
+       if (error instanceof PaidAccessNotConfiguredError) {
+-        setTrashWarning(
++        setTrashWarningSafely(
+           "License refresh is not configured yet. Paid access will unlock once the Stripe license API is connected."
+         )
+         return
+       }
+       const message = error instanceof Error ? error.message : String(error)
+-      setTrashWarning(`Could not refresh license: ${message}`)
++      setTrashWarningSafely(`Could not refresh license: ${message}`)
+     }
+-  }, [paidAccessLifecycle, trackEvent])
++  }, [
++    paidAccessLifecycle,
++    reconcileCheckoutOnReturn,
++    setUpgradePromptSafely,
++    trackEvent
++  ])
++
++  useEffect(() => {
++    const handleReturnSignal = () => {
++      if (document.visibilityState === "hidden") return
++      void reconcileCheckoutOnReturn()
++    }
++    window.addEventListener("focus", handleReturnSignal)
++    document.addEventListener("visibilitychange", handleReturnSignal)
++    return () => {
++      window.removeEventListener("focus", handleReturnSignal)
++      document.removeEventListener("visibilitychange", handleReturnSignal)
++    }
++  }, [reconcileCheckoutOnReturn])
+ 
+   const refreshTimeLimitedEntitlementForAction = useCallback(async () => {
+     try {
+@@ -1335,39 +1696,104 @@ export default function App() {
+       return authorized
+     } catch (error) {
+       if (error instanceof PaidAccessNotConfiguredError) {
+-        setTrashWarning(
++        setTrashWarningSafely(
+           "Cleanup Pass needs an online license refresh before paid actions. Connect to the internet and refresh your license."
+         )
+         return null
+       }
+       const message = error instanceof Error ? error.message : String(error)
+-      setTrashWarning(`Could not refresh Cleanup Pass: ${message}`)
++      setTrashWarningSafely(`Could not refresh Cleanup Pass: ${message}`)
+       return null
+     }
+   }, [paidAccessLifecycle])
+ 
+   const handleChooseUpgradePlan = useCallback(
+     async (planId: Exclude<PlanId, "free">) => {
++      if (checkoutStartInFlightRef.current) return
++      if (
++        checkoutStateRef.current.status === "pending" ||
++        checkoutStateRef.current.status === "refreshing"
++      ) {
++        return
++      }
++      const generation = paidConversionGenerationRef.current
++      checkoutStartInFlightRef.current = true
++      checkoutPlanRef.current = planId
++      checkoutReconcilePlanRef.current = planId
++      checkoutReconcileAttemptsRef.current = 0
++      setCheckoutStateSafely({
++        status: "pending",
++        planId,
++        message:
++          "Opening secure checkout. Return here after payment so PhotoSweep can verify the license."
++      })
+       try {
+         const checkout = await paidAccessLifecycle.createCheckout(planId)
+-        trackEvent({ name: "checkout_started", planId })
++        if (
++          generation !== paidConversionGenerationRef.current ||
++          checkoutPlanRef.current !== planId
++        ) {
++          return
++        }
++        trackEvent({
++          name: "checkout_started",
++          planId,
++          upgradeReason: upgradePrompt?.reason
++        })
+         await chrome.tabs.create({ url: checkout.url })
+-        setTrashWarning(
+-          "Checkout opened in a new tab. After payment, return here and refresh your license."
++        if (
++          generation !== paidConversionGenerationRef.current ||
++          checkoutPlanRef.current !== planId
++        ) {
++          return
++        }
++        setTrashWarningSafely(
++          "Checkout opened in a new tab. Return here after payment; PhotoSweep will verify the license without changing your review."
+         )
+       } catch (error) {
++        if (
++          generation !== paidConversionGenerationRef.current ||
++          checkoutPlanRef.current !== planId
++        ) {
++          return
++        }
++        checkoutPlanRef.current = null
++        checkoutReconcilePlanRef.current = null
++        checkoutReconcileAttemptsRef.current = 0
+         if (error instanceof PaidAccessNotConfiguredError) {
+-          setTrashWarning(
++          setCheckoutStateSafely({
++            status: "failed",
++            planId,
++            outcome: "failed",
++            activation: "not_activated",
++            message: `${PLAN_LABELS[planId]} checkout is not configured yet.`
++          })
++          setTrashWarningSafely(
+             `${PLAN_LABELS[planId]} checkout is not configured yet. The extension is enforcing free limits until the Stripe license API is connected.`
+           )
+-          setUpgradePrompt(null)
+           return
+         }
+         const message = error instanceof Error ? error.message : String(error)
+-        setTrashWarning(`Could not start checkout: ${message}`)
++        setCheckoutStateSafely({
++          status: "failed",
++          planId,
++          outcome: "failed",
++          activation: "not_activated",
++          message: `Could not start checkout: ${message}`
++        })
++        setTrashWarningSafely(`Could not start checkout: ${message}`)
++      } finally {
++        if (generation === paidConversionGenerationRef.current) {
++          checkoutStartInFlightRef.current = false
++        }
+       }
+     },
+-    [paidAccessLifecycle, trackEvent]
++    [
++      paidAccessLifecycle,
++      setCheckoutStateSafely,
++      trackEvent,
++      upgradePrompt?.reason
++    ]
+   )
+ 
+   const handleRecoverLicense = useCallback(
+@@ -1387,6 +1813,24 @@ export default function App() {
+     [paidAccessLifecycle, trackEvent]
+   )
+ 
++  const handleOpenDeferredUpgrade = useCallback(() => {
++    if (!deferredUpgrade) return
++    const prompt = deferredUpgrade
++    setDeferredUpgrade(null)
++    openTrackedUpgradePrompt(prompt.reason, undefined, prompt.facts)
++  }, [deferredUpgrade, openTrackedUpgradePrompt])
++
++  const handleDismissDeferredUpgrade = useCallback(() => {
++    if (!deferredUpgrade) return
++    trackEvent({
++      name: "upgrade_prompt_dismissed",
++      upgradeReason: deferredUpgrade.reason,
++      dismissalReason: "continue_free"
++    })
++    deferredUpgradeRef.current = null
++    setDeferredUpgrade(null)
++  }, [deferredUpgrade, trackEvent])
++
+   const scanLifecycleRef = useRef(
+     new ScanLifecycle({
+       persist: persistScanCheckpoint,
+@@ -1478,6 +1922,16 @@ export default function App() {
+ 
+   const handleTrashProviderResult = useCallback(
+     (result: GptkResultMessage) => {
++      const generation = trashGenerationByRequestRef.current.get(
++        result.requestId
++      )
++      trashGenerationByRequestRef.current.delete(result.requestId)
++      if (
++        generation === undefined ||
++        generation !== paidConversionGenerationRef.current
++      ) {
++        return
++      }
+       void trashLifecycle
+         .reconcile({
+           success: result.success,
+@@ -1485,13 +1939,14 @@ export default function App() {
+           error: result.error
+         })
+         .then((outcome) => {
++          if (generation !== paidConversionGenerationRef.current) return
+           if (outcome.kind === "dry_run") {
+             dispatch({ type: "TRASH_COMPLETE", trashedKeys: [] })
+             trackEvent({
+               name: "trash_completed",
+               photoCountBucket: countBucket(0)
+             })
+-            setTrashWarning(outcome.message)
++            setTrashWarningSafely(outcome.message)
+             return
+           }
+           if (outcome.kind === "failed") {
+@@ -1512,28 +1967,57 @@ export default function App() {
+               ? { errorCategory: "trash_partial" }
+               : {})
+           })
+-          setUndoData(outcome.undo)
+-          if (outcome.message) setTrashWarning(outcome.message)
++          setUndoDataSafely(outcome.undo)
++          if (outcome.message) setTrashWarningSafely(outcome.message)
++          void recordSuccessfulCleanup(
++            outcome.kind === "complete" ? outcome.movedCount : 0
++          )
++            .then((shouldPrompt) => {
++              if (!shouldPrompt) return
++              if (generation !== paidConversionGenerationRef.current) return
++              if (restoreInFlightRef.current) return
++              ratingPromptDeferredRef.current = true
++              maybeShowDeferredRatingPrompt()
++            })
++            .catch(() => {
++              // A storage failure must never interrupt the cleanup result.
++            })
+         })
+         .catch((error) => {
++          if (generation !== paidConversionGenerationRef.current) return
+           const message = error instanceof Error ? error.message : String(error)
+           setReportError(`Could not reconcile the trash result: ${message}`)
+           dispatch({ type: "TRASH_ERROR", error: message })
+         })
+     },
+-    [trackEvent, trashLifecycle]
++    [
++      maybeShowDeferredRatingPrompt,
++      setUndoDataSafely,
++      setTrashWarningSafely,
++      trackEvent,
++      trashLifecycle
++    ]
+   )
+ 
+   const handleRestoreProviderResult = useCallback(
+     (result: GptkResultMessage) => {
++      if (
++        restoreGenerationRef.current === null ||
++        restoreGenerationRef.current !== paidConversionGenerationRef.current
++      ) {
++        return
++      }
+       const failedUndo = trashLifecycle.reconcileRestore({
+         requestId: result.requestId,
+         success: result.success
+       })
+-      if (failedUndo === undefined || failedUndo === null) return
++      if (failedUndo === undefined) return
++      restoreGenerationRef.current = null
++      restoreInFlightRef.current = false
++      if (failedUndo === null) return
+       console.error("GPD: Restore failed:", result.error)
+-      setUndoData(failedUndo)
+-      setTrashWarning(
++      setUndoDataSafely(failedUndo)
++      setTrashWarningSafely(
+         `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
+       )
+     },
+@@ -1588,8 +2072,11 @@ export default function App() {
+           if (
+             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
+           ) {
++            invalidatePaidConversionContext()
+             scanLifecycle.reset()
+             cachedMediaItemsRef.current = null
++            deferredUpgradeRef.current = null
++            setDeferredUpgrade(null)
+             pendingSelectionsRef.current = null
+             setResumeCheckpoint(null)
+             setSelectedGroupIds(new Set())
+@@ -1639,7 +2126,7 @@ export default function App() {
+       disposed = true
+       port.disconnect()
+     }
+-  }, [isSidePanel, storedReviewScope])
++  }, [invalidatePaidConversionContext, isSidePanel, storedReviewScope])
+ 
+   useEffect(() => {
+     if (pendingSelectionsRef.current) {
+@@ -1695,7 +2182,10 @@ export default function App() {
+     ) {
+       return
+     }
++    invalidatePaidConversionContext()
+     pendingSelectionsRef.current = null
++    deferredUpgradeRef.current = null
++    setDeferredUpgrade(null)
+     setSelectedGroupIds(new Set())
+     setReviewedGroupIds(new Set())
+     setKeptOverrides({})
+@@ -1710,7 +2200,12 @@ export default function App() {
+         accountEmail: currentAccountEmail
+       }
+     })
+-  }, [accountValidationComplete, state, storedReviewScope])
++  }, [
++    accountValidationComplete,
++    invalidatePaidConversionContext,
++    state,
++    storedReviewScope
++  ])
+ 
+   const handleToggleGroup = useCallback(
+     (groupId: string) => {
+@@ -1749,6 +2244,18 @@ export default function App() {
+       switch (message.action) {
+         case "healthCheck.result": {
+           const msg = message as HealthCheckResultMessage
++          const currentState = stateRef.current
++          const previousAccountEmail =
++            currentAccountEmailRef.current ??
++            ("accountEmail" in currentState
++              ? currentState.accountEmail
++              : undefined)
++          const accountIdentityChanged = Boolean(
++            msg.success &&
++              previousAccountEmail &&
++              msg.accountEmail &&
++              previousAccountEmail !== msg.accountEmail
++          )
+           if (
+             !msg.success &&
+             healthCheckAttemptsRef.current < HEALTH_CHECK_MAX_ATTEMPTS - 1
+@@ -1775,6 +2282,9 @@ export default function App() {
+           }
+           if (msg.success) {
+             healthCheckAttemptsRef.current = 0
++            if (accountIdentityChanged) {
++              invalidatePaidConversionContext()
++            }
+             currentAccountEmailRef.current = msg.accountEmail
+             currentHasGptkRef.current = msg.hasGptk
+             // Health and restore may resolve in either order. Check the
+@@ -1784,25 +2294,23 @@ export default function App() {
+               msg.accountEmail &&
+               (settingsRef.current.sourceProvider ?? "google") === "google"
+             ) {
+-              void chrome.storage.local
+-                .get("scanResults")
+-                .then((stored) => {
+-                  const scanResults = stored.scanResults as
+-                    | { accountEmail?: string; sourceProvider?: string }
+-                    | undefined
+-                  if (
+-                    scanResults &&
+-                    !areScanResultsValid(scanResults, {
+-                      accountEmail: msg.accountEmail,
+-                      sourceProvider: settingsRef.current.sourceProvider ?? "google"
+-                    })
+-                  ) {
+-                    return storedReviewScope.invalidateReview()
+-                  }
+-                })
++              void chrome.storage.local.get("scanResults").then((stored) => {
++                const scanResults = stored.scanResults as
++                  | { accountEmail?: string; sourceProvider?: string }
++                  | undefined
++                if (
++                  scanResults &&
++                  !areScanResultsValid(scanResults, {
++                    accountEmail: msg.accountEmail,
++                    sourceProvider:
++                      settingsRef.current.sourceProvider ?? "google"
++                  })
++                ) {
++                  return storedReviewScope.invalidateReview()
++                }
++              })
+             }
+           }
+-          const currentState = stateRef.current
+           const checkpoint = scanLifecycle.checkpoint
+           if (
+             msg.success &&
+@@ -1928,6 +2436,8 @@ export default function App() {
+                   error,
+                   message: error
+                 })
++                deferredUpgradeRef.current = null
++                setDeferredUpgrade(null)
+                 setResumeCheckpoint(scanLifecycle.checkpoint)
+                 dispatch({
+                   type: "SCAN_ERROR",
+@@ -1938,11 +2448,17 @@ export default function App() {
+               }
+               const limited = limitScanItems(items, entitlement)
+               if (limited.lockedItemCount > 0) {
+-                const effectivePlanId = getEffectivePlanId(entitlement)
+-                openTrackedUpgradePrompt(
+-                  "scan",
+-                  `Scanned the first ${limited.items.length.toLocaleString()} items for ${PLAN_LABELS[effectivePlanId]}. Upgrade to check the remaining ${limited.lockedItemCount.toLocaleString()} items.`
+-                )
++                const scope = scanScopeLabel(settingsRef.current)
++                deferredUpgradeRef.current = {
++                  reason: "scan",
++                  facts: {
++                    provider: settingsRef.current.sourceProvider ?? "google",
++                    scopeLabel: scope.label,
++                    scopeIsFullLibrary: scope.fullLibrary,
++                    itemsChecked: limited.items.length,
++                    additionalItemsUnavailable: limited.lockedItemCount
++                  }
++                }
+                 items = limited.items
+               }
+               dispatch({
+@@ -1963,6 +2479,8 @@ export default function App() {
+                 result.requestId
+               )
+             } else {
++              deferredUpgradeRef.current = null
++              setDeferredUpgrade(null)
+               patchScanCheckpoint({
+                 status: "error",
+                 error: result.error || "Scan failed",
+@@ -2026,6 +2544,7 @@ export default function App() {
+     entitlement,
+     handleRestoreProviderResult,
+     handleTrashProviderResult,
++    invalidatePaidConversionContext,
+     openUpgradePrompt,
+     patchScanCheckpoint,
+     storedReviewScope
+@@ -2130,6 +2649,23 @@ export default function App() {
+           }
+         }
+ 
++        const deferredScanPrompt = deferredUpgradeRef.current
++        deferredUpgradeRef.current = null
++        if (deferredScanPrompt && groups.length > 0) {
++          const visibleGroupCount = getVisibleGroups(groups, entitlement).length
++          setDeferredUpgrade({
++            ...deferredScanPrompt,
++            facts: {
++              ...deferredScanPrompt.facts,
++              duplicateGroupCount: groups.length,
++              visibleGroupCount,
++              lockedGroupCount: getLockedGroupCount(groups, entitlement)
++            }
++          })
++        } else {
++          setDeferredUpgrade(null)
++        }
++
+         autoSelectNextResultsRef.current = true
+         dispatch({
+           type: "SCAN_COMPLETE",
+@@ -2142,13 +2678,6 @@ export default function App() {
+           photoCountBucket: countBucket(items.length),
+           duplicateGroupCountBucket: countBucket(groups.length)
+         })
+-        void recordSuccessfulScan()
+-          .then((shouldPrompt) => {
+-            if (shouldPrompt) setRatingPromptOpen(true)
+-          })
+-          .catch(() => {
+-            // A storage failure must never interfere with scan results.
+-          })
+         refreshEmbeddingCacheCount()
+         // Refresh account email after scan — the email in state may be stale
+         // if the user switched accounts since the last health check.
+@@ -2160,6 +2689,8 @@ export default function App() {
+       } catch (error) {
+         if (error instanceof DOMException && error.name === "AbortError") {
+           await logger.finalize("paused")
++          deferredUpgradeRef.current = null
++          setDeferredUpgrade(null)
+           const paused = scanLifecycle.pause(requestId)
+           if (paused) {
+             setResumeCheckpoint(paused)
+@@ -2167,6 +2698,8 @@ export default function App() {
+           }
+         } else {
+           await logger.finalize("error", { error: String(error) })
++          deferredUpgradeRef.current = null
++          setDeferredUpgrade(null)
+           const failed = scanLifecycle.fail(requestId, error)
+           if (!failed) return
+           setResumeCheckpoint(failed)
+@@ -2183,7 +2716,8 @@ export default function App() {
+       refreshEmbeddingCacheCount,
+       requestAlbums,
+       scanLifecycle,
+-      trackEvent
++      trackEvent,
++      entitlement
+     ]
+   )
+ 
+@@ -2204,9 +2738,7 @@ export default function App() {
+     void storedReviewScope
+       .restore({
+         fallbackSettings: settingsRef.current,
+-        hostProvider: isSidePanel
+-          ? sidePanelHostProviderRef.current
+-          : null,
++        hostProvider: isSidePanel ? sidePanelHostProviderRef.current : null,
+         accountEmail: currentAccountEmailRef.current
+       })
+       .then(async (restored) => {
+@@ -2375,7 +2907,16 @@ export default function App() {
+     if (!canExportFullReport(actionEntitlement) && lockedGroupCount > 0) {
+       openTrackedUpgradePrompt(
+         "export",
+-        `This free report includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`
++        `This free report includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`,
++        {
++          provider: settings.sourceProvider ?? "google",
++          scopeLabel: scanScopeLabel(settings).label,
++          scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
++          itemsChecked: totalItems,
++          duplicateGroupCount: groups.length,
++          visibleGroupCount: visibleGroups.length,
++          lockedGroupCount: lockedGroupCount
++        }
+       )
+     }
+     trackEvent({
+@@ -2404,7 +2945,16 @@ export default function App() {
+     if (!canExportFullReport(actionEntitlement) && lockedGroupCount > 0) {
+       openTrackedUpgradePrompt(
+         "export",
+-        `This free spreadsheet includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`
++        `This free spreadsheet includes ${visibleGroups.length.toLocaleString()} visible duplicate set${visibleGroups.length === 1 ? "" : "s"}. Upgrade for the full report.`,
++        {
++          provider: settings.sourceProvider ?? "google",
++          scopeLabel: scanScopeLabel(settings).label,
++          scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
++          itemsChecked: totalItems,
++          duplicateGroupCount: groups.length,
++          visibleGroupCount: visibleGroups.length,
++          lockedGroupCount: lockedGroupCount
++        }
+       )
+     }
+     trackEvent({
+@@ -2587,6 +3137,7 @@ export default function App() {
+         )
+         return
+       }
++      invalidatePaidConversionContext()
+       trackEvent({
+         name: "scan_started",
+         provider: scanSettings.sourceProvider ?? "google",
+@@ -2594,6 +3145,8 @@ export default function App() {
+         photoCountBucket:
+           estimatedCount !== undefined ? countBucket(estimatedCount) : undefined
+       })
++      deferredUpgradeRef.current = null
++      setDeferredUpgrade(null)
+       settingsRef.current = scanSettings
+       storedReviewScope.startReview()
+       setTrashMovesThisSession(0)
+@@ -2684,6 +3237,7 @@ export default function App() {
+     },
+     [
+       settings,
++      invalidatePaidConversionContext,
+       refreshTimeLimitedEntitlementForAction,
+       openTrackedUpgradePrompt,
+       storedReviewScope,
+@@ -2819,6 +3373,7 @@ export default function App() {
+       return
+     }
+ 
++    invalidatePaidConversionContext()
+     const checkpointItems = resumeCheckpoint.mediaItems
+     if (checkpointItems && checkpointItems.length > 0) {
+       const scanSettings = resumeCheckpoint.settings
+@@ -2851,6 +3406,7 @@ export default function App() {
+   }, [
+     entitlement,
+     handleStartScan,
++    invalidatePaidConversionContext,
+     openTrackedUpgradePrompt,
+     resumeCheckpoint,
+     runDuplicateDetection,
+@@ -2865,7 +3421,7 @@ export default function App() {
+   const handleTrash = useCallback(async () => {
+     if (state.status !== "results") return
+     if (!allVisibleGroupsReviewed) {
+-      setTrashWarning(
++      setTrashWarningSafely(
+         `Review all ${visibleGroups.length.toLocaleString()} visible duplicate sets before moving anything to Trash.`
+       )
+       return
+@@ -2880,7 +3436,7 @@ export default function App() {
+         item.provider !== "amazon"
+     )
+     if (unsupportedProvider) {
+-      setTrashWarning(
++      setTrashWarningSafely(
+         `Trash is not available for ${providerLabel(unsupportedProvider.provider)} yet. Review and export the duplicate report instead.`
+       )
+       return
+@@ -2898,11 +3454,25 @@ export default function App() {
+         limit === "unlimited"
+           ? "unlimited"
+           : Math.max(0, limit - trashMovesThisSession).toLocaleString()
++      const remainingCount =
++        limit === "unlimited"
++          ? "unlimited"
++          : Math.max(0, limit - trashMovesThisSession)
+       openTrackedUpgradePrompt(
+         "trash",
+         `Your ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]} plan can move ${
+           limit === "unlimited" ? "unlimited" : limit.toLocaleString()
+-        } item${limit === 1 ? "" : "s"} to Trash per session. You have ${remaining} remaining and selected ${dedupKeys.length.toLocaleString()}.`
++        } item${limit === 1 ? "" : "s"} to Trash per session. You have ${remaining} remaining and selected ${dedupKeys.length.toLocaleString()}.`,
++        {
++          provider: settings.sourceProvider ?? "google",
++          scopeLabel: scanScopeLabel(settings).label,
++          scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
++          itemsChecked: state.totalItems,
++          duplicateGroupCount: groups.length,
++          visibleGroupCount: visibleGroups.length,
++          selectedCleanupCount: dedupKeys.length,
++          remainingTrashMoves: remainingCount
++        }
+       )
+       return
+     }
+@@ -2911,10 +3481,12 @@ export default function App() {
+       photoCountBucket: countBucket(dedupKeys.length)
+     })
+     setTrashConfirmCount("")
+-    setTrashConfirm(plan)
++    setTrashConfirmSafely(plan)
+   }, [
+     allVisibleGroupsReviewed,
+     state,
++    settings,
++    groups,
+     visibleGroups.length,
+     reviewSession,
+     visibleGroups,
+@@ -2925,13 +3497,14 @@ export default function App() {
+   ])
+ 
+   const handleCloseTrashConfirm = useCallback(() => {
+-    setTrashConfirm(null)
++    setTrashConfirmSafely(null)
+     setTrashConfirmCount("")
+   }, [])
+ 
+   const handleTrashConfirmed = useCallback(async () => {
+     if (!trashConfirm || state.status !== "results") return
+     setReportError(null)
++    const generation = paidConversionGenerationRef.current
+ 
+     let command
+     try {
+@@ -2956,11 +3529,16 @@ export default function App() {
+       setReportError(`Could not save the pre-trash report: ${message}`)
+       return
+     }
++    if (generation !== paidConversionGenerationRef.current) {
++      trashLifecycle.reset()
++      return
++    }
+ 
+     handleCloseTrashConfirm()
+-    setTrashWarning(null)
++    setTrashWarningSafely(null)
+ 
+     const requestId = generateRequestId()
++    trashGenerationByRequestRef.current.set(requestId, generation)
+ 
+     dispatch({
+       type: "TRASH_STARTED",
+@@ -2988,27 +3566,33 @@ export default function App() {
+   ])
+ 
+   const handlePauseScan = useCallback(() => {
++    invalidatePaidConversionContext()
+     const paused = scanLifecycle.pause()
++    deferredUpgradeRef.current = null
++    setDeferredUpgrade(null)
+     if (paused) setResumeCheckpoint(paused)
+     dispatch({ type: "SCAN_CANCELLED" })
+-  }, [scanLifecycle])
++  }, [invalidatePaidConversionContext, scanLifecycle])
+ 
+   const handleReset = useCallback(() => {
++    invalidatePaidConversionContext()
+     scanLifecycle.reset()
+     trashLifecycle.reset()
+     cachedMediaItemsRef.current = null
++    deferredUpgradeRef.current = null
++    setDeferredUpgrade(null)
+     pendingSelectionsRef.current = null
+     autoSelectNextResultsRef.current = false
+     setResumeCheckpoint(null)
+     setSelectedGroupIds(new Set())
+     setReviewedGroupIds(new Set())
+     setKeptOverrides({})
+-    setTrashConfirm(null)
++    setTrashConfirmSafely(null)
+     setTrashConfirmCount("")
+-    setTrashWarning(null)
++    setTrashWarningSafely(null)
+     setTrashMovesThisSession(0)
+     setReportError(null)
+-    setUndoData(null)
++    setUndoDataSafely(null)
+     void storedReviewScope.invalidateReview()
+     void storedReviewScope.write({ checkpoint: null })
+     dispatch({ type: "RESET" })
+@@ -3018,7 +3602,12 @@ export default function App() {
+       action: "healthCheck",
+       provider: settingsRef.current.sourceProvider ?? "google"
+     })
+-  }, [scanLifecycle, storedReviewScope, trashLifecycle])
++  }, [
++    invalidatePaidConversionContext,
++    scanLifecycle,
++    storedReviewScope,
++    trashLifecycle
++  ])
+ 
+   const openProviderFromSidePanel = useCallback(
+     async (provider: PhotoProvider): Promise<LaunchProviderResult> => {
+@@ -3070,9 +3659,12 @@ export default function App() {
+ 
+   const handleOpenProvider = useCallback(
+     (provider: PhotoProvider) => {
++      invalidatePaidConversionContext()
+       setSidePanelSourceConfirmed(true)
+       scanLifecycle.reset()
+       cachedMediaItemsRef.current = null
++      deferredUpgradeRef.current = null
++      setDeferredUpgrade(null)
+       pendingSelectionsRef.current = null
+       setResumeCheckpoint(null)
+       setSelectedGroupIds(new Set())
+@@ -3114,13 +3706,21 @@ export default function App() {
+         )
+       })
+     },
+-    [openProviderFromSidePanel, scanLifecycle, storedReviewScope]
++    [
++      invalidatePaidConversionContext,
++      openProviderFromSidePanel,
++      scanLifecycle,
++      storedReviewScope
++    ]
+   )
+ 
+   const handleUndo = useCallback(() => {
+     if (!undoData) return
+     const requestId = generateRequestId()
+     const restore = trashLifecycle.beginRestore(undoData, requestId)
++    restoreInFlightRef.current = true
++    restoreGenerationRef.current = paidConversionGenerationRef.current
++    ratingPromptDeferredRef.current = false
+     autoSelectNextResultsRef.current = false
+     pendingSelectionsRef.current = {
+       selectedGroupIds: new Set(),
+@@ -3143,12 +3743,12 @@ export default function App() {
+       provider: restore.provider,
+       args: restore.args
+     })
+-    setUndoData(null)
+-    setTrashWarning(null)
++    setUndoDataSafely(null)
++    setTrashWarningSafely(null)
+   }, [trashLifecycle, undoData])
+ 
+   const handleUndoClose = useCallback(() => {
+-    setUndoData(null)
++    setUndoDataSafely(null)
+   }, [])
+ 
+   // Fire confetti when trash completes
+@@ -3597,6 +4197,17 @@ export default function App() {
+                 )}
+               {state.status === "results" && groups.length > 0 && (
+                 <>
++                  {shouldShowDeferredUpgrade(
++                    deferredUpgrade,
++                    groups.length,
++                    state.status === "results"
++                  ) && (
++                    <DeferredUpgradeBanner
++                      prompt={deferredUpgrade}
++                      onOpen={handleOpenDeferredUpgrade}
++                      onDismiss={handleDismissDeferredUpgrade}
++                    />
++                  )}
+                   <ActionBar
+                     totalItems={state.totalItems}
+                     groupCount={visibleGroups.length}
+@@ -3791,6 +4402,17 @@ export default function App() {
+ 
+               {state.status === "results" && groups.length > 0 && (
+                 <>
++                  {shouldShowDeferredUpgrade(
++                    deferredUpgrade,
++                    groups.length,
++                    state.status === "results"
++                  ) && (
++                    <DeferredUpgradeBanner
++                      prompt={deferredUpgrade}
++                      onOpen={handleOpenDeferredUpgrade}
++                      onDismiss={handleDismissDeferredUpgrade}
++                    />
++                  )}
+                   <ActionBar
+                     totalItems={state.totalItems}
+                     groupCount={visibleGroups.length}
+@@ -3900,7 +4522,18 @@ export default function App() {
+         open={!!upgradePrompt}
+         reason={upgradePrompt?.reason ?? "groups"}
+         detail={upgradePrompt?.detail}
+-        onClose={() => setUpgradePrompt(null)}
++        valueFacts={upgradePrompt?.valueFacts}
++        checkoutState={checkoutState}
++        onClose={() => {
++          if (upgradePrompt) {
++            trackEvent({
++              name: "upgrade_prompt_dismissed",
++              upgradeReason: upgradePrompt.reason,
++              dismissalReason: "continue_free"
++            })
++          }
++          setUpgradePromptSafely(null)
++        }}
+         onChoosePlan={handleChooseUpgradePlan}
+         onRefreshLicense={handleRefreshEntitlement}
+         onRecoverLicense={handleRecoverLicense}
+@@ -3909,25 +4542,29 @@ export default function App() {
+       <RatingPromptDialog
+         open={ratingPromptOpen}
+         onReview={() => {
+-          setRatingPromptOpen(false)
++          ratingPromptDeferredRef.current = false
++          setRatingPromptSafely(false)
+           void completeRatingPrompt()
+           void chrome.tabs.create({
+             url: chromeWebStoreReviewUrl(chrome.runtime.id)
+           })
+         }}
+         onFeedback={() => {
+-          setRatingPromptOpen(false)
++          ratingPromptDeferredRef.current = false
++          setRatingPromptSafely(false)
+           void completeRatingPrompt()
+           void chrome.tabs.create({
+             url: "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
+           })
+         }}
+         onLater={() => {
+-          setRatingPromptOpen(false)
++          ratingPromptDeferredRef.current = false
++          setRatingPromptSafely(false)
+           void deferRatingPrompt()
+         }}
+         onNever={() => {
+-          setRatingPromptOpen(false)
++          ratingPromptDeferredRef.current = false
++          setRatingPromptSafely(false)
+           void completeRatingPrompt()
+         }}
+       />
+@@ -4014,7 +4651,11 @@ export default function App() {
+             <Button color="secondary" size="small" onClick={handleUndo}>
+               Undo
+             </Button>
+-            <IconButton size="small" color="inherit" onClick={handleUndoClose}>
++            <IconButton
++              aria-label="Dismiss undo notification"
++              size="small"
++              color="inherit"
++              onClick={handleUndoClose}>
+               <CloseIcon fontSize="small" />
+             </IconButton>
+           </>
+@@ -4024,7 +4665,7 @@ export default function App() {
+       <Snackbar
+         open={!!trashWarning}
+         autoHideDuration={null}
+-        onClose={() => setTrashWarning(null)}
++        onClose={() => setTrashWarningSafely(null)}
+         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+         message={trashWarning ?? ""}
+         action={
+@@ -4035,9 +4676,10 @@ export default function App() {
+               </Button>
+             )}
+             <IconButton
++              aria-label="Dismiss warning"
+               size="small"
+               color="inherit"
+-              onClick={() => setTrashWarning(null)}>
++              onClick={() => setTrashWarningSafely(null)}>
+               <CloseIcon fontSize="small" />
+             </IconButton>
+           </>
+diff --git a/tests/components/rating-prompt-dialog.test.tsx b/tests/components/rating-prompt-dialog.test.tsx
+index 444d682..3613d27 100644
+--- a/tests/components/rating-prompt-dialog.test.tsx
++++ b/tests/components/rating-prompt-dialog.test.tsx
+@@ -26,7 +26,7 @@ describe("RatingPromptDialog", () => {
+     renderDialog()
+ 
+     expect(
+-      screen.getByText("How was your PhotoSweep scan?")
++      screen.getByText("How was your PhotoSweep cleanup?")
+     ).toBeInTheDocument()
+     expect(
+       screen.getByRole("button", { name: "Leave an honest review" })
+diff --git a/tests/components/upgrade-dialog.test.tsx b/tests/components/upgrade-dialog.test.tsx
+index 6d600ce..3579000 100644
+--- a/tests/components/upgrade-dialog.test.tsx
++++ b/tests/components/upgrade-dialog.test.tsx
+@@ -63,4 +63,42 @@ describe("UpgradeDialog", () => {
+       await screen.findByText(/recovery instructions have been requested/i)
+     ).toBeInTheDocument()
+   })
++
++  it("shows only current scoped cleanup facts", () => {
++    renderDialog({
++      valueFacts: {
++        provider: "google",
++        scopeLabel: "selected album",
++        itemsChecked: 420,
++        additionalItemsUnavailable: 80,
++        duplicateGroupCount: 12
++      }
++    })
++
++    expect(screen.getByText(/Scope: selected album/i)).toBeInTheDocument()
++    expect(screen.getByText(/420 items checked/i)).toBeInTheDocument()
++    expect(screen.getByText(/80 additional items/i)).toBeInTheDocument()
++    expect(screen.getByText(/12 duplicate sets/i)).toBeInTheDocument()
++    expect(screen.queryByText(/full library/i)).not.toBeInTheDocument()
++  })
++
++  it("keeps plan actions disabled while a checkout return is refreshing", () => {
++    renderDialog({
++      checkoutState: {
++        status: "refreshing",
++        planId: "cleanup_pass",
++        message: "Checking the payment provider for a verified license..."
++      }
++    })
++
++    expect(
++      screen.getByText(/checking the payment provider/i)
++    ).toBeInTheDocument()
++    expect(
++      screen.getByRole("button", { name: /choose lifetime/i })
++    ).toBeDisabled()
++    expect(
++      screen.getByRole("button", { name: /choose cleanup pass/i })
++    ).toBeDisabled()
++  })
+ })
+diff --git a/tests/e2e/fixtures/extension.ts b/tests/e2e/fixtures/extension.ts
+index 96af62b..451a288 100644
+--- a/tests/e2e/fixtures/extension.ts
++++ b/tests/e2e/fixtures/extension.ts
+@@ -22,11 +22,16 @@ export const extensionPath = path.resolve(
+ 
+ const extensionIds = new WeakMap<BrowserContext, string>()
+ 
+-function rememberExtensionId(context: BrowserContext, extensionId: string): void {
++function rememberExtensionId(
++  context: BrowserContext,
++  extensionId: string
++): void {
+   extensionIds.set(context, extensionId)
+ }
+ 
+-async function openExtensionStoragePage(context: BrowserContext): Promise<Page> {
++async function openExtensionStoragePage(
++  context: BrowserContext
++): Promise<Page> {
+   const extensionId = extensionIds.get(context)
+   if (!extensionId) {
+     throw new Error("Extension ID is unavailable for the test context.")
+@@ -334,13 +339,15 @@ const gptkStubHtml = fs.readFileSync(
+  * Per-command response overrides for the GPTK stub.
+  * Set `success: false` to force a command to fail.
+  */
++export interface GptkOverride {
++  success?: false
++  error?: string
++  data?: unknown
++  delayMs?: number
++}
++
+ export interface GptkOverrides {
+-  trashItems?: { success: false; error: string; data?: unknown }
+-  restoreItems?: { success: false; error: string; data?: unknown }
+-  [command: string]:
+-    | { success: false; error: string; data?: unknown }
+-    | { data: unknown }
+-    | undefined
++  [command: string]: GptkOverride | undefined
+ }
+ 
+ /**
+diff --git a/tests/e2e/fixtures/gptk-stub.html b/tests/e2e/fixtures/gptk-stub.html
+index abe59c0..ca7e365 100644
+--- a/tests/e2e/fixtures/gptk-stub.html
++++ b/tests/e2e/fixtures/gptk-stub.html
+@@ -122,6 +122,10 @@
+           )
+           return
+         }
++        const delayMs = Number(override && override.delayMs)
++        if (Number.isFinite(delayMs) && delayMs > 0) {
++          await new Promise((resolve) => setTimeout(resolve, delayMs))
++        }
+ 
+         const dedupKeys = (args && args.dedupKeys) || []
+         const mediaKeysToTrash = (args && args.mediaKeysToTrash) || dedupKeys
+@@ -150,6 +154,10 @@
+ 
+       async function handleRestoreItems(command, requestId, args) {
+         const override = window.__gptkOverrides[command]
++        const delayMs = Number(override && override.delayMs)
++        if (Number.isFinite(delayMs) && delayMs > 0) {
++          await new Promise((resolve) => setTimeout(resolve, delayMs))
++        }
+         if (override && override.success === false) {
+           replyError(
+             command,
+diff --git a/tests/e2e/integration/app-tab.test.ts b/tests/e2e/integration/app-tab.test.ts
+index e87df5b..11145a8 100644
+--- a/tests/e2e/integration/app-tab.test.ts
++++ b/tests/e2e/integration/app-tab.test.ts
+@@ -237,7 +237,9 @@ test("clears saved results and selections when a different Google account is det
+   })
+   const page = await openAppTab(context, extensionId)
+ 
+-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
++  await expect(
++    page.getByText("Find duplicates from your photo library")
++  ).toBeVisible({
+     timeout: 8_000
+   })
+   await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+@@ -257,6 +259,316 @@ test("clears saved results and selections when a different Google account is det
+   await clearStorage(context)
+ })
+ 
++test("closes a paid prompt when a connected account changes", async () => {
++  await clearStorage(context)
++  const { groups, mediaItems } = makeGroups(2, 7)
++  await injectScanResults(
++    context,
++    groups,
++    mediaItems,
++    Object.keys(mediaItems).length,
++    "alice@example.com"
++  )
++
++  const stub = await openGptkStubPage(context, {
++    healthCheck: {
++      data: {
++        hasGptk: true,
++        hasWizData: true,
++        accountEmail: "alice@example.com"
++      }
++    }
++  })
++  const page = await openAppTab(context, extensionId)
++
++  await expect(
++    page.getByRole("heading", {
++      name: "2 Duplicate Sets to Review",
++      exact: true
++    })
++  ).toBeVisible({ timeout: 8_000 })
++  await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
++  await page.getByRole("button", { name: /Review & move 12 to Trash/i }).click()
++  await expect(
++    page.getByRole("heading", { name: "Unlock larger cleanup" })
++  ).toBeVisible()
++
++  await stub.evaluate(() => {
++    ;(
++      window as unknown as {
++        __gptkOverrides: Record<string, unknown>
++      }
++    ).__gptkOverrides.healthCheck = {
++      data: {
++        hasGptk: true,
++        hasWizData: true,
++        accountEmail: "bob@example.com"
++      }
++    }
++  })
++  await page.evaluate(() => {
++    chrome.runtime.sendMessage({
++      app: "GPD",
++      action: "healthCheck",
++      provider: "google"
++    })
++  })
++
++  await expect(
++    page.getByRole("heading", { name: "Unlock larger cleanup" })
++  ).not.toBeVisible({ timeout: 8_000 })
++  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
++
++  await page.close()
++  await stub.close()
++  await clearStorage(context)
++})
++
++test("drops a delayed old-account trash result after identity changes", async () => {
++  await clearStorage(context)
++  const { groups, mediaItems } = makeGroups(2, 5)
++  await injectScanResults(
++    context,
++    groups,
++    mediaItems,
++    Object.keys(mediaItems).length,
++    "alice@example.com"
++  )
++
++  const stub = await openGptkStubPage(context, {
++    healthCheck: {
++      data: {
++        hasGptk: true,
++        hasWizData: true,
++        accountEmail: "alice@example.com"
++      }
++    },
++    trashItems: { data: {}, delayMs: 1_000 }
++  })
++  const page = await openAppTab(context, extensionId)
++
++  try {
++    await expect(
++      page.getByRole("heading", {
++        name: "2 Duplicate Sets to Review",
++        exact: true
++      })
++    ).toBeVisible({ timeout: 8_000 })
++    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
++    await page
++      .getByRole("button", { name: /Review & move 8 to Trash/i })
++      .click()
++    await expect(
++      page.getByRole("heading", { name: "Move to Trash" })
++    ).toBeVisible()
++    await page.getByLabel("Type 8 to confirm").fill("8")
++    await page
++      .getByRole("button", { name: /^Move to Trash$/i })
++      .last()
++      .click()
++
++    await stub.evaluate(() => {
++      ;(
++        window as unknown as {
++          __gptkOverrides: Record<string, unknown>
++        }
++      ).__gptkOverrides.healthCheck = {
++        data: {
++          hasGptk: true,
++          hasWizData: true,
++          accountEmail: "bob@example.com"
++        }
++      }
++    })
++    await page.evaluate(() => {
++      chrome.runtime.sendMessage({
++        app: "GPD",
++        action: "healthCheck",
++        provider: "google"
++      })
++    })
++
++    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
++      timeout: 8_000
++    })
++    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
++    await page.waitForTimeout(1_200)
++    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
++    await expect(
++      page.getByRole("button", { name: /Undo moved items/i })
++    ).not.toBeVisible()
++  } finally {
++    await page.close()
++    await stub.close()
++  }
++})
++
++test("retires a deferred scan upgrade suggestion after identity changes", async () => {
++  await clearStorage(context)
++  const now = Date.now()
++  const mediaItems = Array.from({ length: 1_001 }, (_, index) => {
++    const key = `deferred-item-${index}`
++    return {
++      mediaKey: key,
++      dedupKey: index < 2 ? "deferred-duplicate" : `deferred-${index}`,
++      // Only the exact duplicate pair needs thumbnails. The remaining 999
++      // items still count toward the free scan cap but do not enter detection.
++      thumb:
++        index < 2
++          ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
++          : "",
++      productUrl: `https://photos.google.com/photo/${key}`,
++      timestamp: now - index * 60_000,
++      creationTimestamp: now - index * 60_000,
++      resWidth: 100,
++      resHeight: 100,
++      fileName: `${key}.jpg`,
++      isOwned: true
++    }
++  })
++  const stub = await openGptkStubPage(context, {
++    healthCheck: {
++      data: {
++        hasGptk: true,
++        hasWizData: true,
++        accountEmail: "alice@example.com"
++      }
++    }
++  })
++  await stub.evaluate((items) => {
++    ;(
++      window as unknown as {
++        __gptkOverrides: Record<string, unknown>
++      }
++    ).__gptkOverrides.getAllMediaItems = { data: items }
++  }, mediaItems)
++  const page = await openAppTab(context, extensionId)
++
++  try {
++    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible({
++      timeout: 8_000
++    })
++    await page
++      .getByRole("button", {
++        name: /^(Scan recent 30 days|Check entire library(?: instead)?)$/i
++      })
++      .first()
++      .click()
++    await expect(
++      page.getByText("Keep reviewing or unlock more of this cleanup")
++    ).toBeVisible({ timeout: 30_000 })
++
++    await stub.evaluate(() => {
++      ;(
++        window as unknown as {
++          __gptkOverrides: Record<string, unknown>
++        }
++      ).__gptkOverrides.healthCheck = {
++        data: {
++          hasGptk: true,
++          hasWizData: true,
++          accountEmail: "bob@example.com"
++        }
++      }
++    })
++    await page.evaluate(() => {
++      chrome.runtime.sendMessage({
++        app: "GPD",
++        action: "healthCheck",
++        provider: "google"
++      })
++    })
++
++    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
++      timeout: 8_000
++    })
++    await expect(
++      page.getByText("Keep reviewing or unlock more of this cleanup")
++    ).not.toBeVisible()
++    await expect(
++      page.getByRole("button", { name: "Compare plans" })
++    ).not.toBeVisible()
++  } finally {
++    await page.close()
++    await stub.close()
++  }
++})
++
++test("does not open a stale checkout tab after results reset", async () => {
++  await clearStorage(context)
++  const apiBaseUrl =
++    process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
++    "https://photosweep-license-api-206538169327.us-west1.run.app"
++  const { groups, mediaItems } = makeGroups(2, 7)
++  await injectScanResults(
++    context,
++    groups,
++    mediaItems,
++    Object.keys(mediaItems).length,
++    "test@example.com"
++  )
++
++  let checkoutRequested = false
++  let releaseCheckout!: () => void
++  const checkoutReleased = new Promise<void>((resolve) => {
++    releaseCheckout = resolve
++  })
++  await context.route(`${apiBaseUrl}/checkout`, async (route) => {
++    checkoutRequested = true
++    await checkoutReleased
++    await route.fulfill({
++      status: 200,
++      contentType: "application/json",
++      body: JSON.stringify({
++        url: "https://checkout.test/stale",
++        planId: "lifetime"
++      })
++    })
++  })
++
++  const stub = await openGptkStubPage(context)
++  const page = await openAppTab(context, extensionId)
++  try {
++    await expect(
++      page.getByRole("heading", {
++        name: "2 Duplicate Sets to Review",
++        exact: true
++      })
++    ).toBeVisible({ timeout: 8_000 })
++    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
++    await page
++      .getByRole("button", { name: /Review & move 12 to Trash/i })
++      .click()
++    await expect(
++      page.getByRole("heading", { name: "Unlock larger cleanup" })
++    ).toBeVisible()
++
++    await page
++      .getByRole("button", { name: /Choose Lifetime Early Access/i })
++      .click()
++    await expect.poll(() => checkoutRequested).toBe(true)
++
++    await page
++      .getByRole("button", { name: "Keep reviewing free results" })
++      .click()
++    await page.getByRole("button", { name: "Start over", exact: true }).click()
++
++    releaseCheckout()
++    await page.waitForTimeout(300)
++    expect(
++      context
++        .pages()
++        .filter((candidate) => candidate.url().includes("checkout.test/stale"))
++    ).toHaveLength(0)
++  } finally {
++    releaseCheckout()
++    await page.close()
++    await stub.close()
++    await context.unroute(`${apiBaseUrl}/checkout`)
++    await clearStorage(context)
++  }
++})
++
+ test("clears legacy saved results when the current Google account is known", async () => {
+   await clearStorage(context)
+   await injectScanResults(
+@@ -286,7 +598,9 @@ test("clears legacy saved results when the current Google account is known", asy
+   })
+   const page = await openAppTab(context, extensionId)
+ 
+-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
++  await expect(
++    page.getByText("Find duplicates from your photo library")
++  ).toBeVisible({
+     timeout: 8_000
+   })
+   await expect(page.getByText("Signed in as known@example.com")).toBeVisible()
+@@ -465,7 +779,9 @@ test("clears resumable checkpoint when a different Google account is detected",
+ 
+   const page = await openAppTab(context, extensionId)
+ 
+-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
++  await expect(
++    page.getByText("Find duplicates from your photo library")
++  ).toBeVisible({
+     timeout: 8_000
+   })
+   await expect(
+@@ -517,14 +833,9 @@ test("resumes duplicate detection from a checkpointed media list without refetch
+   await expect(page.getByText(/No duplicates found/i)).toBeVisible({
+     timeout: 10_000
+   })
+-  await expect(page.getByText("How was your PhotoSweep scan?")).toBeVisible()
+-  await expect(
+-    page.getByRole("button", { name: "Leave an honest review" })
+-  ).toBeVisible()
+   await expect(
+-    page.getByRole("button", { name: "Send feedback" })
+-  ).toBeVisible()
+-  await page.getByRole("button", { name: "Maybe later" }).click()
++    page.getByText("How was your PhotoSweep cleanup?")
++  ).not.toBeVisible()
+ 
+   const ratingPrompt = await context.serviceWorkers()[0].evaluate(
+     () =>
+@@ -532,11 +843,7 @@ test("resumes duplicate detection from a checkpointed media list without refetch
+         chrome.storage.local.get("ratingPrompt", resolve)
+       })
+   )
+-  expect(ratingPrompt.ratingPrompt).toEqual({
+-    successfulScans: 1,
+-    nextPromptAt: 4,
+-    completed: false
+-  })
++  expect(ratingPrompt.ratingPrompt).toBeUndefined()
+ 
+   const commands = await gpPage.evaluate(
+     () =>
+@@ -762,7 +1069,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
+   })
+ 
+   await page.getByRole("button", { name: /Scan again/i }).click()
+-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
++  await expect(
++    page.getByText("Find duplicates from your photo library")
++  ).toBeVisible({
+     timeout: 8_000
+   })
+ 
+@@ -781,7 +1090,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
+   expect(stored.scanCheckpoint).toBeUndefined()
+ 
+   await page.reload()
+-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
++  await expect(
++    page.getByText("Find duplicates from your photo library")
++  ).toBeVisible({
+     timeout: 8_000
+   })
+   await expect(
+diff --git a/tests/e2e/integration/trash-undo.test.ts b/tests/e2e/integration/trash-undo.test.ts
+index 34e0b86..eab5d34 100644
+--- a/tests/e2e/integration/trash-undo.test.ts
++++ b/tests/e2e/integration/trash-undo.test.ts
+@@ -56,9 +56,7 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
+ }
+ 
+ async function includeAllAndOpenTrashDialog(page: Page): Promise<void> {
+-  await page
+-    .getByRole("button", { name: /^Include all(?: sets)?$/i })
+-    .click()
++  await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+   await page
+     .getByRole("button", { name: /Review & move \d+ to Trash/i })
+     .click()
+@@ -107,6 +105,12 @@ test("trashes selected groups and removes them from the UI", async () => {
+   await expect(page.getByText(/moved to trash/i)).toBeVisible({
+     timeout: 10_000
+   })
++  await expect(
++    page.getByText("How was your PhotoSweep cleanup?")
++  ).not.toBeVisible()
++  await page.getByRole("button", { name: "Dismiss undo notification" }).click()
++  await expect(page.getByText("How was your PhotoSweep cleanup?")).toBeVisible()
++  await page.getByRole("button", { name: "Maybe later" }).click()
+ 
+   // Review list should no longer show duplicate sets
+   await expect(
+@@ -144,7 +148,10 @@ test("trashes selected groups and removes them from the UI", async () => {
+ test("free Trash cap is cumulative across the cleanup session", async () => {
+   await clearStorage(context)
+   const { groups, mediaItems } = makeGroups(2, 2)
+-  groups[0].mediaKeys = Array.from({ length: 11 }, (_, i) => `cap-group0-item${i}`)
++  groups[0].mediaKeys = Array.from(
++    { length: 11 },
++    (_, i) => `cap-group0-item${i}`
++  )
+   for (let i = 0; i < 11; i++) {
+     const key = `cap-group0-item${i}`
+     mediaItems[key] = {
+@@ -194,9 +201,7 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
+   // Select the one remaining group directly. This preserves the same cleanup
+   // session, so the dialog must enforce the already-used free allowance.
+   await page.locator('input[type="checkbox"]').first().click()
+-  await page
+-    .getByRole("button", { name: /Review & move 1 to Trash/i })
+-    .click()
++  await page.getByRole("button", { name: /Review & move 1 to Trash/i }).click()
+ 
+   await expect(page.getByRole("dialog")).toBeVisible()
+   await expect(
+@@ -292,7 +297,7 @@ test("undo restores all groups to the UI", async () => {
+   })
+ 
+   // Click Undo in the snackbar
+-  await page.getByRole("button", { name: /undo/i }).click()
++  await page.getByRole("button", { name: /^Undo$/i }).click()
+ 
+   // All 3 groups should be restored
+   await expect(
+@@ -345,7 +350,7 @@ test("undo after multi-batch trash restores all groups", async () => {
+     timeout: 15_000
+   })
+ 
+-  await page.getByRole("button", { name: /undo/i }).click()
++  await page.getByRole("button", { name: /^Undo$/i }).click()
+ 
+   // Pre-trash state fully restored
+   await expect(
+@@ -414,6 +419,85 @@ test("shows a retryable warning when restore undo fails", async () => {
+   await page.close()
+ })
+ 
++test("retires an old Undo restore when the connected account changes", async () => {
++  await clearStorage(context)
++  const { groups, mediaItems } = smallPayload()
++  await injectScanResults(
++    context,
++    groups,
++    mediaItems,
++    Object.keys(mediaItems).length,
++    "alice@example.com"
++  )
++
++  const stub = await openGptkStubPage(context, {
++    healthCheck: {
++      data: {
++        hasGptk: true,
++        hasWizData: true,
++        accountEmail: "alice@example.com"
++      }
++    },
++    restoreItems: { data: {}, delayMs: 1_000 }
++  })
++  const page = await openAppTab(context, extensionId)
++
++  await expect(
++    page.getByRole("heading", {
++      name: "3 Duplicate Sets to Review",
++      exact: true
++    })
++  ).toBeVisible({ timeout: 8_000 })
++
++  await includeAllAndOpenTrashDialog(page)
++  await confirmTrashDialog(page, 3)
++  await expect(page.getByText(/moved to trash/i)).toBeVisible({
++    timeout: 10_000
++  })
++  await page.getByRole("button", { name: /^Undo$/i }).click()
++
++  await stub.evaluate(() => {
++    ;(
++      window as unknown as {
++        __gptkOverrides: Record<string, unknown>
++      }
++    ).__gptkOverrides.healthCheck = {
++      data: {
++        hasGptk: true,
++        hasWizData: true,
++        accountEmail: "bob@example.com"
++      }
++    }
++  })
++  await page.evaluate(() => {
++    chrome.runtime.sendMessage({
++      app: "GPD",
++      action: "healthCheck",
++      provider: "google"
++    })
++  })
++
++  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
++    timeout: 8_000
++  })
++  await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
++  await expect(
++    page.getByRole("button", { name: /Undo moved items/i })
++  ).not.toBeVisible()
++
++  // The delayed response belongs to Alice's retired restore operation. It must
++  // not recreate Alice's Undo state or a recovery warning for Bob.
++  await page.waitForTimeout(1_200)
++  await expect(page.getByText(/Restore failed:/i)).not.toBeVisible()
++  await expect(
++    page.getByRole("button", { name: /Undo moved items/i })
++  ).not.toBeVisible()
++
++  await stub.close()
++  await page.close()
++  await clearStorage(context)
++})
++
+ // ============================================================
+ // Error: trash API failure
+ // ============================================================
+diff --git a/tests/lib/license-client.test.ts b/tests/lib/license-client.test.ts
+index 692a957..efca03e 100644
+--- a/tests/lib/license-client.test.ts
++++ b/tests/lib/license-client.test.ts
+@@ -4,14 +4,14 @@ import {
+   DEV_ENTITLEMENT_STORAGE_KEY,
+   ENTITLEMENT_STORAGE_KEY,
+   ENTITLEMENT_TOKEN_STORAGE_KEY,
++  getEffectiveLicenseApiBaseUrl,
++  importEntitlementPublicKey,
+   LICENSE_API_BASE_URL,
+   LicenseClient,
+-  getEffectiveLicenseApiBaseUrl,
+   loadStoredEntitlement,
+-  importEntitlementPublicKey,
+   saveVerifiedEntitlementToken,
+-  verifySignedEntitlementToken,
+   verifyEntitlementTokenWithBundledKey,
++  verifySignedEntitlementToken,
+   type SignedEntitlementPayload
+ } from "../../lib/license-client"
+ 
+@@ -19,7 +19,10 @@ function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
+   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+   let binary = ""
+   for (const byte of view) binary += String.fromCharCode(byte)
+-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
++  return btoa(binary)
++    .replace(/\+/g, "-")
++    .replace(/\//g, "_")
++    .replace(/=+$/g, "")
+ }
+ 
+ function jsonToBase64Url(value: unknown): string {
+@@ -72,7 +75,8 @@ beforeEach(() => {
+           return Promise.resolve(result)
+         },
+         set: (items: Record<string, unknown>, callback?: () => void) => {
+-          for (const [key, value] of Object.entries(items)) storage.set(key, value)
++          for (const [key, value] of Object.entries(items))
++            storage.set(key, value)
+           callback?.()
+           return Promise.resolve()
+         }
+@@ -89,7 +93,9 @@ describe("verifySignedEntitlementToken", () => {
+       issuedAt: 1000
+     })
+ 
+-    await expect(verifySignedEntitlementToken(token, publicKey)).resolves.toMatchObject({
++    await expect(
++      verifySignedEntitlementToken(token, publicKey)
++    ).resolves.toMatchObject({
+       planId: "lifetime",
+       active: true,
+       source: "signed_token"
+@@ -105,7 +111,10 @@ describe("verifySignedEntitlementToken", () => {
+     const editedPayload = jsonToBase64Url({ planId: "lifetime", active: true })
+ 
+     await expect(
+-      verifySignedEntitlementToken(`${editedPayload}.${signaturePart}`, publicKey)
++      verifySignedEntitlementToken(
++        `${editedPayload}.${signaturePart}`,
++        publicKey
++      )
+     ).resolves.toMatchObject({ planId: "free", active: true, source: "none" })
+     expect(payloadPart).not.toBe(editedPayload)
+   })
+@@ -128,7 +137,9 @@ describe("verifySignedEntitlementToken", () => {
+       active: true
+     })
+ 
+-    await expect(verifySignedEntitlementToken(token, publicKey)).resolves.toMatchObject({
++    await expect(
++      verifySignedEntitlementToken(token, publicKey)
++    ).resolves.toMatchObject({
+       planId: "free",
+       active: true,
+       source: "none"
+@@ -142,7 +153,9 @@ describe("verifySignedEntitlementToken", () => {
+       expiresAt: "never"
+     })
+ 
+-    await expect(verifySignedEntitlementToken(token, publicKey)).resolves.toMatchObject({
++    await expect(
++      verifySignedEntitlementToken(token, publicKey)
++    ).resolves.toMatchObject({
+       planId: "free",
+       active: true,
+       source: "none"
+@@ -162,7 +175,10 @@ describe("verifySignedEntitlementToken", () => {
+ 
+   it("rejects invalid public key material without throwing", async () => {
+     await expect(
+-      verifyEntitlementTokenWithBundledKey("payload.signature", "not-a-public-key")
++      verifyEntitlementTokenWithBundledKey(
++        "payload.signature",
++        "not-a-public-key"
++      )
+     ).resolves.toMatchObject({ planId: "free", active: true, source: "none" })
+   })
+ })
+@@ -250,8 +266,14 @@ describe("loadStoredEntitlement", () => {
+     await chrome.storage.local.clear()
+     await chrome.storage.local.set({ [ENTITLEMENT_TOKEN_STORAGE_KEY]: token })
+ 
+-    await expect(loadStoredEntitlement({ publicKey: publicKeyValue })).resolves.toMatchObject({
+-      entitlement: { planId: "cleanup_pass", active: true, source: "signed_token" }
++    await expect(
++      loadStoredEntitlement({ publicKey: publicKeyValue })
++    ).resolves.toMatchObject({
++      entitlement: {
++        planId: "cleanup_pass",
++        active: true,
++        source: "signed_token"
++      }
+     })
+   })
+ 
+@@ -264,14 +286,20 @@ describe("loadStoredEntitlement", () => {
+     await expect(
+       saveVerifiedEntitlementToken(token, publicKeyValue)
+     ).resolves.toMatchObject({
+-      entitlement: { planId: "mini_cleanup", active: true, source: "signed_token" }
++      entitlement: {
++        planId: "mini_cleanup",
++        active: true,
++        source: "signed_token"
++      }
+     })
+   })
+ })
+ 
+ describe("getEffectiveLicenseApiBaseUrl", () => {
+   it("ignores storage API overrides unless dev entitlement builds allow them", () => {
+-    const effectiveBaseUrl = getEffectiveLicenseApiBaseUrl("https://attacker.example")
++    const effectiveBaseUrl = getEffectiveLicenseApiBaseUrl(
++      "https://attacker.example"
++    )
+ 
+     expect(effectiveBaseUrl).toBe(LICENSE_API_BASE_URL)
+     expect(effectiveBaseUrl).not.toBe("https://attacker.example")
+@@ -288,7 +316,7 @@ describe("LicenseClient", () => {
+         calls.push({ url: urlString, init: init ?? {} })
+         const body = urlString.endsWith("/entitlement")
+           ? { token: "payload.signature" }
+-          : { url: "https://checkout.example" }
++          : { url: "https://checkout.example", planId: "cleanup_pass" }
+         return new Response(JSON.stringify(body), {
+           status: 200,
+           headers: { "content-type": "application/json" }
+@@ -301,6 +329,8 @@ describe("LicenseClient", () => {
+     await client.fetchEntitlementToken()
+ 
+     expect(calls).toHaveLength(3)
+-    expect(calls.every((call) => call.init.credentials === "include")).toBe(true)
++    expect(calls.every((call) => call.init.credentials === "include")).toBe(
++      true
++    )
+   })
+ })
+diff --git a/tests/lib/paid-access-lifecycle.test.ts b/tests/lib/paid-access-lifecycle.test.ts
+index d62db8a..24df1d2 100644
+--- a/tests/lib/paid-access-lifecycle.test.ts
++++ b/tests/lib/paid-access-lifecycle.test.ts
+@@ -22,7 +22,10 @@ function fixture(options?: {
+   configured?: boolean
+ }) {
+   const fetchEntitlementToken = vi.fn(async () => "fresh-token")
+-  const createCheckout = vi.fn(async () => ({ url: "https://checkout.test" }))
++  const createCheckout = vi.fn(async (planId) => ({
++    url: "https://checkout.test",
++    planId
++  }))
+   const recoverLicense = vi.fn(async () => {})
+   const client: PaidAccessClient = {
+     isConfigured: () => options?.configured !== false,
+@@ -98,7 +101,8 @@ describe("PaidAccessLifecycle", () => {
+     await subject.lifecycle.initialize()
+ 
+     expect(await subject.lifecycle.createCheckout("lifetime")).toEqual({
+-      url: "https://checkout.test"
++      url: "https://checkout.test",
++      planId: "lifetime"
+     })
+     await subject.lifecycle.recover("buyer@example.com")
+     const refreshed = await subject.lifecycle.refresh()
+@@ -119,4 +123,213 @@ describe("PaidAccessLifecycle", () => {
+       PaidAccessNotConfiguredError
+     )
+   })
++
++  it("deduplicates concurrent checkout starts and entitlement refreshes", async () => {
++    let releaseCheckout!: (value: { url: string; planId: "lifetime" }) => void
++    const checkoutResult = new Promise<{
++      url: string
++      planId: "lifetime"
++    }>((resolve) => {
++      releaseCheckout = resolve
++    })
++    const fetchEntitlementToken = vi.fn(async () => "fresh-token")
++    const createCheckout = vi.fn(() => checkoutResult)
++    const saveVerifiedToken = vi.fn(async (token: string) => ({
++      entitlement: entitlement("lifetime"),
++      token,
++      refreshedAt: 2
++    }))
++    const adapter: PaidAccessAdapter = {
++      async load() {
++        return {
++          stored: {
++            entitlement: entitlement("free"),
++            token: "stored",
++            refreshedAt: 1
++          },
++          apiBaseUrl: "https://license.test"
++        }
++      },
++      saveVerifiedToken,
++      createClient: () => ({
++        isConfigured: () => true,
++        createCheckout,
++        fetchEntitlementToken,
++        recoverLicense: async () => {}
++      })
++    }
++    const lifecycle = new PaidAccessLifecycle(adapter)
++    await lifecycle.initialize()
++
++    const firstCheckout = lifecycle.createCheckout("lifetime")
++    const secondCheckout = lifecycle.createCheckout("lifetime")
++    const differentPlanCheckout = lifecycle.createCheckout("cleanup_pass")
++    expect(createCheckout).toHaveBeenCalledOnce()
++    await expect(differentPlanCheckout).rejects.toThrow("different plan")
++    releaseCheckout({ url: "https://checkout.test", planId: "lifetime" })
++    await expect(Promise.all([firstCheckout, secondCheckout])).resolves.toEqual(
++      [
++        { url: "https://checkout.test", planId: "lifetime" },
++        { url: "https://checkout.test", planId: "lifetime" }
++      ]
++    )
++
++    const firstRefresh = lifecycle.refresh()
++    const secondRefresh = lifecycle.refresh()
++    await expect(
++      Promise.all([firstRefresh, secondRefresh])
++    ).resolves.toHaveLength(2)
++    expect(fetchEntitlementToken).toHaveBeenCalledOnce()
++  })
++
++  it("does not reuse a same-plan checkout after context invalidation", async () => {
++    let releaseFirst!: (value: { url: string; planId: "lifetime" }) => void
++    let releaseSecond!: (value: { url: string; planId: "lifetime" }) => void
++    const firstResult = new Promise<{ url: string; planId: "lifetime" }>(
++      (resolve) => {
++        releaseFirst = resolve
++      }
++    )
++    const secondResult = new Promise<{ url: string; planId: "lifetime" }>(
++      (resolve) => {
++        releaseSecond = resolve
++      }
++    )
++    const subject = fixture()
++    subject.createCheckout
++      .mockReturnValueOnce(firstResult)
++      .mockReturnValueOnce(secondResult)
++    await subject.lifecycle.initialize()
++
++    const firstCheckout = subject.lifecycle.createCheckout("lifetime")
++    subject.lifecycle.invalidateCheckoutContext()
++    const secondCheckout = subject.lifecycle.createCheckout("lifetime")
++
++    expect(subject.createCheckout).toHaveBeenCalledTimes(2)
++    expect(subject.createCheckout).toHaveBeenNthCalledWith(1, "lifetime")
++    expect(subject.createCheckout).toHaveBeenNthCalledWith(2, "lifetime")
++
++    releaseFirst({ url: "https://checkout.first", planId: "lifetime" })
++    releaseSecond({ url: "https://checkout.second", planId: "lifetime" })
++    await expect(firstCheckout).resolves.toEqual({
++      url: "https://checkout.first",
++      planId: "lifetime"
++    })
++    await expect(secondCheckout).resolves.toEqual({
++      url: "https://checkout.second",
++      planId: "lifetime"
++    })
++  })
++
++  it("does not reuse a different-plan checkout after context invalidation", async () => {
++    let releaseFirst!: (value: { url: string; planId: "lifetime" }) => void
++    let releaseSecond!: (value: { url: string; planId: "cleanup_pass" }) => void
++    const firstResult = new Promise<{ url: string; planId: "lifetime" }>(
++      (resolve) => {
++        releaseFirst = resolve
++      }
++    )
++    const secondResult = new Promise<{
++      url: string
++      planId: "cleanup_pass"
++    }>((resolve) => {
++      releaseSecond = resolve
++    })
++    const subject = fixture()
++    subject.createCheckout
++      .mockReturnValueOnce(firstResult)
++      .mockReturnValueOnce(secondResult)
++    await subject.lifecycle.initialize()
++
++    const firstCheckout = subject.lifecycle.createCheckout("lifetime")
++    subject.lifecycle.invalidateCheckoutContext()
++    const secondCheckout = subject.lifecycle.createCheckout("cleanup_pass")
++
++    expect(subject.createCheckout).toHaveBeenCalledTimes(2)
++    releaseFirst({ url: "https://checkout.first", planId: "lifetime" })
++    releaseSecond({ url: "https://checkout.second", planId: "cleanup_pass" })
++    await expect(firstCheckout).resolves.toEqual({
++      url: "https://checkout.first",
++      planId: "lifetime"
++    })
++    await expect(secondCheckout).resolves.toEqual({
++      url: "https://checkout.second",
++      planId: "cleanup_pass"
++    })
++  })
++
++  it("stops bounded reconciliation at pending when the server has not activated access", async () => {
++    const subject = fixture({ refreshedPlan: "free" })
++    await subject.lifecycle.initialize()
++    const result = await subject.lifecycle.reconcileCheckoutReturn({
++      planId: "cleanup_pass",
++      maxAttempts: 3,
++      initialDelayMs: 0,
++      backoffMs: 0
++    })
++
++    expect(result).toMatchObject({
++      outcome: "pending",
++      activation: "not_activated",
++      attempts: 3
++    })
++    expect(subject.fetchEntitlementToken).toHaveBeenCalledTimes(3)
++  })
++
++  it("does not treat a different paid plan as checkout activation", async () => {
++    const subject = fixture({ refreshedPlan: "mini_cleanup" })
++    await subject.lifecycle.initialize()
++
++    await expect(
++      subject.lifecycle.reconcileCheckoutReturn({
++        planId: "lifetime",
++        maxAttempts: 1,
++        initialDelayMs: 0,
++        backoffMs: 0
++      })
++    ).resolves.toMatchObject({
++      outcome: "pending",
++      activation: "not_activated",
++      attempts: 1,
++      stored: { entitlement: { planId: "mini_cleanup" } }
++    })
++  })
++
++  it("rejects a mismatched or insecure checkout response", async () => {
++    const subject = fixture()
++    await subject.lifecycle.initialize()
++    subject.createCheckout.mockResolvedValueOnce({
++      url: "http://checkout.test",
++      planId: "lifetime"
++    })
++    await expect(
++      subject.lifecycle.createCheckout("cleanup_pass")
++    ).rejects.toThrow("requested plan")
++
++    subject.createCheckout.mockResolvedValueOnce({
++      url: "http://checkout.test",
++      planId: "cleanup_pass"
++    })
++    await expect(
++      subject.lifecycle.createCheckout("cleanup_pass")
++    ).rejects.toThrow("secure URL")
++  })
++
++  it("never treats a return reconciliation error as paid access", async () => {
++    const subject = fixture()
++    subject.fetchEntitlementToken.mockRejectedValue(new TypeError("offline"))
++    await subject.lifecycle.initialize()
++    const result = await subject.lifecycle.reconcileCheckoutReturn({
++      planId: "lifetime",
++      maxAttempts: 2,
++      initialDelayMs: 0,
++      backoffMs: 0
++    })
++
++    expect(result).toMatchObject({
++      outcome: "offline",
++      activation: "not_activated",
++      attempts: 2
++    })
++  })
+ })
+diff --git a/tests/lib/privacy-analytics.test.ts b/tests/lib/privacy-analytics.test.ts
+index e42721c..bae012b 100644
+--- a/tests/lib/privacy-analytics.test.ts
++++ b/tests/lib/privacy-analytics.test.ts
+@@ -70,6 +70,44 @@ describe("privacy analytics", () => {
+     ])
+     expect(JSON.stringify(calls)).not.toContain("photos.example")
+   })
++
++  it("keeps funnel fields allowlisted at the client boundary", () => {
++    const event = buildAnalyticsEvent({
++      name: "paid_return",
++      provider: "google",
++      upgradeReason: "scan",
++      paidReturnOutcome: "activated",
++      activationOutcome: "access_reconciled",
++      unknownOutcome: "paid" as never
++    } as Parameters<typeof buildAnalyticsEvent>[0])
++
++    expect(event).toMatchObject({
++      name: "paid_return",
++      upgradeReason: "scan",
++      paidReturnOutcome: "activated",
++      activationOutcome: "access_reconciled"
++    })
++    expect(event).not.toHaveProperty("unknownOutcome")
++
++    const invalid = buildAnalyticsEvent({
++      name: "paid_return",
++      paidReturnOutcome: "definitely_paid"
++    } as unknown as Parameters<typeof buildAnalyticsEvent>[0])
++    expect(invalid).not.toHaveProperty("paidReturnOutcome")
++  })
++
++  it("keeps bucket and error fields on their finite allowlists", () => {
++    const invalid = buildAnalyticsEvent({
++      name: "error",
++      photoCountBucket: "123-private-count",
++      duplicateGroupCountBucket: "exact-42",
++      errorCategory: "private-error-details"
++    })
++
++    expect(invalid.photoCountBucket).toBeUndefined()
++    expect(invalid.duplicateGroupCountBucket).toBeUndefined()
++    expect(invalid.errorCategory).toBeUndefined()
++  })
+ })
+ 
+ describe("support diagnostics", () => {
+diff --git a/tests/lib/rating-prompt.test.ts b/tests/lib/rating-prompt.test.ts
+index 3798f3a..4cb8968 100644
+--- a/tests/lib/rating-prompt.test.ts
++++ b/tests/lib/rating-prompt.test.ts
+@@ -5,6 +5,7 @@ import {
+   completeRatingPrompt,
+   deferRatingPrompt,
+   RATING_PROMPT_STORAGE_KEY,
++  recordSuccessfulCleanup,
+   recordSuccessfulScan
+ } from "../../lib/rating-prompt"
+ 
+@@ -25,29 +26,44 @@ beforeEach(() => {
+ })
+ 
+ describe("rating prompt state", () => {
+-  it("becomes eligible after the first newly completed scan", async () => {
+-    await expect(recordSuccessfulScan()).resolves.toBe(true)
++  it("does not become eligible from a completed scan", async () => {
++    await expect(recordSuccessfulScan()).resolves.toBe(false)
+     expect(store[RATING_PROMPT_STORAGE_KEY]).toEqual({
+       successfulScans: 1,
++      successfulCleanups: 0,
+       nextPromptAt: 1,
+       completed: false
+     })
+   })
+ 
+-  it("waits three additional successful scans after Maybe later", async () => {
+-    await recordSuccessfulScan()
++  it("becomes eligible after a positive confirmed cleanup", async () => {
++    await expect(recordSuccessfulCleanup(2)).resolves.toBe(true)
++    expect(store[RATING_PROMPT_STORAGE_KEY]).toMatchObject({
++      successfulCleanups: 1,
++      completed: false
++    })
++  })
++
++  it("waits three additional successful cleanups after Maybe later", async () => {
++    await recordSuccessfulCleanup(1)
+     await deferRatingPrompt()
+ 
+-    await expect(recordSuccessfulScan()).resolves.toBe(false)
+-    await expect(recordSuccessfulScan()).resolves.toBe(false)
+-    await expect(recordSuccessfulScan()).resolves.toBe(true)
++    await expect(recordSuccessfulCleanup(1)).resolves.toBe(false)
++    await expect(recordSuccessfulCleanup(1)).resolves.toBe(false)
++    await expect(recordSuccessfulCleanup(1)).resolves.toBe(true)
++  })
++
++  it("ignores zero or negative cleanup results", async () => {
++    await expect(recordSuccessfulCleanup(0)).resolves.toBe(false)
++    await expect(recordSuccessfulCleanup(-1)).resolves.toBe(false)
++    expect(store[RATING_PROMPT_STORAGE_KEY]).toBeUndefined()
+   })
+ 
+   it("never prompts again after review or permanent dismissal", async () => {
+-    await recordSuccessfulScan()
++    await recordSuccessfulCleanup(1)
+     await completeRatingPrompt()
+ 
+-    await expect(recordSuccessfulScan()).resolves.toBe(false)
++    await expect(recordSuccessfulCleanup(1)).resolves.toBe(false)
+   })
+ 
+   it("builds the official direct review-page URL", () => {
+diff --git a/tests/server/license-api.test.ts b/tests/server/license-api.test.ts
+index c423349..9e6be44 100644
+--- a/tests/server/license-api.test.ts
++++ b/tests/server/license-api.test.ts
+@@ -263,7 +263,8 @@ describe("license API", () => {
+     expect(checkout.status).toBe(200)
+     const checkoutBody = await checkout.json()
+     expect(checkoutBody).toMatchObject({
+-      url: "https://checkout.stripe.test/cs_test_456"
++      url: "https://checkout.stripe.test/cs_test_456",
++      planId: "lifetime"
+     })
+     const snapshotBeforeWebhook = store.snapshot()
+     expect(snapshotBeforeWebhook.licensesBySessionId).toEqual({})
+@@ -610,8 +611,14 @@ describe("license API", () => {
+     }
+ 
+     expect(
+-      (await sendPaidCheckout("evt_lifetime", "cs_multi_1", "pi_lifetime", "lifetime"))
+-        .status
++      (
++        await sendPaidCheckout(
++          "evt_lifetime",
++          "cs_multi_1",
++          "pi_lifetime",
++          "lifetime"
++        )
++      ).status
+     ).toBe(200)
+     expect(
+       (
+@@ -631,7 +638,7 @@ describe("license API", () => {
+     )
+     await expect(
+       verifyToken(
+-        (await entitlementBeforeRefund.json() as { token: string }).token,
++        ((await entitlementBeforeRefund.json()) as { token: string }).token,
+         keys.publicKey
+       )
+     ).resolves.toMatchObject({ planId: "lifetime", active: true })
+@@ -671,7 +678,7 @@ describe("license API", () => {
+     )
+     await expect(
+       verifyToken(
+-        (await entitlementAfterRefund.json() as { token: string }).token,
++        ((await entitlementAfterRefund.json()) as { token: string }).token,
+         keys.publicKey
+       )
+     ).resolves.toMatchObject({ planId: "cleanup_pass", active: true })
+@@ -900,6 +907,10 @@ describe("license API", () => {
+           planId: "free",
+           photoCountBucket: "1k-5k",
+           duplicateGroupCountBucket: "0-99",
++          upgradeReason: "scan",
++          dismissalReason: "continue_free",
++          paidReturnOutcome: "pending",
++          activationOutcome: "not_activated",
+           photoUrl: "https://photos.google.com/photo/private",
+           filename: "IMG_1234.JPG"
+         })
+@@ -916,6 +927,10 @@ describe("license API", () => {
+       planId: "free",
+       photoCountBucket: "1k-5k",
+       duplicateGroupCountBucket: "0-99",
++      upgradeReason: "scan",
++      dismissalReason: "continue_free",
++      paidReturnOutcome: "pending",
++      activationOutcome: "not_activated",
+       errorCategory: undefined
+     })
+     expect(typeof snapshot.analyticsEvents[0].recordedAt).toBe("number")
+@@ -948,6 +963,32 @@ describe("license API", () => {
+     expect(store.snapshot().analyticsEvents).toEqual([])
+   })
+ 
++  it("rejects malformed funnel enum values instead of recording ambiguous events", async () => {
++    const keys = testKeys()
++    const store = createMemoryLicenseStore()
++    const api = createLicenseApi({
++      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
++      store
++    })
++
++    const response = await api(
++      new Request("https://license.test/analytics", {
++        method: "POST",
++        headers: { "content-type": "application/json" },
++        body: JSON.stringify({
++          name: "paid_return",
++          paidReturnOutcome: "definitely_paid",
++          activationOutcome: "access_reconciled",
++          photoCountBucket: "exact-42",
++          errorCategory: "private-error-details"
++        })
++      })
++    )
++
++    expect(response.status).toBe(400)
++    expect(store.snapshot().analyticsEvents).toEqual([])
++  })
++
+   it("persists licenses and processed Stripe events in the JSON file store", async () => {
+     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "photosweep-license-"))
+     const storePath = path.join(dir, "licenses.json")

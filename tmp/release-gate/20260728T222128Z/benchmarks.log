@@ -1,0 +1,44 @@
+$ sh -c 'npx vitest bench --run --outputJson bench-output.json && node tools/check-bench.mjs'
+npm warn exec The following package was not found and will be installed: vitest@4.1.10
+[33mBenchmarking is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Startup Error [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯⎯[39m
+Error: Cannot find native binding. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+    at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:509:34
+    at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:9:49
+    at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/parse-D4dtlfWy.mjs:3:46
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async start (file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/vitest/dist/chunks/cac.DdICfEr1.js:2339:27)
+    at async CAC.benchmark (file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/vitest/dist/chunks/cac.DdICfEr1.js:2322:2) {
+  cause: Error: dlopen(/Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/@rolldown/binding-darwin-arm64/rolldown-binding.darwin-arm64.node, 0x0001): tried: '/Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/@rolldown/binding-darwin-arm64/rolldown-binding.darwin-arm64.node' (code signature in <B170FE35-D6D2-3798-90D2-C40370EFA181> '/Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/@rolldown/binding-darwin-arm64/rolldown-binding.darwin-arm64.node' not valid for use in process: library load disallowed by system policy), '/System/Volumes/Preboot/Cryptexes/OS/Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/@rolldown/binding-darwin-arm64/rolldown-binding.darwin-arm64.node' (no such file), '/Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/@rolldown/binding-darwin-arm64/rolldown-binding.darwin-arm64.node' (no such file)
+      at Object..node (node:internal/modules/cjs/loader:1939:18)
+      at Module.load (node:internal/modules/cjs/loader:1505:32)
+      at Function._load (node:internal/modules/cjs/loader:1309:12)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+      at Module.require (node:internal/modules/cjs/loader:1527:12)
+      at require (node:internal/modules/helpers:147:16)
+      at requireNative (file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:219:22)
+      at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:475:18
+      at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:9:49
+      at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/parse-D4dtlfWy.mjs:3:46 {
+    code: 'ERR_DLOPEN_FAILED',
+    cause: Error: Cannot find module './rolldown-binding.darwin-arm64.node'
+    Require stack:
+    - /Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs
+        at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+        ... 5 lines matching cause stack trace ...
+        at require (node:internal/modules/helpers:147:16)
+        at requireNative (file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:214:13)
+        at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:475:18
+        at file:///Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_npx/69c381f8ad94b576/node_modules/rolldown/dist/shared/binding-TuFFIE_J.mjs:9:49 {
+      code: 'MODULE_NOT_FOUND',
+      requireStack: [Array],
+      cause: [Error]
+    }
+  }
+}
+
+
+

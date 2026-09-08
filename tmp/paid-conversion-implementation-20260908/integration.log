@@ -1,0 +1,178 @@
+(node:14144) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 34 tests using 3 workers
+
+(node:14151) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14150) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14149) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14150) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:14149) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:14151) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:14150) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14149) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14151) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   1 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:64:7 › healthCheck › app tab receives healthCheck.result success when GP stub responds (0ms)
+  -   4 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:78:7 › healthCheck › app tab shows disconnected when GP tab is not open
+  -   5 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:91:7 › healthCheck › app tab reflects the accountEmail returned by the stub
+  -   6 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:118:7 › tab lifecycle › app tab receives GP_TAB_CLOSED when GP stub tab is closed
+  -   7 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:144:7 › gptkCommand routing › app tab receives gptkResult after command is relayed through GP stub
+  -   8 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:196:7 › gptkCommand routing › app tab receives gptkResult failure when GP tab is not found
+  -   9 [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:248:7 › progress streaming › app tab receives intermediate gptkProgress messages during long command
+  ✘   2 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:71:5 › trashes selected groups and removes them from the UI (0ms)
+  -  10 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:144:5 › free Trash cap is cumulative across the cleanup session
+  -  11 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:215:5 › shows trashing state for multi-batch trash (> 25 items)
+  -  12 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:265:5 › undo restores all groups to the UI
+  -  13 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:318:5 › undo after multi-batch trash restores all groups
+  -  14 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:364:5 › shows a retryable warning when restore undo fails
+  -  15 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:421:5 › shows error state when trashItems fails
+  -  16 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:461:5 › keeps failed items visible and reports partial trash results
+  -  17 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:537:5 › cancel dialog does not trigger trash
+  ✘   3 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:35:5 › restores saved scan results from storage on load (0ms)
+  -  18 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:127:5 › filters review groups by exact and similar classification
+  -  19 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:211:5 › clears saved results and selections when a different Google account is detected
+  -  20 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:260:5 › clears legacy saved results when the current Google account is known
+  -  21 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:309:5 › shows 'no duplicates found' when scan returns zero groups
+  -  22 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:323:5 › migrates untouched old smart defaults to full scan
+  -  23 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:357:5 › preserves intentional strict similarity settings
+  -  24 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:391:5 › shows disconnected state when GP tab is not open and no saved results
+  -  25 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:403:5 › offers resume when a previous scan checkpoint was interrupted
+  -  26 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:438:5 › clears resumable checkpoint when a different Google account is detected
+  -  27 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:489:5 › resumes duplicate detection from a checkpointed media list without refetching
+  -  28 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:558:5 › loads albums and allows choosing an album scan scope
+  -  29 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:659:5 › persists group selections through page reload
+  -  30 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:720:5 › re-scan clears saved results, selections, and resumable checkpoint
+  -  31 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:799:5 › persists kept overrides through page reload
+  -  32 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:847:5 › persists trash-all copy choices through page reload
+  -  33 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:921:5 › ignores stale kept override keys from saved selections
+  -  34 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:973:5 › ignores malformed saved selections without crashing on load
+
+
+  1) [chromium-extension] › tests/e2e/integration/app-tab.test.ts:35:5 › restores saved scan results from storage on load 
+
+    Error: browserType.launchPersistentContext: Executable doesn't exist at /Users/mustafadungarpurwala/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+    ╔════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright was just installed or updated.       ║
+    ║ Please run the following command to download new browsers: ║
+    ║                                                            ║
+    ║     npx playwright install                                 ║
+    ║                                                            ║
+    ║ <3 Playwright Team                                         ║
+    ╚════════════════════════════════════════════════════════════╝
+
+       at ../fixtures/extension.ts:170
+
+      168 |   extensionId: string
+      169 | }> {
+    > 170 |   const context = await chromium.launchPersistentContext("", {
+          |                   ^
+      171 |     headless: false,
+      172 |     args: [
+      173 |       `--disable-extensions-except=${extensionPath}`,
+        at launchExtension (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:170:19)
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/app-tab.test.ts:26:32
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      28 |
+      29 | test.afterAll(async () => {
+    > 30 |   await context.close()
+         |                 ^
+      31 | })
+      32 |
+      33 | // ============================================================
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/app-tab.test.ts:30:17
+
+    Error Context: test-results/app-tab-restores-saved-scan-results-from-storage-on-load-chromium-extension/error-context.md
+
+    Error Context: test-results/app-tab-restores-saved-scan-results-from-storage-on-load-chromium-extension/error-context.md
+
+  2) [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:64:7 › healthCheck › app tab receives healthCheck.result success when GP stub responds 
+
+    Error: browserType.launchPersistentContext: Executable doesn't exist at /Users/mustafadungarpurwala/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+    ╔════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright was just installed or updated.       ║
+    ║ Please run the following command to download new browsers: ║
+    ║                                                            ║
+    ║     npx playwright install                                 ║
+    ║                                                            ║
+    ║ <3 Playwright Team                                         ║
+    ╚════════════════════════════════════════════════════════════╝
+
+       at ../fixtures/extension.ts:170
+
+      168 |   extensionId: string
+      169 | }> {
+    > 170 |   const context = await chromium.launchPersistentContext("", {
+          |                   ^
+      171 |     headless: false,
+      172 |     args: [
+      173 |       `--disable-extensions-except=${extensionPath}`,
+        at launchExtension (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:170:19)
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/cross-tab-messaging.test.ts:32:32
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      34 |
+      35 | test.afterAll(async () => {
+    > 36 |   await context.close()
+         |                 ^
+      37 | })
+      38 |
+      39 | // ============================================================
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/cross-tab-messaging.test.ts:36:17
+
+    Error Context: test-results/cross-tab-messaging-health-71a3f-ccess-when-GP-stub-responds-chromium-extension/error-context.md
+
+    Error Context: test-results/cross-tab-messaging-health-71a3f-ccess-when-GP-stub-responds-chromium-extension/error-context.md
+
+  3) [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:71:5 › trashes selected groups and removes them from the UI 
+
+    Error: browserType.launchPersistentContext: Executable doesn't exist at /Users/mustafadungarpurwala/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+    ╔════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright was just installed or updated.       ║
+    ║ Please run the following command to download new browsers: ║
+    ║                                                            ║
+    ║     npx playwright install                                 ║
+    ║                                                            ║
+    ║ <3 Playwright Team                                         ║
+    ╚════════════════════════════════════════════════════════════╝
+
+       at ../fixtures/extension.ts:170
+
+      168 |   extensionId: string
+      169 | }> {
+    > 170 |   const context = await chromium.launchPersistentContext("", {
+          |                   ^
+      171 |     headless: false,
+      172 |     args: [
+      173 |       `--disable-extensions-except=${extensionPath}`,
+        at launchExtension (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:170:19)
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/trash-undo.test.ts:29:32
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      31 |
+      32 | test.afterAll(async () => {
+    > 33 |   await context.close()
+         |                 ^
+      34 | })
+      35 |
+      36 | // ============================================================
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/trash-undo.test.ts:33:17
+
+    Error Context: test-results/trash-undo-trashes-selecte-dd940-nd-removes-them-from-the-UI-chromium-extension/error-context.md
+
+    Error Context: test-results/trash-undo-trashes-selecte-dd940-nd-removes-them-from-the-UI-chromium-extension/error-context.md
+
+  3 failed
+    [chromium-extension] › tests/e2e/integration/app-tab.test.ts:35:5 › restores saved scan results from storage on load 
+    [chromium-extension] › tests/e2e/integration/cross-tab-messaging.test.ts:64:7 › healthCheck › app tab receives healthCheck.result success when GP stub responds 
+    [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:71:5 › trashes selected groups and removes them from the UI 
+  31 did not run

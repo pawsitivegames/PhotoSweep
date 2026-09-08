@@ -122,6 +122,10 @@
           )
           return
         }
+        const delayMs = Number(override && override.delayMs)
+        if (Number.isFinite(delayMs) && delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+        }
 
         const dedupKeys = (args && args.dedupKeys) || []
         const mediaKeysToTrash = (args && args.mediaKeysToTrash) || dedupKeys
@@ -150,6 +154,10 @@
 
       async function handleRestoreItems(command, requestId, args) {
         const override = window.__gptkOverrides[command]
+        const delayMs = Number(override && override.delayMs)
+        if (Number.isFinite(delayMs) && delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+        }
         if (override && override.success === false) {
           replyError(
             command,

@@ -1,0 +1,2 @@
+command=npm test -- --reporter=dot tests/lib/paid-access-lifecycle.test.ts tests/lib/license-client.test.ts tests/lib/privacy-analytics.test.ts tests/server/license-api.test.ts tests/components/upgrade-dialog.test.tsx tests/lib/rating-prompt.test.ts tests/components/rating-prompt-dialog.test.tsx tests/lib/paid-conversion.test.ts
+exit_code=0

@@ -1,0 +1,43 @@
+=== rerun after removing optional external tab assertion ===
+(node:35001) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:35002) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35002) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:35002) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:34:5 › consent opt-out is silent and allow sends only an allowlisted event (1.5s)
+  ✘  2 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:100:5 › checkout return with an unverifiable token stays retryable and preserves review (30.0s)
+
+
+  1) [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:100:5 › checkout return with an unverifiable token stays retryable and preserves review 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: browserContext.newPage: Protocol error (Target.createTarget): Failed to open a new tab
+
+       at ../../../tests/e2e/fixtures/extension.ts:40
+
+      38 |   }
+      39 |
+    > 40 |   const page = await context.newPage()
+         |                              ^
+      41 |   // A static extension resource gives this page chrome.storage access without
+      42 |   // booting the app, whose startup effects would race test storage setup.
+      43 |   await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+        at openExtensionStoragePage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:40:30)
+        at withExtensionStorage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:211:22)
+        at clearStorage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:322:9)
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:171:23
+
+    Error Context: test-results/final-runtime-probes-check-6b0ca-ryable-and-preserves-review-chromium-extension/error-context.md
+
+    Error Context: test-results/final-runtime-probes-check-6b0ca-ryable-and-preserves-review-chromium-extension/error-context.md
+
+  1 failed
+    [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/final-runtime-probes.spec.ts:100:5 › checkout return with an unverifiable token stays retryable and preserves review 
+  1 passed (32.6s)
+=== exit: 1 ===

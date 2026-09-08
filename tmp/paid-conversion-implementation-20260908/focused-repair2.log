@@ -1,0 +1,18 @@
+
+> photosweep@2.2.6 pretest
+> PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=test node tools/write-build-flags.mjs
+
+
+> photosweep@2.2.6 test
+> vitest run --reporter=dot tests/lib/paid-access-lifecycle.test.ts tests/lib/rating-prompt.test.ts tests/lib/trash-lifecycle.test.ts
+
+
+ RUN  v4.1.2 /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder
+
+·······················
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  01:24:28
+   Duration  319ms (transform 111ms, setup 116ms, import 100ms, tests 25ms, environment 383ms)
+

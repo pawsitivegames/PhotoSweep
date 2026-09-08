@@ -1,0 +1,42 @@
+npm warn Unknown cli config "--reporter". This will stop working in the next major version of npm.
+
+ RUN  v4.1.2 /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder
+
+ ❯ tests/lib/license-client.test.ts (16 tests | 1 failed) 30ms
+     × allows explicit local_dev storage only through the dev override key 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/license-client.test.ts > loadStoredEntitlement > allows explicit local_dev storage only through the dev override key
+AssertionError: expected { entitlement: { …(3) }, …(2) } to match object { entitlement: { …(3) } }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "entitlement": {
+      "active": true,
+-     "planId": "lifetime",
+-     "source": "local_dev",
++     "planId": "free",
++     "source": "none",
+    },
+  }
+
+ ❯ tests/lib/license-client.test.ts:214:6
+    212|     await expect(
+    213|       loadStoredEntitlement({ allowDevEntitlement: true })
+    214|     ).resolves.toMatchObject({
+       |      ^
+    215|       entitlement: { planId: "lifetime", active: true, source: "local_…
+    216|     })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  1 failed | 84 passed (85)
+   Start at  01:37:25
+   Duration  886ms (transform 667ms, setup 547ms, import 1.09s, tests 354ms, environment 2.04s)
+

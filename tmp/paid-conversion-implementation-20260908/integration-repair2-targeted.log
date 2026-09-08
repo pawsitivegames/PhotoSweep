@@ -1,0 +1,82 @@
+(node:27946) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:27947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27947) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:27947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:262:5 › closes a paid prompt when a connected account changes (845ms)
+  ✘  2 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:327:5 › drops a delayed old-account trash result after identity changes (5.7s)
+(node:27975) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27975) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:27975) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  3 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:407:5 › retires a deferred scan upgrade suggestion after identity changes (30.0s)
+(node:28017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:28017) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:28017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 [chromium-extension] › tests/e2e/integration/app-tab.test.ts:494:5 › does not open a stale checkout tab after results reset (1.6s)
+  ✓  5 [chromium-extension] › tests/e2e/integration/trash-undo.test.ts:422:5 › retires an old Undo restore when the connected account changes (2.5s)
+
+
+  1) [chromium-extension] › tests/e2e/integration/app-tab.test.ts:327:5 › drops a delayed old-account trash result after identity changes 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: 'Move to Trash' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('heading', { name: 'Move to Trash' })[22m
+
+
+      361 |     await expect(
+      362 |       page.getByRole("heading", { name: "Move to Trash" })
+    > 363 |     ).toBeVisible()
+          |       ^
+      364 |     await page.getByLabel("Type 12 to confirm").fill("12")
+      365 |     await page
+      366 |       .getByRole("button", { name: /^Move to Trash$/i })
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/app-tab.test.ts:363:7
+
+    Error Context: test-results/app-tab-drops-a-delayed-ol-5c547-sult-after-identity-changes-chromium-extension/error-context.md
+
+    Error Context: test-results/app-tab-drops-a-delayed-ol-5c547-sult-after-identity-changes-chromium-extension/error-context.md
+
+  2) [chromium-extension] › tests/e2e/integration/app-tab.test.ts:407:5 › retires a deferred scan upgrade suggestion after identity changes 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: browserContext.newPage: Protocol error (Target.createTarget): Failed to open a new tab
+
+       at ../fixtures/extension.ts:40
+
+      38 |   }
+      39 |
+    > 40 |   const page = await context.newPage()
+         |                              ^
+      41 |   // A static extension resource gives this page chrome.storage access without
+      42 |   // booting the app, whose startup effects would race test storage setup.
+      43 |   await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+        at openExtensionStoragePage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:40:30)
+        at withExtensionStorage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:211:22)
+        at clearStorage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:322:9)
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/integration/app-tab.test.ts:490:23
+
+    Error Context: test-results/app-tab-retires-a-deferred-136b1-tion-after-identity-changes-chromium-extension/error-context.md
+
+    Error Context: test-results/app-tab-retires-a-deferred-136b1-tion-after-identity-changes-chromium-extension/error-context.md
+
+  2 failed
+    [chromium-extension] › tests/e2e/integration/app-tab.test.ts:327:5 › drops a delayed old-account trash result after identity changes 
+    [chromium-extension] › tests/e2e/integration/app-tab.test.ts:407:5 › retires a deferred scan upgrade suggestion after identity changes 
+  3 passed (44.3s)

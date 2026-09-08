@@ -1,0 +1,63 @@
+timestamp
+Tue Sep  8 09:13:03 UTC 2026
+final-report-hash
+0093404b5f1c0a0eadfffa79a7782e061e83f1d4a1e18383c3e7f47221e0037c  docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+pre-report-manifest-entry
+25c8a3de8d58b44bc6a84d6971f017f767592a5406c2d94470fbea6fb9ab0831  docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+implementation-only-manifest-check
+components/RatingPromptDialog.tsx: OK
+components/UpgradeDialog.tsx: OK
+lib/license-client.ts: OK
+lib/paid-access-lifecycle.ts: OK
+lib/paid-conversion.ts: OK
+lib/privacy-analytics.ts: OK
+lib/rating-prompt.ts: OK
+server/license-api.mjs: OK
+tabs/app.tsx: OK
+tests/components/rating-prompt-dialog.test.tsx: OK
+tests/components/upgrade-dialog.test.tsx: OK
+tests/e2e/fixtures/extension.ts: OK
+tests/e2e/fixtures/gptk-stub.html: OK
+tests/e2e/integration/app-tab.test.ts: OK
+tests/e2e/integration/trash-undo.test.ts: OK
+tests/lib/license-client.test.ts: OK
+tests/lib/paid-access-lifecycle.test.ts: OK
+tests/lib/paid-conversion.test.ts: OK
+tests/lib/privacy-analytics.test.ts: OK
+tests/lib/rating-prompt.test.ts: OK
+tests/server/license-api.test.ts: OK
+docs/PAID_CONVERSION_PLAN.md: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/base-sha.txt: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-status.txt: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-tracked.patch: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/candidate-untracked.patch: OK
+/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-implementation-20260908/CANDIDATE_FREEZE.md: OK
+diff-check
+report-format-check
+Checking formatting...
+All matched files use Prettier code style!
+status
+ M components/RatingPromptDialog.tsx
+ M components/UpgradeDialog.tsx
+ M lib/license-client.ts
+ M lib/paid-access-lifecycle.ts
+ M lib/privacy-analytics.ts
+ M lib/rating-prompt.ts
+ M server/license-api.mjs
+ M tabs/app.tsx
+ M tests/components/rating-prompt-dialog.test.tsx
+ M tests/components/upgrade-dialog.test.tsx
+ M tests/e2e/fixtures/extension.ts
+ M tests/e2e/fixtures/gptk-stub.html
+ M tests/e2e/integration/app-tab.test.ts
+ M tests/e2e/integration/trash-undo.test.ts
+ M tests/lib/license-client.test.ts
+ M tests/lib/paid-access-lifecycle.test.ts
+ M tests/lib/privacy-analytics.test.ts
+ M tests/lib/rating-prompt.test.ts
+ M tests/server/license-api.test.ts
+?? docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+?? docs/PAID_CONVERSION_PLAN.md
+?? lib/paid-conversion.ts
+?? tests/lib/paid-conversion.test.ts
+?? tmp/

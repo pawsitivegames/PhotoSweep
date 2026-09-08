@@ -1,0 +1,4 @@
+Checking formatting...
+[warn] docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+[warn] tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts
+[warn] Code style issues found in 2 files. Run Prettier to fix.

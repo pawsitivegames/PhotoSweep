@@ -1,0 +1,2 @@
+command=DEVELOPER_DIR=/Library/Developer/CommandLineTools npm run build
+exit_code=0

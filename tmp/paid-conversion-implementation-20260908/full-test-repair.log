@@ -1,0 +1,2059 @@
+
+> photosweep@2.2.6 pretest
+> PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=test node tools/write-build-flags.mjs
+
+
+> photosweep@2.2.6 test
+> vitest run --reporter=dot
+
+
+ RUN  v4.1.2 /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder
+
+stdout | tests/commands/icloud-photos-commands.test.ts
+GPD: iCloud command handler loaded
+
+stdout | tests/background/service-worker.test.ts
+GPD: Service worker loaded
+
+stdout | tests/lib/duplicate-detector.test.ts > computeEmbeddings > fails the scan when an embedding worker crashes mid-batch
+[GPD] embedding: 1 items, 1 workers
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > includes a video (item with duration) as a candidate
+[GPD] detectDuplicates: 1 items → 1 candidates
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > excludes items without a thumbnail
+[GPD] detectDuplicates: 1 items → 0 candidates
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > keeps the video but drops the thumbless item
+[GPD] detectDuplicates: 2 items → 1 candidates
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > fails instead of reporting no duplicates when all candidate thumbnails fail
+[GPD] detectDuplicates: 2 items → 2 candidates
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > fails instead of reporting no duplicates when all candidate thumbnails fail
+[GPD] embedding cache: 0/2 hits, skipping thumbnails
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > fails instead of reporting no duplicates when all candidate thumbnails fail
+[GPD] fetchThumbnails: 2 items in 0ms
+
+stdout | tests/lib/duplicate-detector.test.ts > fullDetectDuplicates — candidate filtering > fails instead of reporting no duplicates when all candidate thumbnails fail
+[GPD] computeEmbeddings: 0 items (0 cached) in 0ms
+
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch strong video metadata matches outside the time window
+[GPD] smartDetectDuplicates: 2 items → 2 candidates → 0 timestamp buckets, 0 sequence pairs, 1 small-scope buckets
+
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch strong video metadata matches outside the time window
+[GPD] embedding cache: 0/2 hits, skipping thumbnails
+
+····OPTIONS https://example.com/new-upload=h200 405 (Method Not Allowed)
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at "https://example.com/new-upload=h200".
+OPTIONS https://example.com/old-upload=h200 405 (Method Not Allowed)
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at "https://example.com/old-upload=h200".
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch strong video metadata matches outside the time window
+[GPD] fetchThumbnails: 2 items in 63ms
+
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch strong video metadata matches outside the time window
+[GPD] computeEmbeddings: 0 items (0 cached) in 0ms
+
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch exact-content videos outside the time window
+[GPD] smartDetectDuplicates: 2 items → 2 candidates → 0 timestamp buckets, 0 sequence pairs, 1 small-scope buckets
+
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch exact-content videos outside the time window
+[GPD] embedding cache: 0/2 hits, skipping thumbnails
+
+·······································OPTIONS https://example.com/old-upload=h200 405 (Method Not Allowed)
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at "https://example.com/old-upload=h200".
+OPTIONS https://example.com/new-upload=h200 405 (Method Not Allowed)
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at "https://example.com/new-upload=h200".
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch exact-content videos outside the time window
+[GPD] fetchThumbnails: 2 items in 31ms
+
+stdout | tests/lib/duplicate-detector.test.ts > video metadata duplicate detection > lets smart mode catch exact-content videos outside the time window
+[GPD] computeEmbeddings: 0 items (0 cached) in 0ms
+
+··············································stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal > renders the modal when open=true
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal > shows the filename in the header
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows Keep chip only for kept item
+[GPD perf] Results render: 56ms for 1 groups, 3 thumbnails
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal > shows the counter for multi-item groups
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+···stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal > shows resolution and taken date in footer
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+···········stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows an untouched default as a suggestion, not a decision
+[GPD perf] Results render: 20ms for 1 groups, 3 thumbnails
+
+····stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows Trash chips for non-kept items when group is selected
+[GPD perf] Results render: 10ms for 1 groups, 3 thumbnails
+
+·stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows no Trash chips when group is deselected
+[GPD perf] Results render: 20ms for 1 groups, 3 thumbnails
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — chip display > shows Keep chip for a kept item
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows multiple Keep chips when multiple items are kept
+[GPD perf] Results render: 14ms for 1 groups, 3 thumbnails
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — chip display > shows Trash chip for a non-kept item in a selected group
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+···stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — chip display > shows no chip for non-kept item in a deselected group
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+······stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows every item as trash when no copy is kept
+[GPD perf] Results render: 14ms for 1 groups, 3 thumbnails
+
+···stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows exact duplicate classification when metadata matches
+[GPD perf] Results render: 15ms for 1 groups, 3 thumbnails
+
+stdout | tests/commands/google-photos-commands.test.ts
+GPD: Command handler loaded
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > disables the Previous button on the first item
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — chip rendering > shows per-item storage accounting status
+[GPD perf] Results render: 8ms for 1 groups, 3 thumbnails
+
+······stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — group item-kind label > labels an all-photo group "N photos"
+[GPD perf] Results render: 7ms for 1 groups, 3 thumbnails
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > disables the Next button on the last item
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+······stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — group item-kind label > labels a single-photo group "1 photo" (singular)
+[GPD perf] Results render: 4ms for 1 groups, 1 thumbnails
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > sends a single API call when items fit in one conservative batch (≤ 25)
+[GPD] trash: 20 items, 1 chunk(s) of 25, retries=2, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > sends a single API call when items fit in one conservative batch (≤ 25)
+[GPD] trash chunk 1/1: 20/20 done
+[GPD] trash complete: 20 items moved
+
+······stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > splits 55 items into 3 chunks: 25 + 25 + 5
+[GPD] trash: 55 items, 3 chunk(s) of 25, retries=2, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > splits 55 items into 3 chunks: 25 + 25 + 5
+[GPD] trash chunk 1/3: 25/55 done
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > splits 55 items into 3 chunks: 25 + 25 + 5
+[GPD] trash chunk 2/3: 50/55 done
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > splits 55 items into 3 chunks: 25 + 25 + 5
+[GPD] trash chunk 3/3: 55/55 done
+[GPD] trash complete: 55 items moved
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > caps requested trash batch size at 25
+[GPD] trash: 60 items, 3 chunk(s) of 25, retries=2, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > caps requested trash batch size at 25
+[GPD] trash chunk 1/3: 25/60 done
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > caps requested trash batch size at 25
+[GPD] trash chunk 2/3: 50/60 done
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > caps requested trash batch size at 25
+[GPD] trash chunk 3/3: 60/60 done
+[GPD] trash complete: 60 items moved
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — group item-kind label > labels an all-video group "N videos"
+[GPD perf] Results render: 5ms for 1 groups, 2 thumbnails
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > posts a progress message after each chunk
+[GPD] trash: 50 items, 2 chunk(s) of 25, retries=2, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > posts a progress message after each chunk
+[GPD] trash chunk 1/2: 25/50 done
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > posts a progress message after each chunk
+[GPD] trash chunk 2/2: 50/50 done
+[GPD] trash complete: 50 items moved
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > retries a failing batch before reporting failure
+[GPD] trash: 40 items, 2 chunk(s) of 25, retries=2, timeout=30000ms
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > retries a failing batch before reporting failure
+[GPD] trash chunk failed, retrying (1/2) after 0ms: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:661:44
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > retries a failing batch before reporting failure
+[GPD] trash chunk failed, retrying (2/2) after 0ms: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:661:44
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > retries a failing batch before reporting failure
+[GPD] trash error: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:661:44
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64 {
+  gpdRetryAttempts: 2
+}
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > continues when a retry succeeds
+[GPD] trash: 20 items, 1 chunk(s) of 25, retries=2, timeout=30000ms
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > continues when a retry succeeds
+[GPD] trash chunk failed, retrying (1/2) after 0ms: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:688:30
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > continues when a retry succeeds
+[GPD] trash chunk 1/1: 20/20 done
+[GPD] trash complete: 20 items moved
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > uses explicit moved keys from a structured trash response
+[GPD] trash: 3 items, 1 chunk(s) of 25, retries=0, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > uses explicit moved keys from a structured trash response
+[GPD] trash chunk 1/1: 3/3 done
+[GPD] trash complete: 3 items moved
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — group item-kind label > labels a single-video group "1 video" (singular)
+[GPD perf] Results render: 7ms for 1 groups, 1 thumbnails
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > fails closed when a structured trash response reports a partial chunk
+[GPD] trash: 3 items, 1 chunk(s) of 25, retries=0, timeout=30000ms
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > fails closed when a structured trash response reports a partial chunk
+[GPD] trash error: Error: Google Photos reported 2 of 3 items moved in a trash batch
+    at createPartialTrashError (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:160:17)
+    at analyzeTrashResponse (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:203:11)
+    at moveTrashChunkWithRetry (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:223:25)
+    at trashItems (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:587:22)
+    at GlobalWindow.<anonymous> (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/photo-provider-command-host.js:67:9) {
+  gpdMovedDedupKeys: [ 'dk-0', 'dk-2' ],
+  gpdRetryAttempts: 0
+}
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > reports completed batches when a later batch fails
+[GPD] trash: 40 items, 2 chunk(s) of 25, retries=2, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > reports completed batches when a later batch fails
+[GPD] trash chunk 1/2: 25/40 done
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > reports completed batches when a later batch fails
+[GPD] trash chunk failed, retrying (1/2) after 0ms: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:775:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > reports completed batches when a later batch fails
+[GPD] trash chunk failed, retrying (2/2) after 0ms: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:775:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > reports completed batches when a later batch fails
+[GPD] trash error: Error: HTTP 504
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/commands/google-photos-commands.test.ts:775:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:1893:26
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2316:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2313:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2295:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2262:10)
+    at file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@vitest/runner/dist/chunk-artifact.js:2945:64 {
+  gpdRetryAttempts: 2
+}
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > times out and reports completed batches when a later batch hangs
+[GPD] trash: 40 items, 2 chunk(s) of 25, retries=2, timeout=1000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > trashItems — chunking > times out and reports completed batches when a later batch hangs
+[GPD] trash chunk 1/2: 25/40 done
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > times out and reports completed batches when a later batch hangs
+[GPD] trash chunk failed, retrying (1/2) after 0ms: Error: Moving trash chunk of 15 items timed out after 1s. Google's API likely stalled — please retry.
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:73:11
+    at callTimer (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2102:25)
+    at doTickInner (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2773:30)
+    at doTick (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2854:21)
+    at Immediate.<anonymous> (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2875:34)
+    at processImmediate (node:internal/timers:574:21)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — group item-kind label > falls back to the neutral "items" for a mixed photo + video group
+[GPD perf] Results render: 7ms for 1 groups, 2 thumbnails
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > times out and reports completed batches when a later batch hangs
+[GPD] trash chunk failed, retrying (2/2) after 0ms: Error: Moving trash chunk of 15 items timed out after 1s. Google's API likely stalled — please retry.
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:73:11
+    at callTimer (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2102:25)
+    at doTickInner (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2773:30)
+    at Immediate.nextPromiseTick (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2834:26)
+    at processImmediate (node:internal/timers:574:21)
+
+stderr | tests/commands/google-photos-commands.test.ts > trashItems — chunking > times out and reports completed batches when a later batch hangs
+[GPD] trash error: Error: Moving trash chunk of 15 items timed out after 1s. Google's API likely stalled — please retry.
+    at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/scripts/google-photos-commands.js:73:11
+    at callTimer (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2102:25)
+    at doTickInner (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2773:30)
+    at Immediate.nextPromiseTick (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/vitest/dist/chunks/test.p_J6dB8a.js:2834:26)
+    at processImmediate (node:internal/timers:574:21) {
+  gpdRetryAttempts: 2
+}
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > advances to the next item on Next click
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — card click > calls onToggleKept with the correct group and mediaKey
+[GPD perf] Results render: 8ms for 1 groups, 3 thumbnails
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > sends a single API call for ≤ 250 items
+[GPD] restore: 100 items, 1 chunk(s) of 250
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > sends a single API call for ≤ 250 items
+[GPD] restore chunk 1/1: 100/100 done
+[GPD] restore complete: 100 items restored
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > splits 750 items into 3 chunks: 250 + 250 + 250
+[GPD] restore: 750 items, 3 chunk(s) of 250
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > splits 750 items into 3 chunks: 250 + 250 + 250
+[GPD] restore chunk 1/3: 250/750 done
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > splits 750 items into 3 chunks: 250 + 250 + 250
+[GPD] restore chunk 2/3: 500/750 done
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > splits 750 items into 3 chunks: 250 + 250 + 250
+[GPD] restore chunk 3/3: 750/750 done
+[GPD] restore complete: 750 items restored
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > posts a progress message after each chunk
+[GPD] restore: 500 items, 2 chunk(s) of 250
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > posts a progress message after each chunk
+[GPD] restore chunk 1/2: 250/500 done
+
+stdout | tests/commands/google-photos-commands.test.ts > restoreItems — chunking > posts a progress message after each chunk
+[GPD] restore chunk 2/2: 500/500 done
+[GPD] restore complete: 500 items restored
+
+···stdout | tests/commands/google-photos-commands.test.ts > integration: trashItems full flow > chunks 110 items into 5 conservative batches, reports progress, and returns correct result
+[GPD] trash: 110 items, 5 chunk(s) of 25, retries=2, timeout=30000ms
+
+stdout | tests/commands/google-photos-commands.test.ts > integration: trashItems full flow > chunks 110 items into 5 conservative batches, reports progress, and returns correct result
+[GPD] trash chunk 1/5: 25/110 done
+
+stdout | tests/commands/google-photos-commands.test.ts > integration: trashItems full flow > chunks 110 items into 5 conservative batches, reports progress, and returns correct result
+[GPD] trash chunk 2/5: 50/110 done
+
+stdout | tests/commands/google-photos-commands.test.ts > integration: trashItems full flow > chunks 110 items into 5 conservative batches, reports progress, and returns correct result
+[GPD] trash chunk 3/5: 75/110 done
+
+stdout | tests/commands/google-photos-commands.test.ts > integration: trashItems full flow > chunks 110 items into 5 conservative batches, reports progress, and returns correct result
+[GPD] trash chunk 4/5: 100/110 done
+
+stdout | tests/commands/google-photos-commands.test.ts > integration: trashItems full flow > chunks 110 items into 5 conservative batches, reports progress, and returns correct result
+[GPD] trash chunk 5/5: 110/110 done
+[GPD] trash complete: 110 items moved
+
+·····································stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > goes back to the previous item on Previous click
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — keyboard review > uses one named set control and supports Enter and Space
+[GPD perf] Results render: 7ms for 1 groups, 3 thumbnails
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > navigates forward with ArrowRight key
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > navigates backward with ArrowLeft key
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > does not go below index 0 with ArrowLeft at first item
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+·····stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > does not go above last index with ArrowRight at last item
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+·····stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — navigation > resets index to initialIndex when items change
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — keyboard review > names keep choices and exposes their pressed state
+[GPD perf] Results render: 8ms for 1 groups, 3 thumbnails
+
+········stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Google Photos link > shows the View in Google Photos link when productUrl is present
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Google Photos link > does not show the link when productUrl is absent
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+··················stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — close > calls onClose when the close button is clicked
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+·····stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — keyboard keep toggling > calls onToggleKept when pressing ArrowUp on a non-kept image
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — keyboard review > records an explicit skip action
+[GPD perf] Results render: 6ms for 1 groups, 3 thumbnails
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — keyboard keep toggling > does NOT call onToggleKept when pressing ArrowUp on an already kept image
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — keyboard keep toggling > calls onToggleKept when pressing ArrowDown on a kept image
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+··stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — keyboard keep toggling > does NOT call onToggleKept when pressing ArrowDown on a non-kept image
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Shift keyboard group shortcuts > calls onToggleGroup (if not selected) and onNextGroup on Shift + ArrowUp
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+·······stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Shift keyboard group shortcuts > does NOT call onToggleGroup (if already selected) but still calls onNextGroup on Shift + ArrowUp
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Shift keyboard group shortcuts > calls onToggleGroup on Shift + ArrowDown if group is selected
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Shift keyboard group shortcuts > does NOT call onToggleGroup on Shift + ArrowDown if group is not selected
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — trash all copies > calls onTrashAll with the current group
+[GPD perf] Results render: 6ms for 1 groups, 3 thumbnails
+
+··stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Shift keyboard group shortcuts > calls onPrevGroup on Shift + ArrowLeft
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — Shift keyboard group shortcuts > calls onNextGroup on Shift + ArrowRight
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+··········stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — viewport fetching > requests Google thumbnails sized for the current viewport
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+stderr | tests/components/photo-viewer-modal.test.tsx > PhotoViewerModal — viewport fetching > prefetches the next group without changing provider behavior
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+Warning: An update to PhotoViewerModal inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at PhotoViewerModal (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/components/PhotoViewerModal.tsx:247:29)
+    at DefaultPropsProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/DefaultPropsProvider/DefaultPropsProvider.js:9:3)
+    at RtlProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/RtlProvider/index.js:8:3)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/private-theming/esm/ThemeProvider/ThemeProvider.js:33:5)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/system/esm/ThemeProvider/ThemeProvider.js:49:5)
+    at ThemeProviderNoVars (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProviderNoVars.js:8:10)
+    at ThemeProvider (file:///Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/node_modules/@mui/material/esm/styles/ThemeProvider.js:9:3)
+
+···stdout | tests/commands/amazon-photos-commands.test.ts
+GPD: Amazon Photos command handler loaded
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — zoom overlay > opens the photo viewer modal when zoom button is clicked
+[GPD perf] Results render: 7ms for 1 groups, 3 thumbnails
+
+··············stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — zoom overlay > closes the viewer modal when onClose is called
+[GPD perf] Results render: 7ms for 1 groups, 3 thumbnails
+
+········stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — zoom overlay > opens the viewer for the correct item index
+[GPD perf] Results render: 6ms for 1 groups, 3 thumbnails
+
+··················stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — zoom overlay > zoom button click does NOT call onToggleKept
+[GPD perf] Results render: 6ms for 1 groups, 3 thumbnails
+
+··stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — Spacebar preview > opens the viewer for the photo under the pointer
+[GPD perf] Results render: 7ms for 1 groups, 3 thumbnails
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — Spacebar preview > does not open the viewer when no photo is under the pointer
+[GPD perf] Results render: 6ms for 1 groups, 3 thumbnails
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — virtualized rendering > renders compact mode directly to avoid nested side-panel scrolling
+[GPD perf] Results render: 6ms for 1 groups, 3 thumbnails
+
+stdout | tests/components/duplicate-groups.test.tsx > DuplicateGroups — virtualized rendering > does not mount every duplicate group in a large result set
+[GPD perf] Results render: 25ms for 80 groups, 160 thumbnails
+
+············································································stdout | tests/lib/scan-log.test.ts > ScanLogger > recoverStale > commits stale active entry as killed_by_reload if present
+[GPD] scan-log: stale active entry found — page reloaded during scan
+
+stdout | tests/lib/scan-log.test.ts > StabilityTracker > fires onStable when three consecutive estimates converge
+[GPD] stable estimate: computing_embeddings ~1000ms (at 33%)
+
+stdout | tests/lib/scan-log.test.ts > StabilityTracker > fires onStable at most once per phase
+[GPD] stable estimate: p1 ~1000ms (at 33%)
+
+stdout | tests/lib/scan-log.test.ts > StabilityTracker > resets window on phase transition
+[GPD] stable estimate: phase-b ~1000ms (at 33%)
+
+·················································································································································································
+
+ Test Files  43 passed (43)
+      Tests  538 passed (538)
+   Start at  01:13:27
+   Duration  4.48s (transform 1.30s, setup 1.68s, import 3.27s, tests 12.12s, environment 6.56s)
+

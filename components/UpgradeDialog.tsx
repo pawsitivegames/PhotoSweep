@@ -11,15 +11,15 @@ import Typography from "@mui/material/Typography"
 import { useState } from "react"
 
 import { PLAN_LABELS, PLAN_PRICES, type PlanId } from "../lib/entitlement"
+import {
+  formatUpgradeScope,
+  type CheckoutReturnState,
+  type UpgradeReason,
+  type UpgradeValueFacts
+} from "../lib/paid-conversion"
 import { photoSweepColors } from "../lib/theme"
 
-export type UpgradeReason =
-  | "scan"
-  | "groups"
-  | "trash"
-  | "export"
-  | "resume"
-  | "provider"
+export type { UpgradeReason } from "../lib/paid-conversion"
 
 interface UpgradeDialogProps {
   open: boolean
@@ -29,6 +29,8 @@ interface UpgradeDialogProps {
   onChoosePlan?: (planId: Exclude<PlanId, "free">) => void
   onRefreshLicense?: () => void
   onRecoverLicense?: (email: string) => Promise<void> | void
+  valueFacts?: UpgradeValueFacts
+  checkoutState?: CheckoutReturnState
 }
 
 const PLANS: Exclude<PlanId, "free">[] = [
@@ -68,7 +70,9 @@ export function UpgradeDialog({
   onClose,
   onChoosePlan,
   onRefreshLicense,
-  onRecoverLicense
+  onRecoverLicense,
+  valueFacts,
+  checkoutState
 }: UpgradeDialogProps) {
   const [recoveryEmail, setRecoveryEmail] = useState("")
   const [recoveryBusy, setRecoveryBusy] = useState(false)
@@ -82,6 +86,34 @@ export function UpgradeDialog({
   function refreshLicense() {
     onRefreshLicense?.()
   }
+
+  const scope = valueFacts ? formatUpgradeScope(valueFacts) : undefined
+  const valueLines = valueFacts
+    ? [
+        scope ? `Scope: ${scope}` : undefined,
+        valueFacts.itemsChecked !== undefined
+          ? `${valueFacts.itemsChecked.toLocaleString()} items checked`
+          : undefined,
+        valueFacts.additionalItemsUnavailable !== undefined &&
+        valueFacts.additionalItemsUnavailable > 0
+          ? `${valueFacts.additionalItemsUnavailable.toLocaleString()} additional items are outside this scan`
+          : undefined,
+        valueFacts.duplicateGroupCount !== undefined
+          ? `${valueFacts.duplicateGroupCount.toLocaleString()} duplicate sets found in the checked scope`
+          : undefined,
+        valueFacts.visibleGroupCount !== undefined &&
+        valueFacts.lockedGroupCount !== undefined &&
+        valueFacts.lockedGroupCount > 0
+          ? `${valueFacts.visibleGroupCount.toLocaleString()} sets visible on the current plan; ${valueFacts.lockedGroupCount.toLocaleString()} more are unavailable`
+          : undefined,
+        valueFacts.selectedCleanupCount !== undefined
+          ? `${valueFacts.selectedCleanupCount.toLocaleString()} items selected for cleanup`
+          : undefined,
+        valueFacts.remainingTrashMoves !== undefined
+          ? `${valueFacts.remainingTrashMoves === "unlimited" ? "Unlimited" : valueFacts.remainingTrashMoves.toLocaleString()} Trash moves remaining this session`
+          : undefined
+      ].filter((line): line is string => Boolean(line))
+    : []
 
   async function handleRecoverLicense() {
     if (!canRecover || !onRecoverLicense) return
@@ -110,9 +142,47 @@ export function UpgradeDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {reasonBody(reason)}
         </Typography>
+        {valueLines.length > 0 && (
+          <Box
+            component="ul"
+            aria-label="Current cleanup value"
+            sx={{
+              mt: 0,
+              mb: 2,
+              pl: 2.5,
+              color: "text.secondary",
+              "& li": { mb: 0.5 }
+            }}>
+            {valueLines.map((line) => (
+              <Typography component="li" variant="body2" key={line}>
+                {line}
+              </Typography>
+            ))}
+          </Box>
+        )}
         {detail && (
           <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
             {detail}
+          </Typography>
+        )}
+        {checkoutState && checkoutState.status !== "idle" && (
+          <Typography
+            role="status"
+            variant="body2"
+            color={
+              checkoutState.status === "active"
+                ? "success.main"
+                : "text.secondary"
+            }
+            sx={{ mb: 2, fontWeight: 700 }}>
+            {checkoutState.message ??
+              (checkoutState.status === "pending"
+                ? "Checkout opened. Return here after payment and PhotoSweep will verify the license."
+                : checkoutState.status === "refreshing"
+                  ? "Checking the payment provider for a verified license..."
+                  : checkoutState.status === "active"
+                    ? "Paid access is active. Your review stays open."
+                    : "Payment is not verified yet. Refresh the license or retry.")}
           </Typography>
         )}
         <Stack spacing={1}>
@@ -153,6 +223,10 @@ export function UpgradeDialog({
                 type="button"
                 aria-label={`Choose ${PLAN_LABELS[planId]} for ${PLAN_PRICES[planId]} USD`}
                 onClick={() => choosePlan(planId)}
+                disabled={
+                  checkoutState?.status === "pending" ||
+                  checkoutState?.status === "refreshing"
+                }
                 sx={{
                   appearance: "none",
                   border: "1px solid",

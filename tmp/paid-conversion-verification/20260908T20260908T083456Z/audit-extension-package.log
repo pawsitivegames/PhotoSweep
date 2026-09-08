@@ -1,0 +1,16 @@
+
+> photosweep@2.2.6 audit:extension-package
+> node tools/audit-extension-package.mjs
+
+{
+  "ok": true,
+  "buildDir": "build/chrome-mv3-prod",
+  "manifestVersion": 3,
+  "name": "PhotoSweep for Google Photos™",
+  "description": "Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.",
+  "version": "2.2.6",
+  "sidePanel": "tabs/scanner-panel.html",
+  "backendHostPermission": "https://photosweep-license-api-206538169327.us-west1.run.app/*",
+  "hostPermissionCount": 57,
+  "jsFileCount": 17
+}

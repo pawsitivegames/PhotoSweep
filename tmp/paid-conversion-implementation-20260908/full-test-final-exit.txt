@@ -1,0 +1,2 @@
+command=npm test -- --reporter=dot
+exit_code=0

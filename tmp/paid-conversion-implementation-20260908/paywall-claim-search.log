@@ -1,0 +1,60 @@
+docs/PAID_CONVERSION_PLAN.md:90:3. Storage estimates are optional and must be omitted unless source metadata is
+docs/PAID_CONVERSION_PLAN.md:91:   reliable. No guaranteed storage-saving claim or invented estimate.
+docs/PAID_CONVERSION_PLAN.md:93:   imply that paid access guarantees provider availability.
+docs/PAID_CONVERSION_PLAN.md:206:- Unknown/undefined facts are omitted, and no copy claims full library coverage
+tabs/app.tsx:91:  LICENSE_API_BASE_STORAGE_KEY,
+tabs/app.tsx:108:  ANALYTICS_CONSENT_STORAGE_KEY,
+tabs/app.tsx:1019:    const stored = await chrome.storage.local.get(DELETE_REPORTS_KEY)
+tabs/app.tsx:1024:    await chrome.storage.local.set({ [DELETE_REPORTS_KEY]: reports })
+tabs/app.tsx:1043:    const stored = await chrome.storage.local.get(TRASH_RESULT_REPORTS_KEY)
+tabs/app.tsx:1049:    await chrome.storage.local.set({ [TRASH_RESULT_REPORTS_KEY]: reports })
+tabs/app.tsx:1081:  await chrome.storage.local
+tabs/app.tsx:1087:  await chrome.storage.local.remove(SCAN_CHECKPOINT_KEY).catch(() => {})
+tabs/app.tsx:1122:function formatStorageBytes(bytes: number): string {
+tabs/app.tsx:1155:  const [storageChecked, setStorageChecked] = useState(false)
+tabs/app.tsx:1295:          chrome.storage.local.get(LICENSE_API_BASE_STORAGE_KEY)
+tabs/app.tsx:1300:            licenseConfig[LICENSE_API_BASE_STORAGE_KEY] as string | undefined
+tabs/app.tsx:1313:        return chrome.storage.local.get(keys) as Promise<Partial<StoredState>>
+tabs/app.tsx:1316:        await chrome.storage.local.set(values)
+tabs/app.tsx:1319:        await chrome.storage.local.remove(keys)
+tabs/app.tsx:1333:      chrome.storage.local.get(ANALYTICS_CONSENT_STORAGE_KEY)
+tabs/app.tsx:1339:        const storedConsent = privacyConfig[ANALYTICS_CONSENT_STORAGE_KEY]
+tabs/app.tsx:1392:    void chrome.storage.local.set({
+tabs/app.tsx:1393:      [ANALYTICS_CONSENT_STORAGE_KEY]: allowed
+tabs/app.tsx:1788:  // Persisted scan performance logger — survives page reloads via chrome.storage.local
+tabs/app.tsx:1803:  // Holds selections loaded from storage; applied once when groups first load.
+tabs/app.tsx:1899:              // A storage failure must never interrupt the cleanup result.
+tabs/app.tsx:2183:              void chrome.storage.local.get("scanResults").then((stored) => {
+tabs/app.tsx:2439:  // Keep refs so async callbacks always see latest values
+tabs/app.tsx:2632:        // The health check and storage read run concurrently. Re-check against
+tabs/app.tsx:2633:        // the account learned while storage was loading before showing or
+tabs/app.tsx:2677:        setStorageChecked(true)
+tabs/app.tsx:2680:        if (!cancelled) setStorageChecked(true)
+tabs/app.tsx:2908:  const accountEmailForStorage =
+tabs/app.tsx:2934:          accountEmail: accountEmailForStorage,
+tabs/app.tsx:2951:    accountEmailForStorage,
+tabs/app.tsx:2962:      (!accountEmailForStorage && currentAccountEmailRef.current === undefined)
+tabs/app.tsx:2974:    accountEmailForStorage,
+tabs/app.tsx:3077:        const stored = (await chrome.storage.local.get(
+tabs/app.tsx:3716:        : "Entire library"
+tabs/app.tsx:4061:                storageChecked && (
+tabs/app.tsx:4258:                storageChecked && (
+components/DuplicateGroups.tsx:71:function storageStatusLabel(item: GpdMediaItem): string {
+components/DuplicateGroups.tsx:72:  if (item.takesUpSpace === false) return "No storage"
+components/DuplicateGroups.tsx:73:  if (item.takesUpSpace === true) return "Counts storage"
+components/DuplicateGroups.tsx:74:  return "Storage unknown"
+components/DuplicateGroups.tsx:639:                      {storageStatusLabel(item)}
+components/ScanConfig.tsx:92:  return "Entire library timeline"
+components/ScanConfig.tsx:465:                  <MenuItem value="">Entire library timeline</MenuItem>
+components/ScanConfig.tsx:535:                    value ? libraryAreaValueLabel : "Entire library timeline"
+components/ScanConfig.tsx:586:                <MenuItem value="">Entire library timeline</MenuItem>
+components/ScanConfig.tsx:766:            full library.
+components/ScanConfig.tsx:798:              ? "Starts with a bounded first pass. Widen the dates or use the entire library after you see the first results."
+components/ScanConfig.tsx:853:                  : "Check entire library"}
+components/ScanConfig.tsx:862:            Check entire library instead
+components/ScanConfig.tsx:961:                    : `Compares all photos against each other in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks.`}
+components/ScanConfig.tsx:1008:                  placeholder="Full library"
+components/ScanConfig.tsx:1019:                  helperText="Use 200 or 500 to verify Amazon end-to-end before scanning the full library. Leave blank for the full library."
+components/ScanConfig.tsx:1035:                  placeholder="Full library"
+components/ScanConfig.tsx:1046:                  helperText="Use 200 to verify iCloud end-to-end before scanning the full library. Leave blank for the full library."
+components/ScanConfig.tsx:1094:                    copies. Exact/hash matches are always included.

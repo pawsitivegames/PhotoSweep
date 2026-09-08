@@ -10,7 +10,7 @@ describe("recovery email webhook", () => {
     const calls: Array<{ url: string; init: RequestInit }> = []
     const handler = createRecoveryEmailWebhook({
       env: {
-        NODE_ENV: "test",
+        NODE_ENV: "development",
         RESEND_API_KEY: "re_placeholder",
         RESEND_FROM: "PhotoSweep <recovery@example.test>",
         PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET: "webhook_placeholder"
@@ -60,7 +60,7 @@ describe("recovery email webhook", () => {
     let calls = 0
     const handler = createRecoveryEmailWebhook({
       env: {
-        NODE_ENV: "test",
+        NODE_ENV: "development",
         RESEND_API_KEY: "re_placeholder",
         RESEND_FROM: "recovery@example.test"
       },
@@ -91,7 +91,7 @@ describe("recovery email webhook", () => {
     let calls = 0
     const handler = createRecoveryEmailWebhook({
       env: {
-        NODE_ENV: "test",
+        NODE_ENV: "development",
         RESEND_API_KEY: "re_placeholder",
         RESEND_FROM: "recovery@example.test",
         PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET: "webhook_placeholder"

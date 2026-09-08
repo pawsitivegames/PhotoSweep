@@ -1,0 +1,54 @@
+
+> photosweep@2.2.6 prebuild
+> node tools/write-build-flags.mjs && npm run build:gptk && npm run copy:wasm && npm run build:worker
+
+
+> photosweep@2.2.6 build:gptk
+> git submodule update --init && (test -d Google-Photos-Toolkit/node_modules || npm --prefix Google-Photos-Toolkit install --no-fund --no-audit) && cd Google-Photos-Toolkit && npm run build && cp google_photos_toolkit.user.js ../scripts/google-photos-toolkit.user.js
+
+
+> google-photos-toolkit@3.1.0 build
+> rollup -c
+
+
+src/index.ts → google_photos_toolkit.user.js...
+created google_photos_toolkit.user.js in 597ms
+
+> photosweep@2.2.6 copy:wasm
+> cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/
+
+
+> photosweep@2.2.6 build:worker
+> node_modules/.bin/esbuild workers/embedder.worker.ts --bundle --platform=browser --format=iife --target=es2020 --outfile=scripts/embedder-worker.js
+
+
+  scripts/embedder-worker.js  198.0kb
+
+⚡ Done in 12ms
+
+> photosweep@2.2.6 build
+> plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/
+
+🟣 Plasmo v0.90.5
+🔴 The Browser Extension Framework
+🔵 INFO   | Prepare to bundle the extension...
+🔵 INFO   | Building for target: chrome-mv3
+🔵 INFO   | Loaded environment variables from: []
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+You have to install "svgo" in order to use htmlnano's "minifySvg" module
+You have to install "svgo" in order to use htmlnano's "minifySvg" module
+🟢 DONE   | Finished in 2057ms!

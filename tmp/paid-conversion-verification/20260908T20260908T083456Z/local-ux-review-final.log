@@ -1,0 +1,14 @@
+(node:38994) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:38995) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38995) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:38995) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:102:5 › upgrade scope copy, plan comparison, responsive bounds, and keyboard free exit (2.4s)
+  ✓  2 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:190:5 › positive cleanup rating copy offers honest review and feedback (1.5s)
+
+  2 passed (4.9s)

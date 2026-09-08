@@ -237,7 +237,9 @@ test("clears saved results and selections when a different Google account is det
   })
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
+  await expect(
+    page.getByText("Find duplicates from your photo library")
+  ).toBeVisible({
     timeout: 8_000
   })
   await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
@@ -255,6 +257,417 @@ test("clears saved results and selections when a different Google account is det
   await page.close()
   await stub.close()
   await clearStorage(context)
+})
+
+test("closes a paid prompt when a connected account changes", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 7)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "alice@example.com"
+  )
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  await expect(
+    page.getByRole("heading", {
+      name: "2 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+  await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+  await page.getByRole("button", { name: /Review & move 12 to Trash/i }).click()
+  await expect(
+    page.getByRole("heading", { name: "Unlock larger cleanup" })
+  ).toBeVisible()
+
+  await stub.evaluate(() => {
+    ;(
+      window as unknown as {
+        __gptkOverrides: Record<string, unknown>
+      }
+    ).__gptkOverrides.healthCheck = {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "bob@example.com"
+      }
+    }
+  })
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage({
+      app: "GPD",
+      action: "healthCheck",
+      provider: "google"
+    })
+  })
+
+  await expect(
+    page.getByRole("heading", { name: "Unlock larger cleanup" })
+  ).not.toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+
+  await page.close()
+  await stub.close()
+  await clearStorage(context)
+})
+
+test("drops a delayed old-account trash result after identity changes", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 5)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "alice@example.com"
+  )
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    },
+    trashItems: { data: {}, delayMs: 1_000 }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "2 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 8_000 })
+    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+    await page
+      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .click()
+    await expect(
+      page.getByRole("heading", { name: "Move to Trash" })
+    ).toBeVisible()
+    await page.getByLabel("Type 8 to confirm").fill("8")
+    await page
+      .getByRole("button", { name: /^Move to Trash$/i })
+      .last()
+      .click()
+
+    await stub.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gptkOverrides: Record<string, unknown>
+        }
+      ).__gptkOverrides.healthCheck = {
+        data: {
+          hasGptk: true,
+          hasWizData: true,
+          accountEmail: "bob@example.com"
+        }
+      }
+    })
+    await page.evaluate(() => {
+      chrome.runtime.sendMessage({
+        app: "GPD",
+        action: "healthCheck",
+        provider: "google"
+      })
+    })
+
+    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+      timeout: 8_000
+    })
+    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
+    await page.waitForTimeout(1_200)
+    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
+    await expect(
+      page.getByRole("button", { name: /Undo moved items/i })
+    ).not.toBeVisible()
+  } finally {
+    await page.close()
+    await stub.close()
+  }
+})
+
+test("retires a deferred scan upgrade suggestion after identity changes", async () => {
+  await clearStorage(context)
+  const now = Date.now()
+  const mediaItems = Array.from({ length: 1_001 }, (_, index) => {
+    const key = `deferred-item-${index}`
+    return {
+      mediaKey: key,
+      dedupKey: index < 2 ? "deferred-duplicate" : `deferred-${index}`,
+      // Only the exact duplicate pair needs thumbnails. The remaining 999
+      // items still count toward the free scan cap but do not enter detection.
+      thumb:
+        index < 2
+          ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          : "",
+      productUrl: `https://photos.google.com/photo/${key}`,
+      timestamp: now - index * 60_000,
+      creationTimestamp: now - index * 60_000,
+      resWidth: 100,
+      resHeight: 100,
+      fileName: `${key}.jpg`,
+      isOwned: true
+    }
+  })
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    }
+  })
+  await stub.evaluate((items) => {
+    ;(
+      window as unknown as {
+        __gptkOverrides: Record<string, unknown>
+      }
+    ).__gptkOverrides.getAllMediaItems = { data: items }
+  }, mediaItems)
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible({
+      timeout: 8_000
+    })
+    await page
+      .getByRole("button", {
+        name: /^(Scan recent 30 days|Check entire library(?: instead)?)$/i
+      })
+      .first()
+      .click()
+    await expect(
+      page.getByText("Keep reviewing or unlock more of this cleanup")
+    ).toBeVisible({ timeout: 30_000 })
+
+    await stub.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gptkOverrides: Record<string, unknown>
+        }
+      ).__gptkOverrides.healthCheck = {
+        data: {
+          hasGptk: true,
+          hasWizData: true,
+          accountEmail: "bob@example.com"
+        }
+      }
+    })
+    await page.evaluate(() => {
+      chrome.runtime.sendMessage({
+        app: "GPD",
+        action: "healthCheck",
+        provider: "google"
+      })
+    })
+
+    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+      timeout: 8_000
+    })
+    await expect(
+      page.getByText("Keep reviewing or unlock more of this cleanup")
+    ).not.toBeVisible()
+    await expect(
+      page.getByRole("button", { name: "Compare plans" })
+    ).not.toBeVisible()
+  } finally {
+    await page.close()
+    await stub.close()
+  }
+})
+
+test("does not open a stale checkout tab after results reset", async () => {
+  await clearStorage(context)
+  const apiBaseUrl =
+    process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
+    "https://photosweep-license-api-206538169327.us-west1.run.app"
+  const { groups, mediaItems } = makeGroups(2, 7)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "test@example.com"
+  )
+
+  let checkoutRequested = false
+  let releaseCheckout!: () => void
+  const checkoutReleased = new Promise<void>((resolve) => {
+    releaseCheckout = resolve
+  })
+  await context.route(`${apiBaseUrl}/checkout`, async (route) => {
+    checkoutRequested = true
+    await checkoutReleased
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        url: "https://checkout.test/stale",
+        sessionId: "pls_stale",
+        planId: "lifetime"
+      })
+    })
+  })
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "2 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 8_000 })
+    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+    await page
+      .getByRole("button", { name: /Review & move 12 to Trash/i })
+      .click()
+    await expect(
+      page.getByRole("heading", { name: "Unlock larger cleanup" })
+    ).toBeVisible()
+
+    await page
+      .getByRole("button", { name: /Choose Lifetime Early Access/i })
+      .click()
+    await expect.poll(() => checkoutRequested).toBe(true)
+
+    await page
+      .getByRole("button", { name: "Keep reviewing free results" })
+      .click()
+    await page.getByRole("button", { name: "Start over", exact: true }).click()
+
+    releaseCheckout()
+    await page.waitForTimeout(300)
+    expect(
+      context
+        .pages()
+        .filter((candidate) => candidate.url().includes("checkout.test/stale"))
+    ).toHaveLength(0)
+  } finally {
+    releaseCheckout()
+    await page.close()
+    await stub.close()
+    await context.unroute(`${apiBaseUrl}/checkout`)
+    await clearStorage(context)
+  }
+})
+
+test("keeps the free-results exit clickable after an unverified checkout return", async () => {
+  await clearStorage(context)
+  const apiBaseUrl =
+    process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
+    "https://photosweep-license-api-206538169327.us-west1.run.app"
+  const { groups, mediaItems } = makeGroups(2, 7)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "test@example.com"
+  )
+  await injectSelections(
+    context,
+    groups.map((group) => group.id)
+  )
+
+  let checkoutStarts = 0
+  let entitlementRefreshes = 0
+  await context.route(`${apiBaseUrl}/checkout`, async (route) => {
+    checkoutStarts += 1
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        url: "https://checkout.test/return",
+        sessionId: "pls_return",
+        planId: "lifetime"
+      })
+    })
+  })
+  await context.route(`${apiBaseUrl}/entitlement`, async (route) => {
+    entitlementRefreshes += 1
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ token: "not-a-signed-entitlement" })
+    })
+  })
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "2 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 8_000 })
+    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+    await page
+      .getByRole("button", { name: /Review & move 12 to Trash/i })
+      .click()
+    await expect(
+      page.getByRole("heading", { name: "Unlock larger cleanup" })
+    ).toBeVisible()
+    await page
+      .getByRole("button", { name: /Choose Lifetime Early Access/i })
+      .click()
+    await expect.poll(() => checkoutStarts).toBe(1)
+
+    // The checkout-opened recovery message is retained for after-close
+    // visibility but must not render an alert above the open dialog.
+    await expect(
+      page.getByRole("alert").filter({ hasText: /Checkout opened/i })
+    ).not.toBeVisible()
+
+    await page.bringToFront()
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+    await expect.poll(() => entitlementRefreshes).toBeGreaterThan(0)
+    await expect(
+      page.getByText(
+        /Payment is still being confirmed|Payment could not be verified yet/i
+      )
+    ).toBeVisible({ timeout: 8_000 })
+
+    // This is intentionally a normal pointer click. A persistent Snackbar
+    // must not intercept the dialog's free exit.
+    await page
+      .getByRole("button", { name: "Keep reviewing free results" })
+      .click()
+    await expect(
+      page.getByRole("button", { name: /Review & move 12 to Trash/i })
+    ).toBeVisible()
+    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
+  } finally {
+    for (const candidate of context.pages()) {
+      if (candidate !== page && candidate !== stub) {
+        await candidate.close().catch(() => {})
+      }
+    }
+    await page.close()
+    await stub.close()
+    await context.unroute(`${apiBaseUrl}/checkout`)
+    await context.unroute(`${apiBaseUrl}/entitlement`)
+    await clearStorage(context)
+  }
 })
 
 test("clears legacy saved results when the current Google account is known", async () => {
@@ -286,7 +699,9 @@ test("clears legacy saved results when the current Google account is known", asy
   })
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
+  await expect(
+    page.getByText("Find duplicates from your photo library")
+  ).toBeVisible({
     timeout: 8_000
   })
   await expect(page.getByText("Signed in as known@example.com")).toBeVisible()
@@ -465,7 +880,9 @@ test("clears resumable checkpoint when a different Google account is detected", 
 
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
+  await expect(
+    page.getByText("Find duplicates from your photo library")
+  ).toBeVisible({
     timeout: 8_000
   })
   await expect(
@@ -517,14 +934,9 @@ test("resumes duplicate detection from a checkpointed media list without refetch
   await expect(page.getByText(/No duplicates found/i)).toBeVisible({
     timeout: 10_000
   })
-  await expect(page.getByText("How was your PhotoSweep scan?")).toBeVisible()
   await expect(
-    page.getByRole("button", { name: "Leave an honest review" })
-  ).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Send feedback" })
-  ).toBeVisible()
-  await page.getByRole("button", { name: "Maybe later" }).click()
+    page.getByText("How was your PhotoSweep cleanup?")
+  ).not.toBeVisible()
 
   const ratingPrompt = await context.serviceWorkers()[0].evaluate(
     () =>
@@ -532,11 +944,7 @@ test("resumes duplicate detection from a checkpointed media list without refetch
         chrome.storage.local.get("ratingPrompt", resolve)
       })
   )
-  expect(ratingPrompt.ratingPrompt).toEqual({
-    successfulScans: 1,
-    nextPromptAt: 4,
-    completed: false
-  })
+  expect(ratingPrompt.ratingPrompt).toBeUndefined()
 
   const commands = await gpPage.evaluate(
     () =>
@@ -762,7 +1170,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
   })
 
   await page.getByRole("button", { name: /Scan again/i }).click()
-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
+  await expect(
+    page.getByText("Find duplicates from your photo library")
+  ).toBeVisible({
     timeout: 8_000
   })
 
@@ -781,7 +1191,9 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
   expect(stored.scanCheckpoint).toBeUndefined()
 
   await page.reload()
-  await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
+  await expect(
+    page.getByText("Find duplicates from your photo library")
+  ).toBeVisible({
     timeout: 8_000
   })
   await expect(

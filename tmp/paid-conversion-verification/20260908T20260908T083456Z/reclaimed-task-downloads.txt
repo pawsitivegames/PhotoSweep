@@ -1,0 +1,8 @@
+Task-created interrupted Playwright downloads before cleanup:
+165M	/private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/playwright-download-6mABpz
+ 92M	/private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/playwright-download-B4sVMZ
+rmdir: /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/playwright-download-6mABpz: Directory not empty
+rmdir: /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/playwright-download-B4sVMZ: Directory not empty
+After cleanup:
+Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on
+/dev/disk3s5   460Gi   432Gi   2.3Gi   100%    6.2M   24M   20%   /System/Volumes/Data

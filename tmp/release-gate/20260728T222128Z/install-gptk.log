@@ -1,0 +1,33 @@
+$ npm --prefix Google-Photos-Toolkit ci
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated sourcemap-codec@1.4.8: Please use @jridgewell/sourcemap-codec instead
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+npm error code 1
+npm error path /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/Google-Photos-Toolkit/node_modules/esbuild
+npm error command failed
+npm error command sh -c node install.js
+npm error node:internal/errors:983
+npm error   const err = new Error(message);
+npm error               ^
+npm error
+npm error Error: Command failed: /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/Google-Photos-Toolkit/node_modules/esbuild/bin/esbuild --version
+npm error     at genericNodeError (node:internal/errors:983:15)
+npm error     at wrappedFn (node:internal/errors:537:14)
+npm error     at checkExecSyncError (node:child_process:916:11)
+npm error     at Object.execFileSync (node:child_process:952:15)
+npm error     at validateBinaryVersion (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/Google-Photos-Toolkit/node_modules/esbuild/install.js:102:28)
+npm error     at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/Google-Photos-Toolkit/node_modules/esbuild/install.js:287:5 {
+npm error   status: null,
+npm error   signal: 'SIGKILL',
+npm error   output: [ null, Buffer(0) [Uint8Array] [], Buffer(0) [Uint8Array] [] ],
+npm error   pid: 66087,
+npm error   stdout: Buffer(0) [Uint8Array] [],
+npm error   stderr: Buffer(0) [Uint8Array] []
+npm error }
+npm error
+npm error Node.js v22.23.1
+npm error A complete log of this run can be found in: /Users/mustafadungarpurwala/.aside/runtime/tmp/npm-cache/_logs/2026-07-28T22_22_11_161Z-debug-0.log

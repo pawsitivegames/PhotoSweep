@@ -1,0 +1,915 @@
+diff --git a/docs/PAID_CONVERSION_FORMAL_VERIFICATION.md b/docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+new file mode 100644
+index 0000000..84e27d6
+--- /dev/null
++++ b/docs/PAID_CONVERSION_FORMAL_VERIFICATION.md
+@@ -0,0 +1,346 @@
++# Paid Conversion Formal Verification Matrix
++
++Status: **DRAFT — verification contract prepared before candidate freeze**
++
++This document is the independent verifier's contract for the paid-conversion
++work described by `docs/PAID_CONVERSION_PLAN.md`. It is intentionally separate
++from the implementation plan. The writer may add or change product code and
++tests, but this file records what must be proven and what evidence is required
++before any completion claim.
++
++The current baseline observed while preparing this matrix is commit
++`dd28bca987f107210304a85e13a4f3844525d459` on `main`. At matrix preparation,
++the only worktree item was a pre-existing untracked `tmp/` directory. That is a
++baseline observation, not candidate evidence. Final verification must rebind
++every result to the frozen candidate SHA and changed-file hashes.
++
++## Evidence contract
++
++Every row in the final ledger must contain the following fields:
++
++| Field | Requirement |
++| --- | --- |
++| ID | Stable property ID from this document or an explicitly added child ID |
++| Claim | One bounded behavior or invariant |
++| Proof class | `static`, `test`, `build`, `runtime`, `device`, `provider`, `store`, `public`, `human`, or `production` |
++| Verifier | Exact command, fixture, browser state, or authoritative external source |
++| Pass condition | Observable condition required for `PASS` |
++| Actual result | Complete fresh output or observation, including failures |
++| Evidence | Durable log/report path, artifact hash, or authoritative URL |
++| Verdict | Exactly `PASS`, `FAIL`, or `BLOCKED` |
++
++`PASS` means the verifier ran against the exact frozen candidate and its output
++meets the pass condition. `FAIL` means the output contradicts the claim.
++`BLOCKED` means the required proof is unavailable, ambiguous, or outside the
++local test boundary. A focused test cannot promote an unverified provider,
++store, public, revenue, or production claim.
++
++Formal verification here is an auditable evidence contract. It is not a claim
++of theorem proving and it does not turn mocked payment behavior into live
++Stripe evidence.
++
++## Candidate binding procedure
++
++Run this only after the implementation writer declares the candidate frozen and
++stops editing. Store all output under a new UTC directory such as
++`tmp/paid-conversion-verification/20260908T000000Z/`; do not reuse the old
++release-gate directory.
++
++```bash
++VERIFY_DIR="tmp/paid-conversion-verification/<UTC>"
++mkdir -p "$VERIFY_DIR"
++git status --short
++git rev-parse HEAD
++git diff --name-status
++git ls-files --others --exclude-standard
++git diff --check
++git diff > "$VERIFY_DIR/candidate.diff"
++git diff --stat > "$VERIFY_DIR/diff-stat.txt"
++```
++
++The verifier must record:
++
++1. Base SHA before the writer's changes, candidate `HEAD` if it changed, and
++   the exact candidate status output.
++2. Every tracked and untracked changed file in the candidate scope. Existing
++   `tmp/` evidence is not silently treated as implementation.
++3. SHA-256 hashes for every candidate file and the diff artifact, for example:
++
++   ```bash
++   shasum -a 256 docs/PAID_CONVERSION_PLAN.md \
++     docs/PAID_CONVERSION_FORMAL_VERIFICATION.md <each changed source/test file> \
++     > "$VERIFY_DIR/file-sha256.txt"
++   shasum -a 256 "$VERIFY_DIR/candidate.diff" >> "$VERIFY_DIR/file-sha256.txt"
++   ```
++
++4. A copy of the final plan and this matrix in the evidence directory, or
++   their hashes plus immutable candidate paths. The evidence copy is for audit
++   readability; the working files remain the source of truth.
++
++No final result may be attributed to `dd28bca` or to a moving worktree after
++the writer resumes editing. If the candidate changes after any verifier runs,
++discard that result for the affected claim and repeat it against the new hash.
++
++## Baseline implementation anchors
++
++These are the surfaces the independent verifier must inspect again after the
++freeze; they are not proof that the requested changes are present:
++
++| Surface | Baseline responsibility |
++| --- | --- |
++| `lib/entitlement.ts` | Plan IDs, prices, scan/group/Trash/report/resume limits, expiry, and effective-plan fail-closed behavior |
++| `lib/license-client.ts` | Signed entitlement token verification and storage; checkout, recovery, and refresh HTTP boundary |
++| `lib/paid-access-lifecycle.ts` | Startup refresh, time-limited action refresh, checkout, and recovery state |
++| `server/license-api.mjs` | Stripe checkout, signed webhook handling, purchase ledger, event deduplication, entitlement token issuance, analytics allowlist |
++| `server/firestore-license-store.mjs` | Persistent license/event indexes used by deployed storage |
++| `tabs/app.tsx` | Scan gates, result state, upgrade prompt state, checkout/recovery/refresh, selection persistence, Trash lifecycle, rating request, and telemetry calls |
++| `components/UpgradeDialog.tsx` | Plan comparison, contextual copy, recovery controls, and free-result dismissal |
++| `components/RatingPromptDialog.tsx` and `lib/rating-prompt.ts` | Honest review/feedback choices and prompt preference state |
++| `lib/privacy-analytics.ts` | Consent boundary, event names, count buckets, and client payload allowlist |
++| `tests/e2e/integration/app-tab.test.ts` | Extension-page result, account, scan, selection, resume, and rating journeys |
++| `tests/e2e/integration/trash-undo.test.ts` | Mock-provider Trash success/failure/zero/undo behavior |
++| `tests/server/license-api.test.ts` | Signed Stripe lifecycle and server-side payment-event authority |
++
++The existing commercial contract must remain truthful unless the plan
++explicitly changes it and the plan, entitlement model, dialog copy, server
++prices, and tests are updated together:
++
++| Plan | Price | Entitlement contract to verify |
++| --- | ---: | --- |
++| Free | $0 | 1,000 photos/scan, 25 visible groups, 10 Trash moves/session, limited report |
++| Mini Cleanup | $2.99 USD | Permanent limited unlock: 2,500 photos/scan, 75 visible groups, 100 Trash moves/session, full report |
++| Cleanup Pass | $4.99 USD | Seven days: 10,000 photos/scan, unlimited groups/Trash, full report, full scan, large-library resume |
++| Lifetime Early Access | $14.99 USD | One-time unlimited cleanup limits for the supported product lifetime |
++
++## Property matrix
++
++### P1 — Value before a scan-limit ask and stable free safety
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P1.1 | A scan-limit condition cannot open an upgrade modal while a scan is still fetching, detecting, or otherwise before a usable result state. | static + test + runtime | Inspect scan-result and `UpgradeDialog` state transitions; run focused component/unit tests and the integration scan fixture with more than the Free photo cap. | The modal is absent throughout in-progress/error/cancel states and appears, if applicable, only after a completed result state exposes an honest locked remainder. |
++| P1.2 | Free and paid scan/group/Trash/report/resume caps remain enforced exactly by the entitlement model. | test | `npm exec vitest run tests/lib/entitlement.test.ts` plus any new cap regression tests. | Boundary vectors pass: 1,000 vs 1,001 Free photos; 25 vs 26 groups; 10 vs 11 Free Trash moves; Mini 2,500/75/100; Cleanup Pass 7-day/full-scan/resume; Lifetime unlimited. Dismissal never changes entitlement. |
++| P1.3 | Zero duplicate results are a useful free outcome and do not trigger an upgrade prompt. | test + runtime | Integration zero-result fixture and `npx playwright test --config playwright.config.ts tests/e2e/integration/app-tab.test.ts -g "zero|no duplicates"`. | The no-duplicates result is visible, no upgrade dialog is present, and no upgrade-impression event is emitted solely because the result is empty. |
++| P1.4 | Provider errors do not trigger a conversion modal or falsely imply a paid fix. | test + runtime | Stub provider error through the app integration fixture; inspect rendered error and event calls. | Error state is shown; no upgrade dialog, checkout, entitlement mutation, or `upgrade_prompt_shown` occurs unless the user separately invokes a real locked feature. |
++| P1.5 | User cancellation leaves the free flow dismissible and does not trigger a conversion modal. | test + runtime | Exercise scan cancellation/pause in the integration fixture or the narrowest available component harness. | Cancellation returns to a usable retry/resume state without an automatic paywall, Trash command, entitlement grant, or lost saved selections. |
++| P1.6 | Provider/account reset clears stale paid-conversion UI state. | test + runtime | Account-change/reset integration cases, including a pending checkout and an open prompt. | A changed provider/account or explicit reset closes the prompt and pending checkout state, re-evaluates entitlement safely, and cannot reuse stale counts or stale account data. |
++| P1.7 | Dismissal is a real free exit and repeated triggers do not stack dialogs. | test + runtime | Render the paywall, click `Keep reviewing free results`/close/Escape, trigger the same boundary again, and inspect dialog count. | Exactly one modal exists at a time; dismissal returns to the same results and selections; a second prompt requires a new eligible user action and does not duplicate backdrops or event listeners. |
++
++Required negative controls for P1 are: scan over the cap before results, zero groups,
++provider failure, user cancel, account change, prompt dismissal, and a repeated
++locked action. A test that only checks that an upgrade button exists does not
++prove this property.
++
++### P2 — Checkout return, authoritative entitlements, and lifecycle recovery
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P2.1 | Returning from hosted checkout causes a bounded entitlement refresh, with no polling loop or refresh storm. | static + test + runtime | Inspect checkout-return/visibility/tab-listener code; run a fake tab return with a pending checkout and count refresh calls. | One bounded refresh is attempted for one pending checkout return; no unbounded timer, duplicate listener, or refresh on unrelated tab updates remains; cleanup removes every listener on unmount/reset. |
++| P2.2 | Only a valid server-signed entitlement can unlock paid behavior. | static + test | `npm exec vitest run tests/lib/license-client.test.ts tests/lib/paid-access-lifecycle.test.ts tests/server/license-api.test.ts`; inspect all unlock paths. | Forged, edited, malformed, expired, locally injected, or unsigned tokens resolve to Free; only a token verified against the bundled public key changes the effective plan. No success callback or local flag bypasses verification. |
++| P2.3 | Checkout cancellation, failure, unpaid completion, and a duplicate purchase click do not unlock or create duplicate purchases. | test | Server webhook matrix plus component/app double-click test with mocked checkout. | No entitlement before authoritative paid event; one checkout request per deliberate click/guarded attempt; duplicate Stripe event or same checkout session is idempotent; UI stays Free after cancel/failure. |
++| P2.4 | Delayed payment unlocks only on paid async success and respects expiry, refund, dispute, offline, and repeated-event behavior. | test + provider/store | `npm exec vitest run tests/server/license-api.test.ts tests/lib/license-client.test.ts`; live Stripe test mode is a separate provider gate. | `completed` with `payment_status=unpaid` stays locked; async paid success unlocks; partial refund preserves the matching purchase; full refund/dispute/expired pass downgrades on refresh; offline valid cache fails closed at signed expiry; repeated event IDs do not duplicate grants or analytics. |
++| P2.5 | Refresh/recovery preserves review selections and never starts Trash automatically. | test + runtime | Integration fixture with saved `selectedGroupIds`/`keptOverrides`, pending checkout return, refresh, and account recovery; inspect service-worker command messages. | Selection state is byte-for-byte equivalent before/after refresh/recovery; no `trashItems`, `TRASH_STARTED`, provider mutation, or auto-confirm occurs; the user must explicitly initiate review and confirmation. |
++| P2.6 | Recovery remains generic and preserves Mini/Lifetime entitlements without exposing account existence. | test | Existing and new recovery tests in `tests/components/upgrade-dialog.test.tsx`, `tests/lib/paid-access-lifecycle.test.ts`, and `tests/server/license-api.test.ts`. | Valid and unknown emails receive the same acknowledgement; only the signed recovery path can rebind/refresh; Mini remains permanent limited access and Lifetime remains intact after recovery. |
++
++The provider/store boundary remains separate: mocked webhook and token tests
++can make P2.2–P2.4 `PASS` at code level, but cannot make a live Stripe purchase,
++email delivery, fresh-profile recovery, or deployed store `PASS`.
++
++### P3 — Truthful result-specific paywall and accessible free exit
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P3.1 | The paywall describes the actual locked result and the user's actual scope. | test + human | Render Free results for over-cap photos/groups in album, date-range, and full-library scopes; inspect accessible text and passed props. | Counts come from the completed result and current scope; the dialog identifies the unlocked remainder or feature without inventing totals. Zero or unknown counts are not formatted as fake numbers. |
++| P3.2 | Copy does not claim storage saved, full-library coverage, provider success, or other outcomes the result did not establish. | static + test + human | `rg -n -i "storage|free up|entire library|full library|guarantee|always|all photos" components tabs docs/PAID_CONVERSION_PLAN.md`; rendered copy assertions for each trigger. | Any claim is tied to observed scope/results and documented capability; unsupported storage/full-library/provider claims are absent or explicitly qualified. |
++| P3.3 | The free exit is visible, keyboard accessible, and does not trap the user. | test + human | `tests/components/upgrade-dialog.test.tsx`; Playwright keyboard/Escape/focus path; manual keyboard review if browser automation cannot prove focus behavior. | A named close/continue-free action is present and operable by keyboard, Escape/backdrop dismissal works as designed, focus returns to the triggering control, and results remain available. |
++| P3.4 | Dismissing the result paywall retains the reviewed result set and selection choices. | test + runtime | Integration result fixture with selected groups and kept overrides; dismiss and assert DOM plus storage. | No result, scope, selection, or review preference is cleared by viewing or dismissing the paywall. |
++
++### P4 — Simple, complete comparison with recovery intact
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P4.1 | All existing plans display their exact price, duration, and core entitlements. | test + human | `npm exec vitest run tests/components/upgrade-dialog.test.tsx tests/lib/entitlement.test.ts`; inspect the rendered comparison. | Mini `$2.99 USD` permanent limited; Cleanup Pass `$4.99 USD` seven days; Lifetime `$14.99 USD` one-time unlimited. The displayed promises match `PLAN_LIMITS` and backend price aliases. |
++| P4.2 | Mini Cleanup remains a recoverable permanent limited purchase, and recovery controls remain available. | test | `npm exec vitest run tests/components/upgrade-dialog.test.tsx tests/lib/paid-access-lifecycle.test.ts tests/server/license-api.test.ts`. | Mini is selectable, its permanent limits are stated, recovery accepts a purchase email, acknowledgement is generic, and refresh can restore a verified Mini token. |
++| P4.3 | The comparison is simple enough to scan while keeping one clear CTA per plan and a visible free exit. | test + human | Component DOM assertions plus keyboard/manual review at narrow and wide extension viewports. | No plan price, duration, entitlement, recovery, or free-exit control is hidden behind hover, clipping, or ambiguous nested actions; each plan has one clearly named CTA. |
++| P4.4 | Paid copy does not imply subscriptions, recurring billing, guaranteed results, or unlimited provider coverage beyond the contract. | static + test | `rg -n -i "subscription|monthly|annual|recurring|guaranteed|all providers|unlimited.*provider" components docs/PAID_CONVERSION_PLAN.md docs/MONETIZATION_SYSTEM_AUDIT.md`; rendered text assertions. | The words are absent or explicitly used only to explain that the product is not offering that behavior; plan promises remain bounded. |
++
++### P5 — Honest rating request after confirmed positive cleanup
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P5.1 | A rating request appears only after a confirmed successful cleanup with at least one item moved. | test + runtime | Exercise scan completion, zero groups, zero-move review, successful Trash result with `trashedCount > 0`, failed/partial Trash, undo/restore, and report-only paths. | Only the successful positive cleanup path can open the rating prompt; scan completion, no duplicates, failed/zero moves, restore, and report-only actions do not. |
++| P5.2 | Failed cleanup and zero-move outcomes never count as successful rating opportunities. | test | `npm exec vitest run tests/lib/rating-prompt.test.ts tests/e2e/integration/trash-undo.test.ts`; add result-specific prompt tests if the prompt logic moves. | A failed provider response, zero selected items, zero moved items, or partial failure that does not meet the explicit success condition leaves rating eligibility unchanged. |
++| P5.3 | Prompt preferences are preserved and remain user-controlled. | test | Existing rating storage tests plus reload/defer/never/review journeys. | `Maybe later` schedules the documented retry; review and `Don't ask again` persist dismissal; unrelated scan/result/entitlement state is unchanged. |
++| P5.4 | Rating copy requests an honest review and offers feedback without sentiment filtering. | test + human | `npm exec vitest run tests/components/rating-prompt-dialog.test.tsx`; static search for positive-satisfaction gating; manual copy review. | Review and feedback are both offered; no five-star/love/satisfaction gate, hidden negative exit, or filtering branch exists. |
++
++### P6 — Consent-respecting, privacy-safe, authoritative funnel measurement
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P6.1 | Client funnel analytics are silent until explicit consent and remain silent after opt-out. | test + runtime | `npm exec vitest run tests/lib/privacy-analytics.test.ts`; integration first-run consent/no-thanks/allow/reload path with intercepted requests. | No analytics request is sent before Allow; No thanks/opt-out persists; Allow sends only the documented allowlisted events. Analytics failures never interrupt scan, review, Trash, or checkout. |
++| P6.2 | Client payloads are allowlisted, bucketed, and free of new PII or photo identifiers. | static + test | Unit/server sanitization tests; serialize events containing hostile extra fields such as email, URL, filename, media key, exact count, or token. | Only event name, provider, scan mode, plan ID, approved reason/dismissal fields, count buckets, and approved error category survive; no email, photo URL, filename, media key, account ID, token, or exact count is sent. |
++| P6.3 | Upgrade reason and dismissal are measurable without conflating distinct funnel stages. | test + static | Event-schema tests and intercepted client event calls for scan/group/Trash/export/resume/provider reasons plus dismissal. | Every paywall impression carries the actual bounded reason; dismissal has its own explicit event or field; reasons are not inferred from a generic event after the fact. |
++| P6.4 | Purchase completion is authoritative, deduplicated, and distinct from refresh and restore events. | test | `npm exec vitest run tests/server/license-api.test.ts tests/lib/paid-access-lifecycle.test.ts`; inspect server rejection of client-forged payment events and duplicate event replay. | Only verified server Stripe lifecycle produces `purchase_completed`; replay produces no second grant/event; `entitlement_refreshed`, `restore_requested`, `restore_completed`, and `restore_not_found` remain distinct. |
++| P6.5 | React rerenders, checkout return listeners, and refresh/recovery retries do not duplicate funnel events. | test + runtime | Mock event sink; rerender/return/retry each scenario and count events by stable key. | One user-visible action yields at most one corresponding event; provider retries and webhook replay are deduplicated by authoritative event ID; refresh does not masquerade as purchase. |
++| P6.6 | Recovery email is used only by the recovery boundary and is never copied into analytics or paywall metrics. | static + test | Search event builders and test with a real-looking email; inspect serialized requests and server snapshot. | Email may appear only in the recovery request path; analytics payloads, logs, and event snapshots contain no email or account identifier. |
++
++### P7 — Truthful acquisition and measurement plan
++
++| ID | Claim | Proof class | Verifier | Pass condition |
++| --- | --- | --- | --- | --- |
++| P7.1 | The acquisition plan states hypotheses, audience, funnel definitions, experiment boundaries, and required evidence without inventing performance. | static + human | Read `docs/PAID_CONVERSION_PLAN.md`; compare every numeric claim with repository evidence and the event schema. | No fabricated conversion rate, revenue, reach, install, ROI, provider success, or customer quote is presented as observed; unknowns remain explicitly unknown. |
++| P7.2 | Acquisition measurement uses the allowlisted consented funnel and distinguishes impressions, checkout starts, authoritative purchases, refresh/recovery, refunds, and support outcomes. | static + test | Cross-check plan against P6 event tests, `lib/privacy-analytics.ts`, and `server/license-api.mjs`. | Every proposed metric maps to an emitted event or is marked as a future external measurement; no raw signup/click/view is called a paid conversion. |
++| P7.3 | The plan preserves the external evidence boundary. | static + human | Inspect plan, launch checklist, and monetization audit after implementation. | Local tests/builds are not described as live Stripe/store/public/revenue proof; live-provider, payment, store, and publication actions remain separate blocked or pending gates. |
++
++## Exact verification sequence after freeze
++
++The verifier should run the smallest relevant checks first, then broaden only
++when a failure or changed surface requires it. Every command must be run fresh
++and its complete stdout/stderr plus exit code saved under `VERIFY_DIR`.
++
++### 1. Static and artifact checks
++
++```bash
++git diff --check
++npm exec prettier -- --check \
++  docs/PAID_CONVERSION_PLAN.md \
++  docs/PAID_CONVERSION_FORMAL_VERIFICATION.md \
++  <each changed source/test file>
++npm run typecheck
++```
++
++Use the repository's actual formatter configuration. If Prettier's CLI shape
++differs, record the exact command that was run and its exit code rather than
++silently substituting an incomplete check.
++
++For copy claims and forbidden leakage, record the complete output of targeted
++searches such as:
++
++```bash
++rg -n -i \
++  "storage|free up|entire library|full library|guarantee|always|subscription|monthly|annual|recurring|five star|love" \
++  components tabs lib server docs/PAID_CONVERSION_PLAN.md
++rg -n -i \
++  "email|photoUrl|filename|mediaKey|accountId|token|exactCount" \
++  lib/privacy-analytics.ts server/license-api.mjs tabs/app.tsx
++```
++
++Search output is a review input, not a blind fail rule: a qualified policy or
++test fixture may contain a term. The reviewer must inspect every hit and record
++the disposition in the P3/P4/P6/P7 rows.
++
++### 2. Focused unit/component/server tests
++
++Run the existing relevant tests plus every new test file introduced by the
++writer. The minimum command is:
++
++```bash
++npm exec vitest run \
++  tests/components/upgrade-dialog.test.tsx \
++  tests/components/rating-prompt-dialog.test.tsx \
++  tests/lib/entitlement.test.ts \
++  tests/lib/license-client.test.ts \
++  tests/lib/paid-access-lifecycle.test.ts \
++  tests/lib/privacy-analytics.test.ts \
++  tests/lib/rating-prompt.test.ts \
++  tests/server/license-api.test.ts
++```
++
++Record the full test count, skipped count, failed test names, and exit code.
++A focused green run proves only those declared fixtures and proof classes.
++
++### 3. Integration browser journeys
++
++After a build suitable for the integration fixture, run the relevant journeys:
++
++```bash
++npx playwright test --config playwright.config.ts \
++  tests/e2e/integration/app-tab.test.ts \
++  tests/e2e/integration/trash-undo.test.ts \
++  tests/e2e/integration/cross-tab-messaging.test.ts
++```
++
++The verifier must inspect the complete report and independently reproduce at
++least these browser cases: over-cap scan, zero-result scan, provider error,
++cancel, account reset, result-specific paywall, dismissal with selected groups,
++checkout-return refresh, no automatic Trash, successful positive Trash, failed
++Trash, zero-move/restore, consent opt-out/allow, and rating preferences.
++
++If a browser journey is not implemented in the existing fixture, the row is
++`BLOCKED` until a deterministic mocked fixture or a justified manual runtime
++observation exists. A component render alone does not prove cross-screen state,
++listener cleanup, storage retention, or provider command absence.
++
++### 4. Full local gates and package boundary
++
++Run the full local suite after focused checks are green:
++
++```bash
++npm test
++npm run build
++```
++
++If paid-conversion changes touch package/runtime wiring, also run a production
++environment build with the actual approved non-secret build inputs and then:
++
++```bash
++npm run audit:extension-package
++```
++
++Do not paste private keys or Stripe secrets into evidence. If the required
++production variables are unavailable, record the package proof as `BLOCKED` and
++keep any development-entitlement build clearly labeled as local/test evidence.
++
++### 5. External boundaries
++
++The following require separate authorized evidence and are never inferred from
++local tests:
++
++| Boundary | Required evidence for a broader `PASS` |
++| --- | --- |
++| Provider | Tiny non-sensitive Google/iCloud/Amazon scan → review → Trash → restore where the claim covers that provider |
++| Stripe/provider | Test-mode checkout, cancellation, payment failure, delayed success, partial/full refund, dispute, expiry, replay, and signed token refresh against deployed service |
++| Store/deployment | Production configuration, deployed license API, package host permissions, Chrome Web Store dashboard and policy parity |
++| Human | Keyboard/accessibility and copy review for truthful scope, free exit, comparison clarity, and rating honesty |
++| Public/revenue | Published state and real funnel/revenue evidence; no local test substitutes |
++
++Absent or ambiguous external proof yields `BLOCKED` for that broader claim,
++while the bounded local property may still be `PASS`.
++
++## Final verdict rule
++
++The verifier must publish three scoped verdicts:
++
++1. **Local formal verdict:** `PASS` only if every mandatory P1–P7 property
++   claimed as local/static/test/build/runtime proof is `PASS` against one frozen
++   candidate. Any failed property is `FAIL`; any required unavailable local
++   proof is `BLOCKED`.
++2. **External lifecycle verdict:** `PASS`, `FAIL`, or `BLOCKED` separately for
++   provider, Stripe/store, and production/public evidence.
++3. **Overall formal verdict:** `FORMAL-VERIFICATION: PASS` only when every
++   mandatory claimed property and every required external gate for the stated
++   completion claim passes. Otherwise report `FAIL` or `BLOCKED` with the exact
++   property IDs and next action.
++
++Do not describe a paid-conversion implementation as complete, revenue-ready,
++store-ready, or live-provider verified from a passing typecheck, focused test,
++mocked webhook, local build, or pending checkout tab.
++
++## Final evidence ledger template
++
++Copy this table into the final report and fill every row; do not leave a
++mandatory row with an implied result.
++
++| ID | Claim | Proof class | Verifier | Pass condition | Actual result | Evidence | Verdict |
++| --- | --- | --- | --- | --- | --- | --- | --- |
++| P1.1–P1.7 | Value-before-ask/free safety | static/test/runtime | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| P2.1–P2.6 | Checkout return/authoritative lifecycle | static/test/runtime/provider/store | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| P3.1–P3.4 | Truthful result paywall/free exit | static/test/human | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| P4.1–P4.4 | Complete simple comparison/recovery | static/test/human | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| P5.1–P5.4 | Honest post-cleanup rating | test/runtime/human | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| P6.1–P6.6 | Consent/privacy/measurement authority | static/test/runtime | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| P7.1–P7.3 | Truthful acquisition plan | static/human | pending candidate freeze | all applicable rows pass | NOT RUN — writer active | pending | BLOCKED |
++| External provider | Live provider lifecycle | provider | authorized live fixture | exact provider flow passes | NOT RUN | pending | BLOCKED |
++| External Stripe/store | Live payment/store lifecycle | provider/store/public | authorized deployed evidence | exact external matrix passes | NOT RUN | pending | BLOCKED |
++| Production/public | Published/revenue outcome | production/public | authoritative public source | exact stated public outcome passes | NOT RUN | pending | BLOCKED |
++
+diff --git a/docs/PAID_CONVERSION_PLAN.md b/docs/PAID_CONVERSION_PLAN.md
+new file mode 100644
+index 0000000..346dd60
+--- /dev/null
++++ b/docs/PAID_CONVERSION_PLAN.md
+@@ -0,0 +1,397 @@
++# PhotoSweep paid conversion and recovery plan
++
++Status: implementation candidate plan for extension `2.2.6`
++Owner: Luna Max implementation pass
++Date: 2026-09-08
++
++This plan is bounded to the existing browser extension checkout and signed-license
++system. It improves when and how the product explains paid value, reconciles a
++checkout return, and measures the consented funnel. It does not change prices,
++Stripe price IDs, durations, entitlement limits, provider availability claims,
++refund policy, analytics consent policy, public listing state, or publication.
++
++## 1. Code-verified baseline
++
++The baseline was re-read from the current checkout before edits.
++
++| Area              | Current behavior                                                                                                                                                                                                             | Source of truth                                                                | Gap addressed by this plan                                                                          |
++| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
++| Plans             | `Mini Cleanup` `$2.99`, `Cleanup Pass` `$4.99`, `Lifetime Early Access` `$14.99`; all are one-time Stripe purchases and taxes may apply                                                                                      | `lib/entitlement.ts`, `components/UpgradeDialog.tsx`, `server/license-api.mjs` | Preserve contract; make the factual comparison easier to scan                                       |
++| Entitlements      | Free: 1,000 photos, 25 groups, 10 Trash moves/session; Mini: 2,500/75/100; Pass: 10,000/unlimited/unlimited plus full scan/resume; Lifetime: unlimited                                                                       | `lib/entitlement.ts`                                                           | Preserve every limit and fail-closed expiry                                                         |
++| Checkout          | `PaidAccessLifecycle.createCheckout` calls `LicenseClient.createCheckout`, opens the returned URL in a new tab, then asks the user to refresh manually                                                                       | `lib/paid-access-lifecycle.ts`, `lib/license-client.ts`, `tabs/app.tsx`        | Track one pending attempt, refresh on return/focus with bounded retries, and retain manual recovery |
++| Payment proof     | Extension only treats a verified signed token returned by `/entitlement` as access; the server grants only after paid Stripe webhook events                                                                                  | `lib/license-client.ts`, `server/license-api.mjs`                              | Preserve the security boundary and distinguish server purchase from client refresh                  |
++| Scan-cap trigger  | When `getAllMediaItems` returns more than the current limit, the app immediately opens an upgrade modal before detection; it truncates to the entitlement limit                                                              | `tabs/app.tsx` around the `getAllMediaItems` handler; `lib/entitlement.ts`     | Defer automatic prompt until completed detection and show a nonblocking results CTA                 |
++| Other gates       | Explicit full-scan, resume, export, provider, and Trash-move gates already open contextual upgrade prompts                                                                                                                   | `tabs/app.tsx`, `components/ScanConfig.tsx`, `components/ActionBar.tsx`        | Keep explicit feature gates available and truthful                                                  |
++| Paywall value     | The dialog states the plan limits and reason, but receives only a free-form detail string; it does not display scoped result or selection facts as structured fields                                                         | `components/UpgradeDialog.tsx`                                                 | Add only actual result/selection/remaining-limit facts, with clear scope labels                     |
++| Rating request    | `recordSuccessfulScan` increments after every completed scan and can show after the first scan                                                                                                                               | `lib/rating-prompt.ts`, `tabs/app.tsx`                                         | Move eligibility to a confirmed successful cleanup with positive actual moves                       |
++| Analytics         | Consent-controlled client events are allowlisted and bucketed, including prompt shown and checkout started; server allowlist accepts the same client event set; Stripe webhooks record server purchase/refund/failure events | `lib/privacy-analytics.ts`, `server/license-api.mjs`                           | Add reason/dismissal and paid-return/activation outcomes without PII or raw counts                  |
++| External evidence | Existing repository docs state that local tests/mocks do not prove live Stripe, email recovery, providers, store, public listing, or revenue                                                                                 | `docs/MONETIZATION_SYSTEM_AUDIT.md`, `docs/LICENSING_BACKEND.md`               | Carry these boundaries into the candidate ledger and rollout documentation                          |
++
++The task context supplies a prior public listing observation of 21 users and no
++ratings. That observation is not repository evidence and is not a conversion,
++revenue, or product-quality result; it must not be used as a success
++denominator.
++
++## 2. Requirements and invariants
++
++### P1: Value before the automatic ask
++
++1. Keep enforcement at the existing item, group, scan-mode, resume, export, and
++   Trash gates.
++2. If a fetch is larger than the current scan limit, record a deferred prompt
++   reason and continue detection for the allowed items.
++3. Open no automatic modal while the scan is fetching, detecting, paused,
++   cancelled, failed, or empty.
++4. After a successful completed detection with at least one visible duplicate
++   group, show an inline nonblocking call to action. The call to action must
++   explain the actual scope and locked group count when those values exist.
++5. A user may dismiss the call to action. Respect dismissal for the current
++   results session and avoid stacking it with the rating dialog, checkout return,
++   Trash confirmation, or another upgrade dialog.
++6. Clear deferred and dismissal state on error, cancellation, new scan, reset,
++   provider change, account change, and invalidated/restored results.
++7. Never invent full-library counts. Labels must say `items checked`, `duplicate
++sets found`, `visible on Free`, or `additional sets unavailable in this scan`
++   according to the actual source data.
++
++### P2: Automatic payment return and recovery
++
++1. A checkout attempt has an explicit lifecycle: idle, pending, refreshing,
++   active, failed, or retryable. It is not success merely because a tab opened,
++   a URL contains a return marker, or a tab was closed.
++2. Prevent duplicate checkout starts while one request is pending. A failed
++   request can be retried; an opened checkout remains pending until bounded
++   return/focus reconciliation or explicit manual refresh.
++3. Reuse `PaidAccessLifecycle` and the existing signed-token verification path.
++   The authoritative result is still `saveVerifiedEntitlementToken` after a
++   successful `/entitlement` response.
++4. On window focus/visibility return after a checkout was opened, perform a
++   bounded retry schedule with cleanup of focus, visibility, timer, and promise
++   listeners. Use a small fixed backoff and stop when paid access is verified or
++   the attempt budget expires.
++5. Keep the review groups, media map, selected groups, kept overrides, and
++   reports intact while reconciling. Never auto-trash or auto-select as a side
++   effect of payment.
++6. Surface unpaid or otherwise unverified checkout, delayed webhook, offline
++   refresh, expiry, refund, repeated focus events, browser/session changes, and
++   account changes as retryable or free states with a clear manual recovery
++   path. The client does not label a return as cancelled unless a future
++   authoritative server signal supplies that fact.
++7. A verified expired/refunded entitlement must fail closed immediately through
++   existing `getEffectivePlanId`; a stale signed token must not prolong access.
++
++### P3: Factual paywall value
++
++1. The dialog may show only structured facts supplied by the current scan/review
++   session: provider, scoped item count, actual duplicate-set count, visible-set
++   count, locked-set count, selected cleanup count, and remaining Trash moves.
++2. Every fact must be labeled with its scope. Do not call a scoped scan a full
++   library, and do not show a value for a missing/unknown field.
++3. Storage estimates are optional and must be omitted unless source metadata is
++   reliable. No guaranteed storage-saving claim or invented estimate.
++4. Keep a clear free exit and accessible buttons/labels. Do not block review or
++   imply that paid access guarantees provider availability.
++
++### P4: Simpler offer without changing the offer
++
++1. Keep all existing prices, durations, entitlements, taxes/refund disclosures,
++   and recovery controls.
++2. Let users compare Pass and Lifetime quickly; retain Mini as a factual,
++   secondary option unless a future product decision explicitly changes it.
++3. Do not add fabricated popularity, urgency, discount, countdown, or automatic
++   pricing experiments. Any future experiment is a separately documented,
++   sequential product decision.
++
++### P5: Review request after successful cleanup
++
++1. Do not increment review eligibility at scan completion.
++2. Record eligibility only when a provider result confirms `movedCount > 0`.
++3. Failed, dry-run, zero-move, partial-with-zero, cancelled, restored-old-report,
++   and colliding-dialog flows do not prompt.
++4. Preserve the existing completed/deferred preferences and migrate old state
++   safely without treating historical scans as cleanup.
++5. Suppress the rating dialog while upgrade, checkout-return, Trash-confirm, or
++   warning/recovery surfaces are active.
++
++### P6: Privacy-safe funnel measurement
++
++1. Keep analytics opt-in and consent-gated. Extend the existing allowlist only
++   with bounded enum fields: upgrade reason, dismissal reason, paid-return
++   outcome, and activation outcome.
++2. Preserve bucketed counts; do not send photo content, filenames, URLs, email,
++   album names, exact raw counts, or cross-site tracking identifiers.
++3. Keep server-authoritative `purchase_completed`, `purchase_failed`, and
++   `purchase_refunded` distinct from client `entitlement_refreshed` and
++   `paid_return_*`. An existing entitlement or restore is not a new purchase.
++4. Reject unknown event names/enum values server-side and test both client and
++   server sanitization.
++5. If true revenue attribution requires external configuration, document the
++   gate rather than infer revenue from checkout starts or local mocks.
++
++### P7: Documentation-only acquisition and measurement
++
++Document a truthful demo outline and listing experiment using observed small
++cohorts, sequential variable changes, revenue per activated user, and refunds.
++Do not generate media, contact creators, change public listings, or claim
++conversion uplift in this implementation pass.
++
++## 3. Dependency-ordered implementation steps
++
++The following order keeps the contract and pure state seams ahead of UI wiring.
++
++### Step 1: Add pure contracts and state helpers
++
++Files:
++
++- `lib/paid-conversion.ts` (new): deferred prompt/CTA state, checkout-return
++  state, bounded retry schedule, result value facts, and enum validators.
++- `lib/entitlement.ts`: reuse existing limits only; add no new commercial
++  limits. Add small formatting helpers only if they are source-backed.
++- `lib/privacy-analytics.ts`: extend the typed allowlist with the bounded funnel
++  fields and sanitizer.
++
++Acceptance:
++
++- Pure functions are deterministic for empty, scoped, locked, paid, unknown,
++  dismissed, reset, and expired inputs.
++- No browser, Stripe, provider, or network side effects occur in these helpers.
++
++### Step 2: Extend lifecycle refresh safely
++
++Files:
++
++- `lib/paid-access-lifecycle.ts`: add a pending checkout record, in-flight
++  refresh deduplication, bounded reconciliation API, and explicit outcome
++  values while preserving `initialize`, `refresh`, `authorizeAction`, `recover`,
++  and signed-token persistence.
++- `lib/license-client.ts`: keep checkout and entitlement requests unchanged in
++  authority; require the checkout response to echo the requested plan and use
++  an HTTPS URL before opening it, while preserving manual refresh/recovery.
++
++Acceptance:
++
++- Concurrent callers share one refresh promise and one checkout start.
++- Retry/backoff stops at its budget, handles offline/rejected fetches, and
++  never returns paid without a verified token.
++- Expiry/refund returns the existing free entitlement immediately.
++
++### Step 3: Move automatic scan-cap ask to post-detection value
++
++Files:
++
++- `tabs/app.tsx`: replace the fetch-time `openTrackedUpgradePrompt("scan", ...)`
++  side effect with deferred facts; consume them after successful detection.
++- `lib/app-reducer.ts` only if a result-state field is needed; preserve state
++  transitions and account/provider identity.
++
++Acceptance:
++
++- No modal appears before `SCAN_COMPLETE`.
++- Results with zero groups show no automatic upgrade CTA.
++- Results with groups show a dismissible nonblocking CTA using actual counts.
++- Scan error, cancel, reset, provider/account change, and restored invalid
++  results clear the deferred state.
++
++### Step 4: Make the dialog factual and plan-comparable
++
++Files:
++
++- `components/UpgradeDialog.tsx`: accept structured value facts, show actual
++  scoped counts, provide a free exit, keep prices/durations/refund/tax text,
++  and improve Pass/Lifetime comparison while retaining Mini.
++- `tabs/app.tsx`: pass current facts and reason/dismissal tracking.
++
++Acceptance:
++
++- Unknown/undefined facts are omitted, and no copy claims full library coverage
++  without a full-library source marker.
++- Keyboard/focus/accessible labels remain valid in component tests.
++
++### Step 5: Reconcile checkout return/focus in the app
++
++Files:
++
++- `tabs/app.tsx`: track pending checkout and install one cleanup-safe focus /
++  visibility reconciliation effect; preserve manual refresh and recovery UI.
++- `components/UpgradeDialog.tsx`: show pending, active, retryable, and
++  refresh-failed states without closing the results surface or silently
++  granting access.
++
++Acceptance:
++
++- One click starts one checkout; repeated click/focus events do not duplicate
++  requests.
++- A return marker/tab close alone cannot unlock.
++- A verified entitlement restores paid gates without losing selections or
++  deleting/reordering review results.
++- Failed/offline/delayed webhook paths expose a retry or refresh action.
++
++### Step 6: Move rating eligibility to confirmed cleanup
++
++Files:
++
++- `lib/rating-prompt.ts`: add `recordSuccessfulCleanup(movedCount)` and a
++  migration-safe state field while preserving completed/deferred preferences.
++- `tabs/app.tsx`: remove scan-completion prompt call; call cleanup eligibility
++  only from the successful provider result with positive actual moves; suppress
++  while competing dialogs are active.
++
++Acceptance:
++
++- Scan-only, no-match, failed, dry-run, zero-move, cancelled, restored, and
++  partial-zero flows do not prompt.
++- A successful positive move can prompt once at the existing threshold and
++  Later/Never/Review/Feedback preferences persist.
++
++### Step 7: Add privacy-safe client/server funnel events
++
++Files:
++
++- `lib/privacy-analytics.ts`: add bounded fields/events and tests.
++- `server/license-api.mjs`: mirror enum allowlists and preserve server-generated
++  Stripe purchase/refund/failure distinctions.
++- `tests/lib/privacy-analytics.test.ts`, `tests/server/license-api.test.ts`:
++  add unknown-field/enum rejection and distinct purchase-vs-refresh assertions.
++
++Acceptance:
++
++- Consent false/unknown sends nothing from the client.
++- Sanitization strips unknown fields, raw values, URLs, and PII.
++- Server rejects malformed enum values and stores only bounded events.
++- Existing licenses, restore, and entitlement refresh emit only access
++  reconciliation outcomes; `purchase_completed` remains server-generated from
++  an authoritative Stripe webhook.
++
++### Step 8: Add regression tests and documentation
++
++Files:
++
++- `tests/lib/paid-conversion.test.ts` (new)
++- `tests/lib/paid-access-lifecycle.test.ts`
++- `tests/components/upgrade-dialog.test.tsx`
++- `tests/lib/rating-prompt.test.ts`
++- `tests/lib/privacy-analytics.test.ts`
++- `tests/server/license-api.test.ts`
++- `docs/PAID_CONVERSION_PLAN.md` (this contract), plus a durable evidence log
++  under `tmp/paid-conversion-*`.
++
++Acceptance:
++
++- Tests cover positive and negative paths from the edge-case matrix below.
++- No existing unrelated `tmp/` files are deleted or rewritten.
++
++## 4. Edge cases and observable acceptance criteria
++
++| ID  | Scenario                                             | Observable acceptance                                                                                                   |
++| --- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
++| E1  | Fetch exceeds Free cap                               | Detection continues on allowed items; no modal before completed results; CTA contains only actual checked/locked values |
++| E2  | No matches                                           | No automatic CTA or upgrade modal; results remain usable                                                                |
++| E3  | Detection error/cancel                               | Deferred prompt and CTA state are cleared; no payment/rating dialog opens                                               |
++| E4  | New scan/reset                                       | Prior CTA dismissal/facts cannot leak into the new scan                                                                 |
++| E5  | Provider/account switch                              | Review, pending CTA, and checkout reconciliation reset for the new identity                                             |
++| E6  | Explicit full scan/resume/export/provider/Trash gate | Existing contextual upgrade prompt still appears with truthful reason                                                   |
++| E7  | Duplicate checkout click                             | One checkout request and one opened tab; UI shows pending/retryable state                                               |
++| E8  | Checkout cancel/tab close                            | No entitlement change; free gates remain enforced; manual refresh/retry available                                       |
++| E9  | Delayed webhook                                      | Bounded retries can end retryable; a later manual refresh can activate only after signed server token                   |
++| E10 | Offline refresh                                      | Review is preserved; clear retry state; no local unlock                                                                 |
++| E11 | Expiry/refund/dispute                                | Signed entitlement verifies as free at authority boundary; paid features are not retained                               |
++| E12 | Repeated focus/visibility                            | Listener/timer cleanup prevents duplicate requests or state races                                                       |
++| E13 | Payment while selections exist                       | Groups, selected IDs, kept overrides, and review ordering remain unchanged                                              |
++| E14 | Rating after scan only                               | No rating prompt                                                                                                        |
++| E15 | Rating after positive actual moves                   | Eligibility increments once and prompt respects existing preferences                                                    |
++| E16 | Dry-run/failed/zero moves                            | No rating prompt or success event                                                                                       |
++| E17 | Consent unknown/false                                | No client analytics request                                                                                             |
++| E18 | Unknown analytics field/value                        | Client strips; server rejects invalid event/value                                                                       |
++| E19 | Existing paid entitlement/restore                    | Refresh/restore event only; no `purchase_completed` client claim                                                        |
++| E20 | Scoped data/value copy                               | Dialog omits unavailable estimates and labels scope explicitly                                                          |
++
++## 5. Verification commands and evidence plan
++
++Run fresh commands against the final candidate after all edits. Every command
++must write its complete stdout/stderr and exit code to a new task-specific file
++under `tmp/paid-conversion-*`; preserve existing `tmp/` contents.
++
++1. `git status --short --branch` and `git diff --check` establish changed paths
++   and whitespace evidence.
++2. Focused red/green regression lane:
++
++   `npx vitest run tests/lib/paid-conversion.test.ts tests/lib/paid-access-lifecycle.test.ts tests/components/upgrade-dialog.test.tsx tests/lib/rating-prompt.test.ts tests/lib/privacy-analytics.test.ts tests/server/license-api.test.ts`
++
++   Where a new regression is safe, capture a pre-fix failing assertion, apply
++   the fix, and capture the passing rerun. Do not weaken or delete a failing
++   verifier.
++
++3. `npm run typecheck` checks TypeScript compilation.
++4. `npm test -- --reporter=verbose` checks the full repository suite; report
++   unrelated pre-existing failures separately if present.
++5. `npm run build` checks the extension build when dependencies/toolchain permit.
++6. If available and relevant, `npm run test:integration` and `npm run test:e2e`
++   cover mocked browser integration; annotate skipped/unavailable lanes.
++7. Re-read this plan and build a formal evidence matrix with one row per
++   requirement/invariant. Each row must include ID, claim, proof class, exact
++   verifier, pass condition, fresh actual result, durable evidence path, and
++   `PASS`, `FAIL`, or `BLOCKED`.
++8. Freeze the candidate with exact base SHA, final SHA or working-tree diff,
++   SHA-256 hashes for changed/new files, commands/log paths, requirement mapping,
++   and limitations. The frozen candidate is then handed to the independent Luna
++   Max verifier; implementation edits stop at that boundary.
++
++## 6. Proof boundaries
++
++| Evidence class       | What this candidate can prove locally                                    | What remains outside local proof                                              |
++| -------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
++| Static               | Code paths, allowlists, state cleanup, exact price/limit preservation    | Live configuration, deployed source, human clarity                            |
++| Test                 | Declared unit/component/server mocks and negative cases                  | Real browser focus lifecycle, real provider pages, real Stripe                |
++| Build                | Extension compiles/packages if the toolchain completes                   | Chrome Web Store review, public deployment                                    |
++| Runtime/browser mock | Results CTA, dialog states, fake delayed refresh, selection preservation | Real signed payment/session cookies and payment provider timing               |
++| Provider             | None unless a separate authorized real provider run is performed         | Google/iCloud/Amazon account/library availability and Trash behavior          |
++| Payment/provider     | Server code verifies webhook semantics in tests                          | Live Stripe catalog, webhook delivery, tax, refunds, disputes, email recovery |
++| Store/public         | Documentation only; no publication                                       | Listing visibility, installs, ratings, public click-through, revenue          |
++| Human                | Copy can be reviewed by the independent verifier                         | User satisfaction and conversion uplift                                       |
++
++Overall formal status is `BLOCKED` until every mandatory property has fresh
++evidence. Local mocks cannot establish live payment, provider, store, public,
++or revenue outcomes.
++
++## 7. Rollout and revenue measurement
++
++Keep the first experiment sequential and fixed-price. The treatment is the
++post-value, nonblocking results CTA plus factual scope copy. Do not change the
++catalog, entitlements, price, or discount mechanics while measuring it.
++
++The funnel is defined as:
++
++`first scan started → useful matches (completed scan with ≥1 group) → free successful cleanup (server/provider confirms movedCount > 0) → upgrade prompt shown → checkout started → server purchase_completed → verified entitlement refresh → paid successful cleanup`
++
++Use only consented, bucketed event denominators. Report `unknown` when a stage
++is not observable; never turn missing provider/server events into zero. Measure
++prompt-to-checkout, checkout-to-server-purchase, purchase-to-verified-activation,
++activation-to-paid-cleanup, refunds/disputes, recovery completion, support
++contacts, and revenue per activated user only after the external server/payment
++configuration supplies authoritative records.
++
++Roll out to a small observed cohort only after the local candidate passes and a
++human reviews copy/accessibility. Keep the existing free path as the rollback
++state. A rollback can disable the new CTA/return reconciliation in a follow-up
++build; it must not issue unsigned entitlements or alter provider data. Public
++listing experiments, live payments, outreach, and revenue claims require their
++own authorization and evidence.
++
++## 8. Formal verification row template
++
++Use this table in the final evidence log and fill every mandatory row before
++handing the candidate to the independent verifier.
++
++| ID    | Claim                                                                          | Proof class                | Exact verifier                               | Pass condition                                                            | Actual result            | Evidence                                              | Verdict |
++| ----- | ------------------------------------------------------------------------------ | -------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------- | ------- |
++| P1.1  | Scan-cap automatic ask is deferred until completed useful results              | test/static/runtime        | Focused tests plus source inspection         | No pre-detection modal; CTA only after completed results with groups      | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P1.2  | Deferred state clears across error/cancel/reset/provider/account changes       | test/static                | Focused state/app tests                      | No stale CTA/facts after each reset path                                  | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P2.1  | Checkout starts are deduplicated and return proof is signed entitlement only   | test/static                | Lifecycle tests and license-client tests     | One request; tab/URL alone never activates                                | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P2.2  | Focus/visibility retry is bounded and listeners are cleaned up                 | test/static                | Lifecycle/app tests                          | Retry budget stops and cleanup is observed                                | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P2.3  | Review state survives refresh/reconciliation                                   | test/runtime               | Component/app integration test               | Groups/selections/kept overrides remain equal                             | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P3.1  | Paywall value copy uses actual scoped facts only                               | test/static/human          | Component tests plus independent copy review | Unknown facts omitted; scope labels are clear                             | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P4.1  | Existing prices, durations, limits, disclosures, and recovery remain unchanged | static/test                | Diff and entitlement/paywall tests           | Exact baseline contract preserved                                         | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P5.1  | Rating eligibility requires positive actual cleanup                            | test/static                | Rating/app tests                             | Scan-only/zero/failed/dry-run never prompts; positive moves can prompt    | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P6.1  | Client/server analytics are consented, allowlisted, bucketed                   | test/static                | Client/server analytics tests                | Unknown fields/values are stripped/rejected; no PII/raw counts            | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| P6.2  | Purchase success is server-authoritative and distinct from refresh/restore     | test/static                | Webhook and lifecycle tests                  | Only paid webhook yields purchase event; refresh/restore remains separate | pending                  | `tmp/paid-conversion-*`                               | BLOCKED |
++| EXT.1 | Live Stripe/provider/store/public/revenue outcomes                             | provider/public/production | Authoritative external records               | Fresh external evidence exists                                            | unavailable in this pass | `docs/MONETIZATION_SYSTEM_AUDIT.md` plus verifier log | BLOCKED |
+diff --git a/lib/paid-conversion.ts b/lib/paid-conversion.ts
+new file mode 100644
+index 0000000..67213e1
+--- /dev/null
++++ b/lib/paid-conversion.ts
+@@ -0,0 +1,98 @@
++import type { PlanId } from "./entitlement"
++import type { PhotoProvider } from "./types"
++
++export type UpgradeReason =
++  | "scan"
++  | "groups"
++  | "trash"
++  | "export"
++  | "resume"
++  | "provider"
++
++/** Facts that are safe to show on an upgrade surface when they came from the
++ * current review session. Undefined facts are intentionally omitted. */
++export interface UpgradeValueFacts {
++  provider?: PhotoProvider
++  scopeLabel?: string
++  scopeIsFullLibrary?: boolean
++  itemsChecked?: number
++  additionalItemsUnavailable?: number
++  duplicateGroupCount?: number
++  visibleGroupCount?: number
++  lockedGroupCount?: number
++  selectedCleanupCount?: number
++  remainingTrashMoves?: number | "unlimited"
++}
++
++export interface DeferredUpgradePrompt {
++  reason: UpgradeReason
++  facts: UpgradeValueFacts
++}
++
++export type CheckoutReturnOutcome =
++  | "activated"
++  | "pending"
++  | "failed"
++  | "offline"
++
++export type ActivationOutcome =
++  | "access_reconciled"
++  | "restore"
++  | "not_activated"
++
++export interface CheckoutReturnState {
++  status: "idle" | "pending" | "refreshing" | "active" | "retryable" | "failed"
++  planId?: Exclude<PlanId, "free">
++  outcome?: CheckoutReturnOutcome
++  activation?: ActivationOutcome
++  message?: string
++}
++
++export function shouldShowDeferredUpgrade(
++  deferred: DeferredUpgradePrompt | null | undefined,
++  groupsFound: number,
++  isResultsState: boolean
++): deferred is DeferredUpgradePrompt {
++  return Boolean(deferred && isResultsState && groupsFound > 0)
++}
++
++export function clearDeferredUpgrade(): null {
++  return null
++}
++
++export function formatUpgradeScope(
++  facts: UpgradeValueFacts
++): string | undefined {
++  if (facts.scopeLabel) return facts.scopeLabel
++  if (facts.scopeIsFullLibrary === true) return "your loaded library"
++  return undefined
++}
++
++export function boundedRetryDelays(
++  maxAttempts = 3,
++  initialDelayMs = 0,
++  backoffMs = 500
++): number[] {
++  const attempts = Math.max(1, Math.floor(maxAttempts))
++  const initial = Math.max(0, Math.floor(initialDelayMs))
++  const backoff = Math.max(0, Math.floor(backoffMs))
++  return Array.from({ length: attempts }, (_, index) =>
++    index === 0 ? initial : backoff * 2 ** (index - 1)
++  )
++}
++
++export function describePaidReturnOutcome(
++  outcome: CheckoutReturnOutcome,
++  planLabel: string
++): string {
++  switch (outcome) {
++    case "activated":
++      return `${planLabel} is active. Your review results remain available.`
++    case "offline":
++      return "Could not reach the license service. Keep reviewing free results and retry when online."
++    case "failed":
++      return "Payment could not be verified yet. Refresh the license or retry checkout."
++    case "pending":
++      return "Payment is still being confirmed. Refresh the license when the payment provider finishes."
++  }
++}
+diff --git a/tests/lib/paid-conversion.test.ts b/tests/lib/paid-conversion.test.ts
+new file mode 100644
+index 0000000..5b2b0f8
+--- /dev/null
++++ b/tests/lib/paid-conversion.test.ts
+@@ -0,0 +1,50 @@
++import { describe, expect, it } from "vitest"
++
++import {
++  boundedRetryDelays,
++  clearDeferredUpgrade,
++  describePaidReturnOutcome,
++  formatUpgradeScope,
++  shouldShowDeferredUpgrade,
++  type DeferredUpgradePrompt
++} from "../../lib/paid-conversion"
++
++const deferred: DeferredUpgradePrompt = {
++  reason: "scan",
++  facts: {
++    provider: "google",
++    scopeLabel: "Google Photos library currently loaded",
++    itemsChecked: 1000,
++    additionalItemsUnavailable: 1800
++  }
++}
++
++describe("paid conversion contracts", () => {
++  it("only shows deferred scan value after useful completed results", () => {
++    expect(shouldShowDeferredUpgrade(deferred, 3, true)).toBe(true)
++    expect(shouldShowDeferredUpgrade(deferred, 0, true)).toBe(false)
++    expect(shouldShowDeferredUpgrade(deferred, 3, false)).toBe(false)
++    expect(clearDeferredUpgrade()).toBeNull()
++  })
++
++  it("keeps scope and retry schedule bounded and deterministic", () => {
++    expect(formatUpgradeScope(deferred.facts)).toBe(
++      "Google Photos library currently loaded"
++    )
++    expect(formatUpgradeScope({})).toBeUndefined()
++    expect(boundedRetryDelays(4, 0, 500)).toEqual([0, 500, 1000, 2000])
++    expect(boundedRetryDelays(0, -1, -5)).toEqual([0])
++  })
++
++  it("uses neutral payment-return copy for each bounded outcome", () => {
++    expect(
++      describePaidReturnOutcome("activated", "Lifetime Early Access")
++    ).toMatch(/active/)
++    expect(describePaidReturnOutcome("pending", "Cleanup Pass")).toMatch(
++      /confirmed/
++    )
++    expect(describePaidReturnOutcome("offline", "Cleanup Pass")).toMatch(
++      /license service/
++    )
++  })
++})

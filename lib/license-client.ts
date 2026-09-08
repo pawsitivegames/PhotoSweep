@@ -39,6 +39,7 @@ export interface StoredEntitlement {
 export interface CheckoutResponse {
   url: string
   sessionId: string
+  planId: Exclude<PlanId, "free">
 }
 
 export interface LicenseClientOptions {
@@ -52,10 +53,10 @@ export interface LoadStoredEntitlementOptions {
 }
 
 function base64UrlToBytes(value: string): Uint8Array {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(
-    Math.ceil(value.length / 4) * 4,
-    "="
-  )
+  const padded = value
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(value.length / 4) * 4, "=")
   const binary = atob(padded)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
@@ -83,7 +84,8 @@ function isSignedEntitlementPayload(
   }
   if (
     payload.expiresAt !== undefined &&
-    (typeof payload.expiresAt !== "number" || !Number.isFinite(payload.expiresAt))
+    (typeof payload.expiresAt !== "number" ||
+      !Number.isFinite(payload.expiresAt))
   ) {
     return false
   }
@@ -140,7 +142,10 @@ function devEntitlementAllowed(override?: boolean): boolean {
   )
 }
 
-function parseCheckoutResponse(value: unknown): CheckoutResponse {
+function parseCheckoutResponse(
+  value: unknown,
+  expectedPlanId: Exclude<PlanId, "free">
+): CheckoutResponse {
   if (!value || typeof value !== "object") {
     throw new Error("Checkout response was invalid.")
   }
@@ -157,18 +162,27 @@ function parseCheckoutResponse(value: unknown): CheckoutResponse {
     throw new Error("Checkout response did not include a valid URL.")
   }
   if (!isValidLicenseSessionId(checkout.sessionId)) {
-    throw new Error("Checkout response did not include a valid license session.")
+    throw new Error(
+      "Checkout response did not include a valid license session."
+    )
+  }
+  if (checkout.planId !== expectedPlanId) {
+    throw new Error("Checkout response did not match the requested plan.")
   }
   return {
     url: checkout.url,
-    sessionId: checkout.sessionId
+    sessionId: checkout.sessionId,
+    planId: expectedPlanId
   }
 }
 
 export function getEffectiveLicenseApiBaseUrl(
   storedApiBaseUrl?: string
 ): string | undefined {
-  return LICENSE_API_BASE_URL ?? (ALLOW_DEV_ENTITLEMENT ? storedApiBaseUrl : undefined)
+  return (
+    LICENSE_API_BASE_URL ??
+    (ALLOW_DEV_ENTITLEMENT ? storedApiBaseUrl : undefined)
+  )
 }
 
 export async function verifyEntitlementTokenWithBundledKey(
@@ -188,7 +202,8 @@ export async function loadStoredEntitlement(
   options: LoadStoredEntitlementOptions = {}
 ): Promise<StoredEntitlement> {
   const storageKeys = [ENTITLEMENT_STORAGE_KEY, ENTITLEMENT_TOKEN_STORAGE_KEY]
-  if (DEV_ENTITLEMENT_STORAGE_KEY) storageKeys.unshift(DEV_ENTITLEMENT_STORAGE_KEY)
+  if (DEV_ENTITLEMENT_STORAGE_KEY)
+    storageKeys.unshift(DEV_ENTITLEMENT_STORAGE_KEY)
   const stored = await chrome.storage.local.get(storageKeys)
   const devEntitlement = DEV_ENTITLEMENT_STORAGE_KEY
     ? (stored[DEV_ENTITLEMENT_STORAGE_KEY] as Entitlement | undefined)
@@ -262,7 +277,9 @@ export class LicenseClient {
     return Boolean(this.apiBaseUrl)
   }
 
-  async createCheckout(planId: Exclude<PlanId, "free">): Promise<CheckoutResponse> {
+  async createCheckout(
+    planId: Exclude<PlanId, "free">
+  ): Promise<CheckoutResponse> {
     if (!this.apiBaseUrl) throw new Error("License API is not configured.")
     const response = await this.fetchImpl(`${this.apiBaseUrl}/checkout`, {
       method: "POST",
@@ -271,7 +288,7 @@ export class LicenseClient {
       body: JSON.stringify({ planId })
     })
     if (!response.ok) throw new Error("Could not start checkout.")
-    const checkout = parseCheckoutResponse(await response.json())
+    const checkout = parseCheckoutResponse(await response.json(), planId)
     await chrome.storage.local.set({
       [LICENSE_SESSION_STORAGE_KEY]: checkout.sessionId
     })
@@ -280,12 +297,15 @@ export class LicenseClient {
 
   async recoverLicense(email: string): Promise<void> {
     if (!this.apiBaseUrl) throw new Error("License API is not configured.")
-    const response = await this.fetchImpl(`${this.apiBaseUrl}/license/recover`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email })
-    })
+    const response = await this.fetchImpl(
+      `${this.apiBaseUrl}/license/recover`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email })
+      }
+    )
     if (!response.ok) throw new Error("Could not recover license.")
   }
 
@@ -304,7 +324,8 @@ export class LicenseClient {
     })
     if (!response.ok) throw new Error("Could not refresh entitlement.")
     const data = (await response.json()) as { token?: string }
-    if (!data.token) throw new Error("Entitlement response did not include a token.")
+    if (!data.token)
+      throw new Error("Entitlement response did not include a token.")
     return data.token
   }
 }

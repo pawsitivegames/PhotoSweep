@@ -4,15 +4,15 @@ import {
   DEV_ENTITLEMENT_STORAGE_KEY,
   ENTITLEMENT_STORAGE_KEY,
   ENTITLEMENT_TOKEN_STORAGE_KEY,
-  LICENSE_SESSION_STORAGE_KEY,
-  LICENSE_API_BASE_URL,
-  LicenseClient,
   getEffectiveLicenseApiBaseUrl,
-  loadStoredEntitlement,
   importEntitlementPublicKey,
+  LICENSE_API_BASE_URL,
+  LICENSE_SESSION_STORAGE_KEY,
+  LicenseClient,
+  loadStoredEntitlement,
   saveVerifiedEntitlementToken,
-  verifySignedEntitlementToken,
   verifyEntitlementTokenWithBundledKey,
+  verifySignedEntitlementToken,
   type SignedEntitlementPayload
 } from "../../lib/license-client"
 
@@ -20,7 +20,10 @@ function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
   let binary = ""
   for (const byte of view) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "")
 }
 
 function jsonToBase64Url(value: unknown): string {
@@ -73,7 +76,8 @@ beforeEach(() => {
           return Promise.resolve(result)
         },
         set: (items: Record<string, unknown>, callback?: () => void) => {
-          for (const [key, value] of Object.entries(items)) storage.set(key, value)
+          for (const [key, value] of Object.entries(items))
+            storage.set(key, value)
           callback?.()
           return Promise.resolve()
         }
@@ -90,7 +94,9 @@ describe("verifySignedEntitlementToken", () => {
       issuedAt: 1000
     })
 
-    await expect(verifySignedEntitlementToken(token, publicKey)).resolves.toMatchObject({
+    await expect(
+      verifySignedEntitlementToken(token, publicKey)
+    ).resolves.toMatchObject({
       planId: "lifetime",
       active: true,
       source: "signed_token"
@@ -106,7 +112,10 @@ describe("verifySignedEntitlementToken", () => {
     const editedPayload = jsonToBase64Url({ planId: "lifetime", active: true })
 
     await expect(
-      verifySignedEntitlementToken(`${editedPayload}.${signaturePart}`, publicKey)
+      verifySignedEntitlementToken(
+        `${editedPayload}.${signaturePart}`,
+        publicKey
+      )
     ).resolves.toMatchObject({ planId: "free", active: true, source: "none" })
     expect(payloadPart).not.toBe(editedPayload)
   })
@@ -129,7 +138,9 @@ describe("verifySignedEntitlementToken", () => {
       active: true
     })
 
-    await expect(verifySignedEntitlementToken(token, publicKey)).resolves.toMatchObject({
+    await expect(
+      verifySignedEntitlementToken(token, publicKey)
+    ).resolves.toMatchObject({
       planId: "free",
       active: true,
       source: "none"
@@ -143,7 +154,9 @@ describe("verifySignedEntitlementToken", () => {
       expiresAt: "never"
     })
 
-    await expect(verifySignedEntitlementToken(token, publicKey)).resolves.toMatchObject({
+    await expect(
+      verifySignedEntitlementToken(token, publicKey)
+    ).resolves.toMatchObject({
       planId: "free",
       active: true,
       source: "none"
@@ -163,7 +176,10 @@ describe("verifySignedEntitlementToken", () => {
 
   it("rejects invalid public key material without throwing", async () => {
     await expect(
-      verifyEntitlementTokenWithBundledKey("payload.signature", "not-a-public-key")
+      verifyEntitlementTokenWithBundledKey(
+        "payload.signature",
+        "not-a-public-key"
+      )
     ).resolves.toMatchObject({ planId: "free", active: true, source: "none" })
   })
 })
@@ -251,8 +267,14 @@ describe("loadStoredEntitlement", () => {
     await chrome.storage.local.clear()
     await chrome.storage.local.set({ [ENTITLEMENT_TOKEN_STORAGE_KEY]: token })
 
-    await expect(loadStoredEntitlement({ publicKey: publicKeyValue })).resolves.toMatchObject({
-      entitlement: { planId: "cleanup_pass", active: true, source: "signed_token" }
+    await expect(
+      loadStoredEntitlement({ publicKey: publicKeyValue })
+    ).resolves.toMatchObject({
+      entitlement: {
+        planId: "cleanup_pass",
+        active: true,
+        source: "signed_token"
+      }
     })
   })
 
@@ -265,14 +287,20 @@ describe("loadStoredEntitlement", () => {
     await expect(
       saveVerifiedEntitlementToken(token, publicKeyValue)
     ).resolves.toMatchObject({
-      entitlement: { planId: "mini_cleanup", active: true, source: "signed_token" }
+      entitlement: {
+        planId: "mini_cleanup",
+        active: true,
+        source: "signed_token"
+      }
     })
   })
 })
 
 describe("getEffectiveLicenseApiBaseUrl", () => {
   it("ignores storage API overrides unless dev entitlement builds allow them", () => {
-    const effectiveBaseUrl = getEffectiveLicenseApiBaseUrl("https://attacker.example")
+    const effectiveBaseUrl = getEffectiveLicenseApiBaseUrl(
+      "https://attacker.example"
+    )
 
     expect(effectiveBaseUrl).toBe(LICENSE_API_BASE_URL)
     expect(effectiveBaseUrl).not.toBe("https://attacker.example")
@@ -289,7 +317,11 @@ describe("LicenseClient", () => {
         calls.push({ url: urlString, init: init ?? {} })
         const body = urlString.endsWith("/entitlement")
           ? { token: "payload.signature" }
-          : { url: "https://checkout.example", sessionId: "pls_checkout" }
+          : {
+              url: "https://checkout.example",
+              sessionId: "pls_checkout",
+              planId: "cleanup_pass"
+            }
         return new Response(JSON.stringify(body), {
           status: 200,
           headers: { "content-type": "application/json" }
@@ -297,12 +329,18 @@ describe("LicenseClient", () => {
       }) as typeof fetch
     })
 
-    await client.createCheckout("cleanup_pass")
+    await expect(client.createCheckout("cleanup_pass")).resolves.toEqual({
+      url: "https://checkout.example",
+      sessionId: "pls_checkout",
+      planId: "cleanup_pass"
+    })
     await client.recoverLicense("buyer@example.com")
     await client.fetchEntitlementToken()
 
     expect(calls).toHaveLength(3)
-    expect(calls.every((call) => call.init.credentials === "include")).toBe(true)
+    expect(calls.every((call) => call.init.credentials === "include")).toBe(
+      true
+    )
     await expect(
       chrome.storage.local.get(LICENSE_SESSION_STORAGE_KEY)
     ).resolves.toEqual({

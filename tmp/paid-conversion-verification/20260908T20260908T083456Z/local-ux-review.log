@@ -1,0 +1,73 @@
+(node:38742) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:38743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38743) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:38743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:102:5 › upgrade scope copy, plan comparison, responsive bounds, and keyboard free exit (8.7s)
+(node:38777) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38777) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:38777) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:182:5 › positive cleanup rating copy offers honest review and feedback (40.0s)
+
+
+  1) [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:102:5 › upgrade scope copy, plan comparison, responsive bounds, and keyboard free exit 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: '2 Duplicate Sets to Review', exact: true })
+    Expected: visible
+    Timeout: 8000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 8000ms[22m
+    [2m  - waiting for getByRole('heading', { name: '2 Duplicate Sets to Review', exact: true })[22m
+
+
+      117 |     await expect(
+      118 |       page.getByRole("heading", { name: "2 Duplicate Sets to Review", exact: true })
+    > 119 |     ).toBeVisible({ timeout: 8_000 })
+          |       ^
+      120 |     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+      121 |     const trigger = page.getByRole("button", { name: /Review & move 12 to Trash/i })
+      122 |     await trigger.click()
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:119:7
+
+    Error Context: test-results/local-ux-review-upgrade-sc-9bf5a-unds-and-keyboard-free-exit-chromium-extension/error-context.md
+
+    Error Context: test-results/local-ux-review-upgrade-sc-9bf5a-unds-and-keyboard-free-exit-chromium-extension/error-context.md
+
+  2) [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:182:5 › positive cleanup rating copy offers honest review and feedback 
+
+    [31mTest timeout of 40000ms exceeded.[39m
+
+    Error: browserContext.newPage: Protocol error (Target.createTarget): Failed to open a new tab
+
+       at ../../../tests/e2e/fixtures/extension.ts:40
+
+      38 |   }
+      39 |
+    > 40 |   const page = await context.newPage()
+         |                              ^
+      41 |   // A static extension resource gives this page chrome.storage access without
+      42 |   // booting the app, whose startup effects would race test storage setup.
+      43 |   await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+        at openExtensionStoragePage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:40:30)
+        at withExtensionStorage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:211:22)
+        at clearStorage (/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tests/e2e/fixtures/extension.ts:322:9)
+        at /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:235:23
+
+    Error Context: test-results/local-ux-review-positive-c-ae5e8--honest-review-and-feedback-chromium-extension/error-context.md
+
+    Error Context: test-results/local-ux-review-positive-c-ae5e8--honest-review-and-feedback-chromium-extension/error-context.md
+
+  2 failed
+    [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:102:5 › upgrade scope copy, plan comparison, responsive bounds, and keyboard free exit 
+    [chromium-extension] › tmp/paid-conversion-verification/20260908T20260908T083456Z/local-ux-review.spec.ts:182:5 › positive cleanup rating copy offers honest review and feedback 
