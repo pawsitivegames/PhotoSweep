@@ -120,7 +120,9 @@ jobs:
           key: bench-history-${{ github.sha }}
           restore-keys: bench-history-
 
-      # Compare against a rolling median to reduce shared-runner noise.
+      # Compare against a rolling median. A uniform slowdown across every
+      # bench is classified as shared-runner noise; a single-path or 2×
+      # move still fails.
       - name: Check for regressions
         run: node tools/check-bench.mjs
 
