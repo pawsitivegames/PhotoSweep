@@ -85,6 +85,10 @@ By default it listens on `127.0.0.1:8787` and uses
     effective entitlement remains the highest valid purchase in that browser
     session, so refunding one purchase cannot revoke unrelated paid access. A
     partial refund does not revoke the whole purchase.
+  - If a dispute or full refund arrives before the matching Checkout Session is
+    activated, the revocation is stored by PaymentIntent, Checkout Session, and
+    Charge id and applied when that payment is later activated. A
+    dispute-before-activate race cannot unlock paid access.
   - Deduplicates events by Stripe event id.
 
 ## Plans
@@ -189,6 +193,9 @@ browser session:
 - `getSessionIdByStripeCustomerId(customerId)`
 - `getSessionIdByStripeCheckoutSessionId(checkoutSessionId)`
 - `getSessionIdByStripePaymentIntentId(paymentIntentId)`
+- `recordPendingStripeRevocation({ paymentIntentId, checkoutSessionId, chargeId, reason })`
+  for refund/dispute events that arrive before a matching license exists
+- `getPendingStripeRevocation({ paymentIntentId, checkoutSessionId, chargeId })`
 - `hasProcessedStripeEvent(eventId)`
 - `markStripeEventProcessed(eventId)`
 - `recordAnalyticsEvent(event)` for privacy-safe funnel/reliability events.
