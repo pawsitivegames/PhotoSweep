@@ -1,6 +1,6 @@
 # PhotoSweep Privacy Policy
 
-Last updated: 2026-07-21
+Last updated: 2026-09-08
 
 ## Summary
 
@@ -20,6 +20,8 @@ review, report, Trash, undo, and diagnostics features:
 - duplicate groups, review decisions, keep/skip choices, scan checkpoints, and
   locally generated reports
 - local embedding/cache data used to avoid repeating expensive duplicate analysis
+- license session id used to refresh paid access after checkout or recovery
+- signed entitlement token state cached for offline/paid-access checks
 - a provider account email or identifier exposed by a signed-in provider page,
   when needed to associate saved scan state with the provider account
 
