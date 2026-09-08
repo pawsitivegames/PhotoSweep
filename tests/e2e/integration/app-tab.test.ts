@@ -26,6 +26,26 @@ test.beforeAll(async () => {
   ;({ context, extensionId } = await launchExtension())
 })
 
+test.beforeEach(async () => {
+  // Shared persistent context can die after checkout-tab teardown flakes.
+  // Relaunch once so later tests are not stranded on a closed BrowserContext.
+  try {
+    const probe = await context.newPage()
+    await probe.close()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (
+      !message.includes("has been closed") &&
+      !message.includes("Target.createTarget") &&
+      !message.includes("Failed to open a new tab")
+    ) {
+      throw error
+    }
+    await context.close().catch(() => {})
+    ;({ context, extensionId } = await launchExtension())
+  }
+})
+
 test.afterAll(async () => {
   await context.close()
 })
