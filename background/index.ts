@@ -6,6 +6,11 @@ import {
   providerTabPatterns
 } from "../lib/provider-operations"
 import { ProviderConnectionSession } from "../lib/provider-connection-session"
+import {
+  isAllowedLicenseSessionSender,
+  isLicenseSessionExternalMessage,
+  LICENSE_SESSION_STORAGE_KEY
+} from "../lib/license-session"
 import { APP_ID } from "../lib/types"
 import type {
   AppMessage,
@@ -39,6 +44,46 @@ type ChromeWithSidePanel = typeof chrome & {
 const sidePanelApi = (chrome as ChromeWithSidePanel).sidePanel
 const SIDE_PANEL_PATH = "tabs/scanner-panel.html"
 const GPTK_COMMAND_TIMEOUT_MS = 3500
+
+type ManifestWithExternalConnectable = {
+  externally_connectable?: {
+    matches?: unknown
+  }
+}
+
+function externalMessageMatchPatterns(): readonly string[] {
+  try {
+    const manifest = chrome.runtime.getManifest() as unknown as
+      ManifestWithExternalConnectable
+    const matches = manifest.externally_connectable?.matches
+    return Array.isArray(matches)
+      ? matches.filter((match): match is string => typeof match === "string")
+      : []
+  } catch {
+    return []
+  }
+}
+
+const externalLicenseSessionMatchPatterns = externalMessageMatchPatterns()
+
+export async function handleExternalLicenseSessionMessage(
+  message: unknown,
+  senderUrl: unknown,
+  matchPatterns: readonly string[] = externalLicenseSessionMatchPatterns,
+  storage: Pick<chrome.storage.StorageArea, "set"> = chrome.storage.local
+): Promise<boolean> {
+  if (
+    !isLicenseSessionExternalMessage(message) ||
+    !isAllowedLicenseSessionSender(senderUrl, matchPatterns)
+  ) {
+    return false
+  }
+
+  await storage.set({
+    [LICENSE_SESSION_STORAGE_KEY]: message.licenseSessionId
+  })
+  return true
+}
 
 function disableDefaultSidePanel(): void {
   if (!sidePanelApi?.setOptions) return
@@ -1010,6 +1055,23 @@ chrome.runtime.onMessage.addListener(
     }
   }
 )
+
+chrome.runtime.onMessageExternal?.addListener((message, sender, sendResponse) => {
+  void handleExternalLicenseSessionMessage(
+    message,
+    sender.url,
+    externalLicenseSessionMatchPatterns
+  ).then(
+    (accepted) =>
+      sendResponse(
+        accepted
+          ? { ok: true }
+          : { ok: false, error: "Invalid license session message or sender." }
+      ),
+    () => sendResponse({ ok: false, error: "Could not store license session." })
+  )
+  return true
+})
 
 // ============================================================
 // Handlers

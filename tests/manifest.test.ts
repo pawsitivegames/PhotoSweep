@@ -18,6 +18,14 @@ describe("extension manifest", () => {
     )
   })
 
+  it("allows the license API origin to handshake", () => {
+    expect(packageJson.manifest.externally_connectable.matches).toEqual(
+      expect.arrayContaining([
+        "$PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION"
+      ])
+    )
+  })
+
   it("keeps extension pages on bundled scripts only", () => {
     expect(packageJson.manifest.content_security_policy.extension_pages).toBe(
       "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

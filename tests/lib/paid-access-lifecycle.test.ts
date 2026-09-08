@@ -22,7 +22,10 @@ function fixture(options?: {
   configured?: boolean
 }) {
   const fetchEntitlementToken = vi.fn(async () => "fresh-token")
-  const createCheckout = vi.fn(async () => ({ url: "https://checkout.test" }))
+  const createCheckout = vi.fn(async () => ({
+    url: "https://checkout.test",
+    sessionId: "pls_checkout"
+  }))
   const recoverLicense = vi.fn(async () => {})
   const client: PaidAccessClient = {
     isConfigured: () => options?.configured !== false,
@@ -98,7 +101,8 @@ describe("PaidAccessLifecycle", () => {
     await subject.lifecycle.initialize()
 
     expect(await subject.lifecycle.createCheckout("lifetime")).toEqual({
-      url: "https://checkout.test"
+      url: "https://checkout.test",
+      sessionId: "pls_checkout"
     })
     await subject.lifecycle.recover("buyer@example.com")
     const refreshed = await subject.lifecycle.refresh()

@@ -4,8 +4,16 @@ import {
   ALLOW_DEV_ENTITLEMENT,
   DEV_ENTITLEMENT_STORAGE_KEY
 } from "./generated/build-flags"
+import {
+  isValidLicenseSessionId,
+  LICENSE_SESSION_STORAGE_KEY
+} from "./license-session"
 
-export { ALLOW_DEV_ENTITLEMENT, DEV_ENTITLEMENT_STORAGE_KEY }
+export {
+  ALLOW_DEV_ENTITLEMENT,
+  DEV_ENTITLEMENT_STORAGE_KEY,
+  LICENSE_SESSION_STORAGE_KEY
+}
 
 export const ENTITLEMENT_STORAGE_KEY = "photoSweepEntitlement"
 export const ENTITLEMENT_TOKEN_STORAGE_KEY = "photoSweepEntitlementToken"
@@ -30,6 +38,7 @@ export interface StoredEntitlement {
 
 export interface CheckoutResponse {
   url: string
+  sessionId: string
 }
 
 export interface LicenseClientOptions {
@@ -129,6 +138,31 @@ function devEntitlementAllowed(override?: boolean): boolean {
     DEV_ENTITLEMENT_STORAGE_KEY !== undefined &&
     (override ?? ALLOW_DEV_ENTITLEMENT)
   )
+}
+
+function parseCheckoutResponse(value: unknown): CheckoutResponse {
+  if (!value || typeof value !== "object") {
+    throw new Error("Checkout response was invalid.")
+  }
+  const checkout = value as Record<string, unknown>
+  if (typeof checkout.url !== "string" || !checkout.url) {
+    throw new Error("Checkout response did not include a valid URL.")
+  }
+  try {
+    const url = new URL(checkout.url)
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error()
+    }
+  } catch {
+    throw new Error("Checkout response did not include a valid URL.")
+  }
+  if (!isValidLicenseSessionId(checkout.sessionId)) {
+    throw new Error("Checkout response did not include a valid license session.")
+  }
+  return {
+    url: checkout.url,
+    sessionId: checkout.sessionId
+  }
 }
 
 export function getEffectiveLicenseApiBaseUrl(
@@ -237,7 +271,11 @@ export class LicenseClient {
       body: JSON.stringify({ planId })
     })
     if (!response.ok) throw new Error("Could not start checkout.")
-    return response.json() as Promise<CheckoutResponse>
+    const checkout = parseCheckoutResponse(await response.json())
+    await chrome.storage.local.set({
+      [LICENSE_SESSION_STORAGE_KEY]: checkout.sessionId
+    })
+    return checkout
   }
 
   async recoverLicense(email: string): Promise<void> {
@@ -253,8 +291,16 @@ export class LicenseClient {
 
   async fetchEntitlementToken(): Promise<string> {
     if (!this.apiBaseUrl) throw new Error("License API is not configured.")
+    const stored = await chrome.storage.local.get(LICENSE_SESSION_STORAGE_KEY)
+    const storedSessionId = stored[LICENSE_SESSION_STORAGE_KEY]
+    const sessionId = isValidLicenseSessionId(storedSessionId)
+      ? storedSessionId
+      : undefined
     const response = await this.fetchImpl(`${this.apiBaseUrl}/entitlement`, {
-      credentials: "include"
+      credentials: "include",
+      ...(sessionId
+        ? { headers: { "x-photosweep-license-session": sessionId } }
+        : {})
     })
     if (!response.ok) throw new Error("Could not refresh entitlement.")
     const data = (await response.json()) as { token?: string }
