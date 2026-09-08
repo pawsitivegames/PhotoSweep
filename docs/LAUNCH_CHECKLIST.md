@@ -1,6 +1,6 @@
 # PhotoSweep Paid Launch Checklist
 
-Last updated: 2026-09-06
+Last updated: 2026-09-08
 
 Use this as the release gate for paid multi-provider support. Do not mark a paid
 launch complete until every item has current evidence.
@@ -52,15 +52,22 @@ launch complete until every item has current evidence.
   - `PHOTOSWEEP_CHECKOUT_CANCEL_URL`
   - `PHOTOSWEEP_RECOVERY_BASE_URL`
   - `PHOTOSWEEP_RECOVERY_REDIRECT_URL`
-  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL` (optional webhook sender)
-  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET` (optional webhook auth)
-  - `PHOTOSWEEP_SMTP_HOST` (set with `PHOTOSWEEP_SMTP_FROM` for SMTP fallback)
+  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL` (preferred Resend receiver sender)
+  - `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET` (shared bearer auth)
+  - `PHOTOSWEEP_SMTP_HOST` (temporary SMTP fallback; set with `PHOTOSWEEP_SMTP_FROM`)
   - `PHOTOSWEEP_SMTP_PORT` (optional; placeholder value)
   - `PHOTOSWEEP_SMTP_USER` (optional Secret Manager mapping)
   - `PHOTOSWEEP_SMTP_PASS` (optional Secret Manager mapping)
   - `PHOTOSWEEP_SMTP_FROM` (required with SMTP host)
   - `PHOTOSWEEP_SMTP_SECURE=0` (optional non-implicit-TLS mode)
   - `PHOTOSWEEP_COOKIE_SECURE=1`
+- Leave `PHOTOSWEEP_UNSAFE_EMAIL_RECOVERY` unset. Do not enable the unsafe
+  email-only cookie rebind in any launch environment.
+- Keep SMTP configured as the temporary fallback while the Resend receiver is
+  owner-approved. The receiver scaffold and its `photosweep-prod` wiring are in
+  `server/recovery-email-webhook/README.md`; its `RESEND_API_KEY` and
+  `RESEND_FROM` values belong on the receiver, not in the license API's sender
+  configuration.
 - CoS owns the production SMTP credentials and their Secret Manager rotation
   record. Create `<SMTP_USER_SECRET_NAME>` and `<SMTP_PASS_SECRET_NAME>`, grant
   `<CLOUD_RUN_SERVICE_ACCOUNT>` the narrow `roles/secretmanager.secretAccessor`
@@ -76,14 +83,26 @@ launch complete until every item has current evidence.
   Follow the Secret Manager creation, IAM, and rotation steps in
   `docs/LICENSING_BACKEND.md`; do not put secret values in this repository.
 
+- After the owner verifies the Resend sending domain and approves deployment,
+  deploy the receiver scaffold and update the existing license API using the
+  placeholder-only `gcloud` commands in its README. Use
+  `--project=photosweep-prod`, map `RESEND_API_KEY` and the shared webhook
+  secret from Secret Manager, and set both `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL`
+  and `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET` on the license API.
+
 - Use the verified Cloud Run license API origin currently injected by the
   release workflows:
   `https://photosweep-license-api-206538169327.us-west1.run.app`.
 - Verify:
   - `POST /checkout` opens Stripe Checkout externally.
   - `GET /entitlement` returns a signed token.
-  - `POST /license/recover` returns a generic acknowledgement and sends a
-    signed recovery link through the selected webhook or SMTP sender.
+  - `POST /license/recover` returns the same generic acknowledgement for valid
+    missing, inactive, refunded, and active-email requests; only an active
+    license sends a signed recovery link through the selected webhook or SMTP
+    sender.
+  - `GET /license/recover/complete` sets a session cookie only for a matching
+    active license. Missing, inactive, refunded, and email-mismatched recovery
+    tokens redirect to `?license_recovery=invalid` without a cookie.
   - `POST /analytics` accepts only sanitized bucketed events.
   - `POST /stripe/webhook` rejects unsigned requests.
 
