@@ -830,7 +830,14 @@ export async function handleRecoverLicense(request, env, store) {
   if (!email || !email.includes("@"))
     return badRequest("A valid email is required.")
   const sessionId = await store.getSessionIdByEmail(email)
-  if (sessionId && typeof store.sendRecoveryEmail === "function") {
+  const license = sessionId
+    ? await store.getLicenseBySessionId(sessionId)
+    : undefined
+  if (
+    sessionId &&
+    license?.status === "active" &&
+    typeof store.sendRecoveryEmail === "function"
+  ) {
     const token = createRecoveryToken(
       {
         email,
@@ -873,6 +880,8 @@ export async function handleCompleteLicenseRecovery(request, env, store) {
   const license = await store.getLicenseBySessionId(payload.sessionId)
   if (
     !license ||
+    license.status !== "active" ||
+    typeof license.email !== "string" ||
     license.email?.toLowerCase() !== payload.email.toLowerCase()
   ) {
     return new Response(null, {

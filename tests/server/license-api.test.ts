@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import crypto from "node:crypto"
 import fs from "node:fs/promises"
 import os from "node:os"
@@ -858,6 +860,110 @@ describe("license API", () => {
     expect(complete.headers.get("location")).toBe(
       "https://photosweep.test/recovered?license_recovery=ok"
     )
+    expect(complete.headers.get("set-cookie")).toContain(
+      "photosweep_license_session=pls_recover"
+    )
+  })
+
+  it("does not send recovery email for inactive or refunded licenses", async () => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const sent: Array<{ email: string; recoveryUrl: string }> = []
+
+    for (const [status, email] of [
+      ["inactive", "inactive@example.com"],
+      ["refunded", "refunded@example.com"]
+    ] as const) {
+      await store.upsertLicense({
+        sessionId: `pls_${status}`,
+        planId: "lifetime",
+        status,
+        email,
+        purchasedAt: "2024-01-01T00:00:00.000Z"
+      })
+    }
+
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store: {
+        ...store,
+        async sendRecoveryEmail(message) {
+          sent.push(message)
+        }
+      }
+    })
+
+    for (const email of ["inactive@example.com", "refunded@example.com"]) {
+      const response = await api(
+        new Request("https://photosweep.test/license/recover", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email })
+        })
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ ok: true })
+    }
+
+    expect(sent).toEqual([])
+  })
+
+  it("rejects inactive, refunded, and missing recovery licenses without a cookie", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const sent: Array<{ email: string; recoveryUrl: string }> = []
+    const license = {
+      sessionId: "pls_completion",
+      planId: "lifetime",
+      email: "buyer@example.com",
+      purchasedAt: "2024-01-01T00:00:00.000Z"
+    }
+
+    await store.upsertLicense({ ...license, status: "active" })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store: {
+        ...store,
+        async sendRecoveryEmail(message) {
+          sent.push(message)
+        }
+      }
+    })
+
+    const recover = await api(
+      new Request("https://photosweep.test/license/recover", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: license.email })
+      })
+    )
+    expect(recover.status).toBe(200)
+    expect(sent).toHaveLength(1)
+
+    for (const status of ["inactive", "refunded"] as const) {
+      await store.upsertLicense({ ...license, status })
+      const response = await api(new Request(sent[0].recoveryUrl))
+
+      expect(response.status).toBe(302)
+      expect(response.headers.get("location")).toBe(
+        "https://photosweep.test/recovered?license_recovery=invalid"
+      )
+      expect(response.headers.get("set-cookie")).toBeNull()
+    }
+
+    const missingApi = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store: createMemoryLicenseStore()
+    })
+    const missing = await missingApi(new Request(sent[0].recoveryUrl))
+
+    expect(missing.status).toBe(302)
+    expect(missing.headers.get("location")).toBe(
+      "https://photosweep.test/recovered?license_recovery=invalid"
+    )
+    expect(missing.headers.get("set-cookie")).toBeNull()
   })
 
   it("rejects edited recovery tokens", async () => {

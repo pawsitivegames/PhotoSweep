@@ -35,9 +35,10 @@ By default it listens on `127.0.0.1:8787` and uses
 
   - Body: `{ "email": "buyer@example.com" }`
   - Default behavior is privacy-preserving acknowledgement only.
-  - If the store provides `sendRecoveryEmail({ email, recoveryUrl })`, the API
-    sends a short-lived signed recovery link without revealing whether the email
-    exists.
+  - The API sends a short-lived signed recovery link only when the email maps to
+    a license whose status is exactly `active`.
+  - Missing, inactive, and refunded licenses receive the same `{ "ok": true }`
+    acknowledgement and never trigger recovery email delivery.
   - Recovery links expire after 24 hours.
   - The included Node adapter can provide that method through a generic webhook
     by setting `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL`.
@@ -48,9 +49,13 @@ By default it listens on `127.0.0.1:8787` and uses
 
 - `GET /license/recover/complete?token=...`
 
-  - Verifies the signed recovery token.
-  - Sets the `photosweep_license_session` cookie.
-  - Redirects to `PHOTOSWEEP_RECOVERY_REDIRECT_URL` or checkout success URL.
+  - Verifies the signed recovery token and requires a matching `active` license.
+  - Sets the `photosweep_license_session` cookie only for that active-license
+    path.
+  - Redirects invalid, missing, inactive, refunded, or email-mismatched tokens
+    to `?license_recovery=invalid` without setting a cookie.
+  - Redirects successful recovery to `PHOTOSWEEP_RECOVERY_REDIRECT_URL` or the
+    checkout success URL.
 
 - `POST /analytics`
 
@@ -178,16 +183,18 @@ For the included Node server, sender selection is, in order: an explicit
 `recoveryEmailSender` passed to `createNodeRequestHandler()`, the webhook when
 `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL` is set, the in-process SMTP sender when
 both SMTP activation variables are set, and then no sender. An existing
-`store.sendRecoveryEmail` implementation remains in place.
+`store.sendRecoveryEmail` implementation remains in place. The webhook is the
+preferred migration path; SMTP remains a temporary fallback while Resend is
+being approved and wired.
 
 The webhook sender accepts:
 
 ```bash
 PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL=https://mail-automation.example/photosweep/recovery
-PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET=replace-with-random-shared-secret
+PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET=<RECOVERY_WEBHOOK_SECRET_VALUE>
 ```
 
-When a matching license email exists, the server posts:
+When an active license email matches, the server posts:
 
 ```json
 {
@@ -200,6 +207,20 @@ When a matching license email exists, the server posts:
 If `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET` is set, the request includes an
 `Authorization: Bearer ...` header. The mailer should send only the recovery
 link and should not echo whether a license exists back to the extension.
+
+### Resend Cloud Run receiver
+
+`server/recovery-email-webhook/` contains a dependency-free Cloud Run scaffold
+that accepts the webhook contract above and calls `https://api.resend.com/emails`.
+It uses `RESEND_API_KEY` and `RESEND_FROM`, with the optional shared bearer
+secret in `PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET`. The receiver README has
+placeholder-only `gcloud` wiring for the `photosweep-prod` project and the
+license API update. The owner must verify the Resend sending domain and approve
+deployment; no domain, API key, or secret is supplied by this repository.
+
+Keep the existing SMTP sender configured during the migration. The Node adapter
+uses SMTP only when the webhook URL is absent, and the SMTP message remains the
+same plain recovery-link message described below.
 
 The in-process SMTP sender accepts these variables. `USER` and `PASS` are
 optional, but must be supplied together when used:
@@ -222,10 +243,12 @@ text with subject `PhotoSweep license recovery`, and its body is exactly the
 
 ### CoS-owned production secrets
 
-The Chief of Staff (CoS) owns the production SMTP credentials, Secret Manager
-entries, access grants, and rotation record. Keep secret values out of the
-repository and documentation. Use placeholders for the actual project, service,
-secret, version, and file identifiers:
+The Chief of Staff (CoS) owns the production Resend API key, SMTP fallback
+credentials, Secret Manager entries, access grants, and rotation record. Keep
+secret values out of the repository and documentation. Use placeholders for the
+actual project, service, secret, version, and file identifiers. Resend domain
+verification and deployment remain owner-gated; use the receiver README only
+after that approval.
 
 1. CoS creates or rotates separate Secret Manager entries for the SMTP username
    and password, using the approved secret material outside this repository.
