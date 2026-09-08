@@ -26,6 +26,26 @@ test.beforeAll(async () => {
   ;({ context, extensionId } = await launchExtension())
 })
 
+test.beforeEach(async () => {
+  // Shared persistent context can die after checkout-tab teardown flakes.
+  // Relaunch once so later tests are not stranded on a closed BrowserContext.
+  try {
+    const probe = await context.newPage()
+    await probe.close()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (
+      !message.includes("has been closed") &&
+      !message.includes("Target.createTarget") &&
+      !message.includes("Failed to open a new tab")
+    ) {
+      throw error
+    }
+    await context.close().catch(() => {})
+    ;({ context, extensionId } = await launchExtension())
+  }
+})
+
 test.afterAll(async () => {
   await context.close()
 })
@@ -563,10 +583,10 @@ test("does not open a stale checkout tab after results reset", async () => {
     ).toHaveLength(0)
   } finally {
     releaseCheckout()
-    await page.close()
-    await stub.close()
     await context.unroute(`${apiBaseUrl}/checkout`)
     await clearStorage(context)
+    await page.close()
+    await stub.close()
   }
 })
 
@@ -657,6 +677,9 @@ test("keeps the free-results exit clickable after an unverified checkout return"
     ).toBeVisible()
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
   } finally {
+    await context.unroute(`${apiBaseUrl}/checkout`)
+    await context.unroute(`${apiBaseUrl}/entitlement`)
+    await clearStorage(context)
     for (const candidate of context.pages()) {
       if (candidate !== page && candidate !== stub) {
         await candidate.close().catch(() => {})
@@ -664,9 +687,6 @@ test("keeps the free-results exit clickable after an unverified checkout return"
     }
     await page.close()
     await stub.close()
-    await context.unroute(`${apiBaseUrl}/checkout`)
-    await context.unroute(`${apiBaseUrl}/entitlement`)
-    await clearStorage(context)
   }
 })
 

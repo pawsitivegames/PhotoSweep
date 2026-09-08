@@ -37,11 +37,29 @@ async function openExtensionStoragePage(
     throw new Error("Extension ID is unavailable for the test context.")
   }
 
-  const page = await context.newPage()
-  // A static extension resource gives this page chrome.storage access without
-  // booting the app, whose startup effects would race test storage setup.
-  await page.goto(`chrome-extension://${extensionId}/manifest.json`)
-  return page
+  // Chromium extension contexts occasionally fail Target.createTarget when
+  // opening a helper tab (CI flake). Retry before failing the suite.
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const page = await context.newPage()
+      // A static extension resource gives this page chrome.storage access without
+      // booting the app, whose startup effects would race test storage setup.
+      await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+      return page
+    } catch (error) {
+      lastError = error
+      const message = error instanceof Error ? error.message : String(error)
+      if (
+        !message.includes("Target.createTarget") &&
+        !message.includes("Failed to open a new tab")
+      ) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
+    }
+  }
+  throw lastError
 }
 
 // ============================================================
@@ -319,11 +337,26 @@ export async function readLocalStorage(
 }
 
 export async function clearStorage(context: BrowserContext): Promise<void> {
-  await withExtensionStorage(context, (page) =>
-    page.evaluate(
-      () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+  // Best-effort: Playwright Chromium extension contexts sometimes reject
+  // helper tabs during teardown (createTarget / closed context). Do not fail
+  // an otherwise-passing test from cleanup alone.
+  try {
+    await withExtensionStorage(context, (page) =>
+      page.evaluate(
+        () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+      )
     )
-  )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (
+      message.includes("Target.createTarget") ||
+      message.includes("Failed to open a new tab") ||
+      message.includes("has been closed")
+    ) {
+      return
+    }
+    throw error
+  }
 }
 
 // ============================================================

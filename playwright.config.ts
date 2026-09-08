@@ -6,6 +6,9 @@ export default defineConfig({
   testDir: "tests/e2e/integration",
   timeout: 30_000,
   retries: 0,
+  // One Chromium extension context per worker; parallel workers flake on
+  // Target.createTarget / closed-context helper tabs under Xvfb.
+  workers: 1,
   reporter: "list",
   projects: [
     {

@@ -6,7 +6,9 @@ import { dirname } from "path"
 
 import { extractMeans } from "./bench-lib.mjs"
 
-const MAX_HISTORY = 5
+const MAX_HISTORY = 10
+// Keep enough main-branch samples that a lucky-fast cluster cannot
+// dominate the median after a few typical shared-runner runs.
 const HISTORY_PATH = "tests/perf/bench-history.json"
 
 const history = existsSync(HISTORY_PATH)
