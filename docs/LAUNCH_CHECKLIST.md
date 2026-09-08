@@ -44,6 +44,7 @@ launch complete until every item has current evidence.
   - `STRIPE_SECRET_KEY`
   - `STRIPE_WEBHOOK_SECRET`
   - `PHOTOSWEEP_ALLOWED_ORIGINS`
+  - `PHOTOSWEEP_EXTENSION_ID`
   - `PHOTOSWEEP_ENTITLEMENT_PRIVATE_KEY`
   - `PHOTOSWEEP_STRIPE_PRICE_MINI_CLEANUP`
   - `PHOTOSWEEP_STRIPE_PRICE_CLEANUP_PASS_7D`
@@ -94,7 +95,10 @@ launch complete until every item has current evidence.
   release workflows:
   `https://photosweep-license-api-206538169327.us-west1.run.app`.
 - Verify:
-  - `POST /checkout` opens Stripe Checkout externally.
+  - `POST /checkout` opens Stripe Checkout externally, returns `sessionId`, and
+    sets the same session id in `photosweep_license_session`.
+  - Stripe `success_url` points to the API `/checkout/success` page with
+    `licenseSessionId` in its query.
   - `GET /entitlement` returns a signed token.
   - `POST /license/recover` returns the same generic acknowledgement for valid
     missing, inactive, refunded, and active-email requests; only an active
@@ -105,6 +109,8 @@ launch complete until every item has current evidence.
     tokens redirect to `?license_recovery=invalid` without a cookie.
   - `POST /analytics` accepts only sanitized bucketed events.
   - `POST /stripe/webhook` rejects unsigned requests.
+  - Checkout success and valid recovery-complete pages contain the external
+    handshake; missing extension runtime/id does not break the page.
 
 ## 3. Extension Production Build
 
@@ -112,6 +118,7 @@ launch complete until every item has current evidence.
 
   ```bash
   PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://photosweep-license-api-206538169327.us-west1.run.app
+  PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=https://photosweep-license-api-206538169327.us-west1.run.app/*
   PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=BASE64URL_SPKI_PUBLIC_KEY
   PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=0
   ```
@@ -128,6 +135,11 @@ launch complete until every item has current evidence.
 - Confirm client telemetry remains off until the in-product disclosure is accepted.
 - Confirm extension pages do not load remote executable JavaScript.
 - Confirm manifest host permissions include the deployed license API origin.
+- Confirm `externally_connectable.matches` includes the deployed license API
+  origin and every documented checkout/recovery redirect origin.
+- Confirm a fresh checkout and a valid recovery link persist
+  `photoSweepLicenseSessionId`; entitlement refresh sends it in
+  `x-photosweep-license-session` while retaining credentials.
 
 ## 4. Policy And Store Pages
 

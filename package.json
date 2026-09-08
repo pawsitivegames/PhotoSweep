@@ -71,6 +71,11 @@
     "side_panel": {
       "default_path": "tabs/scanner-panel.html"
     },
+    "externally_connectable": {
+      "matches": [
+        "$PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION"
+      ]
+    },
     "permissions": [
       "activeTab",
       "sidePanel",

@@ -53,10 +53,12 @@ function envFor(privateKey: string): Record<string, string> {
     PHOTOSWEEP_STRIPE_PRICE_MINI_CLEANUP: "price_mini",
     PHOTOSWEEP_STRIPE_PRICE_CLEANUP_PASS_7D: "price_pass",
     PHOTOSWEEP_STRIPE_PRICE_LIFETIME_EARLY_ACCESS: "price_lifetime",
-    PHOTOSWEEP_CHECKOUT_SUCCESS_URL: "https://photosweep.test/success",
+    PHOTOSWEEP_CHECKOUT_SUCCESS_URL:
+      "https://license.test/checkout/success?session_id={CHECKOUT_SESSION_ID}",
     PHOTOSWEEP_CHECKOUT_CANCEL_URL: "https://photosweep.test/cancel",
     PHOTOSWEEP_RECOVERY_BASE_URL: "https://license.test",
-    PHOTOSWEEP_RECOVERY_REDIRECT_URL: "https://photosweep.test/recovered"
+    PHOTOSWEEP_RECOVERY_REDIRECT_URL: "https://photosweep.test/recovered",
+    PHOTOSWEEP_EXTENSION_ID: "test-extension-id"
   }
 }
 
@@ -101,9 +103,23 @@ describe("license API", () => {
     )
 
     expect(checkoutResponse.status).toBe(200)
+    const checkoutBody = (await checkoutResponse.json()) as {
+      url: string
+      sessionId: string
+    }
     const stripeBody = stripeCalls[0].init.body as URLSearchParams
     const licenseSessionId = stripeBody.get("metadata[licenseSessionId]")
     expect(licenseSessionId).toBeTruthy()
+    expect(checkoutBody).toEqual({
+      url: "https://checkout.stripe.test/cs_test_123",
+      sessionId: licenseSessionId
+    })
+    expect(checkoutResponse.headers.get("set-cookie")).toContain(
+      `photosweep_license_session=${licenseSessionId}`
+    )
+    expect(stripeBody.get("success_url")).toBe(
+      `https://license.test/checkout/success?session_id={CHECKOUT_SESSION_ID}&licenseSessionId=${licenseSessionId}`
+    )
     expect(stripeBody.get("line_items[0][price]")).toBe("price_pass")
     expect(stripeBody.get("metadata[planId]")).toBe("cleanup_pass")
     expect(stripeBody.get("metadata[licenseSessionId]")).toBe(licenseSessionId)
@@ -166,6 +182,29 @@ describe("license API", () => {
         planId: "cleanup_pass"
       })
     ])
+  })
+
+  it("hands a checkout session to the extension from the success page", async () => {
+    const keys = testKeys()
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store: createMemoryLicenseStore()
+    })
+
+    const response = await api(
+      new Request(
+        "https://license.test/checkout/success?licenseSessionId=pls_success"
+      )
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("set-cookie")).toContain(
+      "photosweep_license_session=pls_success"
+    )
+    const html = await response.text()
+    expect(html).toContain('type: "photosweep-license-session"')
+    expect(html).toContain("test-extension-id")
+    expect(html).toContain("pls_success")
   })
 
   it("waits for delayed payment success before activating access", async () => {
@@ -272,7 +311,8 @@ describe("license API", () => {
     expect(checkout.status).toBe(200)
     const checkoutBody = await checkout.json()
     expect(checkoutBody).toMatchObject({
-      url: "https://checkout.stripe.test/cs_test_456"
+      url: "https://checkout.stripe.test/cs_test_456",
+      sessionId: expect.stringMatching(/^pls_/)
     })
     const snapshotBeforeWebhook = store.snapshot()
     expect(snapshotBeforeWebhook.licensesBySessionId).toEqual({})
@@ -856,13 +896,16 @@ describe("license API", () => {
     )
 
     const complete = await api(new Request(sent[0].recoveryUrl))
-    expect(complete.status).toBe(302)
-    expect(complete.headers.get("location")).toBe(
-      "https://photosweep.test/recovered?license_recovery=ok"
-    )
+    expect(complete.status).toBe(200)
+    expect(complete.headers.get("location")).toBeNull()
     expect(complete.headers.get("set-cookie")).toContain(
       "photosweep_license_session=pls_recover"
     )
+    const completeHtml = await complete.text()
+    expect(completeHtml).toContain('type: "photosweep-license-session"')
+    expect(completeHtml).toContain("test-extension-id")
+    expect(completeHtml).toContain("pls_recover")
+    expect(completeHtml).toContain("license_recovery=ok")
   })
 
   it("does not send recovery email for inactive or refunded licenses", async () => {

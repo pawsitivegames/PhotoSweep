@@ -21,15 +21,25 @@ By default it listens on `127.0.0.1:8787` and uses
   - Body: `{ "planId": "mini_cleanup" | "cleanup_pass" | "lifetime", "email"?: string }`
   - Creates a Stripe Checkout Session.
   - When `email` is provided, also sets Stripe `payment_intent_data[receipt_email]` so Stripe can send the payment receipt.
-  - Sets an HttpOnly `photosweep_license_session` cookie and stores the same
-    session id in Stripe session metadata.
+  - Returns `{ "url": "...", "sessionId": "..." }`, sets an HttpOnly
+    `photosweep_license_session` cookie, and stores the same session id in Stripe
+    session metadata.
 
 - `GET /entitlement`
 
-  - Reads `photosweep_license_session` from the cookie, or
-    `x-photosweep-license-session` for non-browser/test clients.
+  - Prefers `x-photosweep-license-session`; the HttpOnly
+    `photosweep_license_session` cookie remains the browser backup.
+  - The extension sends both the session header and `credentials: include`.
   - Returns `{ "token": "payload.signature" }`.
   - The extension verifies the token with the bundled public key.
+
+- `GET /checkout/success?licenseSessionId=...`
+
+  - Returns a small HTML success page, keeps the session cookie, and asks the
+    extension to store the session through the external message
+    `{ "type": "photosweep-license-session", "licenseSessionId": "..." }`.
+  - The handshake is a graceful no-op when `PHOTOSWEEP_EXTENSION_ID` is absent
+    or the page is not running with `chrome.runtime`.
 
 - `POST /license/recover`
 
@@ -50,12 +60,12 @@ By default it listens on `127.0.0.1:8787` and uses
 - `GET /license/recover/complete?token=...`
 
   - Verifies the signed recovery token and requires a matching `active` license.
-  - Sets the `photosweep_license_session` cookie only for that active-license
-    path.
+  - For a valid token, serves an HTML interstitial that sets the
+    `photosweep_license_session` cookie, sends the same session to the extension,
+    and then redirects to `PHOTOSWEEP_RECOVERY_REDIRECT_URL` with
+    `license_recovery=ok`.
   - Redirects invalid, missing, inactive, refunded, or email-mismatched tokens
     to `?license_recovery=invalid` without setting a cookie.
-  - Redirects successful recovery to `PHOTOSWEEP_RECOVERY_REDIRECT_URL` or the
-    checkout success URL.
 
 - `POST /analytics`
 
@@ -132,6 +142,7 @@ Set these when building the production extension:
 
 ```bash
 PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=https://photosweep-license-api-206538169327.us-west1.run.app
+PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=https://photosweep-license-api-206538169327.us-west1.run.app/*
 PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=BASE64URL_SPKI_PUBLIC_KEY
 ```
 
@@ -140,10 +151,21 @@ builds. That flag exists only for integration tests and local development.
 
 The release and CI workflows currently inject the verified Cloud Run URL above,
 and the extension manifest receives its matching host permission from that
-build variable. If the license API is deployed somewhere else, update the build
-variable, workflow configuration, and `package.json` host permission together
-before building the production extension. Do not substitute an unverified custom
-domain for the deployed URL.
+build variable. The backend must also set `PHOTOSWEEP_EXTENSION_ID` to the
+deployed Chrome extension id. If the license API or redirect site is deployed
+somewhere else, update the build variable, workflow configuration, manifest
+`externally_connectable.matches`, and backend URLs together before building or
+deploying. Do not substitute an unverified custom domain for the deployed URL.
+
+Checkout success URL choice: when `PHOTOSWEEP_CHECKOUT_SUCCESS_URL` has
+path `/checkout/success` (the license API success page), checkout appends
+`licenseSessionId=<id>` while preserving any existing query such as Stripe's
+`session_id={CHECKOUT_SESSION_ID}`. Prefer pointing that env var at the API
+success page so the page can set the cookie and handshake the extension.
+If the configured success URL is some other page, it is left unchanged and the
+extension still stores `sessionId` from `POST /checkout`. Recovery completion
+uses the same handshake interstitial and then redirects to
+`PHOTOSWEEP_RECOVERY_REDIRECT_URL`.
 
 ## Store Adapter
 
@@ -294,4 +316,10 @@ after that approval.
 
 The extension must not load remote executable code. Stripe Checkout opens as an
 external page, and the extension talks to this backend only through JSON API
-requests for checkout and entitlement state.
+requests for checkout and entitlement state. Its manifest
+`externally_connectable.matches` must include the deployed license API pattern
+and every documented redirect origin (the repository placeholder is
+`https://photosweep.example/*`). The service worker accepts only the exact
+`photosweep-license-session` message shape, validates the sender origin against
+those manifest patterns, and stores the session under
+`photoSweepLicenseSessionId`.

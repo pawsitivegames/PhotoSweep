@@ -35,11 +35,25 @@ type ConnectListener = (port: chrome.runtime.Port) => void
 
 // Persistent listener arrays — the SW registers into these once at import
 const messageListeners: MessageListener[] = []
+const externalMessageListeners: MessageListener[] = []
 const tabRemovedListeners: TabRemovedListener[] = []
 const tabActivatedListeners: TabActivatedListener[] = []
 const tabUpdatedListeners: TabUpdatedListener[] = []
 const actionClickListeners: ActionClickListener[] = []
 const connectListeners: ConnectListener[] = []
+
+const licenseStorage = new Map<string, unknown>()
+const storageLocal = {
+  get: vi.fn(async (key: string) => {
+    const value = licenseStorage.get(key)
+    return value === undefined ? {} : { [key]: value }
+  }),
+  set: vi.fn(async (items: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(items)) {
+      licenseStorage.set(key, value)
+    }
+  })
+}
 
 const mockChrome = {
   action: {
@@ -85,6 +99,9 @@ const mockChrome = {
   runtime: {
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
     getManifest: vi.fn(() => ({
+      externally_connectable: {
+        matches: ["https://license.test/*"]
+      },
       content_scripts: [
         {
           matches: ["https://photos.google.com/*"],
@@ -104,9 +121,17 @@ const mockChrome = {
     onMessage: {
       addListener: vi.fn((fn: MessageListener) => messageListeners.push(fn))
     },
+    onMessageExternal: {
+      addListener: vi.fn((fn: MessageListener) =>
+        externalMessageListeners.push(fn)
+      )
+    },
     onConnect: {
       addListener: vi.fn((fn: ConnectListener) => connectListeners.push(fn))
     }
+  },
+  storage: {
+    local: storageLocal
   }
 }
 
@@ -146,6 +171,24 @@ async function dispatchMessageWithResponse(
     fn(message, sender as chrome.runtime.MessageSender, (nextResponse) => {
       response = nextResponse
     })
+  }
+  await new Promise((r) => setTimeout(r, 20))
+  return response
+}
+
+async function dispatchExternalMessageWithResponse(
+  message: unknown,
+  senderUrl?: string
+): Promise<unknown> {
+  let response: unknown
+  for (const fn of externalMessageListeners) {
+    fn(
+      message,
+      { url: senderUrl } as chrome.runtime.MessageSender,
+      (nextResponse) => {
+        response = nextResponse
+      }
+    )
   }
   await new Promise((r) => setTimeout(r, 20))
   return response
@@ -194,6 +237,7 @@ function gpSender(tabId: number): Partial<chrome.runtime.MessageSender> {
 // Reset call history (not implementations) between tests
 beforeEach(() => {
   vi.clearAllMocks()
+  licenseStorage.clear()
   mockChrome.tabs.get.mockResolvedValue(undefined)
   mockChrome.tabs.update.mockResolvedValue({})
   mockChrome.tabs.create.mockResolvedValue({})
@@ -201,6 +245,49 @@ beforeEach(() => {
   mockChrome.sidePanel.open.mockResolvedValue(undefined)
   mockChrome.scripting.executeScript.mockResolvedValue([])
   mockChrome.webNavigation.getAllFrames.mockResolvedValue([])
+})
+
+describe("external license session handshake", () => {
+  it("stores valid sessions only from manifest-allowed origins", async () => {
+    await expect(
+      dispatchExternalMessageWithResponse(
+        {
+          type: "photosweep-license-session",
+          licenseSessionId: "pls_external"
+        },
+        "https://license.test/checkout/success?licenseSessionId=pls_external"
+      )
+    ).resolves.toEqual({ ok: true })
+    expect(licenseStorage.get("photoSweepLicenseSessionId")).toBe(
+      "pls_external"
+    )
+
+    await expect(
+      dispatchExternalMessageWithResponse(
+        {
+          type: "photosweep-license-session",
+          licenseSessionId: "pls_attacker"
+        },
+        "https://attacker.test/"
+      )
+    ).resolves.toMatchObject({ ok: false, error: expect.any(String) })
+    expect(licenseStorage.get("photoSweepLicenseSessionId")).toBe(
+      "pls_external"
+    )
+  })
+
+  it("rejects malformed session messages", async () => {
+    await expect(
+      dispatchExternalMessageWithResponse(
+        {
+          type: "photosweep-license-session",
+          licenseSessionId: "bad session"
+        },
+        "https://license.test/"
+      )
+    ).resolves.toMatchObject({ ok: false, error: expect.any(String) })
+    expect(licenseStorage.size).toBe(0)
+  })
 })
 
 // ============================================================

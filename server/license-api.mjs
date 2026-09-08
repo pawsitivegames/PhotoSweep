@@ -57,11 +57,115 @@ function jsonResponse(body, init = {}) {
   })
 }
 
-function htmlResponse(title, message) {
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+}
+
+function inlineJson(value) {
+  return JSON.stringify(value ?? null)
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029")
+}
+
+function licenseSessionHandshakeScript({
+  extensionId,
+  licenseSessionId,
+  redirectTo
+}) {
+  return `<script>
+(() => {
+  const extensionId = ${inlineJson(extensionId)};
+  const licenseSessionId = ${inlineJson(licenseSessionId)};
+  const redirectTo = ${inlineJson(redirectTo)};
+  const status = document.getElementById("license-status");
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    if (status) {
+      status.textContent = "PhotoSweep is ready. You can return to the extension.";
+    }
+    if (redirectTo) window.location.replace(redirectTo);
+  };
+  if (
+    !extensionId ||
+    !licenseSessionId ||
+    !globalThis.chrome?.runtime?.sendMessage
+  ) {
+    finish();
+    return;
+  }
+  try {
+    const result = chrome.runtime.sendMessage(extensionId, {
+      type: "photosweep-license-session",
+      licenseSessionId
+    });
+    if (result && typeof result.then === "function") {
+      result.then(finish, finish);
+      setTimeout(finish, 1000);
+    } else {
+      finish();
+    }
+  } catch {
+    finish();
+  }
+})();
+</script>`
+}
+
+function htmlResponse(title, message, options = {}) {
+  const headers = { "content-type": "text/html; charset=utf-8" }
+  if (options.setCookie) headers["set-cookie"] = options.setCookie
   return new Response(
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:640px;margin:64px auto;padding:0 20px;line-height:1.5;color:#18211f}a{color:#0f766e}</style></head><body><h1>${title}</h1><p>${message}</p><p>You can close this tab and return to PhotoSweep.</p></body></html>`,
-    { headers: { "content-type": "text/html; charset=utf-8" } }
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:640px;margin:64px auto;padding:0 20px;line-height:1.5;color:#18211f}a{color:#0f766e}</style></head><body><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p><p id="license-status">You can close this tab and return to PhotoSweep.</p>${options.script ?? ""}</body></html>`,
+    { headers }
   )
+}
+
+function isValidLicenseSessionId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,256}$/.test(value)
+}
+
+function appendLicenseSessionId(url, sessionId) {
+  const hashIndex = url.indexOf("#")
+  const beforeHash = hashIndex === -1 ? url : url.slice(0, hashIndex)
+  const hash = hashIndex === -1 ? "" : url.slice(hashIndex)
+  const separator = beforeHash.includes("?")
+    ? /[?&]$/.test(beforeHash)
+      ? ""
+      : "&"
+    : "?"
+  return `${beforeHash}${separator}licenseSessionId=${encodeURIComponent(sessionId)}${hash}`
+}
+
+function licenseSessionHandshakeResponse({
+  title,
+  message,
+  env,
+  licenseSessionId,
+  redirectTo,
+  setCookie
+}) {
+  const validSessionId = isValidLicenseSessionId(licenseSessionId)
+  return htmlResponse(title, message, {
+    setCookie,
+    script:
+      validSessionId || redirectTo
+        ? licenseSessionHandshakeScript({
+            extensionId: env.PHOTOSWEEP_EXTENSION_ID ?? "",
+            licenseSessionId: validSessionId ? licenseSessionId : "",
+            redirectTo
+          })
+        : ""
+  })
 }
 
 function corsHeaders(request, env) {
@@ -121,11 +225,11 @@ function parseCookie(header) {
 }
 
 function getSessionId(request) {
-  return (
-    parseCookie(request.headers.get("cookie")).get(COOKIE_NAME) ??
-    request.headers.get("x-photosweep-license-session") ??
-    undefined
+  const headerSessionId = request.headers.get("x-photosweep-license-session")
+  const cookieSessionId = parseCookie(request.headers.get("cookie")).get(
+    COOKIE_NAME
   )
+  return [headerSessionId, cookieSessionId].find(isValidLicenseSessionId)
 }
 
 function optionalEnum(value, allowed) {
@@ -376,7 +480,14 @@ export async function createStripeCheckoutSession(
   if (!plan) throw new Error("Unknown plan.")
   const priceId = requireEnv(env, plan.stripePriceEnv)
   const apiKey = requireEnv(env, "STRIPE_SECRET_KEY")
-  const successUrl = requireEnv(env, "PHOTOSWEEP_CHECKOUT_SUCCESS_URL")
+  const configuredSuccessUrl = requireEnv(
+    env,
+    "PHOTOSWEEP_CHECKOUT_SUCCESS_URL"
+  )
+  const configuredUrl = new URL(configuredSuccessUrl)
+  const successUrl = configuredUrl.pathname.endsWith("/checkout/success")
+    ? appendLicenseSessionId(configuredSuccessUrl, input.sessionId)
+    : configuredSuccessUrl
   const cancelUrl = requireEnv(env, "PHOTOSWEEP_CHECKOUT_CANCEL_URL")
   const body = new URLSearchParams()
   body.set("mode", "payment")
@@ -810,7 +921,7 @@ export async function handleCheckout(request, env, store, fetchImpl = fetch) {
       { status: 502 }
     )
   return jsonResponse(
-    { url: checkout.url },
+    { url: checkout.url, sessionId },
     { headers: { "set-cookie": sessionCookie(sessionId, env) } }
   )
 }
@@ -889,12 +1000,14 @@ export async function handleCompleteLicenseRecovery(request, env, store) {
       headers: { location: `${redirectTo}?license_recovery=invalid` }
     })
   }
-  return new Response(null, {
-    status: 302,
-    headers: {
-      location: `${redirectTo}?license_recovery=ok`,
-      "set-cookie": sessionCookie(payload.sessionId, env)
-    }
+  return licenseSessionHandshakeResponse({
+    title: "License restored",
+    message:
+      "Your PhotoSweep license was restored. Returning you to PhotoSweep now.",
+    env,
+    licenseSessionId: payload.sessionId,
+    redirectTo: `${redirectTo}?license_recovery=ok`,
+    setCookie: sessionCookie(payload.sessionId, env)
   })
 }
 
@@ -950,10 +1063,17 @@ export function createLicenseApi({
         request.method === "GET" &&
         url.pathname === "/checkout/success"
       ) {
-        response = htmlResponse(
-          "Checkout complete",
-          "Your payment was received. Return to PhotoSweep and click Refresh license to unlock your plan."
-        )
+        const licenseSessionId = url.searchParams.get("licenseSessionId")
+        response = licenseSessionHandshakeResponse({
+          title: "Checkout complete",
+          message:
+            "Your payment was received. Return to PhotoSweep to unlock your plan.",
+          env,
+          licenseSessionId,
+          setCookie: isValidLicenseSessionId(licenseSessionId)
+            ? sessionCookie(licenseSessionId, env)
+            : undefined
+        })
       } else if (
         request.method === "GET" &&
         url.pathname === "/checkout/cancel"

@@ -4,6 +4,7 @@ import {
   DEV_ENTITLEMENT_STORAGE_KEY,
   ENTITLEMENT_STORAGE_KEY,
   ENTITLEMENT_TOKEN_STORAGE_KEY,
+  LICENSE_SESSION_STORAGE_KEY,
   LICENSE_API_BASE_URL,
   LicenseClient,
   getEffectiveLicenseApiBaseUrl,
@@ -288,7 +289,7 @@ describe("LicenseClient", () => {
         calls.push({ url: urlString, init: init ?? {} })
         const body = urlString.endsWith("/entitlement")
           ? { token: "payload.signature" }
-          : { url: "https://checkout.example" }
+          : { url: "https://checkout.example", sessionId: "pls_checkout" }
         return new Response(JSON.stringify(body), {
           status: 200,
           headers: { "content-type": "application/json" }
@@ -302,5 +303,16 @@ describe("LicenseClient", () => {
 
     expect(calls).toHaveLength(3)
     expect(calls.every((call) => call.init.credentials === "include")).toBe(true)
+    await expect(
+      chrome.storage.local.get(LICENSE_SESSION_STORAGE_KEY)
+    ).resolves.toEqual({
+      [LICENSE_SESSION_STORAGE_KEY]: "pls_checkout"
+    })
+    const entitlementCall = calls.find((call) =>
+      call.url.endsWith("/entitlement")
+    )
+    expect(entitlementCall?.init.headers).toEqual({
+      "x-photosweep-license-session": "pls_checkout"
+    })
   })
 })
