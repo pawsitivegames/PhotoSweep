@@ -84,7 +84,7 @@ function amazonVideoNode(id: string) {
     contentProperties: {
       contentType: "video/mp4",
       contentDate: "2026-06-28T12:00:00.000Z",
-      md5: "abc123",
+      md5: "abcdef0123456789abcdef0123456789",
       size: 123456,
       video: {
         width: 1920,
@@ -171,7 +171,12 @@ describe("Amazon getAllMediaItems", () => {
     expect(result?.data?.[0]).toMatchObject({
       mediaKey: "amazon-video-node",
       dedupKey: "video-node",
-      exactContentHash: "amazon-md5-abc123",
+      exactContentHash: "amazon-md5-abcdef0123456789abcdef0123456789",
+      contentHash: {
+        value: "abcdef0123456789abcdef0123456789",
+        algorithm: "md5",
+        provenance: "original-content"
+      },
       resWidth: 1920,
       resHeight: 1080,
       duration: 12345,

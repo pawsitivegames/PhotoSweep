@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import {
   classifyDuplicateGroup,
-  classifyDuplicateItems
+  classifyDuplicateItems,
+  isTrustedContentHash
 } from "../../lib/duplicate-classifier"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
 
@@ -23,34 +24,91 @@ function item(
   }
 }
 
+const md5 = (digit: string) => digit.repeat(32)
+
 describe("duplicate classifier", () => {
-  it("classifies identical dedupKey groups as exact", () => {
+  it("does not treat provider asset IDs as content equality", () => {
     const result = classifyDuplicateItems([
       item("a", { dedupKey: "same" }),
       item("b", { dedupKey: "same" })
     ])
 
-    expect(result.duplicateKind).toBe("exact")
-    expect(result.matchReasons).toContain("same dedupKey")
+    expect(result).toMatchObject({
+      duplicateKind: "similar",
+      evidenceLevel: "similar",
+      relationship: "same_provider_asset",
+      canProposeTrash: false
+    })
+    expect(result.matchReasons).toContain(
+      "same provider asset identity (not content equality)"
+    )
   })
 
-  it("classifies identical provider content hashes as exact", () => {
+  it("treats a validated original-content hash as verified identity", () => {
     const result = classifyDuplicateItems([
-      item("a", { dedupKey: "node-a", exactContentHash: "amazon-md5-same" }),
-      item("b", { dedupKey: "node-b", exactContentHash: "amazon-md5-same" })
+      item("a", {
+        dedupKey: "node-a",
+        contentHash: {
+          value: md5("a"),
+          algorithm: "md5",
+          provenance: "original-content"
+        }
+      }),
+      item("b", {
+        dedupKey: "node-b",
+        contentHash: {
+          value: md5("a"),
+          algorithm: "md5",
+          provenance: "original-content"
+        }
+      })
     ])
 
-    expect(result.duplicateKind).toBe("exact")
-    expect(result.matchReasons).toContain("same content hash")
+    expect(result).toMatchObject({
+      duplicateKind: "exact",
+      evidenceLevel: "verified_identical",
+      canProposeTrash: true
+    })
+    expect(result.matchReasons).toContain("same original-content hash (md5)")
   })
 
-  it("classifies same filename, dimensions, and taken date as exact", () => {
+  it("rejects malformed, derived, and legacy hashes as verified evidence", () => {
+    expect(
+      isTrustedContentHash({
+        value: "not-a-hash",
+        algorithm: "md5",
+        provenance: "original-content"
+      })
+    ).toBe(false)
+    expect(
+      isTrustedContentHash({
+        value: md5("a"),
+        algorithm: "md5",
+        provenance: "derived-preview"
+      })
+    ).toBe(false)
+
+    const result = classifyDuplicateItems([
+      item("a", { exactContentHash: "legacy-same" }),
+      item("b", { exactContentHash: "legacy-same" })
+    ])
+
+    expect(result.evidenceLevel).not.toBe("verified_identical")
+    expect(result.duplicateKind).toBe("similar")
+    expect(result.matchReasons).toContain("same legacy content hash (unverified)")
+  })
+
+  it("classifies matching metadata as a strong candidate, never verified identity", () => {
     const result = classifyDuplicateItems([
       item("a", { fileName: "IMG.jpg" }),
       item("b", { fileName: "IMG.jpg" })
     ])
 
-    expect(result.duplicateKind).toBe("exact")
+    expect(result).toMatchObject({
+      duplicateKind: "similar",
+      evidenceLevel: "strong_duplicate_candidate",
+      canProposeTrash: true
+    })
     expect(result.matchReasons).toEqual(
       expect.arrayContaining([
         "same filename",
@@ -60,16 +118,20 @@ describe("duplicate classifier", () => {
     )
   })
 
-  it("classifies visual-only matches as similar", () => {
-    const result = classifyDuplicateItems([
-      item("a", { fileName: "a.jpg" }),
-      item("b", { fileName: "b.jpg", timestamp: Date.parse("2024-01-03") })
-    ])
+  it("keeps visual-only matches below the strong threshold unless evidence is high", () => {
+    const items = [
+      item("a", { thumb: "same-thumb" }),
+      item("b", { thumb: "same-thumb", timestamp: Date.parse("2024-01-03") })
+    ]
 
-    expect(result.duplicateKind).toBe("similar")
+    expect(classifyDuplicateItems(items, 0.96).evidenceLevel).toBe("similar")
+    expect(classifyDuplicateItems(items, 0.99)).toMatchObject({
+      duplicateKind: "similar",
+      evidenceLevel: "strong_duplicate_candidate"
+    })
   })
 
-  it("classifies strong video metadata matches as exact without requiring same taken date", () => {
+  it("classifies strong video metadata matches as candidates", () => {
     const result = classifyDuplicateItems([
       item("a", {
         fileName: "clip.mov",
@@ -83,75 +145,47 @@ describe("duplicate classifier", () => {
       })
     ])
 
-    expect(result.duplicateKind).toBe("exact")
+    expect(result).toMatchObject({
+      duplicateKind: "similar",
+      evidenceLevel: "strong_duplicate_candidate"
+    })
     expect(result.matchReasons).toEqual(
-      expect.arrayContaining([
-        "same filename",
-        "same dimensions",
-        "same duration"
-      ])
+      expect.arrayContaining(["same filename", "same dimensions", "same duration"])
     )
   })
 
-  it("classifies video filename stem and duration matches as exact when extensions differ", () => {
+  it("marks RAW/JPEG pairs as a review-only related format relationship", () => {
     const result = classifyDuplicateItems([
-      item("a", {
-        fileName: "clip.mov",
-        resWidth: 1920,
-        resHeight: 1080,
-        duration: 12_345
-      }),
-      item("b", {
-        fileName: "clip.mp4",
-        resWidth: 1280,
-        resHeight: 720,
-        duration: 12_345
-      })
+      item("raw", { fileName: "IMG_1001.CR3" }),
+      item("jpeg", { fileName: "IMG_1001.JPG" })
     ])
 
-    expect(result.duplicateKind).toBe("exact")
-    expect(result.matchReasons).toEqual(
-      expect.arrayContaining(["same filename stem", "same duration"])
-    )
+    expect(result).toMatchObject({
+      evidenceLevel: "similar",
+      relationship: "related_format_edit",
+      canProposeTrash: false
+    })
+    expect(result.matchReasons).toContain("RAW/JPEG format relationship")
   })
 
-  it("classifies video size and duration matches as exact when dimensions are missing", () => {
-    const result = classifyDuplicateItems([
-      item("a", {
-        fileName: undefined,
-        resWidth: undefined,
-        resHeight: undefined,
-        size: 3_500_000,
-        duration: 12_345
-      }),
-      item("b", {
-        fileName: undefined,
-        resWidth: undefined,
-        resHeight: undefined,
-        size: 3_500_000,
-        duration: 12_345
-      })
-    ])
-
-    expect(result.duplicateKind).toBe("exact")
-    expect(result.matchReasons).toEqual(
-      expect.arrayContaining(["same file size", "same duration"])
-    )
-  })
-
-  it("classifies groups from media keys", () => {
+  it("reclassifies legacy stored exact values from current item evidence", () => {
     const group: DuplicateGroup = {
       id: "g1",
       mediaKeys: ["a", "b"],
       originalMediaKey: "a",
-      similarity: 0.99
+      similarity: 0.99,
+      duplicateKind: "exact",
+      matchReasons: ["same filename"]
     }
 
     expect(
       classifyDuplicateGroup(group, {
-        a: item("a", { dedupKey: "same" }),
-        b: item("b", { dedupKey: "same" })
-      }).duplicateKind
-    ).toBe("exact")
+        a: item("a", { fileName: "different-a.jpg" }),
+        b: item("b", { fileName: "different-b.jpg" })
+      })
+    ).toMatchObject({
+      duplicateKind: "similar",
+      evidenceLevel: "strong_duplicate_candidate"
+    })
   })
 })

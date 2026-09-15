@@ -43,7 +43,8 @@ No OAuth setup. No Google Cloud project. Photo matching runs locally in your bro
 - Scoped scans: scan by album or taken-date range so large libraries can be processed in small sessions.
 - Resume support: interrupted scans can resume from checkpointed media lists or cached embeddings.
 - Local cache: embeddings and metadata snapshots stay in Chrome extension storage and can be cleared or rebuilt.
-- Explainable groups: exact and similar duplicate groups are separated, with similarity and match reasons shown in the review UI.
+- Explainable groups: verified-identity matches are separated from strong duplicate candidates and broader similarity matches, with evidence reasons shown in the review UI.
+- Conservative identity handling: provider asset IDs and legacy hash fields never claim verified content equality; repeated asset references and RAW/JPEG relationships remain review-only.
 - Audit exports: JSON and CSV reports include kept items, Trash candidates, reasons, timestamps, links, and storage metadata when available.
 - Conservative Trash: where supported, items are moved to provider Trash in small batches with retry/backoff, typed count confirmation, result reporting, and an in-app undo path.
 - Local-first packaging: image embeddings run in the browser using the bundled MediaPipe model and WASM assets; there is no photo-analysis backend.
@@ -53,7 +54,7 @@ No OAuth setup. No Google Cloud project. Photo matching runs locally in your bro
 For a library around 20k photos, avoid starting with an unscoped full-library comparison.
 
 1. Scan one year, month, or small album in **Smart** mode. With no scope selected, the first Smart scan uses the most recent 30-day range (today minus 29 days through today).
-2. Review and Trash only obvious exact duplicates.
+2. Review and Trash only obvious verified-identity duplicates first; treat strong candidates as a separate review pass.
 3. Export and keep the pre-Trash report.
 4. Confirm that the Trash result report shows the expected moved items.
 5. Restore a test item from Trash before using the workflow on larger batches.
@@ -148,7 +149,7 @@ GPD_E2E_ALBUM_TITLE="Tiny duplicate test" GPD_E2E_ALLOW_TRASH=1 npm run test:e2e
 
 ## Motivation
 
-Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to identify exact and similar duplicate groups.
+Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to identify verified-identity, strong-candidate, and similar groups.
 
 ## Support
 

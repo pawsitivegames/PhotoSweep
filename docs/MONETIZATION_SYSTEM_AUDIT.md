@@ -1,6 +1,6 @@
 # PhotoSweep Monetization System Audit
 
-Audit date: 2026-07-28
+Audit date: 2026-09-15
 
 Decision: **NOT READY**
 
@@ -112,16 +112,16 @@ backend ledger; it must not be implied by copy.
 
 ## Risks and gaps
 
-| Priority | Class                              | Gap                                                                                                                                 | Evidence / cheapest resolution                                                             |
-| -------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| P0       | Revenue loss / unauthorized access | No deployed catalog, webhook, database, or signed production environment is proven                                                  | Unknown; deploy test mode and run the sandbox matrix                                       |
-| P0       | Trust/compliance                   | Tax responsibility, Stripe Tax/product tax code, terms URLs, refund URL, and Chrome dashboard disclosures are unverified            | Unknown; verify Stripe and Chrome dashboards with safe metadata                            |
-| P0       | User lockout                       | Recovery is only proven by mocked HTTP tests, not real email/cookie behavior in a fresh Chrome profile                              | Run one test-mode purchase and fresh-profile recovery                                      |
-| P0       | Unauthorized access                | Multiple paid purchases on one browser session can overwrite one license record; upgrade/refund fallback is not modeled as a ledger | Add a purchase ledger before allowing paid-plan upgrades from an already-paid session      |
-| P1       | Trust/compliance                   | Paid multi-provider claims exceed current live Trash/restore evidence in this audit                                                 | Run tiny non-sensitive Google, iCloud, and Amazon cases or narrow claims                   |
-| P1       | Measurement blind spot             | No baseline impressions, conversion, recovery, refund, or support metrics exist                                                     | Launch only after opt-in client and server payment events are observable                   |
-| P1       | Revenue loss                       | Checkout price display is compiled into the extension instead of fetched from Stripe                                                | Treat price IDs as immutable release inputs and audit UI/catalog parity before every build |
-| P2       | Conversion                         | Three paid choices can add decision friction                                                                                        | Measure plan selection before removing a plan                                              |
+| Priority | Class                              | Gap                                                                                                                             | Evidence / cheapest resolution                                                             |
+| -------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| P0       | Revenue loss / unauthorized access | No deployed catalog, webhook, database, or signed production environment is proven                                              | Unknown; deploy test mode and run the sandbox matrix                                       |
+| P0       | Trust/compliance                   | Tax responsibility, Stripe Tax/product tax code, terms URLs, refund URL, and Chrome dashboard disclosures are unverified        | Unknown; verify Stripe and Chrome dashboards with safe metadata                            |
+| P0       | User lockout                       | Recovery is only proven by mocked HTTP tests, not real email/cookie behavior in a fresh Chrome profile                          | Run one test-mode purchase and fresh-profile recovery                                      |
+| P0       | Revenue integrity                  | The purchase ledger is implemented locally, but its Firestore deployment and multi-instance concurrency behavior are not proven | Run the deployed test-mode multi-purchase, refund, dispute, and restart matrix             |
+| P1       | Trust/compliance                   | Paid multi-provider claims exceed current live Trash/restore evidence in this audit                                             | Run tiny non-sensitive Google, iCloud, and Amazon cases or narrow claims                   |
+| P1       | Measurement blind spot             | No baseline impressions, conversion, recovery, refund, or support metrics exist                                                 | Launch only after opt-in client and server payment events are observable                   |
+| P1       | Revenue loss                       | Checkout price display is compiled into the extension instead of fetched from Stripe                                            | Treat price IDs as immutable release inputs and audit UI/catalog parity before every build |
+| P2       | Conversion                         | Three paid choices can add decision friction                                                                                    | Measure plan selection before removing a plan                                              |
 
 ## Technical design and implemented slices
 
@@ -141,26 +141,26 @@ backend ledger; it must not be implied by copy.
 
 ## Verification matrix
 
-| Scenario                             | Status             | Evidence                                                                                         |
-| ------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------ |
-| Catalog fetch / localized price      | BLOCKED            | No live Stripe test catalog; UI uses release-pinned USD copy                                     |
-| Catalog unavailable                  | PASS at code level | Checkout remains free and reports configuration error                                            |
-| New paid purchase / immediate unlock | BLOCKED            | Mocked webhook/token tests only                                                                  |
-| User cancels                         | PASS at code level | Cancel page promises no unlock; no grant before webhook                                          |
-| Payment fails                        | PASS at code level | No paid webhook means no grant                                                                   |
-| Delayed/pending payment              | PASS at code level | Unpaid completion stays locked; async paid event unlocks                                         |
-| Duplicate callback                   | PASS at code level | Event IDs deduplicate; same Checkout session is not re-granted                                   |
-| Restart reconciliation               | PASS at code level | Existing signed token triggers background refresh                                                |
-| Reinstall / restore                  | BLOCKED            | HTTP recovery tested; real email and fresh-profile cookie flow not run                           |
-| Subscription lifecycle               | NOT APPLICABLE     | No subscription product                                                                          |
-| Cleanup Pass expiration              | PASS at code level | Signed seven-day boundary fails closed                                                           |
-| Partial refund                       | PASS at code level | Does not revoke full purchase                                                                    |
-| Full refund / dispute                | PASS at code level | Matched license deactivates and refresh returns free                                             |
-| Offline launch / license outage      | PASS at code level | Valid signed cache remains until its boundary                                                    |
-| Webhook replay / order               | PARTIAL            | Event and Checkout duplicate defenses exist; same-session purchase-ledger gap remains            |
-| Analytics distinction                | PASS at code level | Impression, checkout, purchase, failure, refund, recovery, and entitlement outcomes are distinct |
-| Privacy/security                     | PASS at code level | Allowlist strips photo fields; client telemetry requires consent                                 |
-| Production/store readiness           | BLOCKED            | Dashboard, deployment, legal/tax, store, and sandbox evidence absent                             |
+| Scenario                             | Status             | Evidence                                                                                                                           |
+| ------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Catalog fetch / localized price      | BLOCKED            | No live Stripe test catalog; UI uses release-pinned USD copy                                                                       |
+| Catalog unavailable                  | PASS at code level | Checkout remains free and reports configuration error                                                                              |
+| New paid purchase / immediate unlock | BLOCKED            | Mocked webhook/token tests only                                                                                                    |
+| User cancels                         | PASS at code level | Cancel page promises no unlock; no grant before webhook                                                                            |
+| Payment fails                        | PASS at code level | No paid webhook means no grant                                                                                                     |
+| Delayed/pending payment              | PASS at code level | Unpaid completion stays locked; async paid event unlocks                                                                           |
+| Duplicate callback                   | PASS at code level | Event IDs deduplicate; same Checkout session is not re-granted                                                                     |
+| Restart reconciliation               | PASS at code level | Existing signed token triggers background refresh                                                                                  |
+| Reinstall / restore                  | BLOCKED            | HTTP recovery tested; real email and fresh-profile cookie flow not run                                                             |
+| Subscription lifecycle               | NOT APPLICABLE     | No subscription product                                                                                                            |
+| Cleanup Pass expiration              | PASS at code level | Signed seven-day boundary fails closed                                                                                             |
+| Partial refund                       | PASS at code level | Does not revoke full purchase                                                                                                      |
+| Full refund / dispute                | PASS at code level | Matched license deactivates and refresh returns free                                                                               |
+| Offline launch / license outage      | PASS at code level | Valid signed cache remains until its boundary                                                                                      |
+| Webhook replay / order               | PASS at code level | Event-id deduplication, Stripe-object matching, pending revocation, and same-session purchase-ledger behavior are covered by tests |
+| Analytics distinction                | PASS at code level | Impression, checkout, purchase, failure, refund, recovery, and entitlement outcomes are distinct                                   |
+| Privacy/security                     | PASS at code level | Allowlist strips photo fields; client telemetry requires consent                                                                   |
+| Production/store readiness           | BLOCKED            | Dashboard, deployment, legal/tax, store, and sandbox evidence absent                                                               |
 
 ### Commands run
 
@@ -169,14 +169,15 @@ backend ledger; it must not be implied by copy.
   failed before their implementations.
 - Monetization-focused verification: 8 test files, 66 tests passed.
 - `git diff --check`: passed.
-- `npm run typecheck`: blocked by the pre-existing dirty review/trash migration,
-  including missing `reviewedGroupIds` props and moved trash helper symbols.
-- Full `npm test`: 34 files and 441 tests passed; 4 files and 46 tests failed in
-  the same in-progress review/trash migration. The focused monetization files
-  remained green.
+- Current follow-up: `npm run typecheck` passed; full `npm test -- --run`
+  passed 614 tests; focused license/Firestore tests passed 71 tests; npm
+  production audit reported zero vulnerabilities.
 
-No build, Playwright purchase flow, real Stripe transaction, recovery email,
-provider Trash/restore, or Chrome Web Store dashboard validation was completed.
+No Playwright purchase flow, real Stripe transaction, recovery email,
+provider Trash/restore, or Chrome Web Store dashboard validation was completed
+in this follow-up. Local production packaging and the non-destructive browser
+integration suite were verified separately in
+`docs/REMAINING_GATES_STATUS.md`.
 
 ## External completion checklist
 
@@ -196,8 +197,9 @@ provider Trash/restore, or Chrome Web Store dashboard validation was completed.
    disabled; audit the final package.
 8. Verify Chrome Web Store permissions, privacy disclosures, paid-functionality
    wording, screenshots, and support contact against the shipped package.
-9. Resolve the same-session multi-purchase ledger gap before offering upgrades
-   to an already-paid user.
+9. Verify the implemented purchase ledger in the deployed Firestore service
+   before offering upgrades to an already-paid user; include concurrent webhook
+   delivery and rollback cases.
 
 Rollback: disable or remove the production license API build variables and ship
 with free limits only. Do not issue unsigned/manual paid entitlements.

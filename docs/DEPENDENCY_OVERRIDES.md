@@ -1,12 +1,13 @@
 # Dependency overrides
 
-Last reviewed: 2026-07-28
+Last reviewed: 2026-09-15
 
-PhotoSweep temporarily overrides two transitive production dependencies while
+PhotoSweep temporarily overrides three transitive production dependencies while
 waiting for compatible upstream releases from the Google Cloud dependency tree:
 
 ```json
 {
+  "brace-expansion": "5.0.9",
   "gaxios": "7.1.5",
   "rimraf": "6.1.3"
 }
@@ -19,7 +20,8 @@ waiting for compatible upstream releases from the Google Cloud dependency tree:
 - `google-gax` permits Rimraf 5, whose Glob/Minimatch dependency path retains
   the vulnerable `brace-expansion` release.
 - Gaxios 7.1.5 removes its Rimraf dependency. Rimraf 6 resolves to Glob 13,
-  Minimatch 10, and patched `brace-expansion` 5.0.8.
+  Minimatch 10, and the explicit `brace-expansion` override keeps the graph on
+  patched `5.0.9` or later for the current advisory.
 
 The overrides are a temporary compatibility measure, not a waiver. They must
 be removed once Google Cloud packages publish compatible dependency ranges.

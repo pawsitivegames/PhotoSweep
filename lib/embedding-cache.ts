@@ -2,7 +2,7 @@
 // Stores Float32Array embeddings plus local metadata keyed by mediaKey.
 // Typical size: ~5KB/item × 48k items = ~238MB for a large library.
 
-import type { GpdMediaItem } from "./types"
+import type { ContentHashEvidence, GpdMediaItem } from "./types"
 
 const DB_NAME = "gpd-cache"
 const DB_VERSION = 1
@@ -11,6 +11,7 @@ const STORE_NAME = "embeddings"
 export interface CachedMediaMetadata {
   dedupKey: string
   exactContentHash?: string
+  contentHash?: ContentHashEvidence
   thumb: string
   timestamp: number
   creationTimestamp: number
@@ -40,6 +41,7 @@ export function createCachedMediaMetadata(
   return {
     dedupKey: item.dedupKey,
     exactContentHash: item.exactContentHash,
+    ...(item.contentHash ? { contentHash: item.contentHash } : {}),
     thumb: item.thumb,
     timestamp: item.timestamp,
     creationTimestamp: item.creationTimestamp,

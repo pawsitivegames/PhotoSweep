@@ -456,12 +456,22 @@ describe("video metadata duplicate detection", () => {
       makeItem("amazon-a", 1000, 100, {
         dedupKey: "node-a",
         exactContentHash: "amazon-md5-same",
+        contentHash: {
+          value: "a".repeat(32),
+          algorithm: "md5",
+          provenance: "original-content"
+        },
         duration: 12_345,
         fileName: "clip-a.mp4"
       }),
       makeItem("amazon-b", 2000, 200, {
         dedupKey: "node-b",
         exactContentHash: "amazon-md5-same",
+        contentHash: {
+          value: "a".repeat(32),
+          algorithm: "md5",
+          provenance: "original-content"
+        },
         duration: 12_345,
         fileName: "clip-b.mp4"
       })
@@ -699,7 +709,8 @@ describe("video metadata duplicate detection", () => {
 
     expect(groups).toHaveLength(1)
     expect(groups[0].mediaKeys).toEqual(["old-upload", "new-upload"])
-    expect(groups[0].duplicateKind).toBe("exact")
+    expect(groups[0].duplicateKind).toBe("similar")
+    expect(groups[0].evidenceLevel).toBe("strong_duplicate_candidate")
   })
 
   it("lets smart mode catch exact-content videos outside the time window", async () => {
@@ -708,12 +719,22 @@ describe("video metadata duplicate detection", () => {
         makeItem("old-upload", Date.parse("2021-01-01"), 100, {
           dedupKey: "node-a",
           exactContentHash: "amazon-md5-same",
+          contentHash: {
+            value: "a".repeat(32),
+            algorithm: "md5",
+            provenance: "original-content"
+          },
           duration: 12_345,
           fileName: "clip-a.mp4"
         }),
         makeItem("new-upload", Date.parse("2024-01-01"), 200, {
           dedupKey: "node-b",
           exactContentHash: "amazon-md5-same",
+          contentHash: {
+            value: "a".repeat(32),
+            algorithm: "md5",
+            provenance: "original-content"
+          },
           duration: 12_345,
           fileName: "clip-b.mp4"
         })
@@ -1225,7 +1246,7 @@ describe("selectDefaultKeep", () => {
     expect(selectDefaultKeep([newer, older])).toBe("older")
   })
 
-  it("prefers richer metadata for an exact two-item pair", () => {
+  it("does not use an unsupported provider identity as an exact-pair override", () => {
     const highQualitySparse = item("sparse", {
       isOriginalQuality: true,
       resWidth: 4000,
@@ -1242,9 +1263,7 @@ describe("selectDefaultKeep", () => {
       productUrl: "https://photos.google.com/photo/metadata"
     })
     metadataRich.dedupKey = highQualitySparse.dedupKey
-    expect(selectDefaultKeep([highQualitySparse, metadataRich])).toBe(
-      "metadata"
-    )
+    expect(selectDefaultKeep([highQualitySparse, metadataRich])).toBe("sparse")
   })
 
   it("handles undefined resolution fields (treats as 0 pixels)", () => {

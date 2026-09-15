@@ -19,7 +19,8 @@ function makeMediaItems(...mediaKeys: string[]): Record<string, GpdMediaItem> {
         dedupKey: `dedup-${mediaKey}`,
         thumb: `thumb-${mediaKey}`,
         timestamp: 1,
-        creationTimestamp: 1
+        creationTimestamp: 1,
+        isOriginalQuality: mediaKey === "img1" || mediaKey === "img4"
       }
     ])
   )
@@ -86,6 +87,36 @@ describe("DuplicateReviewSession", () => {
     })
   })
 
+  it("blocks Trash proposals when multiple rows reference one provider asset", () => {
+    const sharedGroup = makeGroup("shared", "asset-row-1", "asset-row-2")
+    const review = new DuplicateReviewSession({
+      groups: [sharedGroup],
+      mediaItems: {
+        "asset-row-1": {
+          ...makeMediaItems("asset-row-1")["asset-row-1"],
+          dedupKey: "same-provider-asset"
+        },
+        "asset-row-2": {
+          ...makeMediaItems("asset-row-2")["asset-row-2"],
+          dedupKey: "same-provider-asset"
+        }
+      },
+      selections: {
+        selectedGroupIds: new Set(["shared"]),
+        reviewedGroupIds: new Set(["shared"]),
+        keptOverrides: { shared: new Set(["asset-row-1"]) }
+      }
+    })
+
+    expect(review.duplicateCount()).toBe(0)
+    expect(review.trashPlan()).toMatchObject({
+      mediaKeysToTrash: [],
+      dedupKeys: [],
+      blockedMediaKeys: ["asset-row-2"],
+      blockedGroupIds: ["shared"]
+    })
+  })
+
   it("allows explicitly trashing every copy in a group", () => {
     const selections = session().update({
       type: "trash_all_copies",
@@ -108,9 +139,13 @@ describe("DuplicateReviewSession", () => {
     })
 
     expect(review.serialize()).toEqual({
+      version: 2,
       selectedGroupIds: ["g1"],
       reviewedGroupIds: ["g1", "g2"],
-      keptOverrides: { g1: ["img2"] }
+      keptOverrides: { g1: ["img2"] },
+      keepDecisionProvenance: {
+        g1: { source: "legacy_preserved" }
+      }
     })
   })
 

@@ -73,9 +73,13 @@ describe("StoredReviewScope", () => {
     expect([...restored.selections!.selectedGroupIds]).toEqual(["group"])
     expect([...restored.selections!.reviewedGroupIds]).toEqual(["group"])
     expect(subject.values.selections).toEqual({
+      version: 2,
       selectedGroupIds: ["group"],
       reviewedGroupIds: ["group"],
-      keptOverrides: { group: ["keep"] }
+      keptOverrides: { group: ["keep"] },
+      keepDecisionProvenance: {
+        group: { source: "legacy_preserved" }
+      }
     })
   })
 

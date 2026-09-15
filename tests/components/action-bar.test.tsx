@@ -149,10 +149,10 @@ describe("ActionBar", () => {
         screen.getByRole("button", { name: /All sets \(3\)/i })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: /Identical \(2\)/i })
+        screen.getByRole("button", { name: /Verified identical \(2\)/i })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: /Similar \(1\)/i })
+        screen.getByRole("button", { name: /Candidates & similar \(1\)/i })
       ).toBeInTheDocument()
     })
 

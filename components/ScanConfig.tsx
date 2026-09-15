@@ -1,5 +1,6 @@
 import CloudQueueRoundedIcon from "@mui/icons-material/CloudQueueRounded"
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
+import FeedbackRoundedIcon from "@mui/icons-material/FeedbackRounded"
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded"
 import PhotoLibraryRoundedIcon from "@mui/icons-material/PhotoLibraryRounded"
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
@@ -31,6 +32,7 @@ import {
   scanSettingsForEntitlement,
   type Entitlement
 } from "../lib/entitlement"
+import { FEEDBACK_EMAIL, FEEDBACK_MAILTO_URL } from "../lib/feedback"
 import {
   getProviderOperations,
   providerBatchLimit,
@@ -1083,7 +1085,7 @@ export function ScanConfig({
                       More matches
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Exact
+                      Verified identity
                     </Typography>
                   </Box>
                   <Typography
@@ -1091,7 +1093,7 @@ export function ScanConfig({
                     color="text.secondary"
                     sx={{ display: "block", mt: 1 }}>
                     Lower values catch more reuploads, screenshots, and edited
-                    copies. Exact/hash matches are always included.
+                    copies. Verified content matches are always included.
                   </Typography>
                 </>
               )}
@@ -1142,6 +1144,70 @@ export function ScanConfig({
                 </Stack>
               </Box>
             )}
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          disableGutters
+          elevation={0}
+          sx={{
+            mt: 1,
+            border: "1px solid",
+            borderColor: "rgba(214,226,221,0.86)",
+            borderRadius: compact ? 1.5 : 2,
+            bgcolor: compact
+              ? "rgba(255,255,255,0.82)"
+              : photoSweepColors.surface,
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+            overflow: "hidden",
+            "&:before": { display: "none" }
+          }}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={
+              compact
+                ? {
+                    minHeight: 38,
+                    px: 1,
+                    "&.Mui-expanded": { minHeight: 38 },
+                    "& .MuiAccordionSummary-content": {
+                      my: 0.75,
+                      "&.Mui-expanded": { my: 0.75 }
+                    }
+                  }
+                : undefined
+            }>
+            <Typography
+              variant="body2"
+              fontWeight={compact ? 700 : undefined}
+              color={compact ? "text.primary" : "text.secondary"}>
+              Help &amp; feedback
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={compact ? { px: 1, pt: 0, pb: 1 } : undefined}>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>
+              Tell the PhotoSweep team what worked, what failed, or what you
+              would like to see next.
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 1.25 }}>
+              Opens a new email addressed to {FEEDBACK_EMAIL}.
+            </Typography>
+            <Button
+              component="a"
+              href={FEEDBACK_MAILTO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="outlined"
+              startIcon={<FeedbackRoundedIcon />}
+              fullWidth={compact}
+              sx={{ fontWeight: 750 }}>
+              Send feedback
+            </Button>
           </AccordionDetails>
         </Accordion>
       </Paper>

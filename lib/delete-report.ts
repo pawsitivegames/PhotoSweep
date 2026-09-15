@@ -1,5 +1,10 @@
 import { classifyDuplicateGroup } from "./duplicate-classifier"
-import type { DuplicateGroup, GpdMediaItem } from "./types"
+import type {
+  DuplicateEvidenceLevel,
+  DuplicateGroup,
+  DuplicateRelationship,
+  GpdMediaItem
+} from "./types"
 
 export interface DeleteReportItem {
   duplicateGroupId: string
@@ -15,6 +20,9 @@ export interface DeleteReportItem {
   spaceTaken: number | null
   similarity: number
   duplicateKind: "exact" | "similar"
+  evidenceLevel: DuplicateEvidenceLevel
+  relationship: DuplicateRelationship | null
+  canProposeTrash: boolean
   matchReasons: string[]
   reason: string
   googlePhotosUrl: string | null
@@ -22,6 +30,7 @@ export interface DeleteReportItem {
 
 export interface DeleteReport {
   reportId: string
+  operationId?: string
   createdAt: string
   totalGroupsAffected: number
   totalItemsKept: number
@@ -51,6 +60,7 @@ export function buildDeleteReport(params: {
   getKept: (group: DuplicateGroup) => Set<string>
   mediaKeysToTrash: string[]
   trashBatchSize: number
+  operationId?: string
 }): DeleteReport {
   const trashSet = new Set(params.mediaKeysToTrash)
   const reportId = `gpd-delete-report-${new Date().toISOString().replace(/[:.]/g, "-")}`
@@ -68,13 +78,9 @@ export function buildDeleteReport(params: {
         ? validKeptKeys
         : [group.originalMediaKey].filter((key) => groupKeySet.has(key))
     )
-    const classification =
-      group.duplicateKind && group.matchReasons
-        ? {
-            duplicateKind: group.duplicateKind,
-            matchReasons: group.matchReasons
-          }
-        : classifyDuplicateGroup(group, params.mediaItems)
+    // Recompute from current item evidence so legacy stored `exact` values
+    // cannot make a delete report claim verified identity.
+    const classification = classifyDuplicateGroup(group, params.mediaItems)
     for (const mediaKey of group.mediaKeys) {
       if (!keptSet.has(mediaKey) && !trashSet.has(mediaKey)) continue
       const item = params.mediaItems[mediaKey]
@@ -94,6 +100,9 @@ export function buildDeleteReport(params: {
         spaceTaken: item.spaceTaken ?? null,
         similarity: group.similarity,
         duplicateKind: classification.duplicateKind,
+        evidenceLevel: classification.evidenceLevel,
+        relationship: classification.relationship ?? null,
+        canProposeTrash: classification.canProposeTrash,
         matchReasons: classification.matchReasons,
         reason:
           action === "keep"
@@ -106,6 +115,7 @@ export function buildDeleteReport(params: {
 
   return {
     reportId,
+    ...(params.operationId ? { operationId: params.operationId } : {}),
     createdAt: new Date().toISOString(),
     totalGroupsAffected: new Set(items.map((item) => item.duplicateGroupId))
       .size,

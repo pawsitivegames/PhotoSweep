@@ -77,7 +77,7 @@ function buildDuplicateGroup(
     mediaKeys: sorted.map((item) => item.mediaKey),
     originalMediaKey: selectDefaultKeep(items),
     similarity,
-    ...classifyDuplicateItems(items)
+    ...classifyDuplicateItems(items, similarity)
   }
 }
 
@@ -144,10 +144,15 @@ export function findExactContentDuplicateGroups(
 ): GpdMediaItem[][] {
   const buckets = new Map<string, GpdMediaItem[]>()
   for (const item of items) {
-    if (!item.exactContentHash) continue
-    const bucket = buckets.get(item.exactContentHash) ?? []
+    // Keep legacy hash records discoverable so an old scan can still surface
+    // a review candidate, but the classifier only treats the new validated
+    // contentHash contract as verified identity.
+    const hash =
+      item.contentHash?.value?.trim() || item.exactContentHash?.trim()
+    if (!hash) continue
+    const bucket = buckets.get(hash) ?? []
     bucket.push(item)
-    buckets.set(item.exactContentHash, bucket)
+    buckets.set(hash, bucket)
   }
   return [...buckets.values()]
     .filter((group) => group.length >= 2)
@@ -657,7 +662,7 @@ export function withinGroupDuplicates(
         mediaKeys: sorted.map((x) => x.mediaKey),
         originalMediaKey: selectDefaultKeep(items),
         similarity: threshold,
-        ...classifyDuplicateItems(items)
+        ...classifyDuplicateItems(items, threshold)
       }
     })
 }

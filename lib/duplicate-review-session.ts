@@ -1,27 +1,53 @@
 import { buildDeleteReport, type DeleteReport } from "./delete-report"
+import { classifyDuplicateGroup } from "./duplicate-classifier"
 import {
-  chooseKeepKeyForGroup,
-  selectDefaultKeep,
+  recommendKeepForGroup,
+  type KeepRecommendation,
   type KeepStrategy
 } from "./keep-strategy"
 import { buildReviewReport, type ReviewReport } from "./review-report"
 import type { DuplicateGroup, GpdMediaItem, PhotoProvider } from "./types"
 
+export const DUPLICATE_REVIEW_SELECTIONS_VERSION = 2 as const
+
+export type KeepDecisionSource =
+  | "manual"
+  | "legacy_preserved"
+  | "automatic"
+
+export interface KeepDecisionProvenance {
+  source: KeepDecisionSource
+  strategy?: KeepStrategy
+}
+
+export interface KeepDecision {
+  keptMediaKeys: Set<string>
+  source: KeepDecisionSource
+  strategy: KeepStrategy
+  recommendation: KeepRecommendation
+}
+
 export interface DuplicateReviewSelections {
   selectedGroupIds: Set<string>
   reviewedGroupIds: Set<string>
   keptOverrides: Record<string, Set<string>>
+  keepDecisionProvenance?: Record<string, KeepDecisionProvenance>
 }
 
 export interface StoredDuplicateReviewSelections {
+  /** Optional on input so pre-v2 saved selections remain readable. */
+  version?: number
   selectedGroupIds: string[]
   reviewedGroupIds: string[]
   keptOverrides: Record<string, string[]>
+  keepDecisionProvenance?: Record<string, KeepDecisionProvenance>
 }
 
 export interface DuplicateTrashPlan {
   dedupKeys: string[]
   mediaKeysToTrash: string[]
+  blockedMediaKeys: string[]
+  blockedGroupIds: string[]
   provider: PhotoProvider
   icloudAssetRefs?: NonNullable<GpdMediaItem["icloudAsset"]>[]
 }
@@ -56,6 +82,11 @@ function cloneSelections(
         groupId,
         new Set(keys)
       ])
+    ),
+    keepDecisionProvenance: Object.fromEntries(
+      Object.entries(selections.keepDecisionProvenance ?? {}).map(
+        ([groupId, provenance]) => [groupId, { ...provenance }]
+      )
     )
   }
 }
@@ -64,7 +95,8 @@ function defaultSelections(): DuplicateReviewSelections {
   return {
     selectedGroupIds: new Set(),
     reviewedGroupIds: new Set(),
-    keptOverrides: {}
+    keptOverrides: {},
+    keepDecisionProvenance: {}
   }
 }
 
@@ -73,6 +105,7 @@ export class DuplicateReviewSession {
   readonly selectedGroupIds: Set<string>
   readonly reviewedGroupIds: Set<string>
   readonly keptByGroupId: Map<string, Set<string>>
+  readonly keepDecisionByGroupId: Map<string, KeepDecision>
 
   private readonly groups: DuplicateGroup[]
   private readonly mediaItems: Record<string, GpdMediaItem>
@@ -85,8 +118,14 @@ export class DuplicateReviewSession {
     this.selections = this.sanitize(params.selections ?? defaultSelections())
     this.selectedGroupIds = this.selections.selectedGroupIds
     this.reviewedGroupIds = this.selections.reviewedGroupIds
+    this.keepDecisionByGroupId = new Map(
+      this.groups.map((group) => [group.id, this.resolveDecision(group)])
+    )
     this.keptByGroupId = new Map(
-      this.groups.map((group) => [group.id, this.resolveKept(group)])
+      this.groups.map((group) => [
+        group.id,
+        new Set(this.keepDecisionByGroupId.get(group.id)?.keptMediaKeys ?? [])
+      ])
     )
   }
 
@@ -117,6 +156,7 @@ export class DuplicateReviewSession {
           current.selectedGroupIds.add(group.id)
           current.reviewedGroupIds.add(group.id)
           current.keptOverrides[group.id] = kept
+          current.keepDecisionProvenance![group.id] = { source: "manual" }
           break
         }
         if (kept.has(action.mediaKey)) kept.delete(action.mediaKey)
@@ -124,6 +164,7 @@ export class DuplicateReviewSession {
         current.selectedGroupIds.add(group.id)
         current.reviewedGroupIds.add(group.id)
         current.keptOverrides[group.id] = kept
+        current.keepDecisionProvenance![group.id] = { source: "manual" }
         break
       }
       case "trash_all_copies":
@@ -131,18 +172,33 @@ export class DuplicateReviewSession {
           current.selectedGroupIds.add(action.groupId)
           current.reviewedGroupIds.add(action.groupId)
           current.keptOverrides[action.groupId] = new Set()
+          current.keepDecisionProvenance![action.groupId] = { source: "manual" }
         }
         break
       case "apply_keep_strategy":
         for (const groupId of action.groupIds) {
           const group = this.groupsById.get(groupId)
           if (!group) continue
-          const keepKey = chooseKeepKeyForGroup(
+          const existingProvenance =
+            current.keepDecisionProvenance?.[groupId]
+          if (
+            existingProvenance?.source === "manual" ||
+            existingProvenance?.source === "legacy_preserved"
+          ) {
+            continue
+          }
+          const recommendation = recommendKeepForGroup(
             group,
             this.mediaItems,
             action.strategy
           )
-          if (keepKey) current.keptOverrides[groupId] = new Set([keepKey])
+          current.keptOverrides[groupId] = new Set(
+            recommendation.keptMediaKeys
+          )
+          current.keepDecisionProvenance![groupId] = {
+            source: "automatic",
+            strategy: action.strategy
+          }
         }
         break
       case "replace":
@@ -158,34 +214,61 @@ export class DuplicateReviewSession {
     return this.keptByGroupId.get(group.id) ?? this.resolveKept(group)
   }
 
+  decisionFor(group: DuplicateGroup): KeepDecision {
+    return this.keepDecisionByGroupId.get(group.id) ?? this.resolveDecision(group)
+  }
+
   duplicateCount(groups: DuplicateGroup[] = this.groups): number {
-    return groups.reduce((count, group) => {
-      if (!this.selectedGroupIds.has(group.id)) return count
-      const kept = this.keptFor(group)
-      return count + group.mediaKeys.filter((key) => !kept.has(key)).length
-    }, 0)
+    return this.trashPlan(groups).mediaKeysToTrash.length
   }
 
   reviewReport(groups: DuplicateGroup[] = this.groups): ReviewReport {
+    const plan = this.trashPlan(groups)
     return buildReviewReport({
       groups,
       mediaItems: this.mediaItems,
       selectedGroupIds: this.selectedGroupIds,
-      getKept: (group) => this.keptFor(group)
+      getKept: (group) => this.keptFor(group),
+      mediaKeysToTrash: plan.mediaKeysToTrash
     })
   }
 
   trashPlan(groups: DuplicateGroup[] = this.groups): DuplicateTrashPlan {
     const dedupKeys: string[] = []
     const mediaKeysToTrash: string[] = []
+    const blockedMediaKeys: string[] = []
+    const blockedGroupIds = new Set<string>()
+    const dedupKeyCounts = new Map<string, number>()
+
+    // Count identities across the complete scan, not only the visible filter.
+    // A provider asset referenced by more than one row must never be sent to
+    // Trash through one row while another row acts as its apparent keeper.
+    for (const candidateGroup of this.groups) {
+      for (const mediaKey of candidateGroup.mediaKeys) {
+        const dedupKey = this.mediaItems[mediaKey]?.dedupKey
+        if (!dedupKey) continue
+        dedupKeyCounts.set(dedupKey, (dedupKeyCounts.get(dedupKey) ?? 0) + 1)
+      }
+    }
 
     for (const group of groups) {
       if (!this.selectedGroupIds.has(group.id)) continue
       const kept = this.keptFor(group)
+      const classification = classifyDuplicateGroup(group, this.mediaItems)
       for (const mediaKey of group.mediaKeys) {
         if (kept.has(mediaKey)) continue
         const item = this.mediaItems[mediaKey]
         if (!item?.dedupKey) continue
+
+        const blocked =
+          !classification.canProposeTrash ||
+          (dedupKeyCounts.get(item.dedupKey) ?? 0) > 1
+        if (blocked) {
+          blockedMediaKeys.push(mediaKey)
+          blockedGroupIds.add(group.id)
+          continue
+        }
+
         dedupKeys.push(item.dedupKey)
         mediaKeysToTrash.push(mediaKey)
       }
@@ -208,6 +291,8 @@ export class DuplicateReviewSession {
     return {
       dedupKeys,
       mediaKeysToTrash,
+      blockedMediaKeys,
+      blockedGroupIds: [...blockedGroupIds],
       provider,
       ...(icloudAssetRefs ? { icloudAssetRefs } : {})
     }
@@ -217,6 +302,7 @@ export class DuplicateReviewSession {
     plan: DuplicateTrashPlan
     trashBatchSize: number
     groups?: DuplicateGroup[]
+    operationId?: string
   }): DeleteReport {
     return buildDeleteReport({
       groups: params.groups ?? this.groups,
@@ -224,12 +310,14 @@ export class DuplicateReviewSession {
       selectedGroupIds: this.selectedGroupIds,
       getKept: (group) => this.keptFor(group),
       mediaKeysToTrash: params.plan.mediaKeysToTrash,
-      trashBatchSize: params.trashBatchSize
+      trashBatchSize: params.trashBatchSize,
+      operationId: params.operationId
     })
   }
 
   serialize(): StoredDuplicateReviewSelections {
     return {
+      version: DUPLICATE_REVIEW_SELECTIONS_VERSION,
       selectedGroupIds: [...this.selectedGroupIds],
       reviewedGroupIds: [...this.reviewedGroupIds],
       keptOverrides: Object.fromEntries(
@@ -237,6 +325,11 @@ export class DuplicateReviewSession {
           groupId,
           [...keys]
         ])
+      ),
+      keepDecisionProvenance: Object.fromEntries(
+        Object.entries(this.selections.keepDecisionProvenance ?? {}).map(
+          ([groupId, provenance]) => [groupId, { ...provenance }]
+        )
       )
     }
   }
@@ -255,28 +348,110 @@ export class DuplicateReviewSession {
       )
     )
     const keptOverrides: Record<string, Set<string>> = {}
+    const keepDecisionProvenance: Record<string, KeepDecisionProvenance> = {}
+    const suppliedProvenance = selections.keepDecisionProvenance ?? {}
 
     for (const [groupId, keys] of Object.entries(selections.keptOverrides)) {
       const group = this.groupsById.get(groupId)
       if (!group) continue
       const validMediaKeys = new Set(group.mediaKeys)
       const filtered = [...keys].filter((key) => validMediaKeys.has(key))
-      if (keys.size === 0 || filtered.length > 0) {
+      const provenance = this.normalizeProvenance(suppliedProvenance[groupId])
+      if (keys.size === 0) {
+        keptOverrides[groupId] = new Set()
+        keepDecisionProvenance[groupId] = provenance ?? { source: "manual" }
+      } else if (filtered.length > 0) {
         keptOverrides[groupId] = new Set(filtered)
+        keepDecisionProvenance[groupId] =
+          provenance ?? { source: "legacy_preserved" }
+      } else {
+        // A saved choice whose keys no longer exist must fail safe. Keeping
+        // every current member preserves review intent without authorizing a
+        // new single-copy Trash proposal.
+        keptOverrides[groupId] = new Set(group.mediaKeys)
+        keepDecisionProvenance[groupId] = { source: "legacy_preserved" }
       }
+      reviewedGroupIds.add(groupId)
     }
 
-    return { selectedGroupIds, reviewedGroupIds, keptOverrides }
+    return {
+      selectedGroupIds,
+      reviewedGroupIds,
+      keptOverrides,
+      keepDecisionProvenance
+    }
   }
 
   private resolveKept(group: DuplicateGroup): Set<string> {
-    const override = this.selections.keptOverrides[group.id]
-    if (override) return override
-    const items = group.mediaKeys
-      .map((key) => this.mediaItems[key])
-      .filter((item): item is GpdMediaItem => Boolean(item))
-    const defaultKey =
-      items.length > 0 ? selectDefaultKeep(items) : group.originalMediaKey
-    return new Set([defaultKey])
+    return new Set(this.resolveDecision(group).keptMediaKeys)
   }
+
+  private resolveDecision(group: DuplicateGroup): KeepDecision {
+    const override = this.selections.keptOverrides[group.id]
+    const provenance = this.selections.keepDecisionProvenance?.[group.id]
+    const strategy = provenance?.strategy ?? "best_quality"
+    const recommendation = recommendKeepForGroup(
+      group,
+      this.mediaItems,
+      strategy
+    )
+
+    if (override && provenance?.source === "automatic") {
+      return {
+        keptMediaKeys: new Set(recommendation.keptMediaKeys),
+        source: "automatic",
+        strategy,
+        recommendation
+      }
+    }
+
+    if (override) {
+      return {
+        keptMediaKeys: new Set(override),
+        source: provenance?.source ?? "legacy_preserved",
+        strategy,
+        recommendation
+      }
+    }
+
+    return {
+      keptMediaKeys: new Set(recommendation.keptMediaKeys),
+      source: "automatic",
+      strategy: recommendation.strategy,
+      recommendation
+    }
+  }
+
+  private normalizeProvenance(
+    provenance: KeepDecisionProvenance | undefined
+  ): KeepDecisionProvenance | null {
+    if (!provenance) return null
+    if (
+      provenance.source !== "manual" &&
+      provenance.source !== "legacy_preserved" &&
+      provenance.source !== "automatic"
+    ) {
+      return null
+    }
+    if (provenance.strategy === undefined) {
+      return provenance.source === "automatic"
+        ? { source: "legacy_preserved" }
+        : { source: provenance.source }
+    }
+    if (!isKeepStrategyValue(provenance.strategy)) {
+      return { source: "legacy_preserved" }
+    }
+    return { source: provenance.source, strategy: provenance.strategy }
+  }
+}
+
+function isKeepStrategyValue(value: unknown): value is KeepStrategy {
+  return (
+    value === "best_quality" ||
+    value === "largest_resolution" ||
+    value === "newest_taken" ||
+    value === "oldest_taken" ||
+    value === "newest_upload" ||
+    value === "non_storage_counting"
+  )
 }

@@ -60,6 +60,28 @@ export interface ScanLibraryMessage extends BaseMessage {
 export type ScanMode = "smart" | "full"
 export type PhotoProvider = "google" | "icloud" | "amazon"
 
+/**
+ * Evidence used to establish byte/content identity. Provider asset IDs and
+ * legacy exactContentHash values are intentionally not part of this contract.
+ */
+export type ContentHashAlgorithm = "md5" | "sha256" | "provider-fingerprint"
+
+export interface ContentHashEvidence {
+  value: string
+  algorithm: ContentHashAlgorithm
+  provenance: "original-content"
+}
+
+/** Confidence is separate from a relationship such as RAW/JPEG or same asset. */
+export type DuplicateEvidenceLevel =
+  | "verified_identical"
+  | "strong_duplicate_candidate"
+  | "similar"
+
+export type DuplicateRelationship =
+  | "same_provider_asset"
+  | "related_format_edit"
+
 export interface ScanOptions {
   similarityThreshold: number // 0.80 - 1.00
   scanMode: ScanMode
@@ -178,7 +200,9 @@ export type AppMessage =
 export interface GpdMediaItem {
   mediaKey: string
   dedupKey: string
+  /** @deprecated Legacy provider metadata; never establishes verified identity by itself. */
   exactContentHash?: string
+  contentHash?: ContentHashEvidence
   thumb: string // bare thumbnail URL; use buildThumbUrl() for sized renditions
   productUrl?: string // link to item in the provider's web app
   provider?: PhotoProvider
@@ -220,7 +244,12 @@ export interface DuplicateGroup {
   mediaKeys: string[] // media keys of items in this group
   originalMediaKey: string // user-selected "keep" item
   similarity: number // average pairwise similarity in the group
+  /** Legacy coarse kind retained for stored-result compatibility. */
   duplicateKind?: "exact" | "similar"
+  evidenceLevel?: DuplicateEvidenceLevel
+  relationship?: DuplicateRelationship
+  canProposeTrash?: boolean
+  classificationVersion?: number
   matchReasons?: string[]
 }
 
@@ -240,11 +269,23 @@ export interface StoredState {
     sourceProvider?: PhotoProvider
     dateRange?: ScanSettings["dateRange"]
     albumScope?: ScanSettings["albumScope"]
+    scanMode?: ScanSettings["scanMode"]
+    similarityThreshold?: number
+    smartWindowSec?: number
+    scopeFingerprint?: string
   }
   selections?: {
+    version?: number
     selectedGroupIds: string[]
     reviewedGroupIds: string[]
     keptOverrides: Record<string, string[]>
+    keepDecisionProvenance?: Record<
+      string,
+      {
+        source: "manual" | "legacy_preserved" | "automatic"
+        strategy?: string
+      }
+    >
   }
   settings: ScanSettings
   scanCheckpoint?: import("./scan-checkpoint").ScanCheckpoint

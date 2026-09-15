@@ -3,6 +3,7 @@ import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank"
 import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded"
+import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded"
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded"
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded"
@@ -39,6 +40,9 @@ interface ActionBarProps {
   onExportJson: () => void
   onExportCsv: () => void
   onApplyKeepStrategy: (strategy: KeepStrategy) => void
+  recoveryHistoryCount?: number
+  onOpenRecoveryHistory?: () => void
+  onClearDecisionMemory?: () => void
   compact?: boolean
 }
 
@@ -57,6 +61,9 @@ export function ActionBar({
   onExportJson,
   onExportCsv,
   onApplyKeepStrategy,
+  recoveryHistoryCount = 0,
+  onOpenRecoveryHistory,
+  onClearDecisionMemory,
   compact = false
 }: ActionBarProps) {
   const [keepMenuAnchor, setKeepMenuAnchor] = useState<HTMLElement | null>(null)
@@ -174,10 +181,10 @@ export function ActionBar({
               All ({totalGroupCount.toLocaleString()})
             </ToggleButton>
             <ToggleButton value="exact">
-              Exact ({exactGroupCount.toLocaleString()})
+              Verified identical ({exactGroupCount.toLocaleString()})
             </ToggleButton>
             <ToggleButton value="similar">
-              Similar ({similarGroupCount.toLocaleString()})
+              Candidates &amp; similar ({similarGroupCount.toLocaleString()})
             </ToggleButton>
           </ToggleButtonGroup>
 
@@ -273,6 +280,25 @@ export function ActionBar({
               }}>
               Export spreadsheet
             </MenuItem>
+            {onOpenRecoveryHistory && (
+              <MenuItem
+                onClick={() => {
+                  onOpenRecoveryHistory()
+                  setMoreMenuAnchor(null)
+                }}>
+                <HistoryRoundedIcon fontSize="small" sx={{ mr: 1 }} />
+                Recovery history{recoveryHistoryCount > 0 ? ` (${recoveryHistoryCount})` : ""}
+              </MenuItem>
+            )}
+            {onClearDecisionMemory && (
+              <MenuItem
+                onClick={() => {
+                  onClearDecisionMemory()
+                  setMoreMenuAnchor(null)
+                }}>
+                Clear remembered decisions
+              </MenuItem>
+            )}
           </Menu>
         </Box>
       )}
@@ -315,10 +341,10 @@ export function ActionBar({
               All sets ({totalGroupCount.toLocaleString()})
             </ToggleButton>
             <ToggleButton value="exact">
-              Identical ({exactGroupCount.toLocaleString()})
+              Verified identical ({exactGroupCount.toLocaleString()})
             </ToggleButton>
             <ToggleButton value="similar">
-              Similar ({similarGroupCount.toLocaleString()})
+              Candidates &amp; similar ({similarGroupCount.toLocaleString()})
             </ToggleButton>
           </ToggleButtonGroup>
           {!compact && (
@@ -342,6 +368,14 @@ export function ActionBar({
             onClick={onExportCsv}>
             Spreadsheet
           </Button>
+          {onOpenRecoveryHistory && (
+            <Button
+              size="small"
+              startIcon={<HistoryRoundedIcon />}
+              onClick={onOpenRecoveryHistory}>
+              Recovery{recoveryHistoryCount > 0 ? ` (${recoveryHistoryCount})` : ""}
+            </Button>
+          )}
           {!compact && (
             <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
           )}

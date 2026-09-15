@@ -8,6 +8,7 @@ import CloseIcon from "@mui/icons-material/Close"
 import CollectionsRoundedIcon from "@mui/icons-material/CollectionsRounded"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
 import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded"
+import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded"
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined"
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded"
 import PhotoLibraryRoundedIcon from "@mui/icons-material/PhotoLibraryRounded"
@@ -51,6 +52,7 @@ import {
 import { ActionBar, CleanupBar } from "../components/ActionBar"
 import type { ReviewFilter } from "../components/ActionBar"
 import { DuplicateGroups } from "../components/DuplicateGroups"
+import { RecoveryHistoryDialog } from "../components/RecoveryHistoryDialog"
 import { RatingPromptDialog } from "../components/RatingPromptDialog"
 import { ScanConfig } from "../components/ScanConfig"
 import { ScanProgress } from "../components/ScanProgress"
@@ -64,10 +66,12 @@ import { DuplicateDetectionEngine } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
 import {
   DuplicateReviewSession,
+  type DuplicateReviewAction,
   type DuplicateReviewSelections,
   type DuplicateTrashPlan
 } from "../lib/duplicate-review-session"
 import { EmbeddingCache } from "../lib/embedding-cache"
+import { FEEDBACK_MAILTO_URL } from "../lib/feedback"
 import {
   canExportFullReport,
   canResumeCheckpoint,
@@ -133,14 +137,41 @@ import {
 import { ScanLifecycle } from "../lib/scan-lifecycle"
 import { ScanLogger } from "../lib/scan-log"
 import { areScanResultsValid } from "../lib/scan-results"
+import {
+  applyRememberedDecisions,
+  captureManualDecisionRecords,
+  DECISION_MEMORY_STORAGE_KEY,
+  DecisionMemoryStore
+} from "../lib/decision-memory"
+import {
+  buildScanScopeFingerprint,
+  evaluateRecoveryRestorePreflight,
+  evaluateReviewPreflight,
+  type ReviewPreflightResult
+} from "../lib/review-preflight"
+import {
+  createPendingRecoveryRecord,
+  isRecoveryRestorable,
+  markRecoveryRestore,
+  RECOVERY_HISTORY_STORAGE_KEY,
+  sanitizeRecoveryHistory,
+  updateRecoveryRecordFromTrash,
+  type RecoveryHistoryContext,
+  type RecoveryHistoryRecord
+} from "../lib/recovery-history"
 import { StoredReviewScope } from "../lib/stored-review-scope"
 import { buildSupportDiagnosticsReport } from "../lib/support-diagnostics"
 import theme, { photoSweepColors } from "../lib/theme"
 import {
   TrashLifecycle,
+  type TrashAuditContext,
   type TrashProviderResultData,
   type TrashUndoData
 } from "../lib/trash-lifecycle"
+import {
+  captureTrashDispatchAuthorization,
+  isTrashDispatchAuthorizationCurrent
+} from "../lib/trash-dispatch-guard"
 import type { TrashResultReport } from "../lib/trash-result-report"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
 import type {
@@ -1053,6 +1084,46 @@ async function persistTrashResultReport(
   }
 }
 
+async function loadRecoveryHistoryFromStorage(): Promise<RecoveryHistoryRecord[]> {
+  const stored = await chrome.storage.local.get(RECOVERY_HISTORY_STORAGE_KEY)
+  return sanitizeRecoveryHistory(stored[RECOVERY_HISTORY_STORAGE_KEY])
+}
+
+async function persistRecoveryHistoryToStorage(
+  records: RecoveryHistoryRecord[]
+): Promise<void> {
+  await chrome.storage.local.set({
+    [RECOVERY_HISTORY_STORAGE_KEY]: sanitizeRecoveryHistory(records)
+  })
+}
+
+async function persistRecoveryRestoreStatus(
+  operationId: string,
+  params: { success: boolean; error?: string }
+): Promise<RecoveryHistoryRecord[]> {
+  const records = await loadRecoveryHistoryFromStorage()
+  const next = markRecoveryRestore(records, operationId, params)
+  await persistRecoveryHistoryToStorage(next)
+  return next
+}
+
+function chromeDecisionMemoryStorage() {
+  return new DecisionMemoryStore({
+    async get() {
+      const stored = await chrome.storage.local.get(DECISION_MEMORY_STORAGE_KEY)
+      return stored[DECISION_MEMORY_STORAGE_KEY]
+    },
+    async set(records) {
+      await chrome.storage.local.set({
+        [DECISION_MEMORY_STORAGE_KEY]: records
+      })
+    },
+    async remove() {
+      await chrome.storage.local.remove(DECISION_MEMORY_STORAGE_KEY)
+    }
+  })
+}
+
 function downloadTrashResultReport(report: TrashResultReport): void {
   downloadTextFile({
     filename: `${report.reportId}.json`,
@@ -1112,9 +1183,7 @@ function filterGroupsForSafety(
 ): DuplicateGroup[] {
   if (!settings.exactOnly) return groups
   return groups.filter((group) => {
-    const kind =
-      group.duplicateKind ??
-      classifyDuplicateGroup(group, mediaItems).duplicateKind
+    const kind = classifyDuplicateGroup(group, mediaItems).duplicateKind
     return kind === "exact"
   })
 }
@@ -1200,10 +1269,25 @@ export default function App() {
     useState<DuplicateTrashPlan | null>(null)
   const trashConfirmRef = useRef<DuplicateTrashPlan | null>(null)
   const [trashConfirmCount, setTrashConfirmCount] = useState("")
+  const [trashPreflight, setTrashPreflight] =
+    useState<ReviewPreflightResult | null>(null)
   const [trashWarning, setTrashWarningState] = useState<string | null>(null)
   const trashWarningRef = useRef<string | null>(null)
   const [trashMovesThisSession, setTrashMovesThisSession] = useState(0)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [recoveryHistory, setRecoveryHistoryState] = useState<RecoveryHistoryRecord[]>([])
+  const recoveryHistoryRef = useRef<RecoveryHistoryRecord[]>([])
+  const [recoveryHistoryOpen, setRecoveryHistoryOpen] = useState(false)
+  const [recoveryHistoryBusyId, setRecoveryHistoryBusyId] = useState<string | null>(null)
+  const decisionMemoryStoreRef = useRef<DecisionMemoryStore | null>(null)
+  if (!decisionMemoryStoreRef.current) {
+    decisionMemoryStoreRef.current = chromeDecisionMemoryStorage()
+  }
+  const decisionMemoryStore = decisionMemoryStoreRef.current
+  const restoreRequestByIdRef = useRef(
+    new Map<string, { operationId: string; generation: number; history: boolean }>()
+  )
+  const resetReviewRef = useRef<() => void>(() => {})
   const [cacheEntryCount, setCacheEntryCount] = useState<number | null>(null)
   const [cacheStatus, setCacheStatus] = useState<string | undefined>()
   const [cacheBusy, setCacheBusy] = useState(false)
@@ -1273,6 +1357,14 @@ export default function App() {
         typeof next === "function" ? next(undoDataRef.current) : next
       undoDataRef.current = resolved
       setUndoDataState(resolved)
+    },
+    []
+  )
+
+  const setRecoveryHistorySafely = useCallback(
+    (next: RecoveryHistoryRecord[]) => {
+      recoveryHistoryRef.current = next
+      setRecoveryHistoryState(next)
     },
     []
   )
@@ -1841,11 +1933,22 @@ export default function App() {
   const trashLifecycleRef = useRef<TrashLifecycle | null>(null)
   if (!trashLifecycleRef.current) {
     trashLifecycleRef.current = new TrashLifecycle({
-      async savePreTrashReport(report) {
+      async savePreTrashReport(report, context) {
         await persistDeleteReport(report)
         downloadDeleteReport(report)
+        if (!context) return
+        const records = await loadRecoveryHistoryFromStorage()
+        const next = [
+          createPendingRecoveryRecord(report, context as RecoveryHistoryContext),
+          ...records.filter(
+            (record) => record.operationId !== context.operationId
+          )
+        ]
+        const bounded = sanitizeRecoveryHistory(next)
+        await persistRecoveryHistoryToStorage(bounded)
+        setRecoveryHistorySafely(bounded)
       },
-      async saveTrashResultReport(report) {
+      async saveTrashResultReport(report, context) {
         try {
           downloadTrashResultReport(report)
         } catch (error) {
@@ -1859,6 +1962,21 @@ export default function App() {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           setReportError(`Could not save the trash result report: ${message}`)
+        }
+        if (context) {
+          try {
+            const records = await loadRecoveryHistoryFromStorage()
+            const next = updateRecoveryRecordFromTrash(
+              records,
+              report,
+              context as RecoveryHistoryContext
+            )
+            await persistRecoveryHistoryToStorage(next)
+            setRecoveryHistorySafely(next)
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            setReportError(`Could not update recovery history: ${message}`)
+          }
         }
       }
     })
@@ -2012,8 +2130,32 @@ export default function App() {
         success: result.success
       })
       if (failedUndo === undefined) return
+      const restoreRequest = restoreRequestByIdRef.current.get(
+        result.requestId
+      )
+      restoreRequestByIdRef.current.delete(result.requestId)
+      setRecoveryHistoryBusyId(null)
       restoreGenerationRef.current = null
       restoreInFlightRef.current = false
+      if (restoreRequest) {
+        void persistRecoveryRestoreStatus(restoreRequest.operationId, {
+          success: result.success,
+          ...(result.error ? { error: result.error } : {})
+        })
+          .then((records) => {
+            setRecoveryHistorySafely(records)
+            if (result.success && !failedUndo && restoreRequest.history) {
+              resetReviewRef.current()
+              setTrashWarningSafely(
+                "Provider restore completed. Run a new scoped scan to verify the library state."
+              )
+            }
+          })
+          .catch((error) => {
+            const message = error instanceof Error ? error.message : String(error)
+            setReportError(`Could not update recovery history: ${message}`)
+          })
+      }
       if (failedUndo === null) return
       console.error("GPD: Restore failed:", result.error)
       setUndoDataSafely(failedUndo)
@@ -2021,7 +2163,7 @@ export default function App() {
         `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
       )
     },
-    [trashLifecycle]
+    [setRecoveryHistorySafely, trashLifecycle]
   )
 
   const patchScanCheckpoint = useCallback(
@@ -2555,6 +2697,14 @@ export default function App() {
   settingsRef.current = settings
   const stateRef = useRef(state)
   stateRef.current = state
+  const reviewSelectionsRef = useRef(reviewSelections)
+  reviewSelectionsRef.current = reviewSelections
+  const reviewFilterRef = useRef(reviewFilter)
+  reviewFilterRef.current = reviewFilter
+  const entitlementRef = useRef(entitlement)
+  entitlementRef.current = entitlement
+  const accountValidationCompleteRef = useRef(accountValidationComplete)
+  accountValidationCompleteRef.current = accountValidationComplete
 
   useEffect(() => {
     if (
@@ -2666,12 +2816,32 @@ export default function App() {
           setDeferredUpgrade(null)
         }
 
-        autoSelectNextResultsRef.current = true
+        const scanDate = Date.now()
+        const scanScopeFingerprint = buildScanScopeFingerprint(
+          settingsRef.current
+        )
+        const rememberedSelections = applyRememberedDecisions({
+          records: await decisionMemoryStore.load(),
+          groups,
+          mediaItems: mediaItemMap,
+          provider: settingsRef.current.sourceProvider ?? "google",
+          accountEmail: currentAccountEmailRef.current,
+          now: scanDate
+        })
+        const hasRememberedSelections =
+          rememberedSelections.reviewedGroupIds.size > 0
+        autoSelectNextResultsRef.current = !hasRememberedSelections
+        pendingSelectionsRef.current = hasRememberedSelections
+          ? rememberedSelections
+          : null
         dispatch({
           type: "SCAN_COMPLETE",
           mediaItems: mediaItemMap,
           groups,
-          totalItems: items.length
+          totalItems: items.length,
+          sourceProvider: settingsRef.current.sourceProvider ?? "google",
+          scanDate,
+          scopeFingerprint: scanScopeFingerprint
         })
         trackEvent({
           name: "scan_completed",
@@ -2732,6 +2902,21 @@ export default function App() {
     refreshEmbeddingCacheCount()
   }, [refreshEmbeddingCacheCount])
 
+  useEffect(() => {
+    let cancelled = false
+    void loadRecoveryHistoryFromStorage()
+      .then((records) => {
+        if (!cancelled) setRecoveryHistorySafely(records)
+      })
+      .catch(() => {
+        if (!cancelled) setRecoveryHistorySafely([])
+      })
+    void decisionMemoryStore.load().catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [decisionMemoryStore, setRecoveryHistorySafely])
+
   // Load saved settings and results on mount
   useEffect(() => {
     let cancelled = false
@@ -2785,7 +2970,10 @@ export default function App() {
             mediaItems: restored.scanResults.mediaItems,
             groups: restored.scanResults.groups,
             totalItems: restored.scanResults.totalItems,
-            accountEmail: restored.scanResults.accountEmail
+            accountEmail: restored.scanResults.accountEmail,
+            sourceProvider: restored.scanResults.sourceProvider,
+            scanDate: restored.scanResults.scanDate,
+            scopeFingerprint: restored.scanResults.scopeFingerprint
           })
         }
         setStorageChecked(true)
@@ -2808,11 +2996,7 @@ export default function App() {
     const m = new Map<string, "exact" | "similar">()
     if (Object.keys(displayMediaItems).length === 0) return m
     for (const group of groups) {
-      m.set(
-        group.id,
-        group.duplicateKind ??
-          classifyDuplicateGroup(group, displayMediaItems).duplicateKind
-      )
+      m.set(group.id, classifyDuplicateGroup(group, displayMediaItems).duplicateKind)
     }
     return m
   }, [groups, displayMediaItems])
@@ -2851,6 +3035,18 @@ export default function App() {
       }),
     [displayMediaItems, groups, reviewSelections]
   )
+  const updateReviewSelections = useCallback(
+    (action: DuplicateReviewAction) => {
+      setReviewSelections((current) =>
+        new DuplicateReviewSession({
+          groups,
+          mediaItems: displayMediaItems,
+          selections: current
+        }).update(action)
+      )
+    },
+    [displayMediaItems, groups]
+  )
   const reviewedVisibleGroupCount = visibleGroups.filter((group) =>
     reviewSession.reviewedGroupIds.has(group.id)
   ).length
@@ -2859,33 +3055,27 @@ export default function App() {
     reviewedVisibleGroupCount === visibleGroups.length
 
   const handleSelectAll = useCallback(() => {
-    setReviewSelections(
-      reviewSession.update({
-        type: "select_groups",
-        groupIds: visibleGroups.map((group) => group.id)
-      })
-    )
-  }, [reviewSession, visibleGroups])
+    updateReviewSelections({
+      type: "select_groups",
+      groupIds: visibleGroups.map((group) => group.id)
+    })
+  }, [updateReviewSelections, visibleGroups])
 
   const handleDeselectAll = useCallback(() => {
-    setReviewSelections(
-      reviewSession.update({
-        type: "deselect_groups",
-        groupIds: visibleGroups.map((group) => group.id)
-      })
-    )
-  }, [reviewSession, visibleGroups])
+    updateReviewSelections({
+      type: "deselect_groups",
+      groupIds: visibleGroups.map((group) => group.id)
+    })
+  }, [updateReviewSelections, visibleGroups])
 
   const handleSkipGroup = useCallback(
     (groupId: string) => {
-      setReviewSelections(
-        reviewSession.update({
-          type: "deselect_groups",
-          groupIds: [groupId]
-        })
-      )
+      updateReviewSelections({
+        type: "deselect_groups",
+        groupIds: [groupId]
+      })
     },
-    [reviewSession]
+    [updateReviewSelections]
   )
 
   const getKept = useCallback(
@@ -2979,41 +3169,35 @@ export default function App() {
 
   const handleToggleKept = useCallback(
     (group: DuplicateGroup, mediaKey: string) => {
-      setReviewSelections(
-        reviewSession.update({
-          type: "toggle_kept",
-          groupId: group.id,
-          mediaKey
-        })
-      )
+      updateReviewSelections({
+        type: "toggle_kept",
+        groupId: group.id,
+        mediaKey
+      })
     },
-    [reviewSession]
+    [updateReviewSelections]
   )
 
   const handleTrashAllCopies = useCallback(
     (group: DuplicateGroup) => {
-      setReviewSelections(
-        reviewSession.update({
-          type: "trash_all_copies",
-          groupId: group.id
-        })
-      )
+      updateReviewSelections({
+        type: "trash_all_copies",
+        groupId: group.id
+      })
     },
-    [reviewSession]
+    [updateReviewSelections]
   )
 
   const handleApplyKeepStrategy = useCallback(
     (strategy: KeepStrategy) => {
       if (!mediaItems) return
-      setReviewSelections(
-        reviewSession.update({
-          type: "apply_keep_strategy",
-          groupIds: visibleGroups.map((group) => group.id),
-          strategy
-        })
-      )
+      updateReviewSelections({
+        type: "apply_keep_strategy",
+        groupIds: visibleGroups.map((group) => group.id),
+        strategy
+      })
     },
-    [mediaItems, reviewSession, visibleGroups]
+    [mediaItems, updateReviewSelections, visibleGroups]
   )
   const totalItems =
     state.status === "results" || state.status === "trashing"
@@ -3023,6 +3207,8 @@ export default function App() {
     state.status === "results" || state.status === "trashing"
       ? state.accountEmail
       : undefined
+  const resultScanMetadata =
+    state.status === "results" || state.status === "trashing" ? state : null
   useEffect(() => {
     if (!accountValidationComplete) return
     if (!mediaItems) return
@@ -3041,17 +3227,26 @@ export default function App() {
         scanResults: {
           mediaItems,
           groups,
-          scanDate: Date.now(),
+          scanDate: resultScanMetadata?.scanDate ?? Date.now(),
           totalItems,
           newestCreationTimestamp,
           mediaItemsAreComplete,
           accountEmail: accountEmailForStorage,
-          sourceProvider: settings.sourceProvider ?? "google",
+          sourceProvider:
+            resultScanMetadata?.sourceProvider ??
+            settings.sourceProvider ??
+            "google",
           dateRange: activeDateRange(settings.dateRange),
           albumScope:
             (settings.sourceProvider ?? "google") === "google"
               ? activeAlbumScope(settings.albumScope)
-              : undefined
+              : undefined,
+          scanMode: settings.scanMode,
+          similarityThreshold: settings.similarityThreshold,
+          smartWindowSec: settings.smartWindowSec,
+          scopeFingerprint:
+            resultScanMetadata?.scopeFingerprint ??
+            buildScanScopeFingerprint(settings)
         }
       })
     } else {
@@ -3061,11 +3256,16 @@ export default function App() {
   }, [
     groups,
     mediaItems,
+    resultScanMetadata,
     totalItems,
     accountEmailForStorage,
     accountValidationComplete,
+    settings.scanMode,
+    settings.similarityThreshold,
+    settings.smartWindowSec,
     settings.dateRange,
     settings.albumScope,
+    settings.sourceProvider,
     storedReviewScope
   ])
 
@@ -3081,12 +3281,25 @@ export default function App() {
       return
     }
     void storedReviewScope.write({ selections: reviewSession.serialize() })
+    const records = captureManualDecisionRecords({
+      groups,
+      mediaItems: displayMediaItems,
+      selections: reviewSession.selections,
+      provider: settings.sourceProvider ?? "google",
+      accountEmail: accountEmailForStorage
+    })
+    if (records.length > 0) {
+      void decisionMemoryStore.remember(records).catch(() => {})
+    }
   }, [
+    decisionMemoryStore,
+    displayMediaItems,
     reviewSession,
     state.status,
     groups,
     accountEmailForStorage,
     accountValidationComplete,
+    settings.sourceProvider,
     storedReviewScope
   ])
 
@@ -3443,9 +3656,42 @@ export default function App() {
     }
 
     const plan = reviewSession.trashPlan(visibleGroups)
-    const { dedupKeys } = plan
+    const { dedupKeys, blockedMediaKeys } = plan
+
+    if (blockedMediaKeys.length > 0) {
+      setTrashWarningSafely(
+        `${blockedMediaKeys.length.toLocaleString()} selected item${
+          blockedMediaKeys.length === 1 ? "" : "s"
+        } stayed out of the Trash plan because the provider identity is repeated or the relationship is review-only. Confirm the remaining safe items after reviewing those sets.`
+      )
+    }
 
     if (dedupKeys.length === 0) return
+    const currentProvider = settings.sourceProvider ?? "google"
+    const preflight = evaluateReviewPreflight({
+      scanProvider: state.sourceProvider ?? currentProvider,
+      currentProvider,
+      scanAccountEmail: state.accountEmail,
+      currentAccountEmail: currentAccountEmailRef.current,
+      scanDate: state.scanDate,
+      scanScopeFingerprint: state.scopeFingerprint,
+      currentScopeFingerprint: buildScanScopeFingerprint(settings),
+      selectedCount: dedupKeys.length,
+      connectionValidated:
+        accountValidationComplete && currentHasGptkRef.current,
+      allowUnavailableAccountIdentity: currentProvider !== "google",
+      requireFreshScan: true,
+      requireKnownScope: true
+    })
+    if (!preflight.allowed) {
+      setTrashWarningSafely(
+        `Cleanup preflight blocked: ${preflight.reasons
+          .map((item) => item.message)
+          .join(" ")}`
+      )
+      return
+    }
+    setTrashPreflight(preflight)
     if (
       !canTrashCount(dedupKeys.length, actionEntitlement, trashMovesThisSession)
     ) {
@@ -3493,23 +3739,61 @@ export default function App() {
     refreshTimeLimitedEntitlementForAction,
     trashMovesThisSession,
     openTrackedUpgradePrompt,
+    accountValidationComplete,
     trackEvent
   ])
 
   const handleCloseTrashConfirm = useCallback(() => {
     setTrashConfirmSafely(null)
     setTrashConfirmCount("")
+    setTrashPreflight(null)
   }, [])
 
   const handleTrashConfirmed = useCallback(async () => {
     if (!trashConfirm || state.status !== "results") return
     setReportError(null)
+    const confirmedPlan = trashConfirm
     const generation = paidConversionGenerationRef.current
+
+    const currentProvider = settings.sourceProvider ?? "google"
+    const confirmationPreflight = evaluateReviewPreflight({
+      scanProvider: state.sourceProvider ?? currentProvider,
+      currentProvider,
+      scanAccountEmail: state.accountEmail,
+      currentAccountEmail: currentAccountEmailRef.current,
+      scanDate: state.scanDate,
+      scanScopeFingerprint: state.scopeFingerprint,
+      currentScopeFingerprint: buildScanScopeFingerprint(settings),
+      selectedCount: trashConfirm.dedupKeys.length,
+      connectionValidated:
+        accountValidationComplete && currentHasGptkRef.current,
+      allowUnavailableAccountIdentity: currentProvider !== "google",
+      requireFreshScan: true,
+      requireKnownScope: true
+    })
+    if (!confirmationPreflight.allowed) {
+      setTrashWarningSafely(
+        `Cleanup preflight blocked: ${confirmationPreflight.reasons
+          .map((item) => item.message)
+          .join(" ")}`
+      )
+      handleCloseTrashConfirm()
+      return
+    }
+
+    const dispatchAuthorization = captureTrashDispatchAuthorization({
+      generation,
+      plan: confirmedPlan,
+      provider: currentProvider,
+      accountEmail: currentAccountEmailRef.current ?? state.accountEmail,
+      scopeFingerprint:
+        state.scopeFingerprint ?? buildScanScopeFingerprint(settings)
+    })
 
     let command
     try {
       command = await trashLifecycle.begin({
-        plan: trashConfirm,
+        plan: confirmedPlan,
         reviewSession,
         groups: visibleGroups,
         snapshot: {
@@ -3522,7 +3806,11 @@ export default function App() {
           batchPauseMs: TRASH_BATCH_PAUSE_MS,
           retryCount: TRASH_RETRY_COUNT,
           retryBackoffMs: TRASH_RETRY_BACKOFF_MS
-        }
+        },
+        accountEmail: currentAccountEmailRef.current ?? state.accountEmail,
+        scopeFingerprint:
+          state.scopeFingerprint ?? buildScanScopeFingerprint(settings),
+        scopeLabel: scanScopeLabel(settings).label
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -3531,6 +3819,97 @@ export default function App() {
     }
     if (generation !== paidConversionGenerationRef.current) {
       trashLifecycle.reset()
+      return
+    }
+
+    // Saving the pre-trash report is an await boundary. Rebuild the plan and
+    // authorization from refs after it completes so a selection, provider,
+    // account, scope, or entitlement transition cannot dispatch the old
+    // command. The paid-access generation covers entitlement changes; the
+    // exact plan fingerprint covers every destructive provider identifier.
+    const latestState = stateRef.current
+    if (latestState.status !== "results") {
+      trashLifecycle.reset()
+      setTrashWarningSafely(
+        "Cleanup review changed while preparing the provider request. Review the current results again before moving anything to Trash."
+      )
+      handleCloseTrashConfirm()
+      return
+    }
+    const latestSettings = settingsRef.current
+    const latestProvider = latestSettings.sourceProvider ?? "google"
+    const latestScopeFingerprint =
+      latestState.scopeFingerprint ?? buildScanScopeFingerprint(latestSettings)
+    const latestGroups = latestState.groups
+    const latestMediaItems = latestState.mediaItems
+    const latestClassificationById = new Map<
+      string,
+      "exact" | "similar"
+    >()
+    for (const group of latestGroups) {
+      latestClassificationById.set(
+        group.id,
+        classifyDuplicateGroup(group, latestMediaItems).duplicateKind
+      )
+    }
+    const latestFilteredGroups =
+      reviewFilterRef.current === "all"
+        ? latestGroups
+        : latestGroups.filter(
+            (group) =>
+              latestClassificationById.get(group.id) === reviewFilterRef.current
+          )
+    const latestVisibleGroups = getVisibleGroups(
+      latestFilteredGroups,
+      entitlementRef.current
+    )
+    const latestReviewSession = new DuplicateReviewSession({
+      groups: latestGroups,
+      mediaItems: latestMediaItems,
+      selections: reviewSelectionsRef.current
+    })
+    const latestPlan = latestReviewSession.trashPlan(latestVisibleGroups)
+    const latestScanProvider = latestState.sourceProvider ?? latestProvider
+    const latestAccountEmail =
+      currentAccountEmailRef.current ?? latestState.accountEmail
+    const latestPreflight = evaluateReviewPreflight({
+      scanProvider: latestScanProvider,
+      currentProvider: latestProvider,
+      scanAccountEmail: latestState.accountEmail,
+      currentAccountEmail: latestAccountEmail,
+      scanDate: latestState.scanDate,
+      scanScopeFingerprint: latestState.scopeFingerprint,
+      currentScopeFingerprint: buildScanScopeFingerprint(latestSettings),
+      selectedCount: latestPlan.dedupKeys.length,
+      connectionValidated:
+        accountValidationCompleteRef.current && currentHasGptkRef.current,
+      allowUnavailableAccountIdentity: latestProvider !== "google",
+      requireFreshScan: true,
+      requireKnownScope: true
+    })
+    const latestAuthorization = captureTrashDispatchAuthorization({
+      generation: paidConversionGenerationRef.current,
+      plan: latestPlan,
+      provider: latestProvider,
+      accountEmail: latestAccountEmail,
+      scopeFingerprint: latestScopeFingerprint
+    })
+    const dispatchStillAuthorized =
+      trashConfirmRef.current === confirmedPlan &&
+      latestScanProvider === latestProvider &&
+      confirmedPlan.provider === currentProvider &&
+      latestPlan.provider === latestProvider &&
+      latestPreflight.allowed &&
+      isTrashDispatchAuthorizationCurrent(
+        dispatchAuthorization,
+        latestAuthorization
+      )
+    if (!dispatchStillAuthorized) {
+      trashLifecycle.reset()
+      setTrashWarningSafely(
+        "Cleanup review changed while preparing the provider request. Review the current results again before moving anything to Trash."
+      )
+      handleCloseTrashConfirm()
       return
     }
 
@@ -3543,9 +3922,12 @@ export default function App() {
     dispatch({
       type: "TRASH_STARTED",
       totalToTrash: command.totalToTrash,
-      mediaItems: state.mediaItems,
-      groups: state.groups,
-      totalItems: state.totalItems
+      mediaItems: latestState.mediaItems,
+      groups: latestState.groups,
+      totalItems: latestState.totalItems,
+      sourceProvider: latestState.sourceProvider ?? latestProvider,
+      scanDate: latestState.scanDate,
+      scopeFingerprint: latestState.scopeFingerprint ?? latestScopeFingerprint
     })
 
     sendToServiceWorker({
@@ -3559,10 +3941,13 @@ export default function App() {
   }, [
     trashConfirm,
     state,
+    settings,
+    accountValidationComplete,
     reviewSession,
     visibleGroups,
     handleCloseTrashConfirm,
-    trashLifecycle
+    trashLifecycle,
+    setTrashWarningSafely
   ])
 
   const handlePauseScan = useCallback(() => {
@@ -3589,6 +3974,7 @@ export default function App() {
     setKeptOverrides({})
     setTrashConfirmSafely(null)
     setTrashConfirmCount("")
+    setTrashPreflight(null)
     setTrashWarningSafely(null)
     setTrashMovesThisSession(0)
     setReportError(null)
@@ -3608,6 +3994,7 @@ export default function App() {
     storedReviewScope,
     trashLifecycle
   ])
+  resetReviewRef.current = handleReset
 
   const openProviderFromSidePanel = useCallback(
     async (provider: PhotoProvider): Promise<LaunchProviderResult> => {
@@ -3720,6 +4107,13 @@ export default function App() {
     const restore = trashLifecycle.beginRestore(undoData, requestId)
     restoreInFlightRef.current = true
     restoreGenerationRef.current = paidConversionGenerationRef.current
+    if (undoData.operationId) {
+      restoreRequestByIdRef.current.set(requestId, {
+        operationId: undoData.operationId,
+        generation: paidConversionGenerationRef.current,
+        history: false
+      })
+    }
     ratingPromptDeferredRef.current = false
     autoSelectNextResultsRef.current = false
     pendingSelectionsRef.current = {
@@ -3750,6 +4144,90 @@ export default function App() {
   const handleUndoClose = useCallback(() => {
     setUndoDataSafely(null)
   }, [])
+
+  const handleRestoreHistory = useCallback(
+    (record: RecoveryHistoryRecord) => {
+      if (!isRecoveryRestorable(record) || recoveryHistoryBusyId) return
+      const currentProvider = settings.sourceProvider ?? "google"
+      const preflight = evaluateRecoveryRestorePreflight({
+        recordProvider: record.provider,
+        currentProvider,
+        recordAccountFingerprint: record.accountFingerprint,
+        currentAccountEmail: currentAccountEmailRef.current,
+        connectionValidated:
+          accountValidationComplete && currentHasGptkRef.current
+      })
+      if (!preflight.allowed) {
+        setTrashWarningSafely(
+          `Recovery preflight blocked: ${preflight.reasons
+            .map((item) => item.message)
+            .join(" ")}`
+        )
+        return
+      }
+      const requestId = generateRequestId()
+      const undo: TrashUndoData = {
+        operationId: record.operationId,
+        provider: record.provider,
+        dedupKeys: record.restorableDedupKeys,
+        count: record.restorableDedupKeys.length,
+        snapshot: { mediaItems: {}, groups: [], totalItems: 0 },
+        ...(record.icloudAssetRefs
+          ? { icloudAssetRefs: record.icloudAssetRefs }
+          : {})
+      }
+      const restore = trashLifecycle.beginRestore(undo, requestId)
+      restoreRequestByIdRef.current.set(requestId, {
+        operationId: record.operationId,
+        generation: paidConversionGenerationRef.current,
+        history: true
+      })
+      restoreGenerationRef.current = paidConversionGenerationRef.current
+      restoreInFlightRef.current = true
+      setRecoveryHistoryBusyId(record.operationId)
+      setRecoveryHistoryOpen(false)
+      setTrashWarningSafely(null)
+      sendToServiceWorker({
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "restoreItems",
+        requestId,
+        provider: restore.provider,
+        args: restore.args
+      })
+    },
+    [
+      accountValidationComplete,
+      recoveryHistoryBusyId,
+      setTrashWarningSafely,
+      settings.sourceProvider,
+      trashLifecycle
+    ]
+  )
+
+  const handleClearRecoveryHistory = useCallback(async () => {
+    try {
+      await chrome.storage.local.remove(RECOVERY_HISTORY_STORAGE_KEY)
+      setRecoveryHistorySafely([])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setReportError(`Could not clear recovery history: ${message}`)
+    }
+  }, [setRecoveryHistorySafely])
+
+  const handleClearDecisionMemory = useCallback(() => {
+    void decisionMemoryStore
+      .clear()
+      .then(() => {
+        setTrashWarningSafely(
+          "Remembered review decisions cleared. Future scans will start neutral."
+        )
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error)
+        setReportError(`Could not clear remembered decisions: ${message}`)
+      })
+  }, [decisionMemoryStore, setTrashWarningSafely])
 
   // Fire confetti when trash completes
   useEffect(() => {
@@ -3788,9 +4266,6 @@ export default function App() {
         ? state.partialGroups ?? []
         : []
   const workflowExactGroupCount = workflowGroups.filter((group) => {
-    if (group.duplicateKind === "exact" || group.duplicateKind === "similar") {
-      return group.duplicateKind === "exact"
-    }
     return (
       Object.keys(displayMediaItems).length > 0 &&
       classifyDuplicateGroup(group, displayMediaItems).duplicateKind === "exact"
@@ -3943,6 +4418,14 @@ export default function App() {
                 Signed in as {state.accountEmail}
               </Typography>
             )}
+            {recoveryHistory.length > 0 && (
+              <Button
+                size="small"
+                startIcon={<HistoryRoundedIcon />}
+                onClick={() => setRecoveryHistoryOpen(true)}>
+                Recovery ({recoveryHistory.length})
+              </Button>
+            )}
           </Toolbar>
         </AppBar>
       )}
@@ -4003,6 +4486,16 @@ export default function App() {
               pb: 1
             }}>
             <SidePanelBrandHeader />
+            {recoveryHistory.length > 0 && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<HistoryRoundedIcon />}
+                onClick={() => setRecoveryHistoryOpen(true)}
+                sx={{ fontWeight: 800 }}>
+                Recovery history ({recoveryHistory.length})
+              </Button>
+            )}
 
             <SidePanelSourceBar
               provider={sourceProvider}
@@ -4223,6 +4716,9 @@ export default function App() {
                     onExportJson={handleExportJson}
                     onExportCsv={handleExportCsv}
                     onApplyKeepStrategy={handleApplyKeepStrategy}
+                    recoveryHistoryCount={recoveryHistory.length}
+                    onOpenRecoveryHistory={() => setRecoveryHistoryOpen(true)}
+                    onClearDecisionMemory={handleClearDecisionMemory}
                     compact
                   />
                   {lockedGroupCount > 0 && (
@@ -4240,6 +4736,7 @@ export default function App() {
                     onToggleGroup={handleToggleGroup}
                     onSkipGroup={handleSkipGroup}
                     keptByGroupId={keptByGroupId}
+                    keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
                     compact
@@ -4366,6 +4863,7 @@ export default function App() {
                         onToggleGroup={() => {}}
                         onSkipGroup={() => {}}
                         keptByGroupId={keptByGroupId}
+                        keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
                         onToggleKept={() => {}}
                         onTrashAll={() => {}}
                         readOnly
@@ -4428,6 +4926,9 @@ export default function App() {
                     onExportJson={handleExportJson}
                     onExportCsv={handleExportCsv}
                     onApplyKeepStrategy={handleApplyKeepStrategy}
+                    recoveryHistoryCount={recoveryHistory.length}
+                    onOpenRecoveryHistory={() => setRecoveryHistoryOpen(true)}
+                    onClearDecisionMemory={handleClearDecisionMemory}
                     compact={isSidePanel}
                   />
                   {lockedGroupCount > 0 && (
@@ -4445,6 +4946,7 @@ export default function App() {
                     onToggleGroup={handleToggleGroup}
                     onSkipGroup={handleSkipGroup}
                     keptByGroupId={keptByGroupId}
+                    keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
                     compact={isSidePanel}
@@ -4539,6 +5041,14 @@ export default function App() {
         onRecoverLicense={handleRecoverLicense}
       />
 
+      <RecoveryHistoryDialog
+        open={recoveryHistoryOpen}
+        records={recoveryHistory}
+        onClose={() => setRecoveryHistoryOpen(false)}
+        onRestore={handleRestoreHistory}
+        onClear={handleClearRecoveryHistory}
+      />
+
       <RatingPromptDialog
         open={ratingPromptOpen}
         onReview={() => {
@@ -4554,7 +5064,7 @@ export default function App() {
           setRatingPromptSafely(false)
           void completeRatingPrompt()
           void chrome.tabs.create({
-            url: "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
+            url: FEEDBACK_MAILTO_URL
           })
         }}
         onLater={() => {
@@ -4599,6 +5109,22 @@ export default function App() {
           {reportError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {reportError}
+            </Alert>
+          )}
+          {trashPreflight && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2" fontWeight={800}>
+                Cleanup preflight passed
+              </Typography>
+              <Typography variant="caption">
+                {trashPreflight.summary}
+                {trashPreflight.reasons.length > 0
+                  ? " · " +
+                    trashPreflight.reasons
+                      .map((item) => item.message)
+                      .join(" ")
+                  : ""}
+              </Typography>
             </Alert>
           )}
           <DialogContentText>

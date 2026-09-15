@@ -204,4 +204,105 @@ describe("TrashLifecycle", () => {
       })
     ).toBe(undo)
   })
+
+  it("does not infer that every requested item moved when a success omits identities", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    await begin(lifecycle)
+
+    const outcome = await lifecycle.reconcile({ success: true, data: {} })
+
+    expect(outcome).toMatchObject({
+      kind: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      undo: null
+    })
+    if (outcome.kind !== "failed") throw new Error("expected failed outcome")
+    expect(outcome.error).toContain("did not confirm")
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "failed",
+      attemptedMediaKeys: ["trash"],
+      movedMediaKeys: []
+    })
+  })
+
+  it("filters unrequested and mismatched provider identities to the exact pending pair", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    await begin(lifecycle)
+
+    const outcome = await lifecycle.reconcile({
+      success: true,
+      data: {
+        trashedKeys: ["unrequested", "trash"],
+        trashedDedupKeys: ["unrequested-dedup", "dedup-trash"]
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "partial",
+      movedMediaKeys: ["trash"],
+      movedDedupKeys: ["dedup-trash"],
+      movedCount: 1
+    })
+  })
+
+  it("ignores a late reply after the operation has been reset", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    await begin(lifecycle)
+    lifecycle.reset()
+
+    const outcome = await lifecycle.reconcile({
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash"]
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      undo: null
+    })
+  })
+
+  it("consumes the pending operation before an async audit save so duplicate replies cannot replay it", async () => {
+    const audit = inMemoryAudit()
+    let releaseResultAudit: (() => void) | undefined
+    const resultAuditPending = new Promise<void>((resolve) => {
+      releaseResultAudit = resolve
+    })
+    const originalSave = audit.adapter.saveTrashResultReport
+    audit.adapter.saveTrashResultReport = async (...args) => {
+      await resultAuditPending
+      return originalSave(...args)
+    }
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    await begin(lifecycle)
+
+    const first = lifecycle.reconcile({
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash"]
+      }
+    })
+    const duplicate = await lifecycle.reconcile({
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash"]
+      }
+    })
+
+    expect(duplicate).toMatchObject({ kind: "failed", movedCount: 0 })
+    releaseResultAudit?.()
+    expect(await first).toMatchObject({ kind: "complete", movedCount: 1 })
+  })
 })

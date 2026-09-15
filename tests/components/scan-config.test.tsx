@@ -259,7 +259,7 @@ describe("ScanConfig — similarity threshold guidance", () => {
     expect(screen.getByText(/Loose/i)).toBeInTheDocument()
     expect(screen.getByText(/Balanced/i)).toBeInTheDocument()
     expect(screen.getByText(/Near exact/i)).toBeInTheDocument()
-    expect(screen.getByText("Exact")).toBeInTheDocument()
+    expect(screen.getByText("Verified identity")).toBeInTheDocument()
   })
 })
 
@@ -481,6 +481,29 @@ describe("ScanConfig — embedding cache controls", () => {
     expect(onRebuildCache).toHaveBeenCalledOnce()
     expect(onExportCacheDiagnostics).toHaveBeenCalledOnce()
   })
+})
+
+describe("ScanConfig — feedback settings", () => {
+  for (const compact of [false, true]) {
+    it(`exposes a feedback entry with the support inbox (${compact ? "compact" : "full"} layout)`, () => {
+      renderConfig({}, { compact })
+
+      fireEvent.click(screen.getByRole("button", { name: /Help & feedback/i }))
+
+      expect(
+        screen.getByText(
+          /Opens a new email addressed to pawsitivegames@gmail.com/i
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole("link", { name: /Send feedback/i })
+      ).toHaveAttribute(
+        "href",
+        "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
+      )
+      cleanup()
+    })
+  }
 })
 
 describe("ScanConfig — interrupted scan resume", () => {

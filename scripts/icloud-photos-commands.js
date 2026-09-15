@@ -378,9 +378,11 @@ function mapCloudKitItem(master, asset, index) {
     timestamp
   const thumb = resourceUrl(thumbResource, "public.jpeg")
   if (!thumb) return null
-  const exactContentHash =
+  const originalContentHash =
     fieldValue(master, "resOriginalFingerprint") ||
-    originalResource?.fileChecksum ||
+    originalResource?.fileChecksum
+  const exactContentHash =
+    originalContentHash ||
     fieldValue(master, "resJPEGMedFingerprint") ||
     fieldValue(asset, "resJPEGMedFingerprint")
   const duration = normalizeDurationMs(
@@ -414,6 +416,13 @@ function mapCloudKitItem(master, asset, index) {
     dedupKey: recordName,
     exactContentHash: exactContentHash
       ? `icloud-fingerprint-${exactContentHash}`
+      : undefined,
+    contentHash: originalContentHash
+      ? {
+          value: originalContentHash,
+          algorithm: "provider-fingerprint",
+          provenance: "original-content"
+        }
       : undefined,
     thumb,
     provider: "icloud",

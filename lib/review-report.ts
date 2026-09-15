@@ -1,5 +1,10 @@
 import { classifyDuplicateGroup } from "./duplicate-classifier"
-import type { DuplicateGroup, GpdMediaItem } from "./types"
+import type {
+  DuplicateEvidenceLevel,
+  DuplicateGroup,
+  DuplicateRelationship,
+  GpdMediaItem
+} from "./types"
 
 export interface ReviewReportItem {
   duplicateGroupId: string
@@ -17,6 +22,9 @@ export interface ReviewReportItem {
   spaceTaken: number | null
   similarity: number
   duplicateKind: "exact" | "similar"
+  evidenceLevel: DuplicateEvidenceLevel
+  relationship: DuplicateRelationship | null
+  canProposeTrash: boolean
   matchReasons: string[]
   googlePhotosUrl: string | null
 }
@@ -48,9 +56,15 @@ export function buildReviewReport(params: {
   mediaItems: Record<string, GpdMediaItem>
   selectedGroupIds: Set<string>
   getKept: (group: DuplicateGroup) => Set<string>
+  /** When provided, reflects the safety-filtered action plan in the report. */
+  mediaKeysToTrash?: string[]
 }): ReviewReport {
   const items: ReviewReportItem[] = []
   let totalGroupsSelected = 0
+  const safeTrashSet =
+    params.mediaKeysToTrash === undefined
+      ? null
+      : new Set(params.mediaKeysToTrash)
 
   for (const group of params.groups) {
     const groupSelected = params.selectedGroupIds.has(group.id)
@@ -64,13 +78,9 @@ export function buildReviewReport(params: {
         ? validKeptKeys
         : [group.originalMediaKey].filter((key) => groupKeySet.has(key))
     )
-    const classification =
-      group.duplicateKind && group.matchReasons
-        ? {
-            duplicateKind: group.duplicateKind,
-            matchReasons: group.matchReasons
-          }
-        : classifyDuplicateGroup(group, params.mediaItems)
+    // Always derive this from current media evidence. Stored legacy `exact`
+    // values are not allowed to preserve an unsupported certainty label.
+    const classification = classifyDuplicateGroup(group, params.mediaItems)
     for (const mediaKey of group.mediaKeys) {
       const item = params.mediaItems[mediaKey]
       if (!item) continue
@@ -78,7 +88,10 @@ export function buildReviewReport(params: {
       items.push({
         duplicateGroupId: group.id,
         groupSelected,
-        selectedForTrash: groupSelected && !kept,
+        selectedForTrash:
+          groupSelected &&
+          !kept &&
+          (safeTrashSet === null || safeTrashSet.has(item.mediaKey)),
         kept,
         mediaKey: item.mediaKey,
         dedupKey: item.dedupKey,
@@ -91,6 +104,9 @@ export function buildReviewReport(params: {
         spaceTaken: item.spaceTaken ?? null,
         similarity: group.similarity,
         duplicateKind: classification.duplicateKind,
+        evidenceLevel: classification.evidenceLevel,
+        relationship: classification.relationship ?? null,
+        canProposeTrash: classification.canProposeTrash,
         matchReasons: classification.matchReasons,
         googlePhotosUrl: item.productUrl ?? null
       })
@@ -134,6 +150,9 @@ export function reviewReportToCsv(report: ReviewReport): string {
     "similarity",
     "duplicateKind",
     "matchReasons",
+    "evidenceLevel",
+    "relationship",
+    "canProposeTrash",
     "googlePhotosUrl"
   ]
   const rows = report.items.map((item) =>

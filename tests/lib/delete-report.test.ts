@@ -24,7 +24,7 @@ const group: DuplicateGroup = {
   id: "group-1",
   mediaKeys: ["keep", "trash"],
   originalMediaKey: "keep",
-  similarity: 0.995,
+  similarity: 0.9,
   duplicateKind: "exact",
   matchReasons: ["same dedupKey"]
 }
@@ -53,8 +53,9 @@ describe("delete report", () => {
         action: "keep",
         takenAt: "1970-01-01T00:00:00.000Z",
         resolution: "1920x1080",
-        duplicateKind: "exact",
-        matchReasons: ["same dedupKey"]
+        duplicateKind: "similar",
+        evidenceLevel: "similar",
+        matchReasons: ["same dimensions", "same taken date"]
       }
     )
     expect(

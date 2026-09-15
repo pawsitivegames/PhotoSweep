@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { chooseKeepKeyForGroup } from "../../lib/keep-strategy"
+import {
+  chooseKeepKeyForGroup,
+  recommendKeepForGroup
+} from "../../lib/keep-strategy"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
 
 function item(
@@ -35,13 +38,18 @@ const pairGroup: DuplicateGroup = {
 }
 
 describe("keep strategy", () => {
-  it("keeps the richer-metadata item for an exact two-item duplicate pair", () => {
+  it("does not let metadata completeness override the selected strategy", () => {
     expect(
       chooseKeepKeyForGroup(
         pairGroup,
         {
           a: item("a", {
             dedupKey: "same-dedup-key",
+            contentHash: {
+              value: "a".repeat(32),
+              algorithm: "md5",
+              provenance: "original-content"
+            },
             isOriginalQuality: true,
             resWidth: 4000,
             resHeight: 3000,
@@ -52,7 +60,12 @@ describe("keep strategy", () => {
             productUrl: undefined
           }),
           b: item("b", {
-            dedupKey: "same-dedup-key",
+            dedupKey: "different-dedup-key",
+            contentHash: {
+              value: "a".repeat(32),
+              algorithm: "md5",
+              provenance: "original-content"
+            },
             isOriginalQuality: false,
             resWidth: 1000,
             resHeight: 1000,
@@ -65,7 +78,7 @@ describe("keep strategy", () => {
         },
         "best_quality"
       )
-    ).toBe("b")
+    ).toBe("a")
   })
 
   it("does not prefer metadata over quality for similar-only pairs", () => {
@@ -103,14 +116,14 @@ describe("keep strategy", () => {
         {
           a: item("a", { isOriginalQuality: false, resWidth: 4000 }),
           b: item("b", { isOriginalQuality: true, resWidth: 1000 }),
-          c: item("c", { isOriginalQuality: null, resWidth: 3000 })
+          c: item("c", { isOriginalQuality: false, resWidth: 3000 })
         },
         "best_quality"
       )
     ).toBe("b")
   })
 
-  it("keeps the oldest taken item for best quality when quality ties", () => {
+  it("keeps all items when the selected quality strategy ties", () => {
     expect(
       chooseKeepKeyForGroup(
         group,
@@ -136,10 +149,10 @@ describe("keep strategy", () => {
         },
         "best_quality"
       )
-    ).toBe("b")
+    ).toBeNull()
   })
 
-  it("keeps an item with a taken date over a missing taken date for best quality", () => {
+  it("keeps all items when the selected quality strategy has missing values", () => {
     expect(
       chooseKeepKeyForGroup(
         group,
@@ -165,10 +178,10 @@ describe("keep strategy", () => {
         },
         "best_quality"
       )
-    ).toBe("b")
+    ).toBeNull()
   })
 
-  it("falls back to resolution for best quality when taken dates are missing", () => {
+  it("does not fall back to another field when best quality is tied", () => {
     expect(
       chooseKeepKeyForGroup(
         group,
@@ -194,7 +207,7 @@ describe("keep strategy", () => {
         },
         "best_quality"
       )
-    ).toBe("b")
+    ).toBeNull()
   })
 
   it("keeps a newer taken item for best quality when it is better quality", () => {
@@ -216,7 +229,7 @@ describe("keep strategy", () => {
           }),
           c: item("c", {
             timestamp: Date.parse("2023-01-01T00:00:00.000Z"),
-            isOriginalQuality: null,
+            isOriginalQuality: false,
             resWidth: 3000,
             resHeight: 2000
           })
@@ -278,10 +291,95 @@ describe("keep strategy", () => {
         {
           a: item("a", { takesUpSpace: true, isOriginalQuality: true }),
           b: item("b", { takesUpSpace: false, isOriginalQuality: false }),
-          c: item("c", { takesUpSpace: null, isOriginalQuality: true })
+          c: item("c", { takesUpSpace: true, isOriginalQuality: true })
         },
         "non_storage_counting"
       )
     ).toBe("b")
+  })
+
+  it("returns structured evidence for a unique recommendation", () => {
+    const recommendation = recommendKeepForGroup(
+      group,
+      {
+        a: item("a", { timestamp: 1 }),
+        b: item("b", { timestamp: 3 }),
+        c: item("c", { timestamp: 2 })
+      },
+      "newest_taken"
+    )
+
+    expect(recommendation).toMatchObject({
+      status: "recommended",
+      keptMediaKeys: ["b"],
+      reasonCode: "unique_best_value",
+      evidence: {
+        field: "timestamp",
+        comparedMediaKeys: ["a", "b", "c"],
+        missingMediaKeys: [],
+        winnerMediaKey: "b",
+        winnerValue: 3
+      }
+    })
+  })
+
+  it("keeps every group member for ties, invalid values, or missing members", () => {
+    const tied = recommendKeepForGroup(
+      group,
+      {
+        a: item("a", { resWidth: 1000, resHeight: 1000 }),
+        b: item("b", { resWidth: 1000, resHeight: 1000 }),
+        c: item("c", { resWidth: 1000, resHeight: 1000 })
+      },
+      "largest_resolution"
+    )
+    const invalid = recommendKeepForGroup(
+      group,
+      {
+        a: item("a", { resWidth: undefined }),
+        b: item("b"),
+        c: item("c")
+      },
+      "largest_resolution"
+    )
+    const missing = recommendKeepForGroup(
+      group,
+      { a: item("a"), b: item("b") },
+      "best_quality"
+    )
+
+    expect(tied).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "tie",
+      keptMediaKeys: ["a", "b", "c"]
+    })
+    expect(invalid).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "invalid_value",
+      keptMediaKeys: ["a", "b", "c"]
+    })
+    expect(missing).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      keptMediaKeys: ["a", "b", "c"],
+      evidence: { missingMediaKeys: ["c"] }
+    })
+  })
+
+  it("does not make a different winner when group order is permuted", () => {
+    const mediaItems = {
+      a: item("a", { creationTimestamp: 1 }),
+      b: item("b", { creationTimestamp: 3 }),
+      c: item("c", { creationTimestamp: 2 })
+    }
+    const first = recommendKeepForGroup(group, mediaItems, "newest_upload")
+    const permuted = recommendKeepForGroup(
+      { ...group, mediaKeys: ["c", "a", "b"] },
+      mediaItems,
+      "newest_upload"
+    )
+
+    expect(first.keptMediaKeys).toEqual(["b"])
+    expect(permuted.keptMediaKeys).toEqual(["b"])
   })
 })

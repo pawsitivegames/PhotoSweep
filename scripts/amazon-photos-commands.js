@@ -426,11 +426,22 @@ function mapAmazonNode(node, index) {
   const mediaKey = `amazon-${id}`
   const thumb = nodeThumbnailUrl(node)
   if (!thumb) return null
+  const contentMd5 =
+    typeof content.md5 === "string" && /^[a-f0-9]{32}$/i.test(content.md5)
+      ? content.md5
+      : undefined
 
   return {
     mediaKey,
     dedupKey: id,
     exactContentHash: content.md5 ? `amazon-md5-${content.md5}` : undefined,
+    contentHash: contentMd5
+      ? {
+          value: contentMd5,
+          algorithm: "md5",
+          provenance: "original-content"
+        }
+      : undefined,
     thumb,
     provider: "amazon",
     productUrl: amazonPhotosUrl(

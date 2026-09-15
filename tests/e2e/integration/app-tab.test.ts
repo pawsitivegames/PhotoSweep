@@ -168,23 +168,33 @@ test("filters review groups by exact and similar classification", async () => {
     {
       exact1: {
         mediaKey: "exact1",
-        dedupKey: "same",
+        dedupKey: "exact-dedup-1",
         thumb: "",
         timestamp: 0,
         creationTimestamp: 0,
         resWidth: 100,
         resHeight: 100,
-        fileName: "exact1.jpg"
+        fileName: "exact1.jpg",
+        contentHash: {
+          value: "a".repeat(32),
+          algorithm: "md5",
+          provenance: "original-content"
+        }
       },
       exact2: {
         mediaKey: "exact2",
-        dedupKey: "same",
+        dedupKey: "exact-dedup-2",
         thumb: "",
         timestamp: 0,
         creationTimestamp: 0,
         resWidth: 100,
         resHeight: 100,
-        fileName: "exact2.jpg"
+        fileName: "exact2.jpg",
+        contentHash: {
+          value: "a".repeat(32),
+          algorithm: "md5",
+          provenance: "original-content"
+        }
       },
       similar1: {
         mediaKey: "similar1",
@@ -212,17 +222,27 @@ test("filters review groups by exact and similar classification", async () => {
 
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("Exact duplicate")).toBeVisible({ timeout: 5000 })
+  await expect(page.getByText("Verified identical", { exact: true })).toBeVisible({
+    timeout: 5000
+  })
   await expect(page.getByText("Similar", { exact: true })).toBeVisible()
 
-  await page.getByRole("button", { name: /Identical \(1\)/i }).click()
-  await expect(page.getByText("Exact duplicate")).toBeVisible()
+  await page
+    .getByRole("button", { name: /Verified identical \(1\)/i })
+    .click()
+  await expect(
+    page.getByText("Verified identical", { exact: true })
+  ).toBeVisible()
   await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
   await expect(page.getByText("2 sets total")).toBeVisible()
 
-  await page.getByRole("button", { name: /Similar \(1\)/i }).click()
+  await page
+    .getByRole("button", { name: /Candidates & similar \(1\)/i })
+    .click()
   await expect(page.getByText("Similar", { exact: true })).toBeVisible()
-  await expect(page.getByText("Exact duplicate")).not.toBeVisible()
+  await expect(
+    page.getByText("Verified identical", { exact: true })
+  ).not.toBeVisible()
 
   await page.close()
   await clearStorage(context)
@@ -374,6 +394,7 @@ test("drops a delayed old-account trash result after identity changes", async ()
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible()
     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
@@ -420,6 +441,122 @@ test("drops a delayed old-account trash result after identity changes", async ()
   } finally {
     await page.close()
     await stub.close()
+  }
+})
+
+test("dispatch-authorization rejects selection drift during deferred audit persistence", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 5)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "alice@example.com"
+  )
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "2 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible()
+    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+    await page
+      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .click()
+    await page.getByLabel("Type 8 to confirm").fill("8")
+
+    // Hold only the pre-trash report write. The confirmation handler must
+    // re-read current selections after this await boundary before dispatching.
+    await page.evaluate(() => {
+      const barrier = {
+        pending: false,
+        release: null as (() => void) | null
+      }
+      ;(
+        window as unknown as {
+          __photosweepAuditBarrier: typeof barrier
+        }
+      ).__photosweepAuditBarrier = barrier
+      const storage = chrome.storage.local as unknown as {
+        set: (items: Record<string, unknown>) => Promise<void>
+      }
+      const originalSet = storage.set.bind(storage)
+      storage.set = (items) => {
+        if (!Object.prototype.hasOwnProperty.call(items, "deleteReports")) {
+          return originalSet(items)
+        }
+        return new Promise<void>((resolve, reject) => {
+          barrier.pending = true
+          barrier.release = () => {
+            originalSet(items).then(resolve).catch(reject)
+          }
+        })
+      }
+    })
+
+    await page.getByRole("button", { name: /^Move to Trash$/i }).last().click()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __photosweepAuditBarrier?: { pending: boolean }
+              }
+            ).__photosweepAuditBarrier?.pending ?? false
+        )
+      )
+      .toBe(true)
+
+    // Change the selected group while savePreTrashReport is still pending.
+    // Force bypasses the dialog backdrop to exercise the live React selection
+    // state and the actual dispatch boundary.
+    const changedSelection = page.locator('input[type="checkbox"]').first()
+    await expect(changedSelection).toBeChecked()
+    await changedSelection.click({ force: true })
+    await expect(changedSelection).not.toBeChecked()
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __photosweepAuditBarrier?: { release?: (() => void) | null }
+        }
+      ).__photosweepAuditBarrier?.release?.()
+    })
+
+    await expect(
+      page.getByText(
+        "Cleanup review changed while preparing the provider request. Review the current results again before moving anything to Trash."
+      )
+    ).toBeVisible({ timeout: 8_000 })
+    const commands = await stub.evaluate(() =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog || []
+    )
+    expect(commands.length).toBeGreaterThan(0)
+    expect(commands.map((entry) => entry.command)).toContain("healthCheck")
+    expect(commands.map((entry) => entry.command)).not.toContain("trashItems")
+  } finally {
+    await page.close()
+    await stub.close()
+    await clearStorage(context)
   }
 })
 
@@ -821,6 +958,35 @@ test("preserves intentional strict similarity settings", async () => {
   await page.close()
   await gpPage.close()
   await clearStorage(context)
+})
+
+test("opens feedback from settings with the support inbox prefilled", async () => {
+  await clearStorage(context)
+  const gpPage = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(
+      page.getByText("Find duplicates from your photo library")
+    ).toBeVisible({ timeout: 8_000 })
+    await page.getByRole("button", { name: /Help & feedback/i }).click()
+
+    await expect(
+      page.getByText(
+        "Opens a new email addressed to pawsitivegames@gmail.com."
+      )
+    ).toBeVisible()
+    await expect(
+      page.getByRole("link", { name: "Send feedback" })
+    ).toHaveAttribute(
+      "href",
+      "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
+    )
+  } finally {
+    await page.close()
+    await gpPage.close()
+    await clearStorage(context)
+  }
 })
 
 test("shows disconnected state when GP tab is not open and no saved results", async () => {
@@ -1276,6 +1442,85 @@ test("persists kept overrides through page reload", async () => {
   await clearStorage(context)
 })
 
+test("applies an automatic keep strategy and preserves it after reload", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: true,
+        resWidth: 100,
+        resHeight: 100,
+        fileName: "key1.jpg"
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: false,
+        resWidth: 400,
+        resHeight: 400,
+        fileName: "key2.jpg"
+      }
+    },
+    2
+  )
+
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently kept; click to move to Trash\)/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Largest resolution" }).click()
+
+  await expect(
+    page.getByTestId("keep-decision-g1")
+  ).toHaveText("Suggested keep: Largest resolution")
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently kept; click to move to Trash\)/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently moves to Trash; click to keep\)/
+    })
+  ).toHaveAttribute("aria-pressed", "false")
+
+  await page.reload()
+  await expect(
+    page.getByTestId("keep-decision-g1")
+  ).toHaveText("Suggested keep: Largest resolution")
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently kept; click to move to Trash\)/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await page.close()
+  await clearStorage(context)
+})
+
 test("persists trash-all copy choices through page reload", async () => {
   await injectScanResults(
     context,
@@ -1350,7 +1595,7 @@ test("persists trash-all copy choices through page reload", async () => {
   await clearStorage(context)
 })
 
-test("ignores stale kept override keys from saved selections", async () => {
+test("keeps all current copies when every saved keeper key is stale", async () => {
   await clearStorage(context)
   await injectScanResults(
     context,
@@ -1377,11 +1622,14 @@ test("ignores stale kept override keys from saved selections", async () => {
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /No duplicates selected/i })
   ).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: /Review & move 2 to Trash/i })
-  ).not.toBeVisible()
+  await expect(page.locator(".MuiCard-root").nth(0)).not.toContainText(
+    "Moves to Trash"
+  )
+  await expect(page.locator(".MuiCard-root").nth(1)).not.toContainText(
+    "Moves to Trash"
+  )
 
   const sw = context.serviceWorkers()[0]
   await expect
@@ -1396,7 +1644,44 @@ test("ignores stale kept override keys from saved selections", async () => {
       )
       return stored.selections?.keptOverrides?.g1 ?? []
     })
-    .toEqual([])
+    .toEqual(["key1", "key2"])
+
+  await page.close()
+  await clearStorage(context)
+})
+
+test("shows the conservative keep-all decision in the compact scanner panel", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: { ...BASE_MEDIA_ITEMS.key1, isOriginalQuality: null },
+      key2: { ...BASE_MEDIA_ITEMS.key2, isOriginalQuality: null }
+    },
+    2
+  )
+
+  const page = await context.newPage()
+  await page.goto(
+    `chrome-extension://${extensionId}/tabs/scanner-panel.html`
+  )
+  await expect(
+    page.getByText("No confident recommendation — keeping all copies", {
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+  await expect(page.getByText("Moves to Trash", { exact: true })).not.toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /currently kept; click to move to Trash/i })
+  ).toHaveCount(2)
 
   await page.close()
   await clearStorage(context)

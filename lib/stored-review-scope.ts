@@ -1,8 +1,10 @@
 import {
   DuplicateReviewSession,
   type DuplicateReviewSelections,
+  type KeepDecisionProvenance,
   type StoredDuplicateReviewSelections
 } from "./duplicate-review-session"
+import { isKeepStrategy } from "./keep-strategy"
 import { SCAN_CHECKPOINT_KEY, type ScanCheckpoint } from "./scan-checkpoint"
 import { areScanResultsValid } from "./scan-results"
 import {
@@ -65,6 +67,7 @@ function deserializeSelections(
     selectedGroupIds?: unknown
     reviewedGroupIds?: unknown
     keptOverrides?: unknown
+    keepDecisionProvenance?: unknown
   }
   const selectedGroupIds = Array.isArray(raw.selectedGroupIds)
     ? raw.selectedGroupIds.filter((id): id is string => typeof id === "string")
@@ -80,13 +83,42 @@ function deserializeSelections(
       )
     }
   }
+  const keepDecisionProvenance: Record<string, KeepDecisionProvenance> = {}
+  if (
+    raw.keepDecisionProvenance &&
+    typeof raw.keepDecisionProvenance === "object"
+  ) {
+    for (const [groupId, value] of Object.entries(
+      raw.keepDecisionProvenance as Record<string, unknown>
+    )) {
+      if (!value || typeof value !== "object") continue
+      const provenance = value as {
+        source?: unknown
+        strategy?: unknown
+      }
+      if (
+        provenance.source !== "manual" &&
+        provenance.source !== "legacy_preserved" &&
+        provenance.source !== "automatic"
+      ) {
+        continue
+      }
+      keepDecisionProvenance[groupId] = {
+        source: provenance.source,
+        ...(isKeepStrategy(provenance.strategy)
+          ? { strategy: provenance.strategy }
+          : {})
+      }
+    }
+  }
   const reviewedGroupIds = Array.isArray(raw.reviewedGroupIds)
     ? raw.reviewedGroupIds.filter((id): id is string => typeof id === "string")
     : [...new Set([...selectedGroupIds, ...Object.keys(keptOverrides)])]
   return {
     selectedGroupIds: new Set(selectedGroupIds),
     reviewedGroupIds: new Set(reviewedGroupIds),
-    keptOverrides
+    keptOverrides,
+    keepDecisionProvenance
   }
 }
 

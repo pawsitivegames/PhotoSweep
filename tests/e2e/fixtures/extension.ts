@@ -13,7 +13,11 @@ import {
 
 import type { PlanId } from "../../../lib/entitlement"
 import type { ScanCheckpoint } from "../../../lib/scan-checkpoint"
+import {
+  buildScanScopeFingerprint
+} from "../../../lib/review-preflight"
 import type { DuplicateGroup, GpdMediaItem } from "../../../lib/types"
+import { DEFAULT_SETTINGS } from "../../../lib/types"
 
 export const extensionPath = path.resolve(
   __dirname,
@@ -241,9 +245,10 @@ export async function injectScanResults(
   totalItems: number,
   accountEmail: string | null = "test@example.com"
 ): Promise<void> {
+  const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ groups, mediaItems, totalItems, accountEmail }) =>
+      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
             {
@@ -252,13 +257,15 @@ export async function injectScanResults(
                 mediaItems,
                 totalItems,
                 scanDate: Date.now(),
+                sourceProvider: "google",
+                scopeFingerprint,
                 ...(accountEmail ? { accountEmail } : {})
               }
             },
             resolve
           )
         }),
-      { groups, mediaItems, totalItems, accountEmail }
+      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint }
     )
   )
 }
@@ -468,7 +475,10 @@ export function makeGroups(
         resWidth: 1920,
         resHeight: 1080,
         fileName: `photo-${key}.jpg`,
-        isOwned: true
+        isOwned: true,
+        // Keep the integration fixture's default strategy deterministic while
+        // dedicated uncertainty tests can omit or null this field explicitly.
+        isOriginalQuality: i === 0
       }
     }
     groups.push({

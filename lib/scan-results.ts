@@ -11,19 +11,15 @@ export function areScanResultsValid(
   const contextProvider = context.sourceProvider ?? "google"
   if (storedProvider !== contextProvider) return false
   // Once the current account is known, unknown-account saved results are not
-  // safe to reuse for review/trash actions.
+  // safe to reuse for review/trash actions. Apply this uniformly so a future
+  // provider adapter cannot accidentally inherit Google-only behavior.
+  if (!stored.accountEmail && context.accountEmail) return false
+  // Account mismatch: results belong to a different account.
   if (
-    contextProvider === "google" &&
-    !stored.accountEmail &&
-    context.accountEmail
-  )
-    return false
-  // Account mismatch: results belong to a different account
-  if (
-    contextProvider === "google" &&
     stored.accountEmail &&
     context.accountEmail &&
-    stored.accountEmail !== context.accountEmail
+    stored.accountEmail.trim().toLowerCase() !==
+      context.accountEmail.trim().toLowerCase()
   )
     return false
   return true

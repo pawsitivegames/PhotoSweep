@@ -38,6 +38,9 @@ export type AppState =
       groups: DuplicateGroup[]
       totalItems: number
       accountEmail?: string
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
   | {
       status: "trashing"
@@ -47,6 +50,9 @@ export type AppState =
       totalToTrash: number
       trashedSoFar: number
       accountEmail?: string
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
 
 export type AppAction =
@@ -69,12 +75,18 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
   | {
       type: "SCAN_COMPLETE"
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
   | { type: "SCAN_ERROR"; error: string }
   | { type: "SCAN_CANCELLED" }
@@ -84,6 +96,9 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
   | { type: "TRASH_PROGRESS"; trashedSoFar: number; trashedKeys?: string[] }
   | { type: "TRASH_COMPLETE"; trashedKeys: string[] }
@@ -94,12 +109,18 @@ export type AppAction =
       groups: DuplicateGroup[]
       totalItems: number
       accountEmail?: string
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
   | {
       type: "RESTORE_SNAPSHOT"
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      sourceProvider?: PhotoProvider
+      scanDate?: number
+      scopeFingerprint?: string
     }
   | { type: "GP_TAB_CLOSED"; provider?: PhotoProvider }
   | { type: "RESET" }
@@ -215,7 +236,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
-        accountEmail: "accountEmail" in state ? state.accountEmail : undefined
+        accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        ...(action.sourceProvider ? { sourceProvider: action.sourceProvider } : {}),
+        ...(action.scanDate ? { scanDate: action.scanDate } : {}),
+        ...(action.scopeFingerprint
+          ? { scopeFingerprint: action.scopeFingerprint }
+          : {})
       }
 
     case "SCAN_ERROR":
@@ -237,7 +263,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         totalItems: action.totalItems,
         totalToTrash: action.totalToTrash,
         trashedSoFar: 0,
-        accountEmail: "accountEmail" in state ? state.accountEmail : undefined
+        accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        ...(action.sourceProvider
+          ? { sourceProvider: action.sourceProvider }
+          : {}),
+        ...(action.scanDate ? { scanDate: action.scanDate } : {}),
+        ...(action.scopeFingerprint
+          ? { scopeFingerprint: action.scopeFingerprint }
+          : {})
       }
 
     case "TRASH_PROGRESS":
@@ -283,7 +316,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: newMediaItems,
         groups: newGroups,
         totalItems: state.totalItems,
-        accountEmail: state.accountEmail
+        accountEmail: state.accountEmail,
+        ...(state.sourceProvider ? { sourceProvider: state.sourceProvider } : {}),
+        ...(state.scanDate ? { scanDate: state.scanDate } : {}),
+        ...(state.scopeFingerprint
+          ? { scopeFingerprint: state.scopeFingerprint }
+          : {})
       }
     }
 
@@ -296,7 +334,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
-        accountEmail: action.accountEmail
+        accountEmail: action.accountEmail,
+        ...(action.sourceProvider ? { sourceProvider: action.sourceProvider } : {}),
+        ...(action.scanDate ? { scanDate: action.scanDate } : {}),
+        ...(action.scopeFingerprint
+          ? { scopeFingerprint: action.scopeFingerprint }
+          : {})
       }
 
     case "RESTORE_SNAPSHOT":
@@ -305,7 +348,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
-        accountEmail: "accountEmail" in state ? state.accountEmail : undefined
+        accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        ...("sourceProvider" in state && state.sourceProvider
+          ? { sourceProvider: state.sourceProvider }
+          : {}),
+        ...("scanDate" in state && state.scanDate
+          ? { scanDate: state.scanDate }
+          : {}),
+        ...("scopeFingerprint" in state && state.scopeFingerprint
+          ? { scopeFingerprint: state.scopeFingerprint }
+          : {})
       }
 
     case "GP_TAB_CLOSED": {

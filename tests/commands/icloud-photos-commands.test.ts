@@ -106,6 +106,11 @@ describe("iCloud trashItems dry-run", () => {
           mediaKey: "icloud-master-video-1",
           dedupKey: "master-video-1",
           exactContentHash: "icloud-fingerprint-original-fingerprint",
+          contentHash: {
+            value: "original-fingerprint",
+            algorithm: "provider-fingerprint",
+            provenance: "original-content"
+          },
           provider: "icloud",
           timestamp: 1000,
           creationTimestamp: 2000,

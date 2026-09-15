@@ -13,6 +13,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { DuplicateGroups } from "../../components/DuplicateGroups"
+import type { KeepDecision } from "../../lib/duplicate-review-session"
+import {
+  recommendKeepForGroup,
+  type KeepRecommendation
+} from "../../lib/keep-strategy"
 import theme from "../../lib/theme"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
 
@@ -64,7 +69,8 @@ function makeItem(mediaKey: string): GpdMediaItem {
     resWidth: 1920,
     resHeight: 1080,
     fileName: `${mediaKey}.jpg`,
-    isOwned: true
+    isOwned: true,
+    isOriginalQuality: mediaKey === "img1"
   }
 }
 
@@ -80,6 +86,18 @@ const mediaItems: Record<string, GpdMediaItem> = {
 
 const group = makeGroup("g1", "img1", "img2", "img3")
 
+const manualRecommendation: KeepRecommendation = recommendKeepForGroup(
+  group,
+  mediaItems,
+  "best_quality"
+)
+const manualDecision: KeepDecision = {
+  keptMediaKeys: new Set(["img1"]),
+  source: "manual",
+  strategy: "best_quality",
+  recommendation: manualRecommendation
+}
+
 const defaultProps = {
   groups: [group],
   mediaItems,
@@ -88,6 +106,7 @@ const defaultProps = {
   onToggleGroup: vi.fn(),
   onSkipGroup: vi.fn(),
   keptByGroupId: new Map([["g1", new Set(["img1"])]]),
+  keepDecisionByGroupId: new Map([["g1", manualDecision]]) ,
   onToggleKept: vi.fn(),
   onTrashAll: vi.fn()
 }
@@ -109,14 +128,17 @@ describe("DuplicateGroups — chip rendering", () => {
         {...defaultProps}
         selectedGroupIds={new Set()}
         reviewedGroupIds={new Set()}
+        keepDecisionByGroupId={new Map()}
       />
     )
 
     expect(screen.getByText("Suggested keep")).toBeInTheDocument()
     expect(screen.queryByText("Keep this copy")).not.toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Keep img1.jpg" })
-    ).toHaveAttribute("aria-pressed", "false")
+      screen.getByRole("button", {
+        name: /Keep img1\.jpg \(currently kept; click to move to Trash\)/
+      })
+    ).toHaveAttribute("aria-pressed", "true")
   })
 
   it("shows Trash chips for non-kept items when group is selected", () => {
@@ -160,23 +182,80 @@ describe("DuplicateGroups — chip rendering", () => {
     expect(screen.getAllByText("Moves to Trash")).toHaveLength(3)
   })
 
-  it("shows exact duplicate classification when metadata matches", () => {
+  it("shows a strong candidate classification when metadata matches", () => {
     wrap(
       <DuplicateGroups
         {...defaultProps}
         groups={[
           {
             ...group,
-            duplicateKind: "exact",
-            matchReasons: ["same filename", "same dimensions"]
+            similarity: 0.9
           }
         ]}
+        mediaItems={{
+          img1: { ...makeItem("img1"), fileName: "IMG.jpg" },
+          img2: { ...makeItem("img2"), fileName: "IMG.jpg" },
+          img3: { ...makeItem("img3"), fileName: "IMG.jpg" }
+        }}
       />
     )
-    expect(screen.getByText("Exact duplicate")).toBeInTheDocument()
+    expect(screen.getByText("Strong duplicate candidate")).toBeInTheDocument()
     expect(
-      screen.getByTitle("same filename, same dimensions")
+      screen.getByTitle(
+        "same filename, same filename stem, same dimensions, same taken date"
+      )
     ).toBeInTheDocument()
+  })
+
+  it("shows verified identity only when a validated content hash is present", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[{ ...group, similarity: 0.9 }]}
+        mediaItems={{
+          img1: {
+            ...makeItem("img1"),
+            contentHash: {
+              value: "a".repeat(32),
+              algorithm: "md5",
+              provenance: "original-content"
+            }
+          },
+          img2: {
+            ...makeItem("img2"),
+            contentHash: {
+              value: "a".repeat(32),
+              algorithm: "md5",
+              provenance: "original-content"
+            }
+          },
+          img3: {
+            ...makeItem("img3"),
+            contentHash: {
+              value: "a".repeat(32),
+              algorithm: "md5",
+              provenance: "original-content"
+            }
+          }
+        }}
+      />
+    )
+    expect(screen.getByText("Verified identical")).toBeInTheDocument()
+  })
+
+  it("marks repeated provider asset references as review-only", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        mediaItems={{
+          img1: { ...makeItem("img1"), dedupKey: "same-asset" },
+          img2: { ...makeItem("img2"), dedupKey: "same-asset" },
+          img3: makeItem("img3")
+        }}
+      />
+    )
+    expect(screen.getByText("Same asset reference")).toBeInTheDocument()
+    expect(screen.getByText("Review only")).toBeInTheDocument()
   })
 
   it("shows per-item storage accounting status", () => {
@@ -289,10 +368,14 @@ describe("DuplicateGroups — keyboard review", () => {
     wrap(<DuplicateGroups {...defaultProps} />)
 
     expect(
-      screen.getByRole("button", { name: "Keep img1.jpg" })
+      screen.getByRole("button", {
+        name: /Keep img1\.jpg \(currently kept; click to move to Trash\)/
+      })
     ).toHaveAttribute("aria-pressed", "true")
     expect(
-      screen.getByRole("button", { name: "Keep img2.jpg" })
+      screen.getByRole("button", {
+        name: /Keep img2\.jpg \(currently moves to Trash; click to keep\)/
+      })
     ).toHaveAttribute("aria-pressed", "false")
   })
 

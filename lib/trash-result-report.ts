@@ -2,6 +2,7 @@ export type TrashResultStatus = "complete" | "partial" | "failed"
 
 export interface TrashResultReport {
   reportId: string
+  operationId?: string
   createdAt: string
   status: TrashResultStatus
   attemptedCount: number
@@ -28,6 +29,7 @@ function intersectionInAttemptedOrder(attempted: string[], moved: string[]): str
 }
 
 export function buildTrashResultReport(params: {
+  operationId?: string
   attemptedMediaKeys: string[]
   attemptedDedupKeys: string[]
   movedMediaKeys: string[]
@@ -62,6 +64,7 @@ export function buildTrashResultReport(params: {
 
   return {
     reportId: `gpd-trash-result-${new Date().toISOString().replace(/[:.]/g, "-")}`,
+    ...(params.operationId ? { operationId: params.operationId } : {}),
     createdAt: new Date().toISOString(),
     status,
     attemptedCount,

@@ -27,7 +27,7 @@ const group: DuplicateGroup = {
   id: "group-1",
   mediaKeys: ["keep", "trash"],
   originalMediaKey: "keep",
-  similarity: 0.995
+  similarity: 0.9
 }
 
 describe("review report", () => {
@@ -71,21 +71,29 @@ describe("review report", () => {
         }
       ],
       mediaItems: {
-        keep: makeItem("keep"),
-        trash: makeItem("trash")
+        keep: makeItem("keep", "IMG.jpg"),
+        trash: makeItem("trash", "IMG.jpg")
       },
       selectedGroupIds: new Set(["group-1"]),
       getKept: () => new Set(["keep"])
     })
 
     expect(report.items[0]).toMatchObject({
-      duplicateKind: "exact",
-      matchReasons: ["same filename", "same dimensions"]
+      duplicateKind: "similar",
+      evidenceLevel: "strong_duplicate_candidate",
+      matchReasons: [
+        "same filename",
+        "same filename stem",
+        "same dimensions",
+        "same taken date"
+      ]
     })
 
     const csv = reviewReportToCsv(report)
     expect(csv).toContain("duplicateKind,matchReasons")
-    expect(csv).toContain('"same filename,same dimensions"')
+    expect(csv).toContain(
+      '"same filename,same filename stem,same dimensions,same taken date"'
+    )
   })
 
   it("includes storage accounting metadata in review exports", () => {

@@ -1,0 +1,390 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "2026-09-15",
+  "project": "PhotoSweep",
+  "sourceRoots": [
+    "lib",
+    "components",
+    "tabs",
+    "scripts",
+    "workers",
+    "background",
+    "contents",
+    "server",
+    ".github",
+    "Google-Photos-Toolkit",
+    "tests",
+    "verification",
+    "tools",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ".env.example",
+    "lib/generated/build-flags.ts",
+    "tsconfig.json",
+    "tsconfig.test.json",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "playwright.e2e.config.ts"
+  ],
+  "scopes": {
+    "fast": { "inherits": [] },
+    "nightly": { "inherits": ["fast"] },
+    "release": { "inherits": ["nightly"] }
+  },
+  "properties": [
+    {
+      "id": "SAFE-01",
+      "requirement": "Automatic selection keeps at least one distinct provider item in every nonempty group; insufficient evidence keeps all; manual Trash-all is separately confirmed.",
+      "seams": ["lib/keep-strategy.ts", "lib/duplicate-review-session.ts"],
+      "obligations": [
+        {
+          "id": "SAFE-01-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-01.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-01-model",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model",
+          "artifact": "tmp/verification/current/model.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-02",
+      "requirement": "Every dispatched target belongs to the exact confirmed review and provider/session context; selection or context drift invalidates authorization.",
+      "seams": ["lib/review-preflight.ts", "lib/trash-dispatch-guard.ts", "tabs/app.tsx"],
+      "obligations": [
+        {
+          "id": "SAFE-02-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-02.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-02-model",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model",
+          "artifact": "tmp/verification/current/model.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-02-browser",
+          "scope": "release",
+          "proofClass": "browser-boundary",
+          "kind": "browser",
+          "command": "pnpm test:integration -- --grep dispatch-authorization",
+          "artifact": "tmp/verification/current/browser-dispatch.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-03",
+      "requirement": "Unknown account identity is never reported as verified; provider-session-only operation carries an explicitly weaker claim.",
+      "seams": ["lib/review-preflight.ts", "scripts/google-photos-commands.js", "scripts/icloud-photos-commands.js", "scripts/amazon-photos-commands.js"],
+      "obligations": [
+        {
+          "id": "SAFE-03-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-03.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-03-provider-contract",
+          "scope": "nightly",
+          "proofClass": "provider-contract",
+          "kind": "test",
+          "command": "pnpm test:boundary",
+          "artifact": "tmp/verification/current/boundary.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-04",
+      "requirement": "Similarity, metadata, thumbnail hashes, and legacy labels cannot establish original-content identity; verified identity requires the provenance contract.",
+      "seams": ["lib/duplicate-classifier.ts", "lib/scan-results.ts"],
+      "obligations": [
+        {
+          "id": "SAFE-04-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-04.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-04-corpus",
+          "scope": "nightly",
+          "proofClass": "labeled-corpus",
+          "kind": "test",
+          "command": "pnpm test:corpus",
+          "artifact": "tmp/verification/current/corpus.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-05",
+      "requirement": "Reported successful targets are a subset of requested and provider-confirmed targets; timeout or ambiguous response remains unknown.",
+      "seams": ["lib/trash-lifecycle.ts", "lib/trash-result-report.ts", "scripts/*-photos-commands.js"],
+      "obligations": [
+        {
+          "id": "SAFE-05-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-05.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-05-model",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model",
+          "artifact": "tmp/verification/current/model.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-06",
+      "requirement": "Undo targets only confirmed moved items in the matching operation and context; stale, duplicated, or reordered responses cannot expand it.",
+      "seams": ["lib/trash-lifecycle.ts", "lib/recovery-history.ts"],
+      "obligations": [
+        {
+          "id": "SAFE-06-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-06.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-06-model",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model",
+          "artifact": "tmp/verification/current/model-SAFE-05.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-07",
+      "requirement": "A crash, reload, failed persistence, or service-worker restart cannot initiate unconfirmed Trash; ambiguous in-flight operations require reconciliation before replay.",
+      "seams": ["lib/trash-lifecycle.ts", "lib/recovery-history.ts", "background/*"],
+      "obligations": [
+        {
+          "id": "SAFE-07-model",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model",
+          "artifact": "tmp/verification/current/model.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-07-faults",
+          "scope": "nightly",
+          "proofClass": "fault-injection",
+          "kind": "test",
+          "command": "pnpm test:boundary",
+          "artifact": "tmp/verification/current/boundary.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-08",
+      "requirement": "Saved selection migration never turns stale or malformed keeper IDs into unintended automatic Trash; manual choices remain authoritative.",
+      "seams": ["lib/duplicate-review-session.ts", "lib/decision-memory.ts", "lib/stored-review-scope.ts"],
+      "obligations": [
+        {
+          "id": "SAFE-08-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-08.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-09",
+      "requirement": "Account changes and stale payment responses cannot grant access in another context; production artifacts cannot enable test entitlement bypass.",
+      "seams": ["lib/paid-access-lifecycle.ts", "tabs/app.tsx", "tools/write-build-flags.mjs"],
+      "obligations": [
+        {
+          "id": "SAFE-09-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-09.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-09-package",
+          "scope": "release",
+          "proofClass": "production-package",
+          "kind": "package-audit",
+          "command": "pnpm audit:extension-package",
+          "artifact": "tmp/verification/current/package-audit.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-10",
+      "requirement": "Untrusted page messages cannot trigger unauthorized provider operations or expose sensitive data.",
+      "seams": ["scripts/photo-provider-command-host.js", "background/index.ts", "lib/types.ts"],
+      "obligations": [
+        {
+          "id": "SAFE-10-boundary",
+          "scope": "nightly",
+          "proofClass": "message-boundary",
+          "kind": "test",
+          "command": "pnpm test:boundary",
+          "artifact": "tmp/verification/current/boundary.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-10-browser",
+          "scope": "release",
+          "proofClass": "browser-boundary",
+          "kind": "browser",
+          "command": "pnpm test:e2e -- --grep security-boundary",
+          "artifact": "tmp/verification/current/browser-security.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "DELIVERABLE-01",
+      "requirement": "Baseline, dirty-work inventory, source fingerprint, and tool versions are preserved before verification changes.",
+      "seams": ["tmp/verification"],
+      "obligations": [
+        {
+          "id": "BASELINE-01",
+          "scope": "fast",
+          "proofClass": "baseline",
+          "kind": "inventory",
+          "command": "baseline snapshot",
+          "artifact": "tmp/verification/20260915T212410Z/baseline.md",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "DELIVERABLE-05",
+      "requirement": "Scoped mutation testing measures whether critical safety tests detect realistic semantic defects and records survivors.",
+      "seams": ["stryker.config.mjs", "lib/*"],
+      "obligations": [
+        {
+          "id": "MUTATION-01",
+          "scope": "nightly",
+          "proofClass": "mutation",
+          "kind": "mutation",
+          "command": "pnpm test:mutation",
+          "artifact": "tmp/verification/current/mutation.json",
+          "threshold": {
+            "minimumKilledPercent": 90,
+            "maximumCriticalSurvivors": 0
+          },
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "DELIVERABLE-07",
+      "requirement": "Labeled corpus quality and measured 1k/10k/50k synthetic performance budgets are recorded separately from provider evidence.",
+      "seams": ["verification/corpus", "verification/benchmark.mjs"],
+      "obligations": [
+        {
+          "id": "PERF-01",
+          "scope": "nightly",
+          "proofClass": "performance",
+          "kind": "benchmark",
+          "command": "pnpm test:bench:verification",
+          "artifact": "tmp/verification/current/performance.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "DELIVERABLE-08",
+      "requirement": "The evidence engine validates exact source and artifact identity and rejects corruption, incomplete checks, and mandatory skips.",
+      "seams": ["verification/evidence-engine.mjs", "verification/evidence-engine.test.ts"],
+      "obligations": [
+        {
+          "id": "EVIDENCE-ENGINE-01",
+          "scope": "fast",
+          "proofClass": "evidence-integrity",
+          "kind": "test",
+          "command": "pnpm test:evidence",
+          "artifact": "tmp/verification/current/evidence-engine.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "DELIVERABLE-06",
+      "requirement": "Each live provider claim has a dedicated disposable fixture contract; unavailable fixtures remain explicit blockers and are never replaced by personal-library tests.",
+      "seams": ["verification/provider-fixtures.json"],
+      "obligations": [
+        {
+          "id": "LIVE-GOOGLE-01",
+          "scope": "release",
+          "proofClass": "live-provider",
+          "kind": "provider-fixture",
+          "command": "dedicated Google Photos disposable fixture",
+          "artifact": "tmp/verification/current/live-google.json",
+          "mandatory": true
+        },
+        {
+          "id": "LIVE-ICLOUD-01",
+          "scope": "release",
+          "proofClass": "live-provider",
+          "kind": "provider-fixture",
+          "command": "dedicated iCloud Photos disposable fixture",
+          "artifact": "tmp/verification/current/live-icloud.json",
+          "mandatory": true
+        },
+        {
+          "id": "LIVE-AMAZON-01",
+          "scope": "release",
+          "proofClass": "live-provider",
+          "kind": "provider-fixture",
+          "command": "dedicated Amazon Photos disposable fixture",
+          "artifact": "tmp/verification/current/live-amazon.json",
+          "mandatory": true
+        }
+      ]
+    }
+  ]
+}

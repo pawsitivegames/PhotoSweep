@@ -164,7 +164,8 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
       resWidth: 1920,
       resHeight: 1080,
       fileName: `photo-${key}.jpg`,
-      isOwned: true
+      isOwned: true,
+      isOriginalQuality: i === 0
     }
   }
   groups[0].originalMediaKey = "cap-group0-item0"

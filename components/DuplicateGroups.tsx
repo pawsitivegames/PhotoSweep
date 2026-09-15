@@ -28,8 +28,13 @@ import { VariableSizeList } from "react-window"
 import type { ListChildComponentProps } from "react-window"
 
 import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
+import {
+  describeKeepRecommendation,
+  recommendKeepForGroup
+} from "../lib/keep-strategy"
 import { buildThumbUrl } from "../lib/photo-url"
 import { photoSweepColors } from "../lib/theme"
+import type { KeepDecision } from "../lib/duplicate-review-session"
 import type { DuplicateGroup, GpdMediaItem } from "../lib/types"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import { useBlobUrl } from "./useBlobUrl"
@@ -39,7 +44,7 @@ const REVIEW_LIST_VIEWPORT_OFFSET = 300
 const REVIEW_LIST_FALLBACK_WIDTH = 900
 const REVIEW_CARD_WIDTH = 190
 const REVIEW_CARD_GAP = 12
-const REVIEW_ROW_HEADER_HEIGHT = 62
+const REVIEW_ROW_HEADER_HEIGHT = 82
 const REVIEW_ROW_VERTICAL_PADDING = 24
 const REVIEW_CARD_ESTIMATED_HEIGHT = 286
 const REVIEW_ROW_ACTION_HEIGHT = 54
@@ -304,6 +309,7 @@ interface DuplicateGroupRowProps {
   isSelected: boolean
   isReviewed: boolean
   keptSet: Set<string>
+  keepDecision?: KeepDecision
   onToggleGroup: (groupId: string) => void
   onSkipGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
@@ -321,6 +327,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   isSelected,
   isReviewed,
   keptSet,
+  keepDecision,
   onToggleGroup,
   onSkipGroup,
   onToggleKept,
@@ -331,21 +338,48 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   readOnly = false,
   compact = false
 }: DuplicateGroupRowProps) {
-  const classification =
-    group.duplicateKind && group.matchReasons
-      ? {
-          duplicateKind: group.duplicateKind,
-          matchReasons: group.matchReasons
-        }
-      : classifyDuplicateGroup(group, mediaItems)
+  // Recompute from current media evidence. Persisted legacy `exact` values
+  // must not keep an unsupported certainty label alive in the UI.
+  const classification = classifyDuplicateGroup(group, mediaItems)
   const classificationLabel =
-    classification.duplicateKind === "exact" ? "Exact duplicate" : "Similar"
+    classification.relationship === "same_provider_asset"
+      ? "Same asset reference"
+      : classification.relationship === "related_format_edit"
+        ? "Related format"
+        : classification.evidenceLevel === "verified_identical"
+          ? "Verified identical"
+          : classification.evidenceLevel === "strong_duplicate_candidate"
+            ? "Strong duplicate candidate"
+            : "Similar"
   const classificationColor =
-    classification.duplicateKind === "exact" ? "success" : "warning"
+    classification.relationship === "same_provider_asset"
+      ? "error"
+      : classification.relationship === "related_format_edit"
+        ? "info"
+        : classification.evidenceLevel === "verified_identical"
+          ? "success"
+          : classification.evidenceLevel === "strong_duplicate_candidate"
+            ? "warning"
+            : "default"
   const classificationTitle =
-    classification.matchReasons.length > 0
-      ? classification.matchReasons.join(", ")
-      : "visual similarity"
+    [
+      classification.matchReasons.length > 0
+        ? classification.matchReasons.join(", ")
+        : "visual similarity",
+      ...(classification.canProposeTrash
+        ? []
+        : ["Trash proposal disabled for this relationship"])
+    ].join(" · ")
+  const recommendation =
+    keepDecision?.recommendation ??
+    recommendKeepForGroup(group, mediaItems, "best_quality")
+  const decisionSource = keepDecision?.source ?? "automatic"
+  const decisionSummary =
+    decisionSource === "manual"
+      ? "Manual keep selection"
+      : decisionSource === "legacy_preserved"
+        ? "Kept from previous review"
+        : describeKeepRecommendation(recommendation)
 
   return (
     <Paper
@@ -430,6 +464,17 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             Choose one or more copies to keep. Unkept copies in an included set
             move to Trash.
           </Typography>
+          <Typography
+            variant="caption"
+            color={
+              recommendation.status === "no_confident_recommendation"
+                ? "warning.main"
+                : "primary.main"
+            }
+            data-testid={`keep-decision-${group.id}`}
+            sx={compact ? { display: "block", lineHeight: 1.35 } : undefined}>
+            {decisionSummary}
+          </Typography>
         </Box>
         <Stack
           direction="row"
@@ -451,6 +496,15 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             title={classificationTitle}
             sx={sxChipSimilarity}
           />
+          {!classification.canProposeTrash && (
+            <Chip
+              label="Review only"
+              size="small"
+              variant="outlined"
+              title="This relationship is not eligible for an automatic Trash proposal."
+              sx={sxChipSimilarity}
+            />
+          )}
           {!readOnly && (
             <Chip
               label={
@@ -489,8 +543,11 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           const item = mediaItems[key]
           if (!item) return null
           const isKept = keptSet.has(key)
-          const isExplicitlyKept = isReviewed && isSelected && isKept
-          const isSuggestedKeep = !isReviewed && isKept
+          const isUserDecision =
+            decisionSource === "manual" || decisionSource === "legacy_preserved"
+          const isExplicitlyKept = isUserDecision && isSelected && isKept
+          const isSuggestedKeep = !isUserDecision && isKept
+          const itemLabel = item.fileName || item.mediaKey
 
           return (
             <Box
@@ -542,10 +599,12 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 <CardActionArea
                   aria-label={
                     readOnly
-                      ? `View ${item.fileName || item.mediaKey} full size`
-                      : `Keep ${item.fileName || item.mediaKey}`
+                      ? `View ${itemLabel} full size`
+                      : isKept
+                        ? `Keep ${itemLabel} (currently kept; click to move to Trash)`
+                        : `Keep ${itemLabel} (currently moves to Trash; click to keep)`
                   }
-                  aria-pressed={readOnly ? undefined : isExplicitlyKept}
+                  aria-pressed={readOnly ? undefined : isKept}
                   sx={
                     compact
                       ? {
@@ -722,6 +781,7 @@ interface DuplicateGroupsProps {
   onToggleGroup: (groupId: string) => void
   onSkipGroup: (groupId: string) => void
   keptByGroupId: Map<string, Set<string>>
+  keepDecisionByGroupId?: Map<string, KeepDecision>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
   readOnly?: boolean
@@ -735,6 +795,7 @@ interface VirtualGroupListData {
   selectedGroupIds: Set<string>
   reviewedGroupIds: Set<string>
   keptByGroupId: Map<string, Set<string>>
+  keepDecisionByGroupId?: Map<string, KeepDecision>
   onToggleGroup: (groupId: string) => void
   onSkipGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
@@ -761,6 +822,7 @@ function VirtualGroupRow({
         isSelected={data.selectedGroupIds.has(group.id)}
         isReviewed={data.reviewedGroupIds.has(group.id)}
         keptSet={data.keptByGroupId.get(group.id) ?? new Set()}
+        keepDecision={data.keepDecisionByGroupId?.get(group.id)}
         onToggleGroup={data.onToggleGroup}
         onSkipGroup={data.onSkipGroup}
         onToggleKept={data.onToggleKept}
@@ -782,6 +844,7 @@ export function DuplicateGroups({
   onToggleGroup,
   onSkipGroup,
   keptByGroupId,
+  keepDecisionByGroupId,
   onToggleKept,
   onTrashAll,
   readOnly = false,
@@ -928,6 +991,7 @@ export function DuplicateGroups({
       selectedGroupIds,
       reviewedGroupIds,
       keptByGroupId,
+      keepDecisionByGroupId,
       onToggleGroup,
       onSkipGroup,
       onToggleKept,
@@ -943,6 +1007,7 @@ export function DuplicateGroups({
       selectedGroupIds,
       reviewedGroupIds,
       keptByGroupId,
+      keepDecisionByGroupId,
       onToggleGroup,
       onSkipGroup,
       onToggleKept,
@@ -1014,6 +1079,7 @@ export function DuplicateGroups({
               isSelected={selectedGroupIds.has(group.id)}
               isReviewed={reviewedGroupIds.has(group.id)}
               keptSet={keptByGroupId.get(group.id) ?? new Set()}
+              keepDecision={keepDecisionByGroupId?.get(group.id)}
               onToggleGroup={onToggleGroup}
               onSkipGroup={onSkipGroup}
               onToggleKept={onToggleKept}
