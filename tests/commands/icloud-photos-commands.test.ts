@@ -6,12 +6,47 @@
 import { beforeAll, describe, expect, it, vi } from "vitest"
 
 beforeAll(async () => {
+  ;(window as any).__GPD_COMMAND_TEST_MODE__ = true
+  const providerUrl = window.location.href
+  ;(window as any).happyDOM.setURL("about:blank")
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   await import("../../scripts/photo-provider-command-host.js")
+  ;(window as any).happyDOM.setURL(providerUrl)
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   await import("../../scripts/icloud-photos-commands.js")
+})
+
+describe("iCloud regional host contract", () => {
+  it("accepts bare and www hosts for both supported iCloud regions", () => {
+    const api = (window as any).__GPD_ICLOUD_COMMAND_TEST_API__ as {
+      isIcloudPhotosHost: (hostname: string) => boolean
+      isIcloudPhotosLocation: (locationLike: {
+        hostname: string
+        pathname: string
+      }) => boolean
+    }
+
+    for (const hostname of [
+      "icloud.com",
+      "www.icloud.com",
+      "icloud.com.cn",
+      "www.icloud.com.cn"
+    ]) {
+      expect(api.isIcloudPhotosHost(hostname)).toBe(true)
+      expect(
+        api.isIcloudPhotosLocation({ hostname, pathname: "/photos" })
+      ).toBe(true)
+    }
+    expect(api.isIcloudPhotosHost("support.icloud.com")).toBe(false)
+    expect(
+      api.isIcloudPhotosLocation({
+        hostname: "www.icloud.com",
+        pathname: "/account"
+      })
+    ).toBe(false)
+  })
 })
 
 function sendCommand(command: string, requestId: string, args: unknown) {

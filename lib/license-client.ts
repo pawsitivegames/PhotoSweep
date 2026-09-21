@@ -22,6 +22,16 @@ export const LICENSE_API_BASE_URL =
   process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL
 export const ENTITLEMENT_PUBLIC_KEY =
   process.env.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY
+export const STRIPE_CHECKOUT_HOST = "checkout.stripe.com"
+
+export function isAllowedCheckoutUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" && url.hostname === STRIPE_CHECKOUT_HOST
+  } catch {
+    return false
+  }
+}
 
 export interface SignedEntitlementPayload {
   planId: PlanId
@@ -153,13 +163,10 @@ function parseCheckoutResponse(
   if (typeof checkout.url !== "string" || !checkout.url) {
     throw new Error("Checkout response did not include a valid URL.")
   }
-  try {
-    const url = new URL(checkout.url)
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      throw new Error()
-    }
-  } catch {
-    throw new Error("Checkout response did not include a valid URL.")
+  if (!isAllowedCheckoutUrl(checkout.url)) {
+    throw new Error(
+      "Checkout response did not include an approved secure Stripe URL."
+    )
   }
   if (!isValidLicenseSessionId(checkout.sessionId)) {
     throw new Error(

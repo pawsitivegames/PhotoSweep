@@ -124,7 +124,9 @@ export class DuplicateReviewSession {
     this.keptByGroupId = new Map(
       this.groups.map((group) => [
         group.id,
-        new Set(this.keepDecisionByGroupId.get(group.id)?.keptMediaKeys ?? [])
+        // The decision map is built from these same groups immediately above,
+        // so every group id has a decision when this cache is initialized.
+        new Set(this.keepDecisionByGroupId.get(group.id)!.keptMediaKeys)
       ])
     )
   }
@@ -180,7 +182,7 @@ export class DuplicateReviewSession {
           const group = this.groupsById.get(groupId)
           if (!group) continue
           const existingProvenance =
-            current.keepDecisionProvenance?.[groupId]
+            current.keepDecisionProvenance[groupId]
           if (
             existingProvenance?.source === "manual" ||
             existingProvenance?.source === "legacy_preserved"
@@ -244,10 +246,14 @@ export class DuplicateReviewSession {
     // A provider asset referenced by more than one row must never be sent to
     // Trash through one row while another row acts as its apparent keeper.
     for (const candidateGroup of this.groups) {
-      for (const mediaKey of candidateGroup.mediaKeys) {
-        const dedupKey = this.mediaItems[mediaKey]?.dedupKey
-        if (!dedupKey) continue
-        dedupKeyCounts.set(dedupKey, (dedupKeyCounts.get(dedupKey) ?? 0) + 1)
+      const candidateItems = candidateGroup.mediaKeys
+        .map((mediaKey) => this.mediaItems[mediaKey])
+        .filter((item): item is GpdMediaItem => Boolean(item))
+      for (const item of candidateItems) {
+        dedupKeyCounts.set(
+          item.dedupKey,
+          (dedupKeyCounts.get(item.dedupKey) ?? 0) + 1
+        )
       }
     }
 
@@ -276,12 +282,12 @@ export class DuplicateReviewSession {
 
     const provider =
       mediaKeysToTrash
-        .map((key) => this.mediaItems[key]?.provider)
+        .map((key) => this.mediaItems[key].provider)
         .find((value): value is PhotoProvider => Boolean(value)) ?? "google"
     const icloudAssetRefs =
       provider === "icloud"
         ? mediaKeysToTrash
-            .map((key) => this.mediaItems[key]?.icloudAsset)
+            .map((key) => this.mediaItems[key].icloudAsset)
             .filter(
               (asset): asset is NonNullable<GpdMediaItem["icloudAsset"]> =>
                 Boolean(asset)

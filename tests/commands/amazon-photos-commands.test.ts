@@ -7,12 +7,97 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 beforeAll(async () => {
+  ;(window as any).__GPD_COMMAND_TEST_MODE__ = true
+  const providerUrl = window.location.href
+  ;(window as any).happyDOM.setURL("about:blank")
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   await import("../../scripts/photo-provider-command-host.js")
+  ;(window as any).happyDOM.setURL(providerUrl)
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   await import("../../scripts/amazon-photos-commands.js")
+})
+
+describe("Amazon regional host contract", () => {
+  it("accepts every supported locale and maps bare hosts to regional thumbnails", () => {
+    const api = (window as any).__GPD_AMAZON_COMMAND_TEST_API__ as {
+      isAmazonPhotosHost: (hostname: string) => boolean
+      isAmazonPhotosLocation: (locationLike: {
+        hostname: string
+        pathname: string
+      }) => boolean
+      amazonThumbnailOrigin: (locationLike: {
+        protocol: string
+        hostname: string
+        port: string
+      }) => string
+    }
+    const hosts = [
+      "amazon.com",
+      "amazon.ca",
+      "amazon.co.uk",
+      "amazon.de",
+      "amazon.fr",
+      "amazon.it",
+      "amazon.es",
+      "amazon.co.jp",
+      "amazon.com.au",
+      "amazon.in",
+      "amazon.com.br",
+      "amazon.com.mx",
+      "amazon.nl",
+      "amazon.sg",
+      "amazon.ae",
+      "amazon.sa",
+      "amazon.se",
+      "amazon.pl",
+      "amazon.com.tr",
+      "amazon.com.be",
+      "amazon.eg",
+      "amazon.ie"
+    ]
+
+    for (const hostname of hosts) {
+      expect(api.isAmazonPhotosHost(hostname)).toBe(true)
+      expect(api.isAmazonPhotosHost(`www.${hostname}`)).toBe(true)
+      expect(
+        api.isAmazonPhotosLocation({ hostname, pathname: "/photos" })
+      ).toBe(true)
+      expect(
+        api.amazonThumbnailOrigin({
+          protocol: "https:",
+          hostname: `www.${hostname}`,
+          port: ""
+        })
+      ).toBe(`https://thumbnails-photos.${hostname}`)
+    }
+    expect(api.isAmazonPhotosHost("amazon.be")).toBe(false)
+    expect(api.isAmazonPhotosHost("amazon.co.za")).toBe(false)
+  })
+
+  it("fails closed when a regional marketplace returns a 404 page", async () => {
+    const { messages, restore } = collectMessages()
+    const originalTitle = document.title
+    const originalBody = document.body.innerHTML
+    document.title = "Page Not Found"
+    document.body.innerHTML =
+      "Looking for something? The Web address you entered is not a functioning page."
+
+    sendCommand("healthCheck", "amazon-regional-404", {})
+    await flush()
+
+    const result = messages.find(
+      (msg) =>
+        msg.action === "gptkResult" &&
+        msg.command === "healthCheck" &&
+        msg.requestId === "amazon-regional-404"
+    )
+    expect(result?.data?.hasGptk).toBe(false)
+    document.title = originalTitle
+    document.body.innerHTML = originalBody
+    restore()
+  })
 })
 
 beforeEach(() => {
@@ -322,6 +407,48 @@ describe("Amazon trashItems", () => {
 // Amazon restore = same /drive/v1/trash endpoint as trash, with op:"remove".
 // Mirrors the trash chunking/retry path; the Undo button relies on this.
 describe("restoreItems", () => {
+  it("allows Undo while Amazon Photos Trash is open", async () => {
+    const { messages, restore } = collectMessages()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve("{}")
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    window.history.pushState({}, "", "/photos/trash")
+
+    try {
+      sendCommand("restoreItems", "amazon-restore-trash-route", {
+        dedupKeys: ["node-a"]
+      })
+      await flush()
+      await flush()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://www.amazon.ca/drive/v1/trash",
+        expect.objectContaining({
+          method: "PATCH",
+          credentials: "include",
+          body: JSON.stringify({
+            op: "remove",
+            conflictResolution: "RENAME",
+            value: ["node-a"]
+          })
+        })
+      )
+      expect(
+        messages.find(
+          (msg) =>
+            msg.action === "gptkResult" &&
+            msg.command === "restoreItems" &&
+            msg.requestId === "amazon-restore-trash-route"
+        )
+      ).toMatchObject({ success: true })
+    } finally {
+      window.history.pushState({}, "", "/photos?sf=1")
+      restore()
+    }
+  })
+
   it("restores selected node ids from Amazon Photos trash with op:remove", async () => {
     const { messages, restore } = collectMessages()
     const fetchMock = vi.fn().mockResolvedValue({

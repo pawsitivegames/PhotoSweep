@@ -792,6 +792,26 @@ export async function smartDetectDuplicates(
   console.log(
     `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${timestampBuckets.length} timestamp buckets, ${sequenceBuckets.length} sequence pairs, ${smallScopeBuckets.length} small-scope buckets`
   )
+
+  // If strong metadata already accounts for every candidate, there is no
+  // unresolved visual pair to discover. Return before opening the embedding
+  // cache or fetching thumbnails; this keeps metadata-only video matches
+  // deterministic even when their provider thumbnails are unavailable.
+  const exactMetadataKeys = new Set(
+    exactMetadataGroups.flatMap((group) =>
+      group.map((item) => item.mediaKey)
+    )
+  )
+  const metadataCoversAllCandidates =
+    exactMetadataGroups.length > 0 &&
+    candidates.length > 0 &&
+    candidates.every((item) => exactMetadataKeys.has(item.mediaKey))
+  if (metadataCoversAllCandidates) {
+    return exactMetadataGroups.map((items, i) =>
+      buildDuplicateGroup(items, i, threshold)
+    )
+  }
+
   const subset = smartScanEmbeddingCandidates(
     candidates,
     embeddingCandidateBuckets

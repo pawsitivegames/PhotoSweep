@@ -5,6 +5,7 @@ import {
   type PlanId
 } from "./entitlement"
 import type { CheckoutResponse, StoredEntitlement } from "./license-client"
+import { isAllowedCheckoutUrl } from "./license-client"
 import {
   boundedRetryDelays,
   type ActivationOutcome,
@@ -238,14 +239,10 @@ function validateCheckoutResponse(
   if (!response || response.planId !== expectedPlanId) {
     throw new Error("Checkout response did not match the requested plan.")
   }
-  let parsed: URL
-  try {
-    parsed = new URL(response.url)
-  } catch {
-    throw new Error("Checkout response did not contain a valid URL.")
-  }
-  if (parsed.protocol !== "https:") {
-    throw new Error("Checkout response did not contain a secure URL.")
+  if (!isAllowedCheckoutUrl(response.url)) {
+    throw new Error(
+      "Checkout response did not contain an approved secure Stripe URL."
+    )
   }
   return response
 }

@@ -1,33 +1,25 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import {
+  injectProviderScript,
+  requestProviderCommandPublicKey
+} from "../lib/provider-script-injection"
+
 export const config: PlasmoCSConfig = {
-  matches: ["https://www.icloud.com/*", "https://www.icloud.com.cn/*"],
+  matches: [
+    "https://www.icloud.com/*",
+    "https://icloud.com/*",
+    "https://www.icloud.com.cn/*",
+    "https://icloud.com.cn/*"
+  ],
   all_frames: true,
   run_at: "document_idle"
 }
 
-function injectScript(fileName: string): Promise<void> {
-  const url = chrome.runtime.getURL(fileName)
-  const script = document.createElement("script")
-  script.src =
-    url + "?v=" + chrome.runtime.getManifest().version + "-" + Date.now()
-  script.type = "text/javascript"
-  script.async = false
-  const loaded = new Promise<void>((resolve, reject) => {
-    script.addEventListener("load", () => resolve(), { once: true })
-    script.addEventListener(
-      "error",
-      () => reject(new Error(`Unable to inject ${fileName}`)),
-      { once: true }
-    )
-  })
-  ;(document.head || document.documentElement).appendChild(script)
-  return loaded
-}
-
 async function injectIcloudPhotosScripts(): Promise<void> {
-  await injectScript("scripts/photo-provider-command-host.js")
-  await injectScript("scripts/icloud-photos-commands.js")
+  const publicKey = await requestProviderCommandPublicKey()
+  await injectProviderScript("scripts/photo-provider-command-host.js", publicKey)
+  await injectProviderScript("scripts/icloud-photos-commands.js")
 }
 
 void injectIcloudPhotosScripts()

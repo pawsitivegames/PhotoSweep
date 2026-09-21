@@ -1,6 +1,6 @@
 # PhotoSweep Support
 
-Last updated: 2026-06-30
+Last updated: 2026-09-17
 
 ## Support Channels
 
@@ -8,13 +8,13 @@ For paid license, refund, privacy, or deletion requests, email:
 
 `pawsitivegames@gmail.com`
 
-For public bug reports and feature requests, use the GitHub issue tracker:
+For product information, help, and updates, visit the PhotoSweep site:
 
-https://github.com/pawsitivegames/PhotoSweep/issues/new/choose
+https://photosweep.pawsitivegames.chatgpt.site/
 
-For general questions and troubleshooting discussion, use GitHub Discussions:
+For bug reports, feature requests, or troubleshooting, email:
 
-https://github.com/pawsitivegames/PhotoSweep/discussions
+`pawsitivegames@gmail.com`
 
 ## What To Include
 

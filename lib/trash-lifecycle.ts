@@ -59,6 +59,7 @@ export interface TrashBatchPolicy {
 }
 
 export interface TrashCommand {
+  requestId: string
   operationId: string
   provider: PhotoProvider
   totalToTrash: number
@@ -111,8 +112,10 @@ export type TrashOutcome =
     }
 
 interface PendingTrash {
+  requestId: string
   operationId: string
-  plan: DuplicateTrashPlan
+  status: "dispatched" | "ambiguous"
+  plan: Pick<DuplicateTrashPlan, "provider" | "dedupKeys" | "mediaKeysToTrash">
   snapshot: TrashSnapshot
   context: TrashAuditContext
 }
@@ -139,6 +142,17 @@ function stringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === "string")
 }
 
+function failedOutcome(error: string): TrashOutcome {
+  return {
+    kind: "failed",
+    movedMediaKeys: [],
+    movedDedupKeys: [],
+    movedCount: 0,
+    error,
+    undo: null
+  }
+}
+
 function confirmedTrashKeys(
   pending: PendingTrash,
   data: TrashProviderResultData | undefined
@@ -146,7 +160,7 @@ function confirmedTrashKeys(
   const pairs: RequestedTrashPair[] = pending.plan.dedupKeys.map(
     (dedupKey, index) => ({
       dedupKey,
-      mediaKey: pending.plan.mediaKeysToTrash[index] ?? ""
+      mediaKey: pending.plan.mediaKeysToTrash[index]!
     })
   )
   const requestedMedia = new Set(pairs.map((pair) => pair.mediaKey))
@@ -158,12 +172,8 @@ function confirmedTrashKeys(
     reportedMedia?.some((key) => !requestedMedia.has(key)) ||
       reportedDedup?.some((key) => !requestedDedup.has(key))
   )
-  const confirmedMedia = new Set(
-    (reportedMedia ?? []).filter((key) => requestedMedia.has(key))
-  )
-  const confirmedDedup = new Set(
-    (reportedDedup ?? []).filter((key) => requestedDedup.has(key))
-  )
+  const confirmedMedia = new Set(reportedMedia ?? [])
+  const confirmedDedup = new Set(reportedDedup ?? [])
 
   // Provider adapters currently report both parallel identity lists. Accept a
   // partial error payload containing either list, but derive the paired
@@ -205,6 +215,7 @@ export class TrashLifecycle {
     snapshot: TrashSnapshot
     batchPolicy: TrashBatchPolicy
     operationId?: string
+    requestId?: string
     accountEmail?: string
     scopeFingerprint?: string
     scopeLabel?: string
@@ -212,10 +223,16 @@ export class TrashLifecycle {
     if (this.pending || this.beginInFlight) {
       throw new Error("Another trash operation is already pending.")
     }
+    if (params.plan.dedupKeys.length !== params.plan.mediaKeysToTrash.length) {
+      throw new Error("Trash plan identities are inconsistent.")
+    }
     this.beginInFlight = true
     const operationId =
       params.operationId ??
       `gpd-cleanup-${new Date().toISOString().replace(/[:.]/g, "-")}-${Math.random().toString(36).slice(2, 8)}`
+    const requestId =
+      params.requestId?.trim() ||
+      `gpd-trash-request-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const context: TrashAuditContext = {
       operationId,
       provider: params.plan.provider,
@@ -227,7 +244,11 @@ export class TrashLifecycle {
       attemptedDedupKeys: [...params.plan.dedupKeys],
       attemptedMediaKeys: [...params.plan.mediaKeysToTrash],
       ...(params.plan.icloudAssetRefs
-        ? { icloudAssetRefs: params.plan.icloudAssetRefs }
+        ? {
+            icloudAssetRefs: params.plan.icloudAssetRefs.map((asset) => ({
+              ...asset
+            }))
+          }
         : {})
     }
     const report = params.reviewSession.deleteReport({
@@ -240,22 +261,20 @@ export class TrashLifecycle {
       await this.audit.savePreTrashReport(report, context)
 
       this.pending = {
+        requestId,
         operationId,
+        status: "dispatched",
         plan: {
-          ...params.plan,
+          provider: params.plan.provider,
           dedupKeys: [...params.plan.dedupKeys],
-          mediaKeysToTrash: [...params.plan.mediaKeysToTrash],
-          blockedMediaKeys: [...params.plan.blockedMediaKeys],
-          blockedGroupIds: [...params.plan.blockedGroupIds],
-          ...(params.plan.icloudAssetRefs
-            ? { icloudAssetRefs: [...params.plan.icloudAssetRefs] }
-            : {})
+          mediaKeysToTrash: [...params.plan.mediaKeysToTrash]
         },
         snapshot: params.snapshot,
         context
       }
 
       return {
+        requestId,
         operationId,
         provider: params.plan.provider,
         totalToTrash: params.plan.dedupKeys.length,
@@ -277,20 +296,17 @@ export class TrashLifecycle {
   }
 
   async reconcile(params: {
+    requestId?: string
     success: boolean
     data?: TrashProviderResultData
     error?: string
   }): Promise<TrashOutcome> {
     const pending = this.pending
     if (!pending) {
-      return {
-        kind: "failed",
-        movedMediaKeys: [],
-        movedDedupKeys: [],
-        movedCount: 0,
-        error: "Trash response did not match a pending operation.",
-        undo: null
-      }
+      return failedOutcome("Trash response did not match a pending operation.")
+    }
+    if (params.requestId !== undefined && params.requestId !== pending.requestId) {
+      return failedOutcome("Trash response did not match the pending request.")
     }
 
     // Consume the authorization before awaiting persistence. A duplicated or
@@ -322,7 +338,7 @@ export class TrashLifecycle {
 
     await this.audit.saveTrashResultReport(
       buildTrashResultReport({
-        operationId: pending?.operationId,
+        operationId: pending.operationId,
         attemptedMediaKeys,
         attemptedDedupKeys,
         movedMediaKeys,
@@ -330,7 +346,7 @@ export class TrashLifecycle {
         retryAttempts: params.data?.retryAttempts,
         ...(responseError ? { error: responseError } : {})
       }),
-      pending?.context
+      pending.context
     )
 
     if (params.success && params.data?.dryRun) {
@@ -350,28 +366,25 @@ export class TrashLifecycle {
 
     const movedCount = movedMediaKeys.length
     if (movedCount > 0) {
-      const undo =
-        pending && attemptedDedupKeys.length > 0
-          ? {
-              operationId: pending.operationId,
-              provider: pending.plan.provider,
-              dedupKeys: movedDedupKeys,
-              count: movedCount,
-              snapshot: pending.snapshot,
-              ...(params.data?.icloudAssetRefs
-                ? { icloudAssetRefs: params.data.icloudAssetRefs }
-                : {}),
-              ...(pending.context.accountEmail
-                ? { accountEmail: pending.context.accountEmail }
-                : {}),
-              ...(pending.context.scopeFingerprint
-                ? { scopeFingerprint: pending.context.scopeFingerprint }
-                : {}),
-              ...(pending.context.scopeLabel
-                ? { scopeLabel: pending.context.scopeLabel }
-                : {})
-            }
-          : null
+      const undo = {
+        operationId: pending.operationId,
+        provider: pending.plan.provider,
+        dedupKeys: movedDedupKeys,
+        count: movedCount,
+        snapshot: pending.snapshot,
+        ...(params.data!.icloudAssetRefs
+          ? { icloudAssetRefs: params.data!.icloudAssetRefs }
+          : {}),
+        ...(pending.context.accountEmail
+          ? { accountEmail: pending.context.accountEmail }
+          : {}),
+        ...(pending.context.scopeFingerprint
+          ? { scopeFingerprint: pending.context.scopeFingerprint }
+          : {}),
+        ...(pending.context.scopeLabel
+          ? { scopeLabel: pending.context.scopeLabel }
+          : {})
+      }
       return {
         kind: params.success && !responseError ? "complete" : "partial",
         movedMediaKeys,
@@ -394,6 +407,49 @@ export class TrashLifecycle {
       error: responseError ?? error,
       undo: null
     }
+  }
+
+  async timeout(params: {
+    requestId: string
+    error?: string
+  }): Promise<TrashOutcome> {
+    const pending = this.pending
+    if (!pending || pending.requestId !== params.requestId) {
+      return failedOutcome("Trash timeout did not match the pending request.")
+    }
+    if (pending.status === "ambiguous") {
+      return failedOutcome("Trash request is already awaiting provider reconciliation.")
+    }
+
+    pending.status = "ambiguous"
+    const error =
+      params.error ??
+      "Trash provider did not respond before the safety timeout. Do not retry until the result is reconciled."
+    await this.audit.saveTrashResultReport(
+      buildTrashResultReport({
+        operationId: pending.operationId,
+        attemptedMediaKeys: pending.plan.mediaKeysToTrash,
+        attemptedDedupKeys: pending.plan.dedupKeys,
+        movedMediaKeys: [],
+        movedDedupKeys: [],
+        error
+      }),
+      pending.context
+    )
+    return failedOutcome(error)
+  }
+
+  isPending(requestId?: string): boolean {
+    return Boolean(
+      this.pending &&
+        (requestId === undefined || this.pending.requestId === requestId)
+    )
+  }
+
+  cancel(requestId: string): boolean {
+    if (!this.pending || this.pending.requestId !== requestId) return false
+    this.pending = null
+    return true
   }
 
   beginRestore(

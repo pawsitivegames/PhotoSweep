@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
-  chromeWebStoreReviewUrl,
   completeRatingPrompt,
   deferRatingPrompt,
   RATING_PROMPT_STORAGE_KEY,
@@ -66,9 +65,4 @@ describe("rating prompt state", () => {
     await expect(recordSuccessfulCleanup(1)).resolves.toBe(false)
   })
 
-  it("builds the official direct review-page URL", () => {
-    expect(chromeWebStoreReviewUrl("abcdefghijklmnop")).toBe(
-      "https://chrome.google.com/webstore/detail/abcdefghijklmnop/reviews"
-    )
-  })
 })

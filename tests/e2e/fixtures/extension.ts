@@ -12,10 +12,9 @@ import {
 } from "@playwright/test"
 
 import type { PlanId } from "../../../lib/entitlement"
+import { buildScanScopeFingerprint } from "../../../lib/review-preflight"
+import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../../../lib/privacy-disclosure"
 import type { ScanCheckpoint } from "../../../lib/scan-checkpoint"
-import {
-  buildScanScopeFingerprint
-} from "../../../lib/review-preflight"
 import type { DuplicateGroup, GpdMediaItem } from "../../../lib/types"
 import { DEFAULT_SETTINGS } from "../../../lib/types"
 
@@ -25,6 +24,14 @@ export const extensionPath = path.resolve(
 )
 
 const extensionIds = new WeakMap<BrowserContext, string>()
+
+function installedChromiumExecutable(): string | undefined {
+  const configured = process.env.PHOTOSWEEP_E2E_EXECUTABLE_PATH
+  if (configured) return configured
+  return fs.existsSync(chromium.executablePath())
+    ? chromium.executablePath()
+    : undefined
+}
 
 function rememberExtensionId(
   context: BrowserContext,
@@ -97,10 +104,12 @@ export async function connectToChrome(
 }> {
   const userDataDir = process.env.GPD_E2E_USER_DATA_DIR
   if (userDataDir) {
+    const installedBrowser = installedChromiumExecutable()
     const context = await chromium.launchPersistentContext(
       path.resolve(userDataDir),
       {
         headless: false,
+        ...(installedBrowser ? { executablePath: installedBrowser } : {}),
         args: [
           `--disable-extensions-except=${extensionPath}`,
           `--load-extension=${extensionPath}`,
@@ -194,8 +203,13 @@ export async function launchExtension(): Promise<{
   context: BrowserContext
   extensionId: string
 }> {
+  // Prefer a locally installed Chromium-family browser when Playwright's
+  // downloaded bundle is unavailable on the host. The persistent profile is
+  // still temporary and isolated for each test run.
+  const installedBrowser = installedChromiumExecutable()
   const context = await chromium.launchPersistentContext("", {
     headless: false,
+    ...(installedBrowser ? { executablePath: installedBrowser } : {}),
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
@@ -350,7 +364,13 @@ export async function clearStorage(context: BrowserContext): Promise<void> {
   try {
     await withExtensionStorage(context, (page) =>
       page.evaluate(
-        () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+        (consentKey) =>
+          new Promise<void>((resolve) => {
+            chrome.storage.local.clear(() => {
+              chrome.storage.local.set({ [consentKey]: true }, resolve)
+            })
+          }),
+        PHOTO_DATA_CONSENT_STORAGE_KEY
       )
     )
   } catch (error) {
@@ -384,6 +404,7 @@ export interface GptkOverride {
   error?: string
   data?: unknown
   delayMs?: number
+  sequence?: GptkOverride[]
 }
 
 export interface GptkOverrides {

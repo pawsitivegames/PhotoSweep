@@ -318,7 +318,7 @@ describe("LicenseClient", () => {
         const body = urlString.endsWith("/entitlement")
           ? { token: "payload.signature" }
           : {
-              url: "https://checkout.example",
+              url: "https://checkout.stripe.com/c/pay/test",
               sessionId: "pls_checkout",
               planId: "cleanup_pass"
             }
@@ -330,7 +330,7 @@ describe("LicenseClient", () => {
     })
 
     await expect(client.createCheckout("cleanup_pass")).resolves.toEqual({
-      url: "https://checkout.example",
+      url: "https://checkout.stripe.com/c/pay/test",
       sessionId: "pls_checkout",
       planId: "cleanup_pass"
     })

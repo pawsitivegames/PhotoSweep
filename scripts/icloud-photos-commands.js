@@ -79,6 +79,32 @@ const ICLOUD_DESIRED_KEYS = [
   "vidComplDurScale"
 ]
 
+const ICLOUD_PHOTOS_HOSTS = new Set([
+  "www.icloud.com",
+  "icloud.com",
+  "www.icloud.com.cn",
+  "icloud.com.cn"
+])
+
+function isIcloudPhotosHost(hostname = location.hostname) {
+  return ICLOUD_PHOTOS_HOSTS.has(hostname)
+}
+
+function isIcloudPhotosLocation(locationLike = location) {
+  return (
+    isIcloudPhotosHost(locationLike.hostname) &&
+    (locationLike.pathname.startsWith("/photos") ||
+      locationLike.pathname.includes("/applications/photos"))
+  )
+}
+
+if (window.__GPD_COMMAND_TEST_MODE__ === true) {
+  window.__GPD_ICLOUD_COMMAND_TEST_API__ = Object.freeze({
+    isIcloudPhotosHost,
+    isIcloudPhotosLocation
+  })
+}
+
 function cloudKitQueryUrl() {
   const entries = performance.getEntriesByType("resource")
   for (let index = entries.length - 1; index >= 0; index--) {
@@ -1011,10 +1037,7 @@ async function restoreItems(requestId, args) {
 }
 
 function healthCheck(requestId) {
-  const onIcloudPhotos =
-    ["www.icloud.com", "www.icloud.com.cn"].includes(location.hostname) &&
-    (location.pathname.startsWith("/photos") ||
-      location.pathname.includes("/applications/photos"))
+  const onIcloudPhotos = isIcloudPhotosLocation()
   const pageText = document.body?.innerText || ""
   const hasPublicSignInPrompt = Array.from(
     document.querySelectorAll("button, a")

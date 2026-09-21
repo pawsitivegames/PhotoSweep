@@ -17,6 +17,7 @@
     "verification",
     "tools",
     "package.json",
+    "stryker.config.mjs",
     "package-lock.json",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
@@ -26,7 +27,8 @@
     "tsconfig.test.json",
     "vitest.config.ts",
     "playwright.config.ts",
-    "playwright.e2e.config.ts"
+    "playwright.e2e.config.ts",
+    "build/chrome-mv3-prod/manifest.json"
   ],
   "scopes": {
     "fast": { "inherits": [] },
@@ -54,7 +56,7 @@
           "proofClass": "finite-model",
           "kind": "model",
           "command": "pnpm verify:model",
-          "artifact": "tmp/verification/current/model.json",
+          "artifact": "tmp/verification/current/model-SAFE-01.json",
           "mandatory": true
         }
       ]
@@ -79,7 +81,7 @@
           "proofClass": "finite-model",
           "kind": "model",
           "command": "pnpm verify:model",
-          "artifact": "tmp/verification/current/model.json",
+          "artifact": "tmp/verification/current/model-SAFE-02.json",
           "mandatory": true
         },
         {
@@ -113,7 +115,7 @@
           "proofClass": "provider-contract",
           "kind": "test",
           "command": "pnpm test:boundary",
-          "artifact": "tmp/verification/current/boundary.json",
+          "artifact": "tmp/verification/current/boundary-SAFE-03.json",
           "mandatory": true
         }
       ]
@@ -163,7 +165,7 @@
           "proofClass": "finite-model",
           "kind": "model",
           "command": "pnpm verify:model",
-          "artifact": "tmp/verification/current/model.json",
+          "artifact": "tmp/verification/current/model-SAFE-05.json",
           "mandatory": true
         }
       ]
@@ -188,7 +190,7 @@
           "proofClass": "finite-model",
           "kind": "model",
           "command": "pnpm verify:model",
-          "artifact": "tmp/verification/current/model-SAFE-05.json",
+          "artifact": "tmp/verification/current/model-SAFE-06.json",
           "mandatory": true
         }
       ]
@@ -204,7 +206,7 @@
           "proofClass": "finite-model",
           "kind": "model",
           "command": "pnpm verify:model",
-          "artifact": "tmp/verification/current/model.json",
+          "artifact": "tmp/verification/current/model-SAFE-07.json",
           "mandatory": true
         },
         {
@@ -213,7 +215,7 @@
           "proofClass": "fault-injection",
           "kind": "test",
           "command": "pnpm test:boundary",
-          "artifact": "tmp/verification/current/boundary.json",
+          "artifact": "tmp/verification/current/boundary-SAFE-07.json",
           "mandatory": true
         }
       ]
@@ -270,7 +272,7 @@
           "proofClass": "message-boundary",
           "kind": "test",
           "command": "pnpm test:boundary",
-          "artifact": "tmp/verification/current/boundary.json",
+          "artifact": "tmp/verification/current/boundary-SAFE-10.json",
           "mandatory": true
         },
         {
@@ -278,7 +280,7 @@
           "scope": "release",
           "proofClass": "browser-boundary",
           "kind": "browser",
-          "command": "pnpm test:e2e -- --grep security-boundary",
+          "command": "pnpm test:integration -- tests/e2e/integration/security-boundary.test.ts --grep security-boundary",
           "artifact": "tmp/verification/current/browser-security.json",
           "mandatory": true
         }
@@ -295,7 +297,7 @@
           "proofClass": "baseline",
           "kind": "inventory",
           "command": "baseline snapshot",
-          "artifact": "tmp/verification/20260915T212410Z/baseline.md",
+          "artifact": "tmp/verification/current/baseline-inventory.md",
           "mandatory": true
         }
       ]
@@ -332,6 +334,40 @@
           "kind": "benchmark",
           "command": "pnpm test:bench:verification",
           "artifact": "tmp/verification/current/performance.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "DELIVERABLE-09",
+      "requirement": "Bounded TLC trace export and TypeScript seam replay are reproducible, source-bound, and report supported coverage plus explicit abstraction gaps.",
+      "seams": [
+        "verification/model/TrashLifecycle.tla",
+        "verification/model/export-trace.mjs",
+        "verification/trace-replay.ts",
+        "verification/trace-replay-runner.mjs",
+        "verification/trace-replay-status.mjs",
+        "lib/trash-lifecycle.ts",
+        "lib/trash-dispatch-guard.ts",
+        "lib/review-preflight.ts"
+      ],
+      "obligations": [
+        {
+          "id": "MODEL-TRACE-REPLAY-supported",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:model-replay",
+          "artifact": "tmp/verification/current/model-trace-replay-supported.json",
+          "mandatory": true
+        },
+        {
+          "id": "MODEL-TRACE-REPLAY-gaps",
+          "scope": "fast",
+          "proofClass": "baseline",
+          "kind": "inventory",
+          "command": "pnpm test:model-replay",
+          "artifact": "tmp/verification/current/model-trace-replay-gaps.json",
           "mandatory": true
         }
       ]

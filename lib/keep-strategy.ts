@@ -1,29 +1,23 @@
 import type { DuplicateGroup, GpdMediaItem } from "./types"
 
-export type KeepStrategy =
-  | "best_quality"
-  | "largest_resolution"
-  | "newest_taken"
-  | "oldest_taken"
-  | "newest_upload"
-  | "non_storage_counting"
+const KEEP_STRATEGIES = [
+  "best_quality",
+  "largest_resolution",
+  "newest_taken",
+  "oldest_taken",
+  "newest_upload",
+  "non_storage_counting"
+] as const
 
-export const KEEP_STRATEGY_LABELS: Record<KeepStrategy, string> = {
-  best_quality: "Best quality",
-  largest_resolution: "Largest resolution",
-  newest_taken: "Newest taken date",
-  oldest_taken: "Oldest taken date",
-  newest_upload: "Newest upload date",
-  non_storage_counting: "Non-storage-counting"
-}
+export type KeepStrategy = (typeof KEEP_STRATEGIES)[number]
 
-const KEEP_STRATEGIES = Object.keys(KEEP_STRATEGY_LABELS) as KeepStrategy[]
+import { KEEP_STRATEGY_LABELS } from "./keep-strategy-labels"
+
+export { KEEP_STRATEGY_LABELS }
+const DEFAULT_KEEP_STRATEGY = KEEP_STRATEGIES[0]
 
 export function isKeepStrategy(value: unknown): value is KeepStrategy {
-  return (
-    typeof value === "string" &&
-    KEEP_STRATEGIES.includes(value as KeepStrategy)
-  )
+  return KEEP_STRATEGIES.includes(value as KeepStrategy)
 }
 
 export type KeepRecommendationField =
@@ -66,7 +60,6 @@ export type KeepRecommendation =
     }
 
 interface ComparisonValue {
-  field: KeepRecommendationField
   score: number
   value: number | boolean
 }
@@ -95,7 +88,6 @@ function comparisonValue(
     case "best_quality":
       return typeof item.isOriginalQuality === "boolean"
         ? {
-            field: "isOriginalQuality",
             score: item.isOriginalQuality ? 1 : 0,
             value: item.isOriginalQuality
           }
@@ -104,8 +96,6 @@ function comparisonValue(
       const width = item.resWidth
       const height = item.resHeight
       if (
-        typeof width !== "number" ||
-        typeof height !== "number" ||
         !Number.isFinite(width) ||
         !Number.isFinite(height) ||
         width <= 0 ||
@@ -114,28 +104,22 @@ function comparisonValue(
         return null
       }
       const area = width * height
-      return Number.isFinite(area) && area > 0
-        ? { field: "resolutionPixels", score: area, value: area }
-        : null
+      if (!Number.isFinite(area) || area <= 0) return null
+      return { score: area, value: area }
     }
     case "newest_taken":
     case "oldest_taken":
-      return typeof item.timestamp === "number" && Number.isFinite(item.timestamp)
-        ? { field: "timestamp", score: item.timestamp, value: item.timestamp }
-        : null
+      if (!Number.isFinite(item.timestamp)) return null
+      return { score: item.timestamp, value: item.timestamp }
     case "newest_upload":
-      return typeof item.creationTimestamp === "number" &&
-        Number.isFinite(item.creationTimestamp)
-        ? {
-            field: "creationTimestamp",
-            score: item.creationTimestamp,
-            value: item.creationTimestamp
-          }
-        : null
+      if (!Number.isFinite(item.creationTimestamp)) return null
+      return {
+        score: item.creationTimestamp,
+        value: item.creationTimestamp
+      }
     case "non_storage_counting":
       return typeof item.takesUpSpace === "boolean"
         ? {
-            field: "takesUpSpace",
             score: item.takesUpSpace ? 0 : 1,
             value: item.takesUpSpace
           }
@@ -144,7 +128,7 @@ function comparisonValue(
 }
 
 function recommendationEvidence(
-  group: DuplicateGroup,
+  group: Pick<DuplicateGroup, "mediaKeys">,
   mediaItems: Record<string, GpdMediaItem>,
   strategy: KeepStrategy
 ): {
@@ -183,7 +167,7 @@ function recommendationEvidence(
  * Missing members, unknown values, and ties deliberately keep every copy.
  */
 export function recommendKeepForGroup(
-  group: DuplicateGroup,
+  group: Pick<DuplicateGroup, "mediaKeys">,
   mediaItems: Record<string, GpdMediaItem>,
   strategy: KeepStrategy
 ): KeepRecommendation {
@@ -264,11 +248,8 @@ function recommendationForItems(
   items: GpdMediaItem[],
   strategy: KeepStrategy
 ): KeepRecommendation {
-  const group: DuplicateGroup = {
-    id: "items",
-    mediaKeys: items.map((item) => item.mediaKey),
-    originalMediaKey: items[0]?.mediaKey ?? "",
-    similarity: 0
+  const group: Pick<DuplicateGroup, "mediaKeys"> = {
+    mediaKeys: items.map((item) => item.mediaKey)
   }
   return recommendKeepForGroup(
     group,
@@ -298,24 +279,15 @@ function legacyPixels(item: GpdMediaItem): number {
   return (item.resWidth ?? 0) * (item.resHeight ?? 0)
 }
 
-function legacyTimeValue(value: number | undefined, fallback: number): number {
-  return Number.isFinite(value) ? value! : fallback
-}
-
 function legacyCompareOldestTime(
   a: number | undefined,
   b: number | undefined
 ): number {
   const hasA = Number.isFinite(a)
   const hasB = Number.isFinite(b)
-  if (!hasA && !hasB) return 0
-  if (!hasA) return 1
-  if (!hasB) return -1
-  return a! - b!
-}
-
-function legacyStorageScore(item: GpdMediaItem): number {
-  return item.takesUpSpace === false ? 2 : item.takesUpSpace === true ? 0 : 1
+  const availability = Number(hasB) - Number(hasA)
+  if (availability !== 0) return availability
+  return hasA ? a! - b! : 0
 }
 
 function legacyCompareFallback(a: GpdMediaItem, b: GpdMediaItem): number {
@@ -328,43 +300,18 @@ function legacyCompareFallback(a: GpdMediaItem, b: GpdMediaItem): number {
   return legacyCompareOldestTime(a.creationTimestamp, b.creationTimestamp)
 }
 
-function legacyChooseKeepItem(
-  items: GpdMediaItem[],
-  strategy: KeepStrategy
-): GpdMediaItem | null {
-  if (items.length === 0) return null
+/**
+ * Preserve the pre-confidence default only for selectDefaultKeep's explicit
+ * best-quality fallback. The safe recommendation path above owns every
+ * strategy; keeping strategy branches here would create private dead paths
+ * that no caller can reach.
+ */
+function legacyChooseKeepItem(items: GpdMediaItem[]): GpdMediaItem | null {
   const sorted = [...items].sort((a, b) => {
-    switch (strategy) {
-      case "best_quality":
-        return legacyCompareFallback(a, b)
-      case "largest_resolution": {
-        const pixelDiff = legacyPixels(b) - legacyPixels(a)
-        return pixelDiff !== 0 ? pixelDiff : legacyCompareFallback(a, b)
-      }
-      case "newest_taken": {
-        const dateDiff =
-          legacyTimeValue(b.timestamp, Number.NEGATIVE_INFINITY) -
-          legacyTimeValue(a.timestamp, Number.NEGATIVE_INFINITY)
-        return dateDiff !== 0 ? dateDiff : legacyCompareFallback(a, b)
-      }
-      case "oldest_taken": {
-        const dateDiff = legacyCompareOldestTime(a.timestamp, b.timestamp)
-        return dateDiff !== 0 ? dateDiff : legacyCompareFallback(a, b)
-      }
-      case "newest_upload": {
-        const dateDiff =
-          legacyTimeValue(b.creationTimestamp, Number.NEGATIVE_INFINITY) -
-          legacyTimeValue(a.creationTimestamp, Number.NEGATIVE_INFINITY)
-        return dateDiff !== 0 ? dateDiff : legacyCompareFallback(a, b)
-      }
-      case "non_storage_counting": {
-        const storageDiff = legacyStorageScore(b) - legacyStorageScore(a)
-        return storageDiff !== 0 ? storageDiff : legacyCompareFallback(a, b)
-      }
-    }
+    return legacyCompareFallback(a, b)
   })
 
-  return sorted[0]
+  return sorted[0] ?? null
 }
 
 /**
@@ -385,8 +332,8 @@ export function chooseKeepItem(
 }
 
 export function selectDefaultKeep(items: GpdMediaItem[]): string {
-  const selected = chooseKeepItem(items, "best_quality")
-  const fallback = selected ?? legacyChooseKeepItem(items, "best_quality")
+  const selected = chooseKeepItem(items, DEFAULT_KEEP_STRATEGY)
+  const fallback = selected ?? legacyChooseKeepItem(items)
   if (!fallback) throw new Error("Cannot select a keep item from an empty group")
   return fallback.mediaKey
 }

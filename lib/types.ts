@@ -37,6 +37,7 @@ export interface LaunchProviderResult {
 export interface HealthCheckMessage extends BaseMessage {
   action: "healthCheck"
   provider?: PhotoProvider
+  requestId?: string
 }
 
 export interface HealthCheckResultMessage extends BaseMessage {
@@ -44,7 +45,25 @@ export interface HealthCheckResultMessage extends BaseMessage {
   success: boolean
   hasGptk: boolean
   provider?: PhotoProvider
+  requestId?: string
   accountEmail?: string
+  error?: string
+}
+
+export interface ProviderCommandPublicKey {
+  kty: "EC"
+  x: string
+  y: string
+  crv: "P-256"
+}
+
+export interface ProviderCommandKeyMessage extends BaseMessage {
+  action: "providerCommandKey"
+}
+
+export interface ProviderCommandKeyResultMessage extends BaseMessage {
+  action: "providerCommandKey.result"
+  publicKey?: ProviderCommandPublicKey
   error?: string
 }
 
@@ -145,6 +164,10 @@ export interface GptkCommandMessage extends BaseMessage {
   args?: unknown
   requestId: string
   provider?: PhotoProvider
+  capability?: {
+    payload: string
+    signature: string
+  }
 }
 
 export interface GptkResultMessage extends BaseMessage {
@@ -181,6 +204,8 @@ export type AppMessage =
   | LaunchProviderMessage
   | HealthCheckMessage
   | HealthCheckResultMessage
+  | ProviderCommandKeyMessage
+  | ProviderCommandKeyResultMessage
   | ScanLibraryMessage
   | ScanProgressMessage
   | ScanResultMessage

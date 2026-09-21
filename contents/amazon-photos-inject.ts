@@ -1,54 +1,64 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import {
+  injectProviderScript,
+  requestProviderCommandPublicKey
+} from "../lib/provider-script-injection"
+
 export const config: PlasmoCSConfig = {
   matches: [
-    "https://www.amazon.com/*",
-    "https://www.amazon.ca/*",
-    "https://www.amazon.co.uk/*",
-    "https://www.amazon.de/*",
-    "https://www.amazon.fr/*",
-    "https://www.amazon.it/*",
-    "https://www.amazon.es/*",
-    "https://www.amazon.co.jp/*",
-    "https://www.amazon.com.au/*",
-    "https://www.amazon.in/*",
-    "https://www.amazon.com.br/*",
-    "https://www.amazon.com.mx/*",
-    "https://www.amazon.nl/*",
-    "https://www.amazon.sg/*",
-    "https://www.amazon.ae/*",
-    "https://www.amazon.sa/*",
-    "https://www.amazon.se/*",
-    "https://www.amazon.pl/*",
-    "https://www.amazon.com.tr/*",
-    "https://www.amazon.be/*",
-    "https://www.amazon.eg/*"
+    "https://www.amazon.com/photos*",
+    "https://amazon.com/photos*",
+    "https://www.amazon.ca/photos*",
+    "https://amazon.ca/photos*",
+    "https://www.amazon.co.uk/photos*",
+    "https://amazon.co.uk/photos*",
+    "https://www.amazon.de/photos*",
+    "https://amazon.de/photos*",
+    "https://www.amazon.fr/photos*",
+    "https://amazon.fr/photos*",
+    "https://www.amazon.it/photos*",
+    "https://amazon.it/photos*",
+    "https://www.amazon.es/photos*",
+    "https://amazon.es/photos*",
+    "https://www.amazon.co.jp/photos*",
+    "https://amazon.co.jp/photos*",
+    "https://www.amazon.com.au/photos*",
+    "https://amazon.com.au/photos*",
+    "https://www.amazon.in/photos*",
+    "https://amazon.in/photos*",
+    "https://www.amazon.com.br/photos*",
+    "https://amazon.com.br/photos*",
+    "https://www.amazon.com.mx/photos*",
+    "https://amazon.com.mx/photos*",
+    "https://www.amazon.nl/photos*",
+    "https://amazon.nl/photos*",
+    "https://www.amazon.sg/photos*",
+    "https://amazon.sg/photos*",
+    "https://www.amazon.ae/photos*",
+    "https://amazon.ae/photos*",
+    "https://www.amazon.sa/photos*",
+    "https://amazon.sa/photos*",
+    "https://www.amazon.se/photos*",
+    "https://amazon.se/photos*",
+    "https://www.amazon.pl/photos*",
+    "https://amazon.pl/photos*",
+    "https://www.amazon.com.tr/photos*",
+    "https://amazon.com.tr/photos*",
+    "https://www.amazon.com.be/photos*",
+    "https://amazon.com.be/photos*",
+    "https://www.amazon.eg/photos*",
+    "https://amazon.eg/photos*",
+    "https://www.amazon.ie/photos*",
+    "https://amazon.ie/photos*"
   ],
   run_at: "document_idle"
 }
 
-function injectScript(fileName: string): Promise<void> {
-  const url = chrome.runtime.getURL(fileName)
-  const script = document.createElement("script")
-  script.src =
-    url + "?v=" + chrome.runtime.getManifest().version + "-" + Date.now()
-  script.type = "text/javascript"
-  script.async = false
-  const loaded = new Promise<void>((resolve, reject) => {
-    script.addEventListener("load", () => resolve(), { once: true })
-    script.addEventListener(
-      "error",
-      () => reject(new Error(`Unable to inject ${fileName}`)),
-      { once: true }
-    )
-  })
-  ;(document.head || document.documentElement).appendChild(script)
-  return loaded
-}
-
 async function injectAmazonPhotosScripts(): Promise<void> {
-  await injectScript("scripts/photo-provider-command-host.js")
-  await injectScript("scripts/amazon-photos-commands.js")
+  const publicKey = await requestProviderCommandPublicKey()
+  await injectProviderScript("scripts/photo-provider-command-host.js", publicKey)
+  await injectProviderScript("scripts/amazon-photos-commands.js")
 }
 
 void injectAmazonPhotosScripts()

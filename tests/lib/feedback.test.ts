@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   FEEDBACK_EMAIL,
   FEEDBACK_MAILTO_URL,
-  FEEDBACK_SUBJECT
+  FEEDBACK_SUBJECT,
+  PHOTOSWEEP_SITE_URL
 } from "../../lib/feedback"
 
 describe("feedback mail target", () => {
@@ -12,6 +13,9 @@ describe("feedback mail target", () => {
     expect(FEEDBACK_SUBJECT).toBe("PhotoSweep feedback")
     expect(FEEDBACK_MAILTO_URL).toBe(
       "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
+    )
+    expect(PHOTOSWEEP_SITE_URL).toBe(
+      "https://photosweep.pawsitivegames.chatgpt.site/"
     )
   })
 })

@@ -78,6 +78,26 @@
         getAllMediaItems: []
       }
 
+      function responseOverride(command) {
+        const override = window.__gptkOverrides[command]
+        if (!override || !Array.isArray(override.sequence)) return override
+        const commandIndex = window.__gptkCommandLog.filter(
+          (entry) => entry.command === command
+        ).length - 1
+        return (
+          override.sequence[
+            Math.min(commandIndex, override.sequence.length - 1)
+          ] || {}
+        )
+      }
+
+      async function applyResponseDelay(override) {
+        const delayMs = Number(override && override.delayMs)
+        if (Number.isFinite(delayMs) && delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+        }
+      }
+
       function reply(command, requestId, data) {
         window.postMessage({
           app: APP_ID,
@@ -112,7 +132,7 @@
       }
 
       async function handleTrashItems(command, requestId, args) {
-        const override = window.__gptkOverrides[command]
+        const override = responseOverride(command)
         if (override && override.success === false) {
           replyError(
             command,
@@ -122,10 +142,7 @@
           )
           return
         }
-        const delayMs = Number(override && override.delayMs)
-        if (Number.isFinite(delayMs) && delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs))
-        }
+        await applyResponseDelay(override)
 
         const dedupKeys = (args && args.dedupKeys) || []
         const mediaKeysToTrash = (args && args.mediaKeysToTrash) || dedupKeys
@@ -153,11 +170,8 @@
       }
 
       async function handleRestoreItems(command, requestId, args) {
-        const override = window.__gptkOverrides[command]
-        const delayMs = Number(override && override.delayMs)
-        if (Number.isFinite(delayMs) && delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs))
-        }
+        const override = responseOverride(command)
+        await applyResponseDelay(override)
         if (override && override.success === false) {
           replyError(
             command,
@@ -187,7 +201,8 @@
             break
 
           default: {
-            const override = window.__gptkOverrides[command]
+            const override = responseOverride(command)
+            await applyResponseDelay(override)
             if (override && override.success === false) {
               replyError(
                 command,

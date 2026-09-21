@@ -146,6 +146,36 @@ describe("evidence engine integrity", () => {
     }
   })
 
+  it("rejects an artifact from the wrong registered path", () => {
+    const fixture = makeFixture()
+    try {
+      writeFileSync(join(fixture.root, "other.log"), "fresh evidence\n")
+      const result = validateEvidence({
+        ...fixture,
+        scope: "fast",
+        expectedSourceFingerprint: sourceFingerprint,
+        evidence: {
+          schemaVersion: 1,
+          entries: [
+            {
+              ...fixture.entry,
+              artifact: "other.log",
+              artifactSha256: createHash("sha256")
+                .update("fresh evidence\n")
+                .digest("hex")
+            }
+          ]
+        }
+      })
+      expect(result.ok).toBe(false)
+      expect(result.errors.map((item: { code: string }) => item.code)).toContain(
+        "ARTIFACT_PATH_MISMATCH"
+      )
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
   it("rejects process-completed evidence with zero checks", () => {
     const fixture = makeFixture()
     try {

@@ -57,8 +57,8 @@ export function RatingPromptDialog({
       <DialogContent>
         <Typography color="text.secondary">
           Whether everything worked well or something could be better, we would
-          like to hear about it. You can leave an honest public review or send
-          feedback directly to the PhotoSweep team.
+          like to hear about it. Visit the PhotoSweep site for help and product
+          updates, or send feedback directly to the team.
         </Typography>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, flexWrap: "wrap" }}>
@@ -71,7 +71,7 @@ export function RatingPromptDialog({
           Send feedback
         </Button>
         <Button onClick={onReview} variant="contained">
-          Leave an honest review
+          Visit PhotoSweep site
         </Button>
       </DialogActions>
     </Dialog>

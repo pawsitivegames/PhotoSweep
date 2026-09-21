@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Disposable provider fixtures required for destructive integration evidence.",
+  "personalLibraryPolicy": "Personal libraries are never used for destructive verification.",
+  "providers": [
+    {
+      "provider": "google",
+      "configured": true,
+      "fixtureType": "disposable-account",
+      "status": "PASS",
+      "reason": "Disposable Google Photos album completed an Aside-driven, album-scoped scan, one-item Trash action, provider-side Trash check, PhotoSweep Undo, and fresh six-item rescan.",
+      "evidence": {
+        "ledger": "tmp/verification/20260916-live-google/LIVE_EVIDENCE.md",
+        "roundTrip": "tmp/verification/20260916-live-google/live-roundtrip.json",
+        "roundTripLedger": "tmp/verification/20260916-live-google/LIVE_ROUNDTRIP_20260916.md",
+        "inventory": "tmp/verification/20260916-live-google/provider-inventory-before.json",
+        "account": "pawsitivegames@gmail.com",
+        "albumUrl": "https://photos.google.com/u/2/album/AF1QipOMAP7BDFO4A_5W0N7QPwJk0JpKUzGmkCUJi_yr",
+        "observedAt": "2026-09-16T01:01:15.853937+00:00",
+        "roundTripObservedAt": "2026-09-16T19:14:53Z",
+        "itemCount": 6,
+        "uploadToast": "You backed up 6 items",
+        "syntheticOnly": true,
+        "trashPerformed": true,
+        "appBuildVerified": true,
+        "appScanVerified": true,
+        "appTrashUndoVerified": true
+      }
+    },
+    {
+      "provider": "icloud",
+      "configured": true,
+      "fixtureType": "disposable-account",
+      "status": "PASS",
+      "reason": "The disposable six-item iCloud Photos album completed an Aside-driven scan, one-item Trash action, provider-side Recently Deleted observation, PhotoSweep Undo, provider-side empty-trash check, and fresh six-item rescan.",
+      "evidence": {
+        "ledger": "tmp/verification/20260917-live-icloud/LIVE_ROUNDTRIP_20260917.md",
+        "roundTrip": "tmp/verification/20260917-live-icloud/live-roundtrip.json",
+        "roundTripLedger": "tmp/verification/20260917-live-icloud/LIVE_ROUNDTRIP_20260917.md",
+        "inventory": "tmp/verification/20260917-live-icloud/provider-inventory-before.json",
+        "account": "pawsitivegames@gmail.com",
+        "albumUrl": "https://www.icloud.com/photos/#/a,D2443CD7-E053-4FF0-B330-13B398D18697/",
+        "observedAt": "2026-09-17T01:10:21Z",
+        "itemCount": 6,
+        "syntheticOnly": true,
+        "trashPerformed": true,
+        "appBuildVerified": true,
+        "appScanVerified": true,
+        "appTrashUndoVerified": true,
+        "trashEmptyAfterUndo": true
+      }
+    },
+    {
+      "provider": "amazon",
+      "configured": true,
+      "fixtureType": "disposable-account",
+      "status": "PASS",
+      "reason": "The disposable six-item Amazon Photos batch completed an Aside-driven scan, one-item Trash action, provider-side Trash observation, PhotoSweep Undo, provider-side Trash-empty check, and fresh six-item rescan. The live restore used the supported Amazon library route; a route-guard fix for invoking Undo while Trash is open is separately covered by a local regression test.",
+      "evidence": {
+        "ledger": "tmp/verification/20260916-live-amazon/LIVE_ROUNDTRIP_20260916.md",
+        "roundTrip": "tmp/verification/20260916-live-amazon/live-roundtrip.json",
+        "roundTripLedger": "tmp/verification/20260916-live-amazon/LIVE_ROUNDTRIP_20260916.md",
+        "inventory": "tmp/verification/20260916-live-amazon/provider-inventory-before.json",
+        "account": "pawsitivegames@gmail.com",
+        "albumUrl": "https://www.amazon.ca/photos/all",
+        "observedAt": "2026-09-16T23:28:37Z",
+        "itemCount": 6,
+        "uploadToast": "6 items uploaded",
+        "syntheticOnly": true,
+        "trashPerformed": true,
+        "appBuildVerified": true,
+        "appScanVerified": true,
+        "appTrashUndoVerified": true,
+        "candidateBindingNote": "Live provider lifecycle was observed on the already-running 2.2.8 instance. The current candidate additionally widens restore support to the Amazon Trash route and has a local regression test; that new branch was not exercised live in this round.",
+        "trashEmptyAfterUndo": true
+      }
+    }
+  ]
+}

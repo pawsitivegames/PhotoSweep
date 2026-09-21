@@ -4,6 +4,7 @@ export interface PendingProviderCommand {
   resolve: (data: unknown) => void
   reject: (error: string) => void
   appTabId: number | null
+  providerTabId: number
   appClientId?: string
 }
 

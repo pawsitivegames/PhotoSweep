@@ -249,6 +249,159 @@ describe("TrashLifecycle", () => {
     })
   })
 
+  it("keeps a success response with only one of two requested pairs partial", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const mediaItems: Record<string, GpdMediaItem> = {
+      keepA: { ...fixture().mediaItems.keep, mediaKey: "keepA", dedupKey: "keep-dedup-a" },
+      trashA: { ...fixture().mediaItems.trash, mediaKey: "trashA", dedupKey: "dedup-trash-a" },
+      keepB: { ...fixture().mediaItems.keep, mediaKey: "keepB", dedupKey: "keep-dedup-b" },
+      trashB: { ...fixture().mediaItems.trash, mediaKey: "trashB", dedupKey: "dedup-trash-b" }
+    }
+    const groups: DuplicateGroup[] = [
+      { id: "group-a", mediaKeys: ["keepA", "trashA"], originalMediaKey: "keepA", similarity: 1 },
+      { id: "group-b", mediaKeys: ["keepB", "trashB"], originalMediaKey: "keepB", similarity: 1 }
+    ]
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(groups.map((group) => group.id)),
+        reviewedGroupIds: new Set(groups.map((group) => group.id)),
+        keptOverrides: { "group-a": new Set(["keepA"]), "group-b": new Set(["keepB"]) }
+      }
+    })
+    const plan = reviewSession.trashPlan(groups)
+    await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 4 },
+      batchPolicy: { batchSize: 25, batchPauseMs: 0, retryCount: 0, retryBackoffMs: 0 }
+    })
+
+    const outcome = await lifecycle.reconcile({
+      success: true,
+      data: { trashedKeys: ["trashA"], trashedDedupKeys: ["dedup-trash-a"] }
+    })
+
+    expect(outcome.kind).toBe("partial")
+    expect(outcome.movedMediaKeys).toEqual(["trashA"])
+    expect(outcome.movedDedupKeys).toEqual(["dedup-trash-a"])
+    expect(outcome.undo?.dedupKeys).toEqual(["dedup-trash-a"])
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "partial",
+      attemptedMediaKeys: ["trashA", "trashB"],
+      movedMediaKeys: ["trashA"]
+    })
+  })
+
+  it.each([
+    ["foreign media only", { trashedKeys: ["foreign", "trash"], trashedDedupKeys: ["dedup-trash"] }],
+    ["foreign dedup only", { trashedKeys: ["trash"], trashedDedupKeys: ["foreign-dedup", "dedup-trash"] }]
+  ])("rejects an asymmetric %s identity response", async (_label, data) => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    await begin(lifecycle)
+
+    const outcome = await lifecycle.reconcile({ success: true, data })
+
+    expect(outcome.kind).toBe("partial")
+    expect(outcome.movedMediaKeys).toEqual(["trash"])
+    expect(outcome.movedDedupKeys).toEqual(["dedup-trash"])
+    expect(outcome).toMatchObject({
+      message: expect.stringContaining("outside the confirmed request")
+    })
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "partial",
+      movedMediaKeys: ["trash"],
+      movedDedupKeys: ["dedup-trash"],
+      error: "Trash provider response included identities outside the confirmed request."
+    })
+  })
+
+  it("does not cross-pair media and dedup identities from different requested items", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const mediaItems: Record<string, GpdMediaItem> = {
+      keepA: { ...fixture().mediaItems.keep, mediaKey: "keepA", dedupKey: "keep-dedup-a" },
+      trashA: { ...fixture().mediaItems.trash, mediaKey: "trashA", dedupKey: "dedup-trash-a" },
+      keepB: { ...fixture().mediaItems.keep, mediaKey: "keepB", dedupKey: "keep-dedup-b" },
+      trashB: { ...fixture().mediaItems.trash, mediaKey: "trashB", dedupKey: "dedup-trash-b" }
+    }
+    const groups: DuplicateGroup[] = [
+      { id: "cross-a", mediaKeys: ["keepA", "trashA"], originalMediaKey: "keepA", similarity: 1 },
+      { id: "cross-b", mediaKeys: ["keepB", "trashB"], originalMediaKey: "keepB", similarity: 1 }
+    ]
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(groups.map((group) => group.id)),
+        reviewedGroupIds: new Set(groups.map((group) => group.id)),
+        keptOverrides: { "cross-a": new Set(["keepA"]), "cross-b": new Set(["keepB"]) }
+      }
+    })
+    const plan = reviewSession.trashPlan(groups)
+    await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 4 },
+      batchPolicy: { batchSize: 25, batchPauseMs: 0, retryCount: 0, retryBackoffMs: 0 }
+    })
+
+    const outcome = await lifecycle.reconcile({
+      success: true,
+      data: { trashedKeys: ["trashA"], trashedDedupKeys: ["dedup-trash-b"] }
+    })
+
+    expect(outcome.kind).toBe("failed")
+    expect(outcome.movedMediaKeys).toEqual([])
+    expect(outcome.movedDedupKeys).toEqual([])
+    expect(outcome.undo).toBeNull()
+  })
+
+  it("rejects a concurrent begin while the first pre-trash audit is unresolved", async () => {
+    const base = fixture()
+    let releaseAudit: (() => void) | undefined
+    let auditStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => {
+      auditStarted = resolve
+    })
+    const audit: TrashAuditAdapter = {
+      async savePreTrashReport() {
+        auditStarted?.()
+        await new Promise<void>((resolve) => {
+          releaseAudit = resolve
+        })
+      },
+      async saveTrashResultReport() {}
+    }
+    const lifecycle = new TrashLifecycle(audit)
+    const params = {
+      plan: base.reviewSession.trashPlan(base.groups),
+      reviewSession: base.reviewSession,
+      groups: base.groups,
+      snapshot: { mediaItems: base.mediaItems, groups: base.groups, totalItems: 2 },
+      batchPolicy: { batchSize: 25, batchPauseMs: 0, retryCount: 0, retryBackoffMs: 0 }
+    }
+    const first = lifecycle.begin(params)
+    await started
+    await expect(lifecycle.begin(params)).rejects.toThrow(
+      "Another trash operation is already pending."
+    )
+    releaseAudit?.()
+    const command = await first
+    expect(command.args.mediaKeysToTrash).toEqual(["trash"])
+    expect(
+      await lifecycle.reconcile({
+        success: true,
+        data: { trashedKeys: ["trash"], trashedDedupKeys: ["dedup-trash"] }
+      })
+    ).toMatchObject({ kind: "complete", movedCount: 1 })
+  })
+
   it("ignores a late reply after the operation has been reset", async () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
@@ -270,6 +423,157 @@ describe("TrashLifecycle", () => {
       movedCount: 0,
       undo: null
     })
+  })
+
+  it("does not consume a pending operation for a mismatched request ID", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { command } = await begin(lifecycle)
+
+    const stale = await lifecycle.reconcile({
+      requestId: "stale-request",
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash"]
+      }
+    })
+
+    expect(stale).toMatchObject({
+      kind: "failed",
+      error: "Trash response did not match the pending request."
+    })
+    expect(lifecycle.isPending(command.requestId)).toBe(true)
+    expect(audit.resultReports).toHaveLength(0)
+
+    await expect(
+      lifecycle.reconcile({
+        requestId: command.requestId,
+        success: true,
+        data: {
+          trashedKeys: ["trash"],
+          trashedDedupKeys: ["dedup-trash"]
+        }
+      })
+    ).resolves.toMatchObject({ kind: "complete", movedCount: 1 })
+  })
+
+  it("records a timeout as ambiguous and accepts only the matching late reply", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { command } = await begin(lifecycle)
+
+    await expect(
+      lifecycle.timeout({ requestId: command.requestId, error: "provider timeout" })
+    ).resolves.toMatchObject({
+      kind: "failed",
+      error: "provider timeout"
+    })
+    expect(lifecycle.isPending(command.requestId)).toBe(true)
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "failed",
+      error: "provider timeout",
+      movedMediaKeys: []
+    })
+    expect(audit.resultReports[0].movedMediaKeys).toEqual([])
+    expect(audit.resultReports[0].movedDedupKeys).toEqual([])
+
+    await expect(
+      lifecycle.reconcile({
+        requestId: command.requestId,
+        success: true,
+        data: {
+          trashedKeys: ["trash"],
+          trashedDedupKeys: ["dedup-trash"]
+        }
+      })
+    ).resolves.toMatchObject({ kind: "complete", movedCount: 1 })
+    expect(lifecycle.isPending()).toBe(false)
+    expect(audit.resultReports).toHaveLength(2)
+  })
+
+  it("generates a request identity when the caller supplies only whitespace", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+
+    const command = await lifecycle.begin({
+      plan: reviewSession.trashPlan(groups),
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      requestId: "   ",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+
+    expect(command.requestId).toMatch(/^gpd-trash-request-\d+-[a-z0-9]+$/)
+    expect(lifecycle.isPending(command.requestId)).toBe(true)
+  })
+
+  it("rejects a timeout for a stale request and records the default timeout safely", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { command } = await begin(lifecycle)
+
+    await expect(
+      lifecycle.timeout({ requestId: "stale-request" })
+    ).resolves.toEqual({
+      kind: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      error: "Trash timeout did not match the pending request.",
+      undo: null
+    })
+    expect(audit.resultReports).toHaveLength(0)
+
+    await expect(lifecycle.timeout({ requestId: command.requestId })).resolves.toEqual({
+      kind: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      error:
+        "Trash provider did not respond before the safety timeout. Do not retry until the result is reconciled.",
+      undo: null
+    })
+    expect(lifecycle.isPending(command.requestId)).toBe(true)
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      error:
+        "Trash provider did not respond before the safety timeout. Do not retry until the result is reconciled."
+    })
+
+    await expect(
+      lifecycle.timeout({ requestId: command.requestId })
+    ).resolves.toEqual({
+      kind: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      error: "Trash request is already awaiting provider reconciliation.",
+      undo: null
+    })
+    expect(audit.resultReports).toHaveLength(1)
+  })
+
+  it("cancels only the matching pending request", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { command } = await begin(lifecycle)
+
+    expect(lifecycle.isPending()).toBe(true)
+    expect(lifecycle.cancel("stale-request")).toBe(false)
+    expect(lifecycle.isPending("stale-request")).toBe(false)
+    expect(lifecycle.isPending(command.requestId)).toBe(true)
+    expect(lifecycle.cancel(command.requestId)).toBe(true)
+    expect(lifecycle.isPending()).toBe(false)
   })
 
   it("consumes the pending operation before an async audit save so duplicate replies cannot replay it", async () => {

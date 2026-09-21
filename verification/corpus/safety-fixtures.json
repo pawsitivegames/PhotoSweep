@@ -1,0 +1,66 @@
+[
+  {
+    "id": "trusted-original-hash",
+    "label": "trusted original-content hash",
+    "items": [
+      { "mediaKey": "trusted-a", "dedupKey": "provider-a", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },
+      { "mediaKey": "trusted-b", "dedupKey": "provider-b", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }
+    ],
+    "expected": { "duplicateKind": "exact", "evidenceLevel": "verified_identical", "canProposeTrash": true }
+  },
+  {
+    "id": "metadata-only",
+    "label": "matching metadata without content proof",
+    "items": [
+      { "mediaKey": "metadata-a", "dedupKey": "provider-c", "fileName": "IMG_1001.jpg", "resWidth": 1200, "resHeight": 800, "timestamp": 1700000000000, "size": 12000 },
+      { "mediaKey": "metadata-b", "dedupKey": "provider-d", "fileName": "IMG_1001.jpg", "resWidth": 1200, "resHeight": 800, "timestamp": 1700000000000, "size": 12000 }
+    ],
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "strong_duplicate_candidate", "canProposeTrash": true }
+  },
+  {
+    "id": "thumbnail-only",
+    "label": "matching thumbnail without original-content proof",
+    "items": [
+      { "mediaKey": "thumb-a", "dedupKey": "provider-e", "thumb": "same-thumb" },
+      { "mediaKey": "thumb-b", "dedupKey": "provider-f", "thumb": "same-thumb" }
+    ],
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "similar", "canProposeTrash": true }
+  },
+  {
+    "id": "legacy-label-only",
+    "label": "legacy exactContentHash label without provenance",
+    "items": [
+      { "mediaKey": "legacy-a", "dedupKey": "provider-g", "exactContentHash": "legacy-value" },
+      { "mediaKey": "legacy-b", "dedupKey": "provider-h", "exactContentHash": "legacy-value" }
+    ],
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "similar", "canProposeTrash": true }
+  },
+  {
+    "id": "repeated-provider-reference",
+    "label": "same provider asset identity is not content equality",
+    "items": [
+      { "mediaKey": "repeat-a", "dedupKey": "same-provider-ref", "contentHash": { "algorithm": "md5", "provenance": "original-content", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } },
+      { "mediaKey": "repeat-b", "dedupKey": "same-provider-ref", "contentHash": { "algorithm": "md5", "provenance": "original-content", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }
+    ],
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "verified_identical", "relationship": "same_provider_asset", "canProposeTrash": false }
+  },
+  {
+    "id": "raw-jpeg-related-edit",
+    "label": "same stem RAW and JPEG are a related format edit",
+    "items": [
+      { "mediaKey": "raw-a", "dedupKey": "provider-i", "fileName": "DSC_2001.ARW" },
+      { "mediaKey": "jpeg-a", "dedupKey": "provider-j", "fileName": "DSC_2001.JPG" }
+    ],
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "similar", "relationship": "related_format_edit", "canProposeTrash": false }
+  },
+  {
+    "id": "strong-visual-candidate",
+    "label": "strong visual similarity remains review evidence",
+    "items": [
+      { "mediaKey": "visual-a", "dedupKey": "provider-k", "fileName": "one.jpg" },
+      { "mediaKey": "visual-b", "dedupKey": "provider-l", "fileName": "two.jpg" }
+    ],
+    "visualSimilarity": 0.985,
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "strong_duplicate_candidate", "canProposeTrash": true }
+  }
+]

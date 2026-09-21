@@ -688,29 +688,38 @@ describe("video metadata duplicate detection", () => {
   })
 
   it("lets smart mode catch strong video metadata matches outside the time window", async () => {
-    const groups = await smartDetectDuplicates(
-      [
-        makeItem("old-upload", Date.parse("2021-01-01"), 100, {
-          duration: 12_345,
-          resWidth: 1920,
-          resHeight: 1080,
-          fileName: "IMG_1001.MOV"
-        }),
-        makeItem("new-upload", Date.parse("2024-01-01"), 200, {
-          duration: 12_345,
-          resWidth: 1920,
-          resHeight: 1080,
-          fileName: "img_1001.mp4"
-        })
-      ],
-      0.95,
-      1000
-    )
+    const originalFetch = globalThis.fetch
+    const fetchSpy = vi.fn().mockRejectedValue(new Error("thumbnail unavailable"))
+    vi.stubGlobal("fetch", fetchSpy)
 
-    expect(groups).toHaveLength(1)
-    expect(groups[0].mediaKeys).toEqual(["old-upload", "new-upload"])
-    expect(groups[0].duplicateKind).toBe("similar")
-    expect(groups[0].evidenceLevel).toBe("strong_duplicate_candidate")
+    try {
+      const groups = await smartDetectDuplicates(
+        [
+          makeItem("old-upload", Date.parse("2021-01-01"), 100, {
+            duration: 12_345,
+            resWidth: 1920,
+            resHeight: 1080,
+            fileName: "IMG_1001.MOV"
+          }),
+          makeItem("new-upload", Date.parse("2024-01-01"), 200, {
+            duration: 12_345,
+            resWidth: 1920,
+            resHeight: 1080,
+            fileName: "img_1001.mp4"
+          })
+        ],
+        0.95,
+        1000
+      )
+
+      expect(groups).toHaveLength(1)
+      expect(groups[0].mediaKeys).toEqual(["old-upload", "new-upload"])
+      expect(groups[0].duplicateKind).toBe("similar")
+      expect(groups[0].evidenceLevel).toBe("strong_duplicate_candidate")
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+    }
   })
 
   it("lets smart mode catch exact-content videos outside the time window", async () => {

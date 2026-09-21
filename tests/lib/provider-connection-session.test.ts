@@ -28,6 +28,7 @@ describe("ProviderConnectionSession", () => {
       resolve: vi.fn(),
       reject: vi.fn(),
       appTabId: 10,
+      providerTabId: 20,
       appClientId: "client"
     }
     session.startCommand("request", command)
@@ -45,12 +46,14 @@ describe("ProviderConnectionSession", () => {
       resolve: vi.fn(),
       reject: firstReject,
       appTabId: null,
+      providerTabId: 20,
       appClientId: "first-client"
     })
     session.startCommand("second", {
       resolve: vi.fn(),
       reject: secondReject,
       appTabId: null,
+      providerTabId: 21,
       appClientId: "second-client"
     })
 
@@ -67,7 +70,8 @@ describe("ProviderConnectionSession", () => {
     session.startCommand("request", {
       resolve: vi.fn(),
       reject: vi.fn(),
-      appTabId: 10
+      appTabId: 10,
+      providerTabId: 20
     })
 
     expect(session.removeTab(20)).toBe(10)

@@ -11,6 +11,10 @@ import {
   isLicenseSessionExternalMessage,
   LICENSE_SESSION_STORAGE_KEY
 } from "../lib/license-session"
+import {
+  getProviderCommandPublicKey,
+  withProviderCommandCapability
+} from "../lib/provider-command-capability"
 import { APP_ID } from "../lib/types"
 import type {
   AppMessage,
@@ -162,6 +166,18 @@ function tabMatchesProvider(
   return providerMatchesUrl(tab?.url, provider)
 }
 
+function canInjectProviderBridge(
+  tab: Pick<chrome.tabs.Tab, "url"> | undefined,
+  provider: PhotoProvider
+): boolean {
+  // Amazon's bridge must never be injected into ordinary shopping pages. The
+  // other providers already scope their bridge behavior to their provider tab
+  // and retain their established origin matching here.
+  return provider === "amazon"
+    ? isProviderPhotosPage(tab, provider)
+    : tabMatchesProvider(tab, provider)
+}
+
 function canNavigateTabToProvider(tab: Pick<chrome.tabs.Tab, "url">): boolean {
   return !tab.url?.startsWith("chrome-extension://")
 }
@@ -207,7 +223,7 @@ async function findProviderTab(
       const preferredTab = await chrome.tabs.get(preferredTabId)
       if (
         hasTabId(preferredTab) &&
-        tabMatchesProvider(preferredTab, provider) &&
+        canInjectProviderBridge(preferredTab, provider) &&
         (await ensureProviderBridge(preferredTab.id, provider))
       ) {
         return preferredTab
@@ -235,6 +251,9 @@ async function findProviderTab(
 
   for (const candidate of sorted) {
     if (!hasTabId(candidate)) continue
+    if (provider === "amazon" && !isProviderPhotosPage(candidate, provider)) {
+      continue
+    }
     if (await ensureProviderBridge(candidate.id, provider)) {
       return candidate
     }
@@ -301,6 +320,19 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
   }
 
   if (!state?.hasCommandHost) {
+    const publicKey = await getProviderCommandPublicKey()
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: (key: unknown) => {
+        ;(
+          window as typeof window & {
+            __GPD_PROVIDER_COMMAND_PUBLIC_KEY__?: unknown
+          }
+        ).__GPD_PROVIDER_COMMAND_PUBLIC_KEY__ = key
+      },
+      args: [publicKey]
+    })
     await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
@@ -355,7 +387,11 @@ function contentScriptFilesForProvider(provider: PhotoProvider): string[] {
   return (
     manifest.content_scripts
       ?.filter((script) =>
-        script.matches?.some((match) => patterns.includes(match))
+        script.matches?.some((match) =>
+          provider === "amazon"
+            ? /^https:\/\/(?:www\.)?amazon\.[^/]+\/photos\*$/.test(match)
+            : patterns.includes(match)
+        )
       )
       .flatMap((script) => script.js ?? []) ?? []
   )
@@ -937,7 +973,7 @@ async function sendGptkCommand(
 ): Promise<unknown> {
   const requestId = generateRequestId()
 
-  const message: GptkCommandMessage = {
+  const unsignedMessage: GptkCommandMessage = {
     app: APP_ID,
     action: "gptkCommand",
     command,
@@ -945,6 +981,7 @@ async function sendGptkCommand(
     args,
     provider
   }
+  const message = await withProviderCommandCapability(unsignedMessage)
 
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
@@ -962,7 +999,8 @@ async function sendGptkCommand(
         clearTimeout(timeoutId)
         reject(error)
       },
-      appTabId: null
+      appTabId: null,
+      providerTabId: gpTabId
     })
     const delivery =
       provider === "icloud"
@@ -1043,6 +1081,23 @@ chrome.runtime.onMessage.addListener(
       case "healthCheck":
         handleHealthCheck(message, sender)
         break
+      case "providerCommandKey":
+        getProviderCommandPublicKey()
+          .then((publicKey) =>
+            sendResponse({
+              app: APP_ID,
+              action: "providerCommandKey.result",
+              publicKey
+            })
+          )
+          .catch((error) =>
+            sendResponse({
+              app: APP_ID,
+              action: "providerCommandKey.result",
+              error: error instanceof Error ? error.message : String(error)
+            })
+          )
+        return true
       case "gptkCommand":
         handleGptkCommand(message as GptkCommandMessage, sender)
         break
@@ -1135,6 +1190,7 @@ async function handleHealthCheck(
 ): Promise<void> {
   const provider =
     message.action === "healthCheck" ? message.provider ?? "google" : "google"
+  const requestId = (message as { requestId?: string }).requestId
   const senderTabId = await getSenderTabId(sender)
   const clientId = message.clientId
 
@@ -1149,6 +1205,7 @@ async function handleHealthCheck(
         app: APP_ID,
         action: "healthCheck.result",
         provider,
+        requestId,
         success: false,
         hasGptk: false
       },
@@ -1185,6 +1242,7 @@ async function handleHealthCheck(
         app: APP_ID,
         action: "healthCheck.result",
         provider,
+        requestId,
         success: Boolean(r.hasGptk),
         hasGptk: r.hasGptk,
         accountEmail: r.accountEmail
@@ -1198,6 +1256,7 @@ async function handleHealthCheck(
         app: APP_ID,
         action: "healthCheck.result",
         provider,
+        requestId,
         success: false,
         hasGptk: false,
         error: error instanceof Error ? error.message : String(error)
@@ -1239,10 +1298,16 @@ async function handleGptkCommand(
     rememberProviderTab(senderTabId, providerTabId, provider)
   }
 
+  const routedMessage = await withProviderCommandCapability({
+    ...message,
+    provider
+  })
+
   connectionSession.startCommand(message.requestId, {
     resolve: () => {},
     reject: () => {},
     appTabId: senderTabId,
+    providerTabId,
     appClientId: message.clientId
   })
 
@@ -1274,7 +1339,7 @@ async function handleGptkCommand(
         func: (commandMessage: GptkCommandMessage) => {
           window.postMessage(commandMessage, "*")
         },
-        args: [message]
+        args: [routedMessage]
       })
       .catch(() => {
         sendToAppContext(
@@ -1294,7 +1359,7 @@ async function handleGptkCommand(
     return
   }
 
-  chrome.tabs.sendMessage(providerTabId, message).catch(() => {
+  chrome.tabs.sendMessage(providerTabId, routedMessage).catch(() => {
     sendToAppContext(
       senderTabId,
       {
@@ -1313,29 +1378,31 @@ async function handleGptkCommand(
 
 function handleGptkResult(
   message: GptkResultMessage,
-  _sender: chrome.runtime.MessageSender
+  sender: chrome.runtime.MessageSender
 ): void {
-  const pending = connectionSession.finishCommand(message.requestId)
-  if (!pending) return
+  const pending = connectionSession.pendingCommand(message.requestId)
+  if (!pending || sender.tab?.id !== pending.providerTabId) return
+
+  const finished = connectionSession.finishCommand(message.requestId)
+  if (!finished) return
 
   // Relay result to the app tab
-  sendToAppContext(pending.appTabId, message, pending.appClientId)
+  sendToAppContext(finished.appTabId, message, finished.appClientId)
 
   // Resolve/reject the promise if anyone is awaiting
   if (message.success) {
-    pending.resolve(message.data)
+    finished.resolve(message.data)
   } else {
-    pending.reject(message.error || "Unknown error")
+    finished.reject(message.error || "Unknown error")
   }
-
 }
 
 function handleGptkProgress(
   message: GptkProgressMessage,
-  _sender: chrome.runtime.MessageSender
+  sender: chrome.runtime.MessageSender
 ): void {
   const pending = connectionSession.pendingCommand(message.requestId)
-  if (!pending) return
+  if (!pending || sender.tab?.id !== pending.providerTabId) return
 
   // Relay progress to the app tab
   sendToAppContext(pending.appTabId, message, pending.appClientId)

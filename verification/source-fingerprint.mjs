@@ -18,6 +18,7 @@ export const DEFAULT_SOURCE_ROOTS = [
   "verification",
   "tools",
   "package.json",
+  "stryker.config.mjs",
   "package-lock.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
@@ -27,7 +28,8 @@ export const DEFAULT_SOURCE_ROOTS = [
   "tsconfig.test.json",
   "vitest.config.ts",
   "playwright.config.ts",
-  "playwright.e2e.config.ts"
+  "playwright.e2e.config.ts",
+  "build/chrome-mv3-prod/manifest.json"
 ]
 
 function normalizePath(value) {
@@ -39,9 +41,48 @@ function shouldInclude(path) {
   return (
     !normalized.startsWith("tmp/") &&
     !normalized.includes("/tmp/") &&
+    normalized !== "states" &&
+    !normalized.startsWith("states/") &&
+    !normalized.startsWith("verification/model/states/") &&
     !normalized.startsWith("verification/evidence/") &&
     !normalized.endsWith("/verification/evidence")
   )
+}
+
+function sourceContent(root, file) {
+  const content = readFileSync(resolve(root, file))
+  if (file !== "build/chrome-mv3-prod/manifest.json") return content
+
+  // Plasmo can emit content_scripts in different filesystem traversal orders
+  // between otherwise identical production builds. The order of entries for
+  // different provider match sets is not an application decision, so bind the
+  // source fingerprint to a stable semantic ordering while package evidence
+  // continues to retain the raw manifest bytes.
+  try {
+    const manifest = JSON.parse(content.toString("utf8"))
+    if (Array.isArray(manifest.content_scripts)) {
+      manifest.content_scripts = [...manifest.content_scripts].sort((left, right) =>
+        JSON.stringify([
+          left?.matches ?? [],
+          left?.js ?? [],
+          left?.css ?? [],
+          left?.run_at ?? null,
+          left?.all_frames ?? false
+        ]).localeCompare(
+          JSON.stringify([
+            right?.matches ?? [],
+            right?.js ?? [],
+            right?.css ?? [],
+            right?.run_at ?? null,
+            right?.all_frames ?? false
+          ])
+        )
+      )
+    }
+    return Buffer.from(JSON.stringify(manifest))
+  } catch {
+    return content
+  }
 }
 
 export function listSourceFiles(root, sourceRoots = DEFAULT_SOURCE_ROOTS) {
@@ -97,7 +138,7 @@ export function computeSourceFingerprint(
       }
       hash.update(`submodule:${revision}`)
     } else {
-      hash.update(readFileSync(absolute))
+      hash.update(sourceContent(root, file))
     }
     hash.update("\0")
   }

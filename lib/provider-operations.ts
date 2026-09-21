@@ -1,28 +1,9 @@
+import {
+  AMAZON_ORIGINS,
+  GOOGLE_PHOTOS_ORIGINS,
+  ICLOUD_ORIGINS
+} from "./provider-sites"
 import type { PhotoProvider, ScanSettings } from "./types"
-
-const AMAZON_ORIGINS = [
-  "https://www.amazon.com",
-  "https://www.amazon.ca",
-  "https://www.amazon.co.uk",
-  "https://www.amazon.de",
-  "https://www.amazon.fr",
-  "https://www.amazon.it",
-  "https://www.amazon.es",
-  "https://www.amazon.co.jp",
-  "https://www.amazon.com.au",
-  "https://www.amazon.in",
-  "https://www.amazon.com.br",
-  "https://www.amazon.com.mx",
-  "https://www.amazon.nl",
-  "https://www.amazon.sg",
-  "https://www.amazon.ae",
-  "https://www.amazon.sa",
-  "https://www.amazon.se",
-  "https://www.amazon.pl",
-  "https://www.amazon.com.tr",
-  "https://www.amazon.be",
-  "https://www.amazon.eg"
-] as const
 
 export interface ProviderOperations {
   readonly id: PhotoProvider
@@ -54,7 +35,7 @@ function normalizedLimit(value: number | undefined): number | undefined {
 const googleOperations: ProviderOperations = {
   id: "google",
   label: "Google Photos",
-  origins: ["https://photos.google.com"],
+  origins: GOOGLE_PHOTOS_ORIGINS,
   supportsAlbumScope: true,
   injectBridgeIntoAllFrames: false,
   openUrl: () => "https://photos.google.com/",
@@ -68,7 +49,7 @@ const googleOperations: ProviderOperations = {
 const icloudOperations: ProviderOperations = {
   id: "icloud",
   label: "iCloud Photos",
-  origins: ["https://www.icloud.com", "https://www.icloud.com.cn"],
+  origins: ICLOUD_ORIGINS,
   supportsAlbumScope: false,
   injectBridgeIntoAllFrames: true,
   openUrl: () => "https://www.icloud.com/photos",

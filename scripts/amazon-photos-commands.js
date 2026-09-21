@@ -112,32 +112,44 @@ function retryLimitFor(error) {
     : AMAZON_API_RETRY_COUNT
 }
 
-const AMAZON_PHOTOS_HOSTS = new Set([
-  "www.amazon.com",
-  "www.amazon.ca",
-  "www.amazon.co.uk",
-  "www.amazon.de",
-  "www.amazon.fr",
-  "www.amazon.it",
-  "www.amazon.es",
-  "www.amazon.co.jp",
-  "www.amazon.com.au",
-  "www.amazon.in",
-  "www.amazon.com.br",
-  "www.amazon.com.mx",
-  "www.amazon.nl",
-  "www.amazon.sg",
-  "www.amazon.ae",
-  "www.amazon.sa",
-  "www.amazon.se",
-  "www.amazon.pl",
-  "www.amazon.com.tr",
-  "www.amazon.be",
-  "www.amazon.eg"
-])
+const AMAZON_PHOTOS_MARKETPLACE_HOSTS = [
+  "amazon.com",
+  "amazon.ca",
+  "amazon.co.uk",
+  "amazon.de",
+  "amazon.fr",
+  "amazon.it",
+  "amazon.es",
+  "amazon.co.jp",
+  "amazon.com.au",
+  "amazon.in",
+  "amazon.com.br",
+  "amazon.com.mx",
+  "amazon.nl",
+  "amazon.sg",
+  "amazon.ae",
+  "amazon.sa",
+  "amazon.se",
+  "amazon.pl",
+  "amazon.com.tr",
+  "amazon.com.be",
+  "amazon.eg",
+  "amazon.ie"
+]
+
+const AMAZON_PHOTOS_HOSTS = new Set(
+  AMAZON_PHOTOS_MARKETPLACE_HOSTS.flatMap((host) => [host, `www.${host}`])
+)
 
 function isAmazonPhotosHost(hostname = location.hostname) {
   return AMAZON_PHOTOS_HOSTS.has(hostname)
+}
+
+function isAmazonPhotosLocation(locationLike = location) {
+  return (
+    isAmazonPhotosHost(locationLike.hostname) &&
+    locationLike.pathname.toLowerCase().includes("/photos")
+  )
 }
 
 function amazonOrigin() {
@@ -148,14 +160,21 @@ function amazonPhotosUrl(path) {
   return new URL(path, amazonOrigin()).toString()
 }
 
-function amazonThumbnailOrigin() {
-  return `${location.protocol}//${location.host.replace(
-    /^www\.amazon\./,
-    "thumbnails-photos.amazon."
-  )}`
+function amazonThumbnailOrigin(locationLike = location) {
+  const marketplaceHost = locationLike.hostname.replace(/^www\./, "")
+  const port = locationLike.port ? `:${locationLike.port}` : ""
+  return `${locationLike.protocol}//thumbnails-photos.${marketplaceHost}${port}`
 }
 
-function assertSupportedRoute() {
+if (window.__GPD_COMMAND_TEST_MODE__ === true) {
+  window.__GPD_AMAZON_COMMAND_TEST_API__ = Object.freeze({
+    isAmazonPhotosHost,
+    isAmazonPhotosLocation,
+    amazonThumbnailOrigin
+  })
+}
+
+function assertLibraryRoute() {
   const route = location.href.toLowerCase()
   if (
     !isAmazonPhotosHost() ||
@@ -165,6 +184,15 @@ function assertSupportedRoute() {
   ) {
     throw new Error(
       "Open Amazon Photos on your Amazon country site, wait for the library to load, then scan again."
+    )
+  }
+}
+
+function assertRestoreRoute() {
+  const route = location.href.toLowerCase()
+  if (!isAmazonPhotosHost() || !route.includes("/photos")) {
+    throw new Error(
+      "Open Amazon Photos on your Amazon country site, wait for the library to load, then try Undo again."
     )
   }
 }
@@ -466,7 +494,7 @@ function buildFilters() {
 
 async function getAllMediaItems(requestId, args) {
   try {
-    assertSupportedRoute()
+    assertLibraryRoute()
     const filters = buildFilters(args)
     const sinceTimestamp = normalizeSinceTimestamp(args?.sinceTimestamp)
     const firstPage = await fetchAmazonSearchPage(requestId, 0, filters)
@@ -617,7 +645,7 @@ async function trashAmazonChunk(requestId, chunk, chunkIndex, chunkCount) {
 
   const movedDedupKeys = []
   try {
-    assertSupportedRoute()
+    assertLibraryRoute()
     const batchSize = normalizeTrashBatchSize(args?.batchSize)
     const chunks = chunkArray(dedupKeys, batchSize)
     for (let index = 0; index < chunks.length; index++) {
@@ -678,7 +706,7 @@ async function restoreItems(requestId, args) {
 
   const restoredDedupKeys = []
   try {
-    assertSupportedRoute()
+    assertRestoreRoute()
     const batchSize = normalizeTrashBatchSize(args?.batchSize)
     const chunks = chunkArray(dedupKeys, batchSize)
     for (let index = 0; index < chunks.length; index++) {
@@ -714,14 +742,16 @@ async function restoreItems(requestId, args) {
 }
 
 function healthCheck(requestId) {
-  const onAmazonPhotos =
-    isAmazonPhotosHost() &&
-    location.pathname.toLowerCase().includes("/photos")
+  const onAmazonPhotos = isAmazonPhotosLocation()
   const pageText = document.body?.innerText || ""
   const hasSignInPrompt =
     /sign in/i.test(pageText) || /email or mobile phone number/i.test(pageText)
+  const isNotFoundPage =
+    /page not found|not a functioning page|looking for something/i.test(
+      `${document.title} ${pageText}`
+    )
   postResult("healthCheck", requestId, {
-    hasGptk: onAmazonPhotos && !hasSignInPrompt,
+    hasGptk: onAmazonPhotos && !hasSignInPrompt && !isNotFoundPage,
     accountEmail: ""
   })
 }

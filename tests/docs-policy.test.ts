@@ -41,6 +41,8 @@ describe("launch policy docs", () => {
 
     expect(text).toContain("does not upload photo content")
     expect(text).toContain("does not sell user data")
+    expect(text).toContain("complies with the chrome web store user data policy")
+    expect(text).toContain("does not allow people to read raw photo-library data")
     expect(text).toContain("checkout opens externally through stripe")
     expect(text).toContain("pawsitivegames@gmail.com")
     expect(text).not.toContain("support@example.com")
@@ -93,7 +95,7 @@ describe("launch policy docs", () => {
     const support = compact(readDoc("docs/SUPPORT.md"))
 
     expect(support).toContain("pawsitivegames@gmail.com")
-    expect(support).toContain("github issue tracker")
+    expect(support).toContain("photosweep site")
     expect(support).toContain("do not send photo urls")
     expect(support).toContain("optional paid-user diagnostics export")
     expect(support).not.toContain("support@example.com")

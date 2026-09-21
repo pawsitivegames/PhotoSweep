@@ -53,6 +53,7 @@ test.afterAll(async () => {
 // ============================================================
 
 test("restores saved scan results from storage on load", async () => {
+  await clearStorage(context)
   await injectScanResults(
     context,
     [
@@ -444,7 +445,7 @@ test("drops a delayed old-account trash result after identity changes", async ()
   }
 })
 
-test("dispatch-authorization rejects selection drift during deferred audit persistence", async () => {
+test("dispatch-authorization rejects account drift during deferred audit persistence", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = makeGroups(2, 5)
   await injectScanResults(
@@ -523,13 +524,149 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
       )
       .toBe(true)
 
-    // Change the selected group while savePreTrashReport is still pending.
-    // Force bypasses the dialog backdrop to exercise the live React selection
-    // state and the actual dispatch boundary.
-    const changedSelection = page.locator('input[type="checkbox"]').first()
-    await expect(changedSelection).toBeChecked()
-    await changedSelection.click({ force: true })
-    await expect(changedSelection).not.toBeChecked()
+    // Change the connected provider account while savePreTrashReport is still
+    // pending. This is the real health-check message path used by the app.
+    await stub.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gptkOverrides: Record<string, unknown>
+        }
+      ).__gptkOverrides.healthCheck = {
+        data: {
+          hasGptk: true,
+          hasWizData: true,
+          accountEmail: "bob@example.com"
+        }
+      }
+    })
+    await page.evaluate(() => {
+      chrome.runtime.sendMessage({
+        app: "GPD",
+        action: "healthCheck",
+        provider: "google"
+      })
+    })
+    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+      timeout: 8_000
+    })
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __photosweepAuditBarrier?: { release?: (() => void) | null }
+        }
+      ).__photosweepAuditBarrier?.release?.()
+    })
+
+    // The identity change invalidates the paid conversion generation before
+    // dispatch. The deferred handler must therefore complete without opening
+    // a Trash result or issuing a destructive provider command.
+    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
+    const commands = await stub.evaluate(() =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog || []
+    )
+    expect(commands.length).toBeGreaterThan(0)
+    expect(commands.map((entry) => entry.command)).toContain("healthCheck")
+    expect(commands.map((entry) => entry.command)).not.toContain("trashItems")
+  } finally {
+    await page.close()
+    await stub.close()
+    await clearStorage(context)
+  }
+})
+
+test("dispatch-authorization rejects selection drift during deferred audit persistence", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 5)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "alice@example.com"
+  )
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "2 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible()
+    await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
+    await page
+      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .click()
+    await page.getByLabel("Type 8 to confirm").fill("8")
+
+    await page.evaluate(() => {
+      const barrier = {
+        pending: false,
+        release: null as (() => void) | null
+      }
+      ;(
+        window as unknown as {
+          __photosweepAuditBarrier: typeof barrier
+        }
+      ).__photosweepAuditBarrier = barrier
+      const storage = chrome.storage.local as unknown as {
+        set: (items: Record<string, unknown>) => Promise<void>
+      }
+      const originalSet = storage.set.bind(storage)
+      storage.set = (items) => {
+        if (!Object.prototype.hasOwnProperty.call(items, "deleteReports")) {
+          return originalSet(items)
+        }
+        return new Promise<void>((resolve, reject) => {
+          barrier.pending = true
+          barrier.release = () => {
+            originalSet(items).then(resolve).catch(reject)
+          }
+        })
+      }
+    })
+
+    await page.getByRole("button", { name: /^Move to Trash$/i }).last().click()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __photosweepAuditBarrier?: { pending: boolean }
+              }
+            ).__photosweepAuditBarrier?.pending ?? false
+        )
+      )
+      .toBe(true)
+
+    // The dialog backdrop blocks ordinary pointer input to the review list;
+    // force-click the real group checkbox to exercise the React selection path
+    // while the report write is held. The dispatch guard must reject the stale
+    // confirmed plan after the await boundary.
+    const changedSelection = page
+      .locator('[role="checkbox"][aria-label^="Include duplicate set"]')
+      .first()
+    await expect(changedSelection).toHaveAttribute("aria-checked", "true")
+    await changedSelection.evaluate((node) => (node as HTMLElement).click())
+    await expect(changedSelection).toHaveAttribute("aria-checked", "false")
+
     await page.evaluate(() => {
       ;(
         window as unknown as {
@@ -543,6 +680,7 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
         "Cleanup review changed while preparing the provider request. Review the current results again before moving anything to Trash."
       )
     ).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
     const commands = await stub.evaluate(() =>
       (
         window as unknown as {
@@ -677,7 +815,7 @@ test("does not open a stale checkout tab after results reset", async () => {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        url: "https://checkout.test/stale",
+        url: "https://checkout.stripe.com/c/pay/stale",
         sessionId: "pls_stale",
         planId: "lifetime"
       })
@@ -716,7 +854,9 @@ test("does not open a stale checkout tab after results reset", async () => {
     expect(
       context
         .pages()
-        .filter((candidate) => candidate.url().includes("checkout.test/stale"))
+        .filter((candidate) =>
+          candidate.url().includes("checkout.stripe.com/c/pay/stale")
+        )
     ).toHaveLength(0)
   } finally {
     releaseCheckout()
@@ -753,7 +893,7 @@ test("keeps the free-results exit clickable after an unverified checkout return"
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        url: "https://checkout.test/return",
+        url: "https://checkout.stripe.com/c/pay/return",
         sessionId: "pls_return",
         planId: "lifetime"
       })
@@ -1252,6 +1392,7 @@ const BASE_MEDIA_ITEMS = {
 
 test("persists group selections through page reload", async () => {
   // 3 groups; only g1 and g3 are selected (g2 is deselected)
+  await clearStorage(context)
   await injectScanResults(
     context,
     [
@@ -1396,6 +1537,7 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
 
 test("persists kept overrides through page reload", async () => {
   // g1 has 2 items; default keep is key1 but we override to keep key2 instead
+  await clearStorage(context)
   await injectScanResults(
     context,
     [
@@ -1522,6 +1664,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
 })
 
 test("persists trash-all copy choices through page reload", async () => {
+  await clearStorage(context)
   await injectScanResults(
     context,
     [

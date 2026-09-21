@@ -1203,7 +1203,7 @@ export async function handleCompleteLicenseRecovery(request, env, store) {
   const redirectTo =
     env.PHOTOSWEEP_RECOVERY_REDIRECT_URL ||
     env.PHOTOSWEEP_CHECKOUT_SUCCESS_URL ||
-    "https://photosweep.app"
+    "https://photosweep.pawsitivegames.chatgpt.site/"
   if (!payload) {
     return new Response(null, {
       status: 302,

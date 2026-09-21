@@ -23,7 +23,7 @@ function fixture(options?: {
 }) {
   const fetchEntitlementToken = vi.fn(async () => "fresh-token")
   const createCheckout = vi.fn(async (planId) => ({
-    url: "https://checkout.test",
+    url: "https://checkout.stripe.com/c/pay/test",
     sessionId: "pls_checkout",
     planId
   }))
@@ -102,7 +102,7 @@ describe("PaidAccessLifecycle", () => {
     await subject.lifecycle.initialize()
 
     expect(await subject.lifecycle.createCheckout("lifetime")).toEqual({
-      url: "https://checkout.test",
+      url: "https://checkout.stripe.com/c/pay/test",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
@@ -174,19 +174,19 @@ describe("PaidAccessLifecycle", () => {
     expect(createCheckout).toHaveBeenCalledOnce()
     await expect(differentPlanCheckout).rejects.toThrow("different plan")
     releaseCheckout({
-      url: "https://checkout.test",
+      url: "https://checkout.stripe.com/c/pay/test",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
     await expect(Promise.all([firstCheckout, secondCheckout])).resolves.toEqual(
       [
         {
-          url: "https://checkout.test",
+          url: "https://checkout.stripe.com/c/pay/test",
           sessionId: "pls_checkout",
           planId: "lifetime"
         },
         {
-          url: "https://checkout.test",
+          url: "https://checkout.stripe.com/c/pay/test",
           sessionId: "pls_checkout",
           planId: "lifetime"
         }
@@ -241,22 +241,22 @@ describe("PaidAccessLifecycle", () => {
     expect(subject.createCheckout).toHaveBeenNthCalledWith(2, "lifetime")
 
     releaseFirst({
-      url: "https://checkout.first",
+      url: "https://checkout.stripe.com/c/pay/first",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
     releaseSecond({
-      url: "https://checkout.second",
+      url: "https://checkout.stripe.com/c/pay/second",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
     await expect(firstCheckout).resolves.toEqual({
-      url: "https://checkout.first",
+      url: "https://checkout.stripe.com/c/pay/first",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
     await expect(secondCheckout).resolves.toEqual({
-      url: "https://checkout.second",
+      url: "https://checkout.stripe.com/c/pay/second",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
@@ -299,22 +299,22 @@ describe("PaidAccessLifecycle", () => {
 
     expect(subject.createCheckout).toHaveBeenCalledTimes(2)
     releaseFirst({
-      url: "https://checkout.first",
+      url: "https://checkout.stripe.com/c/pay/first",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
     releaseSecond({
-      url: "https://checkout.second",
+      url: "https://checkout.stripe.com/c/pay/second",
       sessionId: "pls_checkout",
       planId: "cleanup_pass"
     })
     await expect(firstCheckout).resolves.toEqual({
-      url: "https://checkout.first",
+      url: "https://checkout.stripe.com/c/pay/first",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
     await expect(secondCheckout).resolves.toEqual({
-      url: "https://checkout.second",
+      url: "https://checkout.stripe.com/c/pay/second",
       sessionId: "pls_checkout",
       planId: "cleanup_pass"
     })
@@ -361,7 +361,7 @@ describe("PaidAccessLifecycle", () => {
     const subject = fixture()
     await subject.lifecycle.initialize()
     subject.createCheckout.mockResolvedValueOnce({
-      url: "http://checkout.test",
+      url: "http://checkout.stripe.com/c/pay/test",
       sessionId: "pls_checkout",
       planId: "lifetime"
     })
@@ -370,13 +370,13 @@ describe("PaidAccessLifecycle", () => {
     ).rejects.toThrow("requested plan")
 
     subject.createCheckout.mockResolvedValueOnce({
-      url: "http://checkout.test",
+      url: "http://checkout.stripe.com/c/pay/test",
       sessionId: "pls_checkout",
       planId: "cleanup_pass"
     })
     await expect(
       subject.lifecycle.createCheckout("cleanup_pass")
-    ).rejects.toThrow("secure URL")
+    ).rejects.toThrow("approved secure Stripe URL")
   })
 
   it("never treats a return reconciliation error as paid access", async () => {

@@ -112,7 +112,7 @@ const mockChrome = {
           js: ["icloud-photos-inject.js", "icloud-photos-bridge.js"]
         },
         {
-          matches: ["https://www.amazon.ca/*"],
+          matches: ["https://www.amazon.ca/photos*"],
           js: ["amazon-photos-inject.js", "amazon-photos-bridge.js"]
         }
       ]
@@ -287,6 +287,27 @@ describe("external license session handshake", () => {
       )
     ).resolves.toMatchObject({ ok: false, error: expect.any(String) })
     expect(licenseStorage.size).toBe(0)
+  })
+})
+
+describe("provider command key relay", () => {
+  it("returns only the per-install public key to provider content scripts", async () => {
+    const response = await dispatchMessageWithResponse({
+      app: APP_ID,
+      action: "providerCommandKey"
+    })
+
+    expect(response).toMatchObject({
+      app: APP_ID,
+      action: "providerCommandKey.result",
+      publicKey: {
+        kty: "EC",
+        crv: "P-256",
+        x: expect.any(String),
+        y: expect.any(String)
+      }
+    })
+    expect(response).not.toHaveProperty("publicKey.d")
   })
 })
 
@@ -1358,7 +1379,13 @@ describe("gptkCommand routing", () => {
 
     mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
       if (query?.url?.includes("amazon.ca"))
-        return Promise.resolve([{ id: amazonTabId, active: true }])
+        return Promise.resolve([
+          {
+            id: amazonTabId,
+            active: true,
+            url: "https://www.amazon.ca/photos?sf=1"
+          }
+        ])
       if (query?.url?.includes("photos.google.com")) return Promise.resolve([])
       return Promise.resolve([{ id: appTabId }])
     })
@@ -1384,6 +1411,53 @@ describe("gptkCommand routing", () => {
         command: "getAllMediaItems",
         provider: "amazon",
         requestId
+      })
+    )
+  })
+
+  it("does not inject or route Amazon commands from ordinary shopping pages", async () => {
+    const appTabId = 75
+    const shoppingTabId = 76
+    const requestId = "test-amazon-shopping-page"
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("amazon.ca"))
+        return Promise.resolve([
+          {
+            id: shoppingTabId,
+            active: true,
+            url: "https://www.amazon.ca/gp/browse.html"
+          }
+        ])
+      if (query?.url?.includes("photos.google.com")) return Promise.resolve([])
+      return Promise.resolve([{ id: appTabId }])
+    })
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "getAllMediaItems",
+        provider: "amazon",
+        requestId,
+        args: {}
+      },
+      appSender()
+    )
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+      shoppingTabId,
+      expect.objectContaining({ command: "getAllMediaItems", requestId })
+    )
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      appTabId,
+      expect.objectContaining({
+        action: "gptkResult",
+        command: "getAllMediaItems",
+        requestId,
+        success: false
       })
     )
   })
@@ -1433,6 +1507,81 @@ describe("gptkCommand routing", () => {
       expect.objectContaining({
         action: "gptkResult",
         command: "getAllMediaItems",
+        success: true
+      })
+    )
+  })
+
+  it("ignores provider results and progress from an unrelated tab", async () => {
+    const gpTabId = 110
+    const appTabId = 120
+    const requestId = "test-req-wrong-provider-tab"
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("photos.google.com"))
+        return Promise.resolve([{ id: gpTabId }])
+      return Promise.resolve([{ id: appTabId }])
+    })
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "getAllMediaItems",
+        requestId,
+        args: {}
+      },
+      appSender()
+    )
+    await new Promise((r) => setTimeout(r, 20))
+    vi.clearAllMocks()
+
+    const unrelatedTabId = 999
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkProgress",
+        command: "getAllMediaItems",
+        requestId,
+        itemsProcessed: 999,
+        message: "forged progress"
+      },
+      gpSender(unrelatedTabId)
+    )
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: "getAllMediaItems",
+        requestId,
+        success: true,
+        data: [{ mediaKey: "forged" }]
+      },
+      gpSender(unrelatedTabId)
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalled()
+
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: "getAllMediaItems",
+        requestId,
+        success: true,
+        data: []
+      },
+      gpSender(gpTabId)
+    )
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      appTabId,
+      expect.objectContaining({
+        action: "gptkResult",
+        requestId,
         success: true
       })
     )

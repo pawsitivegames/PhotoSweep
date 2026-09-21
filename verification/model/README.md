@@ -25,4 +25,7 @@ that the TypeScript implementation refines every model transition, nor a proof
 of the whole extension, provider APIs, browser, store, or production account.
 The TypeScript scenario tests replay adversarial cases through
 `TrashLifecycle`; they are implementation seam tests rather than a formal
-trace import or refinement proof.
+trace import or refinement proof. For real TLC-generated state/event replay,
+use [`docs/VERIFICATION_MODEL_TRACE_REPLAY.md`](../../docs/VERIFICATION_MODEL_TRACE_REPLAY.md)
+and `verification/trace-replay-runner.mjs`; its supported projection and
+unsupported seams are reported separately.

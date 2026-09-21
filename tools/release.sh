@@ -4,7 +4,8 @@ set -euo pipefail
 # Get current version from package.json
 CURRENT=$(node -p "require('./package.json').version")
 
-# Compute default patch bump
+# Compute default patch bump. Use X.Y.0 for a feature release and X.0.0 for
+# a major or breaking release when choosing a different VERSION below.
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 DEFAULT="${MAJOR}.${MINOR}.$((PATCH + 1))"
 
@@ -36,6 +37,19 @@ fi
 
 # Update package.json version without creating a git commit/tag
 npm version "$VERSION" --no-git-tag-version
+
+# Keep Chrome's independently tracked numeric version aligned with the new app
+# release. Rebuilds of the same app version must increment this fourth
+# component manually before running package:cws again.
+node - "$VERSION" <<'NODE'
+const fs = require("node:fs")
+
+const version = process.argv[2]
+const packagePath = "package.json"
+const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"))
+packageJson.chromeVersion = `${version}.1`
+fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`)
+NODE
 
 # Commit the version bump
 git add package.json package-lock.json

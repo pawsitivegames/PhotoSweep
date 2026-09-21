@@ -366,6 +366,28 @@ describe("keep strategy", () => {
     })
   })
 
+  it("treats zero resolution dimensions as invalid evidence", () => {
+    for (const dimensions of [
+      { resWidth: 0, resHeight: 1000 },
+      { resWidth: 1000, resHeight: 0 }
+    ]) {
+      const recommendation = recommendKeepForGroup(
+        group,
+        {
+          a: item("a", dimensions),
+          b: item("b"),
+          c: item("c")
+        },
+        "largest_resolution"
+      )
+      expect(recommendation).toMatchObject({
+        status: "no_confident_recommendation",
+        reasonCode: "invalid_value",
+        keptMediaKeys: ["a", "b", "c"]
+      })
+    }
+  })
+
   it("does not make a different winner when group order is permuted", () => {
     const mediaItems = {
       a: item("a", { creationTimestamp: 1 }),

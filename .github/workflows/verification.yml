@@ -1,0 +1,87 @@
+name: Verification Scopes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Verification scope to run manually"
+        type: choice
+        required: true
+        default: fast
+        options:
+          - fast
+          - nightly
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    name: Fast verification
+    if: github.event_name != 'schedule' && (github.event_name != 'workflow_dispatch' || inputs.scope == 'fast')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fast verification scope
+        run: npm run verify:all -- --out-dir tmp/verification/ci-fast
+
+      - name: Upload fast verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verification-fast-${{ github.run_id }}
+          path: tmp/verification/ci-fast/
+          if-no-files-found: error
+          retention-days: 14
+
+  nightly:
+    name: Nightly verification
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scope == 'nightly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run nightly verification scope
+        run: npm run verify:nightly -- --out-dir tmp/verification/ci-nightly
+
+      - name: Upload nightly verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verification-nightly-${{ github.run_id }}
+          path: tmp/verification/ci-nightly/
+          if-no-files-found: error
+          retention-days: 14

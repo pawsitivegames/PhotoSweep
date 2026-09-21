@@ -8,6 +8,11 @@ PhotoSweep finds duplicate and near-duplicate photos in supported online photo
 libraries. Duplicate analysis runs locally in the browser extension. PhotoSweep
 does not upload photo content for duplicate analysis.
 
+Before the first provider scan, the extension displays an in-product data-use
+notice and requires the user to choose “I understand, continue” before it
+connects to a provider tab. The notice links to this policy. Users can later
+revisit the optional usage-metrics choice from the extension UI.
+
 ## Data Processed Locally
 
 PhotoSweep may read and process these items inside the browser to provide scan,
@@ -70,14 +75,19 @@ PhotoSweep does not sell user data and does not use photo-derived data for ads.
 
 ## Chrome Web Store Limited Use Statement
 
-PhotoSweep uses Chrome extension permissions and provider page access only to
-provide or improve its single purpose: finding, reviewing, reporting, and safely
-cleaning duplicate photos in supported photo libraries. PhotoSweep does not use
-this data for advertising, unrelated profiling, or unrelated data brokerage.
+PhotoSweep complies with the Chrome Web Store User Data Policy and Limited Use
+requirements. It uses Chrome extension permissions and provider page access only
+to provide or improve its single purpose: finding, reviewing, reporting, and
+safely cleaning duplicate photos in supported photo libraries. PhotoSweep does
+not use this data for advertising, unrelated profiling, or unrelated data
+brokerage.
 
 PhotoSweep transfers user data only when needed to provide licensing/support,
 comply with law, protect against abuse/security issues, or with explicit user
-consent.
+consent. PhotoSweep does not allow people to read raw photo-library data. Any
+human access is limited to a user's explicit request for specific support data,
+security/abuse investigation, legal compliance, or aggregate and anonymized
+internal operations.
 
 ## Data Retention
 

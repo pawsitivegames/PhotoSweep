@@ -71,7 +71,8 @@ import {
   type DuplicateTrashPlan
 } from "../lib/duplicate-review-session"
 import { EmbeddingCache } from "../lib/embedding-cache"
-import { FEEDBACK_MAILTO_URL } from "../lib/feedback"
+import { FEEDBACK_MAILTO_URL, PHOTOSWEEP_SITE_URL } from "../lib/feedback"
+import { planHealthCheckRetry } from "../lib/health-check-retry"
 import {
   canExportFullReport,
   canResumeCheckpoint,
@@ -114,13 +115,13 @@ import {
   sendPrivacySafeAnalyticsEvent,
   type PrivacySafeAnalyticsEvent
 } from "../lib/privacy-analytics"
+import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../lib/privacy-disclosure"
 import {
   providerBatchLimit as configuredProviderBatchLimit,
   providerFromUrl,
   providerLabel
 } from "../lib/provider-operations"
 import {
-  chromeWebStoreReviewUrl,
   completeRatingPrompt,
   deferRatingPrompt,
   recordSuccessfulCleanup
@@ -193,15 +194,15 @@ import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 // Helpers
 // ============================================================
 
-// Initial healthCheck retries. The first probe often fails on a freshly
-// opened app tab because the bridge content script on photos.google.com has
-// not finished loading yet, or because the MV3 service worker is still
-// spinning up from idle. Backoff: 400ms, 800ms, 1600ms, 3200ms (5 attempts).
-const HEALTH_CHECK_MAX_ATTEMPTS = 2
 const TRASH_BATCH_SIZE = 25
 const TRASH_BATCH_PAUSE_MS = 1000
 const TRASH_RETRY_COUNT = 2
 const TRASH_RETRY_BACKOFF_MS = 1000
+// A Trash request can span multiple provider batches. After this boundary the
+// result is ambiguous, not failed: the provider may still finish the action,
+// so late responses must remain routable by their request ID and users must
+// not be invited to retry blindly.
+const TRASH_REQUEST_TIMEOUT_MS = 120_000
 const DELETE_REPORTS_KEY = "deleteReports"
 const TRASH_RESULT_REPORTS_KEY = "trashResultReports"
 const duplicateDetectionEngine = new DuplicateDetectionEngine()
@@ -1025,8 +1026,17 @@ function SidePanelSafetyFooter() {
   )
 }
 
-function dateToUtcMs(value: string, endOfDay = false): number {
-  return Date.parse(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`)
+function dateToLocalMs(value: string, endOfDay = false): number {
+  const [year, month, day] = value.split("-").map(Number)
+  return new Date(
+    year,
+    month - 1,
+    day,
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0
+  ).getTime()
 }
 
 function filterMediaItemsByDateRange(
@@ -1036,8 +1046,12 @@ function filterMediaItemsByDateRange(
   const range = activeDateRange(dateRange)
   if (!range) return items
 
-  const fromMs = range.from ? dateToUtcMs(range.from) : Number.NEGATIVE_INFINITY
-  const toMs = range.to ? dateToUtcMs(range.to, true) : Number.POSITIVE_INFINITY
+  const fromMs = range.from
+    ? dateToLocalMs(range.from)
+    : Number.NEGATIVE_INFINITY
+  const toMs = range.to
+    ? dateToLocalMs(range.to, true)
+    : Number.POSITIVE_INFINITY
 
   return items.filter((item) => {
     if (!Number.isFinite(item.timestamp)) return false
@@ -1328,6 +1342,7 @@ export default function App() {
   const restoreInFlightRef = useRef(false)
   const restoreGenerationRef = useRef<number | null>(null)
   const trashGenerationByRequestRef = useRef(new Map<string, number>())
+  const trashTimeoutByRequestRef = useRef(new Map<string, number>())
   const [undoData, setUndoDataState] = useState<TrashUndoData | null>(null)
   const undoDataRef = useRef<TrashUndoData | null>(null)
 
@@ -1437,6 +1452,10 @@ export default function App() {
     checkoutReconcileInFlightRef.current = false
     restoreInFlightRef.current = false
     restoreGenerationRef.current = null
+    for (const timeoutId of trashTimeoutByRequestRef.current.values()) {
+      window.clearTimeout(timeoutId)
+    }
+    trashTimeoutByRequestRef.current.clear()
     trashGenerationByRequestRef.current.clear()
     deferredUpgradeRef.current = null
     upgradePromptRef.current = null
@@ -1454,6 +1473,9 @@ export default function App() {
   const [licenseApiBaseUrl, setLicenseApiBaseUrl] = useState<
     string | undefined
   >()
+  const [photoDataConsent, setPhotoDataConsent] = useState<boolean | null>(
+    null
+  )
   const [analyticsConsent, setAnalyticsConsent] = useState<boolean | null>(null)
   const appOpenedTrackedRef = useRef(false)
   const paidAccessLifecycleRef = useRef<PaidAccessLifecycle | null>(null)
@@ -1498,13 +1520,19 @@ export default function App() {
     let cancelled = false
     Promise.all([
       paidAccessLifecycle.initialize(),
-      chrome.storage.local.get(ANALYTICS_CONSENT_STORAGE_KEY)
+      chrome.storage.local.get([
+        ANALYTICS_CONSENT_STORAGE_KEY,
+        PHOTO_DATA_CONSENT_STORAGE_KEY
+      ])
     ])
       .then(([access, privacyConfig]) => {
         if (cancelled) return
         setEntitlement(access.entitlement)
         setLicenseApiBaseUrl(access.apiBaseUrl)
         const storedConsent = privacyConfig[ANALYTICS_CONSENT_STORAGE_KEY]
+        setPhotoDataConsent(
+          privacyConfig[PHOTO_DATA_CONSENT_STORAGE_KEY] === true
+        )
         setAnalyticsConsent(
           typeof storedConsent === "boolean" ? storedConsent : null
         )
@@ -1514,6 +1542,7 @@ export default function App() {
         if (!cancelled) {
           setEntitlement({ planId: "free", active: true, source: "none" })
           setLicenseApiBaseUrl(getEffectiveLicenseApiBaseUrl())
+          setPhotoDataConsent(false)
           setEntitlementLoaded(true)
         }
       })
@@ -1564,6 +1593,16 @@ export default function App() {
     void chrome.storage.local.set({
       [ANALYTICS_CONSENT_STORAGE_KEY]: allowed
     })
+  }, [])
+
+  const resetAnalyticsConsent = useCallback(() => {
+    setAnalyticsConsent(null)
+    void chrome.storage.local.remove(ANALYTICS_CONSENT_STORAGE_KEY)
+  }, [])
+
+  const acceptPhotoDataConsent = useCallback(() => {
+    setPhotoDataConsent(true)
+    void chrome.storage.local.set({ [PHOTO_DATA_CONSENT_STORAGE_KEY]: true })
   }, [])
 
   useEffect(() => {
@@ -1992,11 +2031,58 @@ export default function App() {
   // Counts failed healthCheck attempts during initial connect so we can retry
   // silently before showing a disconnected error.
   const healthCheckAttemptsRef = useRef(0)
+  const healthCheckRetryTimeoutRef = useRef<number | null>(null)
+  const healthCheckRequestIdRef = useRef<string | null>(null)
   const albumsRequestedForAccountRef = useRef<string | null>(null)
   const currentAccountEmailRef = useRef<string | undefined>(undefined)
   const currentHasGptkRef = useRef(false)
   const sidePanelHostProviderRef = useRef<PhotoProvider | null>(null)
   const sidePanelHostTabIdRef = useRef<number | null>(null)
+
+  const cancelHealthCheckRetry = useCallback(() => {
+    const timeoutId = healthCheckRetryTimeoutRef.current
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+      healthCheckRetryTimeoutRef.current = null
+    }
+    healthCheckRequestIdRef.current = null
+    healthCheckAttemptsRef.current = 0
+  }, [])
+
+  const sendHealthCheckAttempt = useCallback(
+    (provider: PhotoProvider, attempt: number) => {
+      const requestId = generateRequestId()
+      healthCheckRequestIdRef.current = requestId
+      healthCheckAttemptsRef.current = attempt
+      sendToServiceWorker({
+        app: APP_ID,
+        action: "healthCheck",
+        provider,
+        requestId
+      })
+    },
+    []
+  )
+
+  const requestHealthCheck = useCallback(
+    (provider: PhotoProvider) => {
+      cancelHealthCheckRetry()
+      sendHealthCheckAttempt(provider, 1)
+    },
+    [cancelHealthCheckRetry, sendHealthCheckAttempt]
+  )
+
+  const scheduleHealthCheckRetry = useCallback(
+    (plan: ReturnType<typeof planHealthCheckRetry>) => {
+      if (!plan) return
+      cancelHealthCheckRetry()
+      healthCheckRetryTimeoutRef.current = window.setTimeout(() => {
+        healthCheckRetryTimeoutRef.current = null
+        sendHealthCheckAttempt(plan.provider, plan.attempt)
+      }, plan.delayMs)
+    },
+    [cancelHealthCheckRetry, sendHealthCheckAttempt]
+  )
 
   // Holds selections loaded from storage; applied once when groups first load.
   const pendingSelectionsRef = useRef<PendingSelections | null>(null)
@@ -2018,6 +2104,7 @@ export default function App() {
   }, [])
 
   const requestAlbums = useCallback((accountEmail?: string) => {
+    if (photoDataConsent !== true) return
     if ((settingsRef.current.sourceProvider ?? "google") !== "google") {
       setAlbums([])
       setAlbumsLoading(false)
@@ -2036,10 +2123,15 @@ export default function App() {
       requestId: generateRequestId(),
       provider: "google"
     })
-  }, [])
+  }, [photoDataConsent])
 
   const handleTrashProviderResult = useCallback(
     (result: GptkResultMessage) => {
+      const timeoutId = trashTimeoutByRequestRef.current.get(result.requestId)
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId)
+        trashTimeoutByRequestRef.current.delete(result.requestId)
+      }
       const generation = trashGenerationByRequestRef.current.get(
         result.requestId
       )
@@ -2052,6 +2144,7 @@ export default function App() {
       }
       void trashLifecycle
         .reconcile({
+          requestId: result.requestId,
           success: result.success,
           data: result.data as TrashProviderResultData | undefined,
           error: result.error
@@ -2244,11 +2337,9 @@ export default function App() {
               settings: nextSettings,
               checkpoint: null
             })
-            sendToServiceWorker({
-              app: APP_ID,
-              action: "healthCheck",
-              provider: hostProvider
-            })
+          }
+          if (photoDataConsent === true) {
+            requestHealthCheck(hostProvider)
           }
         }
       } catch {
@@ -2268,7 +2359,13 @@ export default function App() {
       disposed = true
       port.disconnect()
     }
-  }, [invalidatePaidConversionContext, isSidePanel, storedReviewScope])
+  }, [
+    invalidatePaidConversionContext,
+    isSidePanel,
+    photoDataConsent,
+    requestHealthCheck,
+    storedReviewScope
+  ])
 
   useEffect(() => {
     if (pendingSelectionsRef.current) {
@@ -2386,6 +2483,15 @@ export default function App() {
       switch (message.action) {
         case "healthCheck.result": {
           const msg = message as HealthCheckResultMessage
+          if (
+            msg.requestId !== undefined &&
+            msg.requestId !== healthCheckRequestIdRef.current
+          ) {
+            // A provider tab can navigate or be replaced while an older
+            // health check is still in flight. Never let that late response
+            // reconnect the app or schedule a retry for the new tab.
+            break
+          }
           const currentState = stateRef.current
           const previousAccountEmail =
             currentAccountEmailRef.current ??
@@ -2398,32 +2504,29 @@ export default function App() {
               msg.accountEmail &&
               previousAccountEmail !== msg.accountEmail
           )
-          if (
-            !msg.success &&
-            healthCheckAttemptsRef.current < HEALTH_CHECK_MAX_ATTEMPTS - 1
-          ) {
-            healthCheckAttemptsRef.current++
-            const delay = 400 * Math.pow(2, healthCheckAttemptsRef.current - 1)
-            dispatch({
-              type: "HEALTH_CHECK_RESULT",
-              payload: {
-                ...msg,
-                error:
-                  msg.error ??
-                  `Still trying to connect to ${providerLabel(settingsRef.current.sourceProvider ?? "google")}. If this does not recover, reload the photo tab and click Retry.`
-              }
-            })
-            window.setTimeout(() => {
-              sendToServiceWorker({
-                app: APP_ID,
-                action: "healthCheck",
-                provider: settingsRef.current.sourceProvider ?? "google"
-              })
-            }, delay)
+          const healthCheckProvider =
+            msg.provider ?? settingsRef.current.sourceProvider ?? "google"
+          const retryPlan = !msg.success
+            ? planHealthCheckRetry(
+                healthCheckProvider,
+                healthCheckAttemptsRef.current
+              )
+            : null
+          if (retryPlan) {
+            // Keep the connection step in its loading state while the bounded
+            // retries run. Do not dispatch RESET here: storage restoration can
+            // finish between attempts, and a transient retry must not erase a
+            // saved review before the final health-check result is known.
+            // A restored review remains useful for read-only inspection even
+            // when its provider tab is currently unavailable, but that must
+            // not suppress the bounded handshake retries. Destructive actions
+            // still require the eventual success result through the review
+            // preflight below; a final failure leaves the app fail-closed.
+            scheduleHealthCheckRetry(retryPlan)
             return
           }
           if (msg.success) {
-            healthCheckAttemptsRef.current = 0
+            cancelHealthCheckRetry()
             if (accountIdentityChanged) {
               invalidatePaidConversionContext()
             }
@@ -2452,6 +2555,8 @@ export default function App() {
                 }
               })
             }
+          } else {
+            cancelHealthCheckRetry()
           }
           const checkpoint = scanLifecycle.checkpoint
           if (
@@ -2689,6 +2794,8 @@ export default function App() {
     invalidatePaidConversionContext,
     openUpgradePrompt,
     patchScanCheckpoint,
+    cancelHealthCheckRetry,
+    scheduleHealthCheckRetry,
     storedReviewScope
   ])
 
@@ -2851,11 +2958,7 @@ export default function App() {
         refreshEmbeddingCacheCount()
         // Refresh account email after scan — the email in state may be stale
         // if the user switched accounts since the last health check.
-        sendToServiceWorker({
-          app: APP_ID,
-          action: "healthCheck",
-          provider: settingsRef.current.sourceProvider ?? "google"
-        })
+        requestHealthCheck(settingsRef.current.sourceProvider ?? "google")
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           await logger.finalize("paused")
@@ -2884,6 +2987,7 @@ export default function App() {
     [
       patchScanCheckpoint,
       refreshEmbeddingCacheCount,
+      requestHealthCheck,
       requestAlbums,
       scanLifecycle,
       trackEvent,
@@ -2893,14 +2997,11 @@ export default function App() {
 
   // Health check on mount + recover any scan log entry orphaned by a page reload
   useEffect(() => {
-    sendToServiceWorker({
-      app: APP_ID,
-      action: "healthCheck",
-      provider: settingsRef.current.sourceProvider ?? "google"
-    })
+    requestHealthCheck(settingsRef.current.sourceProvider ?? "google")
     scanLoggerRef.current.recoverStale()
     refreshEmbeddingCacheCount()
-  }, [refreshEmbeddingCacheCount])
+    return () => cancelHealthCheckRetry()
+  }, [cancelHealthCheckRetry, refreshEmbeddingCacheCount, requestHealthCheck])
 
   useEffect(() => {
     let cancelled = false
@@ -3037,15 +3138,26 @@ export default function App() {
   )
   const updateReviewSelections = useCallback(
     (action: DuplicateReviewAction) => {
-      setReviewSelections((current) =>
-        new DuplicateReviewSession({
-          groups,
-          mediaItems: displayMediaItems,
-          selections: current
-        }).update(action)
-      )
+      const next = new DuplicateReviewSession({
+        groups,
+        mediaItems: displayMediaItems,
+        selections: reviewSelectionsRef.current
+      }).update(action)
+      reviewSelectionsRef.current = next
+      setReviewSelections(next)
+      if (stateRef.current.status === "results") {
+        // Persist the user action immediately so a fast reload cannot race the
+        // later reconciliation effect and lose a keep/skip decision.
+        void storedReviewScope.write({
+          selections: new DuplicateReviewSession({
+            groups,
+            mediaItems: displayMediaItems,
+            selections: next
+          }).serialize()
+        })
+      }
     },
-    [displayMediaItems, groups]
+    [displayMediaItems, groups, storedReviewScope]
   )
   const reviewedVisibleGroupCount = visibleGroups.filter((group) =>
     reviewSession.reviewedGroupIds.has(group.id)
@@ -3309,20 +3421,24 @@ export default function App() {
   }, [settings, storedReviewScope])
 
   useEffect(() => {
+    cancelHealthCheckRetry()
+    healthCheckAttemptsRef.current = 0
+    if (photoDataConsent !== true) return
     setAlbums([])
     setAlbumsError(null)
     setAlbumsLoading(false)
     albumsRequestedForAccountRef.current = null
-    healthCheckAttemptsRef.current = 0
-    sendToServiceWorker({
-      app: APP_ID,
-      action: "healthCheck",
-      provider: settings.sourceProvider ?? "google"
-    })
-  }, [settings.sourceProvider])
+    requestHealthCheck(settings.sourceProvider ?? "google")
+  }, [
+    cancelHealthCheckRetry,
+    photoDataConsent,
+    requestHealthCheck,
+    settings.sourceProvider
+  ])
 
   const handleStartScan = useCallback(
     async (settingsOverride?: ScanSettings) => {
+      if (photoDataConsent !== true) return
       const requestedSettings = settingsOverride ?? settings
       const actionEntitlement = await refreshTimeLimitedEntitlementForAction()
       if (!actionEntitlement) return
@@ -3451,6 +3567,7 @@ export default function App() {
     [
       settings,
       invalidatePaidConversionContext,
+      photoDataConsent,
       refreshTimeLimitedEntitlementForAction,
       openTrackedUpgradePrompt,
       storedReviewScope,
@@ -3754,6 +3871,7 @@ export default function App() {
     setReportError(null)
     const confirmedPlan = trashConfirm
     const generation = paidConversionGenerationRef.current
+    const requestId = generateRequestId()
 
     const currentProvider = settings.sourceProvider ?? "google"
     const confirmationPreflight = evaluateReviewPreflight({
@@ -3794,6 +3912,7 @@ export default function App() {
     try {
       command = await trashLifecycle.begin({
         plan: confirmedPlan,
+        requestId,
         reviewSession,
         groups: visibleGroups,
         snapshot: {
@@ -3916,7 +4035,6 @@ export default function App() {
     handleCloseTrashConfirm()
     setTrashWarningSafely(null)
 
-    const requestId = generateRequestId()
     trashGenerationByRequestRef.current.set(requestId, generation)
 
     dispatch({
@@ -3938,6 +4056,31 @@ export default function App() {
       provider: command.provider,
       args: command.args
     })
+    const timeoutId = window.setTimeout(() => {
+      trashTimeoutByRequestRef.current.delete(requestId)
+      if (
+        trashGenerationByRequestRef.current.get(requestId) !== generation
+      ) {
+        return
+      }
+      void trashLifecycle
+        .timeout({ requestId })
+        .then(() => {
+          if (
+            trashGenerationByRequestRef.current.get(requestId) !== generation
+          ) {
+            return
+          }
+          setTrashWarningSafely(
+            "The provider has not confirmed this Trash request yet. Do not retry; PhotoSweep will reconcile a late result if it arrives."
+          )
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error)
+          setReportError(`Could not record the Trash timeout: ${message}`)
+        })
+    }, TRASH_REQUEST_TIMEOUT_MS)
+    trashTimeoutByRequestRef.current.set(requestId, timeoutId)
   }, [
     trashConfirm,
     state,
@@ -3961,6 +4104,7 @@ export default function App() {
 
   const handleReset = useCallback(() => {
     invalidatePaidConversionContext()
+    cancelHealthCheckRetry()
     scanLifecycle.reset()
     trashLifecycle.reset()
     cachedMediaItemsRef.current = null
@@ -3982,14 +4126,16 @@ export default function App() {
     void storedReviewScope.invalidateReview()
     void storedReviewScope.write({ checkpoint: null })
     dispatch({ type: "RESET" })
-    healthCheckAttemptsRef.current = 0
-    sendToServiceWorker({
-      app: APP_ID,
-      action: "healthCheck",
-      provider: settingsRef.current.sourceProvider ?? "google"
-    })
+    if (photoDataConsent === true) {
+      requestHealthCheck(settingsRef.current.sourceProvider ?? "google")
+    } else {
+      healthCheckAttemptsRef.current = 0
+    }
   }, [
+    cancelHealthCheckRetry,
     invalidatePaidConversionContext,
+    photoDataConsent,
+    requestHealthCheck,
     scanLifecycle,
     storedReviewScope,
     trashLifecycle
@@ -3998,6 +4144,13 @@ export default function App() {
 
   const openProviderFromSidePanel = useCallback(
     async (provider: PhotoProvider): Promise<LaunchProviderResult> => {
+      if (photoDataConsent !== true) {
+        return {
+          success: false,
+          provider,
+          error: "Accept the PhotoSweep data-use notice before opening a provider."
+        }
+      }
       let hostTabId = sidePanelHostTabIdRef.current
       try {
         if (hostTabId === null && isSidePanel && chrome.tabs?.query) {
@@ -4041,12 +4194,14 @@ export default function App() {
         }
       }
     },
-    [isSidePanel]
+    [isSidePanel, photoDataConsent]
   )
 
   const handleOpenProvider = useCallback(
     (provider: PhotoProvider) => {
+      if (photoDataConsent !== true) return
       invalidatePaidConversionContext()
+      cancelHealthCheckRetry()
       setSidePanelSourceConfirmed(true)
       scanLifecycle.reset()
       cachedMediaItemsRef.current = null
@@ -4083,19 +4238,18 @@ export default function App() {
         }
         window.setTimeout(
           () => {
-            sendToServiceWorker({
-              app: APP_ID,
-              action: "healthCheck",
-              provider
-            })
+            requestHealthCheck(provider)
           },
           result.alreadyOpen ? 250 : 900
         )
       })
     },
     [
+      cancelHealthCheckRetry,
       invalidatePaidConversionContext,
       openProviderFromSidePanel,
+      photoDataConsent,
+      requestHealthCheck,
       scanLifecycle,
       storedReviewScope
     ]
@@ -4478,6 +4632,29 @@ export default function App() {
             </Typography>
           </Alert>
         )}
+        {analyticsConsent !== null && licenseApiBaseUrl && (
+          <Box
+            sx={{
+              mb: 1.25,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              px: 1.25,
+              py: 0.75,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1.5
+            }}>
+            <Typography variant="caption" color="text.secondary">
+              Optional usage metrics: {analyticsConsent ? "allowed" : "off"}.
+              Photo content is never included.
+            </Typography>
+            <Button size="small" onClick={resetAnalyticsConsent}>
+              Change
+            </Button>
+          </Box>
+        )}
         {isSidePanel ? (
           <Box
             sx={{
@@ -4557,7 +4734,8 @@ export default function App() {
               <Box
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns:
+                    state.status === "disconnected" ? "1fr 1fr" : "1fr",
                   gap: 1
                 }}>
                 <Button
@@ -4568,14 +4746,16 @@ export default function App() {
                   sx={{ fontWeight: 800 }}>
                   Open
                 </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<RefreshRoundedIcon />}
-                  onClick={handleReset}
-                  sx={{ fontWeight: 800 }}>
-                  Retry
-                </Button>
+                {state.status === "disconnected" && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RefreshRoundedIcon />}
+                    onClick={handleReset}
+                    sx={{ fontWeight: 800 }}>
+                    Retry
+                  </Button>
+                )}
               </Box>
               <Typography variant="caption" color="text.secondary">
                 This step must pass before scan controls unlock.
@@ -5020,6 +5200,41 @@ export default function App() {
         )}
       </Box>
 
+      <Dialog
+        open={entitlementLoaded && photoDataConsent === false}
+        onClose={() => {}}
+        fullWidth
+        maxWidth="sm"
+        aria-labelledby="photo-data-disclosure-title">
+        <DialogTitle id="photo-data-disclosure-title">
+          Before you scan
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            PhotoSweep reads thumbnails, media metadata, and provider item
+            identifiers from the signed-in photo tab to find duplicate photos
+            and videos. Matching, embeddings, and reports stay in this
+            browser. PhotoSweep only sends license information needed for paid
+            access, and optional usage metrics are separately opt-in. Nothing
+            moves to provider Trash until you review and confirm it.
+          </DialogContentText>
+          <Button
+            component="a"
+            href={`${PHOTOSWEEP_SITE_URL}privacy`}
+            target="_blank"
+            rel="noreferrer"
+            endIcon={<OpenInNewRoundedIcon />}
+            sx={{ mt: 1 }}>
+            Read the privacy policy
+          </Button>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={acceptPhotoDataConsent}>
+            I understand, continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <UpgradeDialog
         open={!!upgradePrompt}
         reason={upgradePrompt?.reason ?? "groups"}
@@ -5056,7 +5271,7 @@ export default function App() {
           setRatingPromptSafely(false)
           void completeRatingPrompt()
           void chrome.tabs.create({
-            url: chromeWebStoreReviewUrl(chrome.runtime.id)
+            url: PHOTOSWEEP_SITE_URL
           })
         }}
         onFeedback={() => {

@@ -7,7 +7,7 @@ import type { PhotoProvider, ScanSettings } from "./types"
  * unavailable identity is represented explicitly instead of being treated as
  * a match.
  */
-export const REVIEW_PREFLIGHT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+export const REVIEW_PREFLIGHT_MAX_AGE_MS = 86_400_000
 
 export type ReviewPreflightReasonCode =
   | "no_selection"
@@ -78,10 +78,10 @@ function freshnessFor(
   now: number,
   maxAgeMs: number
 ): ReviewPreflightResult["freshness"] {
-  if (typeof scanDate !== "number" || !Number.isFinite(scanDate)) {
+  if (!Number.isFinite(scanDate)) {
     return "unknown"
   }
-  if (scanDate > now || now - scanDate < 0) return "unknown"
+  if (scanDate > now) return "unknown"
   return now - scanDate <= maxAgeMs ? "fresh" : "stale"
 }
 
@@ -219,13 +219,10 @@ export function evaluateReviewPreflight(
       current.code === "account_unknown" &&
       input.allowUnavailableAccountIdentity
     ) {
-      return false
-    }
-    if (current.code === "scan_date_unknown" || current.code === "scan_stale") {
-      return Boolean(input.requireFreshScan)
-    }
-    if (current.code === "scope_unknown") {
-      return Boolean(input.requireKnownScope)
+      // The weaker provider-session policy is valid only when neither side
+      // exposes an identity. If either side has an email, an absent counterpart
+      // is an unverified mismatch and must continue to block destructive work.
+      return accountStatus !== "unavailable"
     }
     return true
   })
@@ -262,8 +259,11 @@ export function accountFingerprint(
   const normalized = normalizedEmail(email)
   if (!normalized) return undefined
   let hash = 2166136261
-  for (let index = 0; index < normalized.length; index++) {
-    hash ^= normalized.charCodeAt(index)
+  // split("") iterates UTF-16 code units, matching the previous indexed loop
+  // for non-ASCII identities while avoiding a mutable counter in this safety
+  // boundary.
+  for (const codeUnit of normalized.split("")) {
+    hash ^= codeUnit.charCodeAt(0)
     hash = Math.imul(hash, 16777619)
   }
   return `account-${(hash >>> 0).toString(16)}`

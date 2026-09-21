@@ -108,6 +108,84 @@ test.describe("healthCheck", () => {
     await stub.close()
     await page.close()
   })
+
+  test("automatically retries transient provider readiness failures", async () => {
+    await clearStorage(context)
+
+    // Start disconnected so this test exercises the same Retry button path
+    // users reach after Open has completed but the bridge is still settling.
+    const page = await openAppTab(context, extensionId)
+    await expect(
+      page.getByText(/Cannot connect to Google Photos/i)
+    ).toBeVisible({ timeout: 10_000 })
+
+    const stub = await openGptkStubPage(context, {
+      healthCheck: {
+        sequence: [
+          { success: false, error: "bridge still loading" },
+          { success: false, error: "bridge still loading" },
+          {
+            data: {
+              hasGptk: true,
+              hasWizData: true,
+              accountEmail: "test@example.com"
+            }
+          }
+        ]
+      }
+    })
+
+    await page.getByRole("button", { name: /Retry connection/i }).click()
+    await expect(scanLibraryButton(page)).toBeVisible({ timeout: 10_000 })
+    await expect(
+      page.getByRole("button", { name: /Retry connection/i })
+    ).not.toBeVisible()
+    await expect
+      .poll(async () =>
+        stub.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __gptkCommandLog?: Array<{ command: string }>
+              }
+            ).__gptkCommandLog?.filter(
+              (entry) => entry.command === "healthCheck"
+            ).length ?? 0
+        )
+      )
+      .toBe(3)
+
+    await stub.close()
+    await page.close()
+  })
+
+  test("fails closed when the provider tab navigates away during retries", async () => {
+    await clearStorage(context)
+
+    const page = await openAppTab(context, extensionId)
+    await expect(
+      page.getByText(/Cannot connect to Google Photos/i)
+    ).toBeVisible({ timeout: 10_000 })
+
+    const stub = await openGptkStubPage(context, {
+      healthCheck: { delayMs: 1_000 }
+    })
+    await page.getByRole("button", { name: /Retry connection/i }).click()
+
+    // Simulate the user leaving Google Photos while the first health check is
+    // still in flight. The app must not remain connected to the old tab.
+    await stub.goto("https://example.com/")
+    await expect(
+      page.getByText(/Cannot connect to Google Photos/i)
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(
+      page.getByRole("button", { name: /Retry connection/i })
+    ).toBeVisible()
+    await expect(scanLibraryButton(page)).not.toBeVisible()
+
+    await stub.close()
+    await page.close()
+  })
 })
 
 // ============================================================

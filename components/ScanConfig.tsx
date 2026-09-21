@@ -761,11 +761,49 @@ export function ScanConfig({
         )}
 
         {batchLimit && (
-          <Alert severity="info" sx={{ mb: 2 }}>
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            action={
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                  gap: 0.5
+                }}>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() =>
+                    onSettingsChange({
+                      ...(sourceProvider === "amazon"
+                        ? { amazonBatchLimit: undefined }
+                        : { icloudBatchLimit: undefined })
+                    })
+                  }>
+                  Clear test batch
+                </Button>
+                {!fullScanAllowed && onUpgrade && (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() =>
+                      onUpgrade(
+                        `${providerLabel(sourceProvider)} full-library scans unlock with Cleanup Pass or Lifetime Early Access.`
+                      )
+                    }>
+                    Purchase full scan
+                  </Button>
+                )}
+              </Box>
+            }>
             Test batch is on. This scan will check only{" "}
             {batchLimit.toLocaleString()} {providerLabel(sourceProvider)} item
-            {batchLimit === 1 ? "" : "s"}. Clear the test batch size for the
-            full library.
+            {batchLimit === 1 ? "" : "s"}.{" "}
+            {fullScanAllowed
+              ? "Clear the test batch size to use your plan's normal scan scope."
+              : "Purchase Full scan, then clear the test batch size to check the full library."}
           </Alert>
         )}
 

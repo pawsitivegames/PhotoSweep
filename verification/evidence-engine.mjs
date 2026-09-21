@@ -230,6 +230,14 @@ function validateEntry(entry, obligation, root, expectedSourceFingerprint, error
     error(errors, "ARTIFACT_PATH_INVALID", id, "Artifact path must be a safe relative path.")
     return
   }
+  if (entry.artifact !== obligation.artifact) {
+    error(
+      errors,
+      "ARTIFACT_PATH_MISMATCH",
+      id,
+      `Evidence points to ${entry.artifact}; registry requires ${obligation.artifact}.`
+    )
+  }
   const artifactPath = resolve(root, entry.artifact)
   if (!existsSync(artifactPath) || !statSync(artifactPath).isFile()) {
     error(errors, "ARTIFACT_MISSING", id, `Evidence artifact does not exist: ${entry.artifact}`)

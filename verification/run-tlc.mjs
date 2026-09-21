@@ -60,18 +60,32 @@ function parseSummary(output) {
     "Crash",
     "Recover"
   ]
-  const coverageActions = requiredActions.filter((action) =>
-    new RegExp(`<${action} line`).test(output)
-  )
-  const coverageCounts = Object.fromEntries(
+  const coverageRanges = Object.fromEntries(
     requiredActions.map((action) => {
       const match = output.match(
-        new RegExp(`<${action} line[^>]*>:\\s*([0-9]+)`)
+        new RegExp(`<${action} line[^>]*>:\\s*([0-9]+)(?::([0-9]+))?`)
       )
-      return [action, match ? Number(match[1]) : 0]
+      return [
+        action,
+        {
+          minimum: match ? Number(match[1]) : 0,
+          maximum: match ? Number(match[2] ?? match[1]) : 0
+        }
+      ]
     })
   )
-  const coverageComplete = coverageActions.length === requiredActions.length
+  // TLC prints a minimum:maximum range for each covered action. A zero
+  // minimum does not mean the action is unreachable; it means some explored
+  // state did not enable it. Reachability is established by the maximum.
+  const coverageCounts = Object.fromEntries(
+    requiredActions.map((action) => [action, coverageRanges[action].maximum])
+  )
+  const coverageActions = requiredActions.filter(
+    (action) => coverageCounts[action] > 0
+  )
+  const coverageComplete = requiredActions.every(
+    (action) => coverageCounts[action] > 0
+  )
   // Undo is guarded by moved # {}, so observing a positive TLC coverage count
   // for that action is a concrete reachable nonempty-moved witness. This keeps
   // a vacuous model run from being accepted as lifecycle evidence.
@@ -81,12 +95,14 @@ function parseSummary(output) {
     statesExplored: generated ? Number(generated[2]) : 0,
     depth: depth ? Number(depth[1]) : 0,
     coverageCounts,
+    coverageRanges,
     coverageActions,
     nonEmptyUndoWitness,
     coverageComplete: coverageComplete && nonEmptyUndoWitness,
     modelComplete:
       /Model checking completed\. No error has been found\./.test(output) &&
-      coverageComplete
+      coverageComplete &&
+      nonEmptyUndoWitness
   }
 }
 
@@ -95,7 +111,8 @@ export function runTlc({
   jarPath = process.env.TLA_TOOLS_JAR,
   outputDirectory = resolve(root, "tmp/verification/current"),
   modulePath = "verification/model/TrashLifecycle.tla",
-  configPath = "verification/model/TrashLifecycle.cfg"
+  configPath = "verification/model/TrashLifecycle.cfg",
+  runId = process.env.VERIFICATION_RUN_ID ?? null
 } = {}) {
   mkdirSync(outputDirectory, { recursive: true })
   const resolvedJar = resolve(root, jarPath ?? newestLocalJar(root) ?? "")
@@ -104,6 +121,7 @@ export function runTlc({
   if (!existsSync(resolvedJar)) {
     const result = {
       status: "BLOCKED",
+      runId,
       modelComplete: false,
       checksRun: 0,
       statesExplored: 0,
@@ -118,6 +136,7 @@ export function runTlc({
   if (actualHash !== PINNED_TLC_SHA256) {
     const result = {
       status: "FAIL",
+      runId,
       modelComplete: false,
       checksRun: 0,
       statesExplored: 0,
@@ -161,6 +180,7 @@ export function runTlc({
   } catch (caught) {
     const result = {
       status: "BLOCKED",
+      runId,
       modelComplete: false,
       checksRun: 0,
       statesExplored: 0,
@@ -179,6 +199,7 @@ export function runTlc({
   const exitCode = processResult.status ?? 1
   const result = {
     status: exitCode === 0 && summary.modelComplete ? "PASS" : "FAIL",
+    runId,
     exitCode,
     checksRun: 1,
     ...summary,

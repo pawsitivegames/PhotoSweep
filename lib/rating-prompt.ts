@@ -92,7 +92,3 @@ export async function completeRatingPrompt(): Promise<void> {
   const current = await loadState()
   await saveState({ ...current, completed: true })
 }
-
-export function chromeWebStoreReviewUrl(extensionId: string): string {
-  return `https://chrome.google.com/webstore/detail/${encodeURIComponent(extensionId)}/reviews`
-}
