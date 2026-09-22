@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  CHROME_WEB_STORE_REVIEWS_URL,
   FEEDBACK_EMAIL,
   FEEDBACK_MAILTO_URL,
   FEEDBACK_SUBJECT,
@@ -16,6 +17,9 @@ describe("feedback mail target", () => {
     )
     expect(PHOTOSWEEP_SITE_URL).toBe(
       "https://photosweep.pawsitivegames.chatgpt.site/"
+    )
+    expect(CHROME_WEB_STORE_REVIEWS_URL).toBe(
+      "https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo/reviews"
     )
   })
 })

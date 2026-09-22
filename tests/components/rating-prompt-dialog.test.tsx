@@ -22,14 +22,16 @@ function renderDialog() {
 }
 
 describe("RatingPromptDialog", () => {
-  it("offers site and email feedback without sentiment gating", () => {
+  it("offers store reviews and email feedback without sentiment gating", () => {
     renderDialog()
 
     expect(
       screen.getByText("How was your PhotoSweep cleanup?")
     ).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Visit PhotoSweep site" })
+      screen.getByRole("button", {
+        name: "Leave a review on the Chrome Web Store"
+      })
     ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Send feedback" })
@@ -37,11 +39,13 @@ describe("RatingPromptDialog", () => {
     expect(screen.queryByText(/love|five star/i)).not.toBeInTheDocument()
   })
 
-  it("offers site, feedback, defer, and permanent dismissal actions", () => {
+  it("offers review, feedback, defer, and permanent dismissal actions", () => {
     const props = renderDialog()
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Visit PhotoSweep site" })
+      screen.getByRole("button", {
+        name: "Leave a review on the Chrome Web Store"
+      })
     )
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }))
     fireEvent.click(screen.getByRole("button", { name: "Maybe later" }))

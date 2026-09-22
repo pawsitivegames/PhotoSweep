@@ -5,7 +5,7 @@ The upload package is generated from the root `package.json` metadata:
 - Title: `PhotoSweep for Google Photos™`
 - Short description: `Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.`
 - App version: `2.3.0`
-- Chrome Web Store version: `2.3.0.1`
+- Chrome Web Store version: `2.3.0.2`
 
 Use full SemVer for the app version in `package.json`:
 
@@ -28,8 +28,8 @@ because `+` metadata is not a valid Chrome manifest version.
 hash-addressed upload ZIP plus a matching JSON sidecar:
 
 ```text
-build/photosweep-cws-v2.3.0.1-sha256-<first-12-sha256>.zip
-build/photosweep-cws-v2.3.0.1-sha256-<first-12-sha256>.json
+build/photosweep-cws-v2.3.0.2-sha256-<first-12-sha256>.zip
+build/photosweep-cws-v2.3.0.2-sha256-<first-12-sha256>.json
 ```
 
 The sidecar records the app version, Chrome version, full ZIP SHA-256, manifest
@@ -61,5 +61,5 @@ command only builds and audits the ZIP; it does not submit or publish it.
 To inspect the locked listing metadata in the generated package:
 
 ```bash
-unzip -p build/photosweep-cws-v2.3.0.1-sha256-<first-12-sha256>.zip manifest.json
+unzip -p build/photosweep-cws-v2.3.0.2-sha256-<first-12-sha256>.zip manifest.json
 ```

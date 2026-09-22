@@ -71,7 +71,11 @@ import {
   type DuplicateTrashPlan
 } from "../lib/duplicate-review-session"
 import { EmbeddingCache } from "../lib/embedding-cache"
-import { FEEDBACK_MAILTO_URL, PHOTOSWEEP_SITE_URL } from "../lib/feedback"
+import {
+  CHROME_WEB_STORE_REVIEWS_URL,
+  FEEDBACK_MAILTO_URL,
+  PHOTOSWEEP_SITE_URL
+} from "../lib/feedback"
 import { planHealthCheckRetry } from "../lib/health-check-retry"
 import {
   canExportFullReport,
@@ -5271,7 +5275,7 @@ export default function App() {
           setRatingPromptSafely(false)
           void completeRatingPrompt()
           void chrome.tabs.create({
-            url: PHOTOSWEEP_SITE_URL
+            url: CHROME_WEB_STORE_REVIEWS_URL
           })
         }}
         onFeedback={() => {

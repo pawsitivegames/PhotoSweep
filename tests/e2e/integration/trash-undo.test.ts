@@ -12,6 +12,7 @@
  */
 import { expect, test, type BrowserContext, type Page } from "@playwright/test"
 
+import { CHROME_WEB_STORE_REVIEWS_URL } from "../../../lib/feedback"
 import {
   clearStorage,
   injectEntitlement,
@@ -110,7 +111,26 @@ test("trashes selected groups and removes them from the UI", async () => {
   ).not.toBeVisible()
   await page.getByRole("button", { name: "Dismiss undo notification" }).click()
   await expect(page.getByText("How was your PhotoSweep cleanup?")).toBeVisible()
-  await page.getByRole("button", { name: "Maybe later" }).click()
+  await context.route(CHROME_WEB_STORE_REVIEWS_URL, (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: "reviews" })
+  )
+  let reviewTab: Page | undefined
+  try {
+    const newTab = context.waitForEvent("page")
+    await page
+      .getByRole("button", {
+        name: "Leave a review on the Chrome Web Store"
+      })
+      .click()
+    reviewTab = await newTab
+    await expect.poll(() => reviewTab?.url()).toBe(CHROME_WEB_STORE_REVIEWS_URL)
+    await expect(
+      page.getByText("How was your PhotoSweep cleanup?")
+    ).toBeHidden()
+  } finally {
+    await reviewTab?.close()
+    await context.unroute(CHROME_WEB_STORE_REVIEWS_URL)
+  }
 
   // Review list should no longer show duplicate sets
   await expect(
