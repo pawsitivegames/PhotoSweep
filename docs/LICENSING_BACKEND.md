@@ -195,6 +195,7 @@ browser session:
 - `getSessionIdByStripeCustomerId(customerId)`
 - `getSessionIdByStripeCheckoutSessionId(checkoutSessionId)`
 - `getSessionIdByStripePaymentIntentId(paymentIntentId)`
+- `getSessionIdByStripeChargeId(chargeId)`
 - `recordPendingStripeRevocation({ paymentIntentId, checkoutSessionId, chargeId, reason })`
   for refund/dispute events that arrive before a matching license exists
 - `getPendingStripeRevocation({ paymentIntentId, checkoutSessionId, chargeId })`

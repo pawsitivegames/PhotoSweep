@@ -272,7 +272,7 @@ function hasSuccessfulChargeStatus(charge) {
 }
 
 function isSuccessfulRefund(refund) {
-  return !["failed", "canceled", "cancelled"].includes(refund?.status)
+  return refund?.status === undefined || refund.status === "succeeded"
 }
 
 function isPaidCheckout(session) {
@@ -391,15 +391,21 @@ function amountByCurrency(records, amountField = "stripeAmount") {
   return { totals, currencies, complete, missing }
 }
 
-function sumRefundsByCurrency(refunds) {
+function summarizeRefunds(refunds) {
   const totals = {}
+  const currencies = new Set()
+  let missing = 0
   for (const refund of refunds) {
     const amount = integerAmount(refund.amount)
     const currency = normalizeCurrency(refund.currency)
-    if (amount === undefined || !currency) continue
+    if (amount === undefined || !currency) {
+      missing += 1
+      continue
+    }
+    currencies.add(currency)
     totals[currency] = (totals[currency] ?? 0) + amount
   }
-  return totals
+  return { totals, currencies: [...currencies].sort(), missing }
 }
 
 function metricAmount(totals, currencies, complete, missing, count) {
@@ -668,14 +674,15 @@ export function reconcileStripeLedger({
 
   const grossRecords = eligiblePayments
   const gross = amountByCurrency(grossRecords)
-  const refundTotals = sumRefundsByCurrency(
+  const refundSummary = summarizeRefunds(refunds)
+  const refundTotals = summarizeRefunds(
     [...refundsByPayment.values()].flat().filter((refund) => {
       const payment = payments.find((item) =>
         (refundsByPayment.get(item.key) ?? []).includes(refund)
       )
       return payment && ALLOWLISTED_PLAN_SET.has(payment.planId)
     })
-  )
+  ).totals
   const netTotals = { ...gross.totals }
   for (const [currency, amount] of Object.entries(refundTotals)) {
     netTotals[currency] = (netTotals[currency] ?? 0) - amount
@@ -728,6 +735,12 @@ export function reconcileStripeLedger({
   if (gross.missing > 0 || gross.currencies.length !== 1) {
     appendBlocker(blockers, "gross_revenue_currency_or_amount_gap")
   }
+  if (refundSummary.missing > 0) {
+    appendBlocker(blockers, "refunds_missing_amount_or_currency")
+  }
+  if (Object.values(netTotals).some((amount) => amount < 0)) {
+    appendBlocker(blockers, "refunds_exceed_gross_revenue")
+  }
   if (unmatchedRefunds > 0) {
     appendBlocker(blockers, "refunds_without_original_payment_match")
   }
@@ -745,9 +758,13 @@ export function reconcileStripeLedger({
         : null,
     currencyConsistent:
       gross.missing === 0 &&
+      refundSummary.missing === 0 &&
       gross.currencies.length === 1 &&
       netCurrencies.length === 1 &&
-      netCurrencies[0] === gross.currencies[0],
+      netCurrencies[0] === gross.currencies[0] &&
+      refundSummary.currencies.every(
+        (currency) => currency === gross.currencies[0]
+      ),
     metrics: {
       paid_checkouts: paidCheckoutSessions.length,
       paid_customers: paidCustomerIds.size,
@@ -777,7 +794,8 @@ export function reconcileStripeLedger({
       },
       net_revenue: {
         matchedRefundCount: [...refundsByPayment.values()].flat().length,
-        unmatchedRefundCount: unmatchedRefunds
+        unmatchedRefundCount: unmatchedRefunds,
+        missingAmountOrCurrencyCount: refundSummary.missing
       }
     },
     reconciliation: {

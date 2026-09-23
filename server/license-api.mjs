@@ -560,6 +560,10 @@ function appendStripeEventId(purchase, eventId) {
   return eventIds.length > 0 ? eventIds : undefined
 }
 
+function isMissingStripeField(value) {
+  return value === undefined || value === null || value === ""
+}
+
 function stripePurchaseFields(
   object,
   { existing, eventId, eventCreatedAt, purchasedAt, refundedAt } = {}
@@ -574,7 +578,7 @@ function stripePurchaseFields(
   }
   const planId = stripePlanId(object)
   if (planId) fields.planId = planId
-  if (existing?.purchasedAt === undefined) {
+  if (isMissingStripeField(existing?.purchasedAt)) {
     fields.purchasedAt = purchasedAt ?? stripeTimestampMs(object)
   }
   if (refundedAt !== undefined) fields.refundedAt = refundedAt
@@ -605,7 +609,7 @@ function mergeStripePurchase(
   for (const [key, value] of Object.entries(fields)) {
     if (key === "stripeEventIds" || key === "stripeEventId") {
       merged[key] = value
-    } else if (value !== undefined && merged[key] === undefined) {
+    } else if (value !== undefined && isMissingStripeField(merged[key])) {
       merged[key] = value
     }
   }
@@ -667,7 +671,9 @@ function mergePendingStripeFields(purchase, pending) {
     refundedAt: pending.refundedAt
   }
   for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined && merged[key] === undefined) merged[key] = value
+    if (value !== undefined && isMissingStripeField(merged[key])) {
+      merged[key] = value
+    }
   }
   const eventIds = [
     ...new Set(
@@ -1273,12 +1279,12 @@ async function activateCheckoutSession(
         session,
         { eventId, eventCreatedAt, purchasedAt }
       )
-  if (purchase.email === undefined && email !== undefined) {
+  if (isMissingStripeField(purchase.email) && email !== undefined) {
     purchase = { ...purchase, email }
   }
-  if (purchase.planId === undefined) purchase.planId = planId
-  if (purchase.status === undefined) purchase.status = "active"
-  if (purchase.expiresAt === undefined) {
+  if (isMissingStripeField(purchase.planId)) purchase.planId = planId
+  if (isMissingStripeField(purchase.status)) purchase.status = "active"
+  if (isMissingStripeField(purchase.expiresAt)) {
     purchase.expiresAt = planExpiry(purchase.planId, purchase.purchasedAt)
   }
   purchase = await applyPendingStripeRevocation(purchase, store)
