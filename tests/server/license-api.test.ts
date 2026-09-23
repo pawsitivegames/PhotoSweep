@@ -202,6 +202,98 @@ describe("license API", () => {
     ])
   })
 
+  it("backfills Stripe ledger fields and event ids on an existing purchase row", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const licenseSessionId = "pls_ledger_backfill"
+    await store.upsertLicense({
+      sessionId: licenseSessionId,
+      planId: "cleanup_pass",
+      status: "active",
+      stripePaymentIntentId: "pi_ledger_backfill",
+      purchasedAt: 1_700_000_000_000
+    })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_ledger_paid",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_ledger_backfill",
+              created: 1_700_000_001,
+              customer: { id: "cus_ledger_backfill" },
+              payment_intent: {
+                id: "pi_ledger_backfill",
+                latest_charge: { id: "ch_ledger_backfill" }
+              },
+              amount_total: 499,
+              currency: "usd",
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              customer_details: { email: "ledger-private@example.com" },
+              metadata: {
+                planId: "cleanup_pass",
+                licenseSessionId
+              }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    const enriched =
+      store.snapshot().licensesBySessionId[licenseSessionId].purchases[0]
+    expect(enriched).toMatchObject({
+      stripeCheckoutSessionId: "cs_ledger_backfill",
+      stripePaymentIntentId: "pi_ledger_backfill",
+      stripeChargeId: "ch_ledger_backfill",
+      stripeCustomerId: "cus_ledger_backfill",
+      stripeAmount: 499,
+      stripeCurrency: "usd",
+      purchasedAt: 1_700_000_000_000,
+      status: "active",
+      stripeEventIds: ["evt_ledger_paid"]
+    })
+    expect(JSON.stringify(store.snapshot().analyticsEvents)).not.toContain(
+      "ledger-private@example.com"
+    )
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_ledger_refund",
+          type: "charge.refunded",
+          data: {
+            object: {
+              id: "ch_ledger_backfill",
+              payment_intent: "pi_ledger_backfill",
+              customer: "cus_ledger_backfill",
+              amount: 499,
+              amount_refunded: 499,
+              currency: "usd"
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    const refunded =
+      store.snapshot().licensesBySessionId[licenseSessionId].purchases[0]
+    expect(refunded).toMatchObject({
+      status: "inactive",
+      inactiveReason: "charge.refunded",
+      refundedAt: expect.any(Number),
+      stripeEventIds: ["evt_ledger_paid", "evt_ledger_refund"]
+    })
+  })
+
   it("hands a checkout session to the extension from the success page", async () => {
     const keys = testKeys()
     const api = createLicenseApi({
