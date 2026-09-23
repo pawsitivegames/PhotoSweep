@@ -1635,4 +1635,38 @@ describe("license API", () => {
       planId: "free"
     })
   })
+
+  it("adds the charge index when upgrading a legacy JSON store", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "photosweep-legacy-"))
+    const storePath = path.join(dir, "licenses.json")
+    await fs.writeFile(
+      storePath,
+      JSON.stringify({
+        licensesBySessionId: {},
+        sessionByEmail: {},
+        sessionByStripeCustomerId: {},
+        sessionByStripeCheckoutSessionId: {},
+        sessionByStripePaymentIntentId: {},
+        pendingStripeRevocations: {},
+        processedStripeEvents: [],
+        analyticsEvents: []
+      })
+    )
+
+    const store = createJsonFileLicenseStore(storePath)
+    await store.upsertLicense({
+      sessionId: "pls_legacy",
+      planId: "lifetime",
+      status: "active",
+      stripeChargeId: "ch_legacy",
+      purchasedAt: 1000
+    })
+
+    await expect(store.getSessionIdByStripeChargeId("ch_legacy")).resolves.toBe(
+      "pls_legacy"
+    )
+    await expect(store.snapshot()).resolves.toMatchObject({
+      sessionByStripeChargeId: { ch_legacy: "pls_legacy" }
+    })
+  })
 })

@@ -1024,7 +1024,7 @@ export function createMemoryLicenseStore(seed = {}) {
           state.sessionByStripePaymentIntentId
         ),
         sessionByStripeChargeId: Object.fromEntries(
-          state.sessionByStripeChargeId
+          state.sessionByStripeChargeId ?? {}
         ),
         pendingStripeRevocations: Object.fromEntries(
           state.pendingStripeRevocations
@@ -1077,6 +1077,7 @@ export function createJsonFileLicenseStore(filePath) {
     },
     async upsertLicense(license) {
       await mutate((state) => {
+        state.sessionByStripeChargeId ??= {}
         state.licensesBySessionId[license.sessionId] = license
         for (const purchase of purchasesForLicense(license)) {
           if (purchase.email) {
@@ -1137,7 +1138,7 @@ export function createJsonFileLicenseStore(filePath) {
     },
     async getSessionIdByStripeChargeId(chargeId) {
       const state = await readState()
-      return state.sessionByStripeChargeId[chargeId]
+      return state.sessionByStripeChargeId?.[chargeId]
     },
     async recordPendingStripeRevocation(revocation) {
       await mutate((state) => {
