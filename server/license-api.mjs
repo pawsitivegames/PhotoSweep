@@ -1256,6 +1256,21 @@ async function activateCheckoutSession(
   ) {
     purchaseIndex = 0
   }
+  if (purchaseIndex === -1) {
+    const paymentIntentId = stripePaymentIntentId(session)
+    const customerId = stripeCustomerId(session)
+    const candidates = purchases
+      .map((purchase, index) => ({ purchase, index }))
+      .filter(
+        ({ purchase }) =>
+          purchase.planId === planId &&
+          !purchase.stripeCheckoutSessionId &&
+          (!purchase.stripePaymentIntentId ||
+            purchase.stripePaymentIntentId === paymentIntentId) &&
+          (!customerId || purchase.stripeCustomerId === customerId)
+      )
+    if (candidates.length === 1) purchaseIndex = candidates[0].index
+  }
   const existingPurchase =
     purchaseIndex === -1 ? undefined : purchases[purchaseIndex]
   const purchasedAt =

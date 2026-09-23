@@ -317,6 +317,64 @@ describe("license API", () => {
     expect(html).toContain("pls_success")
   })
 
+  it("backfills an unkeyed purchase only when its plan and customer match uniquely", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const licenseSessionId = "pls_unique_backfill"
+    await store.upsertLicense({
+      sessionId: licenseSessionId,
+      purchases: [
+        {
+          planId: "mini_cleanup",
+          status: "active",
+          stripeCustomerId: "cus_unique_backfill",
+          purchasedAt: 1_700_000_000_000
+        },
+        {
+          planId: "lifetime",
+          status: "active",
+          stripeCustomerId: "cus_other",
+          purchasedAt: 1_700_000_001_000
+        }
+      ]
+    })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_unique_backfill",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_unique_backfill",
+              customer: "cus_unique_backfill",
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              metadata: {
+                planId: "mini_cleanup",
+                licenseSessionId
+              }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    const purchases =
+      store.snapshot().licensesBySessionId[licenseSessionId].purchases
+    expect(purchases).toHaveLength(2)
+    expect(purchases[0]).toMatchObject({
+      planId: "mini_cleanup",
+      stripeCheckoutSessionId: "cs_unique_backfill",
+      stripeCustomerId: "cus_unique_backfill"
+    })
+  })
+
   it("waits for delayed payment success before activating access", async () => {
     const keys = testKeys()
     const env = envFor(keys.privateKey)
