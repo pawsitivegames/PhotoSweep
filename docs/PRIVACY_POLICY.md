@@ -67,7 +67,8 @@ purchase or full refund, are recorded as operational payment events without
 photo-library context.
 
 PhotoSweep's license service must not receive photo URLs, thumbnails, filenames,
-album names, client event timestamps, people/location labels, or page content.
+album names, exact timestamps from the client, people/location labels, or page
+content.
 The service may stamp a server receipt time on accepted telemetry for aggregate
 funnel calculations; that receipt time is not supplied by the client.
 
