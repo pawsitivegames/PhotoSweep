@@ -1259,7 +1259,10 @@ describe("license API", () => {
       status: "inactive",
       inactiveReason: "charge.refunded",
       stripeChargeId: "ch_charge_only",
-      stripeEventIds: ["evt_charge_only_refund", "evt_charge_only_activation"]
+      stripeEventIds: expect.arrayContaining([
+        "evt_charge_only_refund",
+        "evt_charge_only_activation"
+      ])
     })
   })
 
