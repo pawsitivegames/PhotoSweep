@@ -1197,6 +1197,72 @@ describe("license API", () => {
     })
   })
 
+  it("applies a charge-only pending refund after activation", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const licenseSessionId = "pls_charge_only_refund"
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_charge_only_refund",
+          type: "charge.refunded",
+          data: {
+            object: {
+              id: "ch_charge_only",
+              amount: 299,
+              amount_refunded: 299,
+              currency: "usd"
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+    expect(store.snapshot().pendingStripeRevocations).toMatchObject({
+      "ch:ch_charge_only": expect.objectContaining({
+        reason: "charge.refunded"
+      })
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_charge_only_activation",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_charge_only",
+              payment_intent: {
+                id: "pi_charge_only",
+                latest_charge: { id: "ch_charge_only" }
+              },
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              metadata: {
+                planId: "mini_cleanup",
+                licenseSessionId
+              }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      status: "inactive",
+      inactiveReason: "charge.refunded",
+      stripeChargeId: "ch_charge_only",
+      stripeEventIds: ["evt_charge_only_refund", "evt_charge_only_activation"]
+    })
+  })
+
   it("rejects unsigned webhooks", async () => {
     const keys = testKeys()
     const api = createLicenseApi({

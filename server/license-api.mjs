@@ -1205,7 +1205,8 @@ async function applyPendingStripeRevocation(purchase, store) {
   if (typeof store.getPendingStripeRevocation !== "function") return purchase
   const pending = await store.getPendingStripeRevocation({
     paymentIntentId: purchase.stripePaymentIntentId,
-    checkoutSessionId: purchase.stripeCheckoutSessionId
+    checkoutSessionId: purchase.stripeCheckoutSessionId,
+    chargeId: purchase.stripeChargeId
   })
   if (!pending) return purchase
   const enriched = mergePendingStripeFields(purchase, pending)
