@@ -4,7 +4,7 @@ import { resolve, join } from "node:path"
 import { spawnSync } from "node:child_process"
 
 const PINNED_TLC_VERSION = "1.8.0"
-const PINNED_TLC_SHA256 = "20322939d1b55bb0a3f674ab34bb69b87c711a6b35559d32445cb7d7f6d3bb58"
+const PINNED_TLC_SHA256 = "32d64fbbc464559fc7192341b27b885fa4eb6b92d1648d2b49fb9cdcb7aacf81"
 
 function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex")
