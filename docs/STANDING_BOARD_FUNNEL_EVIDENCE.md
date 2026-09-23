@@ -4,6 +4,29 @@ PhotoSweep Phase A records a consented, privacy-safe event row that Store
 Growth can aggregate without importing photo or account data. This document is
 the import and verification contract for the standing board.
 
+## Observed standing-board passConditions
+
+The following conditions are quoted from the observed standing board. They are
+acceptance conditions for Store Growth evidence, not claims that this PR has
+made any board metric PASS:
+
+1. `first_connect` — “A privacy-safe activation event is counted once per
+   install identity in the reporting window.”
+2. `first_scan_started` — “A first-scan-start event is counted after a
+   successful connect for the same install identity.”
+3. `first_scan_completed` — “A first-scan-complete event is counted only after
+   a valid scan start.”
+4. `first_trash_or_undo` — “The first Trash or Undo event is counted after a
+   completed scan and retains its event type.”
+5. `median_time_to_value` — “Each duration uses matched install and first-value
+   timestamps, excludes negative intervals, and reports the documented median.”
+6. `d7_retention` — “The D7 cohort and return event use the same privacy-safe
+   install identity and fixed cohort window.”
+7. `error_rate` — “Failures and attempts are from the same event contract and
+   the denominator is non-zero and documented.”
+8. `old_version_share` — “Version observations are present for the stated
+   population and compare semver values correctly.”
+
 ## Source collection and event-row schema
 
 The Firestore collection is:
@@ -44,12 +67,17 @@ time:
 ```bash
 npm run analytics:export -- \
   --current-version <PUBLISHED_CHROME_VERSION> \
-  --from <UTC_START_DAY> \
-  --to <UTC_END_DAY> \
+  --from <OBSERVATION_START_DAY> \
+  --to <OBSERVATION_END_DAY> \
+  --cohort-from <D7_COHORT_START_DAY> \
+  --cohort-to <D7_COHORT_END_DAY> \
   --output <PRIVACY_SAFE_OUTPUT_FILE>
 ```
 
-`--from` and `--to` are optional inclusive `dayKey` bounds. Without `--output`,
+`--from` and `--to` are optional inclusive observation-window `dayKey` bounds.
+`--cohort-from` and `--cohort-to` define the fixed inclusive D7 cohort window;
+when omitted, the observation bounds are used. The observation window must
+include the later return events needed for D7 measurement. Without `--output`,
 the same JSON summary is written to stdout. The script is
 `tools/export-funnel-evidence.mjs`, and its pure aggregation implementation is
 `server/funnel-evidence.mjs`.
@@ -63,31 +91,42 @@ matches `installCount`.
 
 ## Metric derivations
 
-All derivations operate on distinct `installId` values in the selected window.
-“Earliest” means the lowest server `recordedAt`; input order breaks exact
-timestamp ties deterministically.
+All derivations operate on distinct `installId` values in the selected
+observation window. “Earliest” means the lowest server `recordedAt`; input
+order breaks exact timestamp ties deterministically. A funnel transition must
+occur after the preceding transition for the same install identity.
 
 - `first_connect`: count of installs with an earliest `provider_connected`.
-- `first_scan_started`: count of installs with an earliest `scan_started`.
-- `first_scan_completed`: count of installs with an earliest `scan_completed`.
-- `first_trash_or_undo`: count of installs with an earliest `trash_completed`
-  or `undo_completed`.
-- `median_time_to_value`: median milliseconds between each install's earliest
-  `provider_connected` and earliest `trash_completed` or `undo_completed`, using
-  only installs with both events and non-negative elapsed time.
-- `d7_retention`: installs with any event on their first included UTC `dayKey`
-  and any event at least seven calendar days later, divided by included installs.
+- `first_scan_started`: count of installs with a `scan_started` after that
+  install's earliest successful `provider_connected`.
+- `first_scan_completed`: count of installs with a `scan_completed` after that
+  install's valid scan start.
+- `first_trash_or_undo`: count of installs with a `trash_completed` or
+  `undo_completed` after that install's valid scan completion. The aggregate
+  export also includes `firstValueEventTypeCounts` with separate
+  `trash_completed` and `undo_completed` counts.
+- `median_time_to_value`: median milliseconds between each matched install's
+  earliest successful `provider_connected` and its first valid
+  `trash_completed` or `undo_completed`, using only non-negative intervals.
+- `d7_retention`: installs whose first observation `dayKey` falls inside the
+  fixed cohort window and that have any same-identity event at least seven
+  calendar days later, divided by the fixed cohort count.
 - `error_rate`: `error` event count divided by the count of
   `scan_started + scan_completed + trash_attempted + trash_completed +
-  undo_completed` in the selected window. It is `null` when the denominator is
-  zero.
-- `old_version_share`: installs whose latest event in the selected window has
-  an `extensionVersion` different from the run's `--current-version`, divided by
-  included installs.
+  undo_completed` in the selected observation window. It is `null` when the
+  denominator is zero; the exporter does not invent a PASS for a zero
+  denominator.
+- `old_version_share`: installs whose latest version observation in the stated
+  observation population differs numerically from the run's
+  `--current-version`, divided by that population. Numeric comparison pads
+  missing trailing components with zero, so semver-equivalent forms compare
+  equal.
 
-The first-four values are distinct-install counts, not raw event totals. Empty
-denominators produce `null` for the rate/distribution metrics rather than an
-invented pass value.
+The first-four values are distinct-install counts, not raw event totals. The
+summary includes `d7CohortInstallCount`, `d7RetainedInstallCount`, and
+`firstValueEventTypeCounts` so Store Growth can verify the passConditions
+without receiving raw identities. Empty denominators produce `null` for the
+rate/distribution metrics rather than an invented pass value.
 
 ## Deterministic fixture
 

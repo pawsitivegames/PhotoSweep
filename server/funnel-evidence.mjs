@@ -127,18 +127,62 @@ function normalizedEvents(rows, { from, to } = {}) {
     )
 }
 
-function firstEventsByInstall(events, names) {
-  const first = new Map()
+function eventIsAfter(candidate, previous) {
+  return (
+    candidate.recordedAt > previous.recordedAt ||
+    (candidate.recordedAt === previous.recordedAt &&
+      candidate.index > previous.index)
+  )
+}
+
+function eventsByInstall(events) {
+  const grouped = new Map()
   for (const event of events) {
-    if (!names.has(event.name)) continue
-    let byName = first.get(event.installId)
-    if (!byName) {
-      byName = new Map()
-      first.set(event.installId, byName)
+    let installEvents = grouped.get(event.installId)
+    if (!installEvents) {
+      installEvents = []
+      grouped.set(event.installId, installEvents)
     }
-    if (!byName.has(event.name)) byName.set(event.name, event)
+    installEvents.push(event)
   }
-  return first
+  return grouped
+}
+
+function funnelMilestones(events) {
+  const milestones = new Map()
+  for (const [installId, installEvents] of eventsByInstall(events)) {
+    const firstConnect = installEvents.find(
+      (event) => event.name === "provider_connected"
+    )
+    const firstScanStarted = firstConnect
+      ? installEvents.find(
+          (event) =>
+            event.name === "scan_started" &&
+            eventIsAfter(event, firstConnect)
+        )
+      : undefined
+    const firstScanCompleted = firstScanStarted
+      ? installEvents.find(
+          (event) =>
+            event.name === "scan_completed" &&
+            eventIsAfter(event, firstScanStarted)
+        )
+      : undefined
+    const firstValue = firstScanCompleted
+      ? installEvents.find(
+          (event) =>
+            VALUE_EVENT_NAMES.has(event.name) &&
+            eventIsAfter(event, firstScanCompleted)
+        )
+      : undefined
+    milestones.set(installId, {
+      firstConnect,
+      firstScanStarted,
+      firstScanCompleted,
+      firstValue
+    })
+  }
+  return milestones
 }
 
 function median(values) {
@@ -158,53 +202,77 @@ function dayDifference(start, end) {
   )
 }
 
-export function computeFunnelMetrics(rows, options = {}) {
-  assertCurrentVersion(options.currentVersion)
-  const events = normalizedEvents(rows, options)
-  const installs = new Set(events.map((event) => event.installId))
-  const first = firstEventsByInstall(events, new Set([
-    "provider_connected",
-    "scan_started",
-    "scan_completed",
-    ...VALUE_EVENT_NAMES
-  ]))
-  const firstConnect = new Map()
-  const firstValue = new Map()
-
-  for (const [installId, byName] of first) {
-    const connected = byName.get("provider_connected")
-    if (connected) firstConnect.set(installId, connected)
-    const valueEvents = [...byName.values()]
-      .filter((event) => VALUE_EVENT_NAMES.has(event.name))
-      .sort(
-        (left, right) =>
-          left.recordedAt - right.recordedAt || left.index - right.index
-      )
-    if (valueEvents[0]) firstValue.set(installId, valueEvents[0])
+function cohortWindow(options) {
+  const from = options.cohortFrom ?? options.from
+  const to = options.cohortTo ?? options.to
+  assertDayKey(from, "cohortFrom")
+  assertDayKey(to, "cohortTo")
+  if (from && to && from > to) {
+    throw new Error("cohortFrom must not be later than cohortTo.")
   }
+  return { from, to }
+}
 
-  const timeToValue = []
-  for (const installId of installs) {
-    const connected = firstConnect.get(installId)
-    const value = firstValue.get(installId)
-    if (!connected || !value) continue
-    const duration = value.recordedAt - connected.recordedAt
-    if (duration >= 0) timeToValue.push(duration)
-  }
-
-  let d7Retained = 0
-  for (const installId of installs) {
-    const installEvents = events.filter((event) => event.installId === installId)
+function d7Retention(events, options) {
+  const window = cohortWindow(options)
+  let cohortCount = 0
+  let retainedCount = 0
+  for (const installEvents of eventsByInstall(events).values()) {
     const day0 = installEvents.reduce(
       (earliest, event) => (event.dayKey < earliest ? event.dayKey : earliest),
       installEvents[0].dayKey
     )
     if (
+      (window.from && day0 < window.from) ||
+      (window.to && day0 > window.to)
+    ) {
+      continue
+    }
+    cohortCount += 1
+    if (
       installEvents.some((event) => dayDifference(day0, event.dayKey) >= 7)
     ) {
-      d7Retained += 1
+      retainedCount += 1
     }
   }
+  return {
+    rate: cohortCount === 0 ? null : retainedCount / cohortCount,
+    cohortCount,
+    retainedCount,
+    window
+  }
+}
+
+function parseVersion(value) {
+  return value.split(".").map((part) => Number(part))
+}
+
+function sameVersion(left, right) {
+  const leftParts = parseVersion(left)
+  const rightParts = parseVersion(right)
+  const length = Math.max(leftParts.length, rightParts.length)
+  for (let index = 0; index < length; index += 1) {
+    if ((leftParts[index] ?? 0) !== (rightParts[index] ?? 0)) return false
+  }
+  return true
+}
+
+export function computeFunnelMetrics(rows, options = {}) {
+  assertCurrentVersion(options.currentVersion)
+  const events = normalizedEvents(rows, options)
+  const installs = new Set(events.map((event) => event.installId))
+  const milestones = funnelMilestones(events)
+
+  const timeToValue = []
+  for (const milestone of milestones.values()) {
+    const connected = milestone.firstConnect
+    const value = milestone.firstValue
+    if (!connected || !value) continue
+    const duration = value.recordedAt - connected.recordedAt
+    if (duration >= 0) timeToValue.push(duration)
+  }
+
+  const retention = d7Retention(events, options)
 
   const errorCount = events.filter((event) => event.name === "error").length
   const actionCount = events.filter((event) =>
@@ -215,23 +283,22 @@ export function computeFunnelMetrics(rows, options = {}) {
     latestVersionByInstall.set(event.installId, event.extensionVersion)
   }
   const oldVersionCount = [...latestVersionByInstall.values()].filter(
-    (version) => version !== options.currentVersion
+    (version) => !sameVersion(version, options.currentVersion)
   ).length
-  const firstCount = (name) =>
-    new Set(
-      events
-        .filter((event) => event.name === name)
-        .map((event) => event.installId)
-    ).size
-  const firstValueCount = new Set(firstValue.keys()).size
+  const firstCount = (milestoneName) =>
+    [...milestones.values()].filter((milestone) => milestone[milestoneName])
+      .length
+  const firstValueCount = [...milestones.values()].filter(
+    (milestone) => milestone.firstValue
+  ).length
 
   return {
-    first_connect: firstCount("provider_connected"),
-    first_scan_started: firstCount("scan_started"),
-    first_scan_completed: firstCount("scan_completed"),
+    first_connect: firstCount("firstConnect"),
+    first_scan_started: firstCount("firstScanStarted"),
+    first_scan_completed: firstCount("firstScanCompleted"),
     first_trash_or_undo: firstValueCount,
     median_time_to_value: median(timeToValue),
-    d7_retention: installs.size === 0 ? null : d7Retained / installs.size,
+    d7_retention: retention.rate,
     error_rate: actionCount === 0 ? null : errorCount / actionCount,
     old_version_share:
       installs.size === 0 ? null : oldVersionCount / installs.size
@@ -242,6 +309,7 @@ export function buildFunnelEvidenceSummary(rows, options = {}) {
   assertCurrentVersion(options.currentVersion)
   const events = normalizedEvents(rows, options)
   const metrics = computeFunnelMetrics(rows, options)
+  const milestones = funnelMilestones(events)
   const eventCountsByName = Object.fromEntries(
     EVENT_NAMES.map((name) => [
       name,
@@ -260,6 +328,15 @@ export function buildFunnelEvidenceSummary(rows, options = {}) {
         return counts
       }, new Map())
   )
+  const firstValueEventTypeCounts = Object.fromEntries(
+    [...VALUE_EVENT_NAMES].map((name) => [
+      name,
+      [...milestones.values()].filter(
+        (milestone) => milestone.firstValue?.name === name
+      ).length
+    ])
+  )
+  const retention = d7Retention(events, options)
 
   return {
     schemaVersion: 1,
@@ -268,10 +345,17 @@ export function buildFunnelEvidenceSummary(rows, options = {}) {
       from: options.from ?? null,
       to: options.to ?? null
     },
+    cohortWindow: {
+      from: retention.window.from ?? null,
+      to: retention.window.to ?? null
+    },
     eventCount: events.length,
     installCount: new Set(events.map((event) => event.installId)).size,
+    d7CohortInstallCount: retention.cohortCount,
+    d7RetainedInstallCount: retention.retainedCount,
     eventCountsByName,
     latestExtensionVersionCounts,
+    firstValueEventTypeCounts,
     metrics
   }
 }

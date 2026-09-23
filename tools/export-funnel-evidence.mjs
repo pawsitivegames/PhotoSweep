@@ -13,8 +13,10 @@ function usage() {
 
 Options:
   --current-version <version>  Published Chrome version used for old-version share
-  --from <YYYY-MM-DD>           Inclusive UTC day-key lower bound
-  --to <YYYY-MM-DD>             Inclusive UTC day-key upper bound
+  --from <YYYY-MM-DD>           Inclusive observation-window lower bound
+  --to <YYYY-MM-DD>             Inclusive observation-window upper bound
+  --cohort-from <YYYY-MM-DD>    Inclusive fixed D7 cohort lower bound
+  --cohort-to <YYYY-MM-DD>      Inclusive fixed D7 cohort upper bound
   --output <path>               Write JSON to a file instead of stdout
   --help                        Show this help
 
@@ -35,7 +37,16 @@ function parseArgs(argv) {
     const match = argument.match(/^--([^=]+)=(.*)$/)
     const key = match?.[1] ?? argument.replace(/^--/, "")
     const inlineValue = match?.[2]
-    if (!["current-version", "from", "to", "output"].includes(key)) {
+    if (
+      ![
+        "current-version",
+        "from",
+        "to",
+        "cohort-from",
+        "cohort-to",
+        "output"
+      ].includes(key)
+    ) {
       throw new Error(`Unknown option: ${argument}`)
     }
     const value = inlineValue ?? argv[++index]
@@ -71,7 +82,11 @@ async function main() {
   const summary = buildFunnelEvidenceSummary(rows, {
     currentVersion,
     ...(options.from ? { from: options.from } : {}),
-    ...(options.to ? { to: options.to } : {})
+    ...(options.to ? { to: options.to } : {}),
+    ...(options["cohort-from"]
+      ? { cohortFrom: options["cohort-from"] }
+      : {}),
+    ...(options["cohort-to"] ? { cohortTo: options["cohort-to"] } : {})
   })
   const output = `${JSON.stringify(
     {
