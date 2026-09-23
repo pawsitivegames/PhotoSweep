@@ -231,12 +231,12 @@ function normalizedLedgerRow(row) {
     ...row,
     planId: ALLOWLISTED_PLAN_SET.has(row.planId) ? row.planId : undefined,
     stripeCheckoutSessionId:
-      objectId(row.stripeCheckoutSessionId) ??
-      objectId(row.checkoutSessionId),
+      objectId(row.stripeCheckoutSessionId) ?? objectId(row.checkoutSessionId),
     stripePaymentIntentId:
       objectId(row.stripePaymentIntentId) ?? objectId(row.paymentIntentId),
     stripeChargeId: objectId(row.stripeChargeId) ?? objectId(row.chargeId),
-    stripeCustomerId: objectId(row.stripeCustomerId) ?? objectId(row.customerId),
+    stripeCustomerId:
+      objectId(row.stripeCustomerId) ?? objectId(row.customerId),
     stripeAmount:
       integerAmount(row.stripeAmount) ??
       integerAmount(row.amount) ??
@@ -345,8 +345,7 @@ function matchLedgerRow(row, payments, checkoutSessions) {
       (payment) =>
         (row.stripePaymentIntentId &&
           row.stripePaymentIntentId === payment.stripePaymentIntentId) ||
-        (row.stripeChargeId &&
-          row.stripeChargeId === payment.stripeChargeId) ||
+        (row.stripeChargeId && row.stripeChargeId === payment.stripeChargeId) ||
         (row.stripeCheckoutSessionId &&
           row.stripeCheckoutSessionId === payment.stripeCheckoutSessionId)
     )
@@ -431,12 +430,17 @@ export function reconcileStripeLedger({
   fromMs,
   toMs,
   pricePlanMap = {},
-  generatedAt
+  generatedAt = undefined
 } = {}) {
   const ledgerRows = normalizeLedgerPurchases(ledger, { fromMs, toMs })
   const stripeInput = isRecord(stripe) ? stripe : {}
   const checkoutSessionObjects = uniqueObjects(
-    collection(stripeInput, "checkoutSessions", "checkout_sessions", "sessions"),
+    collection(
+      stripeInput,
+      "checkoutSessions",
+      "checkout_sessions",
+      "sessions"
+    ),
     "checkout"
   ).filter((session) => valueInWindow(session.created, fromMs, toMs))
   const paymentIntentObjects = uniqueObjects(
@@ -499,14 +503,11 @@ export function reconcileStripeLedger({
 
   for (const session of checkoutSessions) {
     if (!session.paid || !session.planId) continue
-    const payment = findPayment(
-      [...paymentsByKey.values()],
-      {
-        paymentIntentId: session.paymentIntentId,
-        chargeId: session.chargeId,
-        checkoutSessionId: session.id
-      }
-    )
+    const payment = findPayment([...paymentsByKey.values()], {
+      paymentIntentId: session.paymentIntentId,
+      chargeId: session.chargeId,
+      checkoutSessionId: session.id
+    })
     const sessionRecord = {
       stripeCheckoutSessionId: session.id,
       stripePaymentIntentId: session.paymentIntentId,
@@ -545,12 +546,7 @@ export function reconcileStripeLedger({
     if (!isSuccessfulRefund(refund)) continue
     const id =
       objectId(refund) ??
-      [
-        paymentIntentId(refund),
-        chargeId(refund),
-        refund.created,
-        refund.amount
-      ]
+      [paymentIntentId(refund), chargeId(refund), refund.created, refund.amount]
         .filter((value) => value !== undefined)
         .join(":")
     if (refundIds.has(id)) continue
@@ -622,7 +618,9 @@ export function reconcileStripeLedger({
     (payment) => !refundedPaymentKeys.has(payment.key)
   )
   const paidCustomerIds = new Set(
-    nonRefundedPayments.map((payment) => payment.stripeCustomerId).filter(Boolean)
+    nonRefundedPayments
+      .map((payment) => payment.stripeCustomerId)
+      .filter(Boolean)
   )
   const refundedCustomerIds = new Set(
     eligiblePayments
@@ -632,9 +630,7 @@ export function reconcileStripeLedger({
   )
 
   const checkoutMatchedById = paidCheckoutSessions.filter((session) =>
-    ledgerRows.some(
-      (row) => row.stripeCheckoutSessionId === session.id
-    )
+    ledgerRows.some((row) => row.stripeCheckoutSessionId === session.id)
   ).length
   const checkoutMatchedByAnyId = paidCheckoutSessions.filter((session) =>
     ledgerRows.some(
@@ -656,17 +652,19 @@ export function reconcileStripeLedger({
       paidCheckoutSessions.map((session) => ({ id: session.id }))
     )
   ).length
-  const paymentMatched = eligiblePayments.filter((payment) =>
-    matchLedgerRow(
-      {
-        stripeCheckoutSessionId: payment.stripeCheckoutSessionId,
-        stripePaymentIntentId: payment.stripePaymentIntentId,
-        stripeChargeId: payment.stripeChargeId
-      },
-      payments,
-      paidCheckoutSessions.map((session) => ({ id: session.id }))
+  const paymentMatched = eligiblePayments
+    .filter((payment) =>
+      matchLedgerRow(
+        {
+          stripeCheckoutSessionId: payment.stripeCheckoutSessionId,
+          stripePaymentIntentId: payment.stripePaymentIntentId,
+          stripeChargeId: payment.stripeChargeId
+        },
+        payments,
+        paidCheckoutSessions.map((session) => ({ id: session.id }))
+      )
     )
-  ).filter((payment) => ledgerRowForPayment(payment, ledgerRows)).length
+    .filter((payment) => ledgerRowForPayment(payment, ledgerRows)).length
 
   const grossRecords = eligiblePayments
   const gross = amountByCurrency(grossRecords)
@@ -705,7 +703,8 @@ export function reconcileStripeLedger({
     (payment) => !payment.stripeCustomerId
   ).length
   const unresolvedRefundedPayments = eligiblePayments.filter(
-    (payment) => refundedPaymentKeys.has(payment.key) && !payment.stripeCustomerId
+    (payment) =>
+      refundedPaymentKeys.has(payment.key) && !payment.stripeCustomerId
   ).length
   const unmappedSuccessfulPayments = payments.filter(
     (payment) => payment.success && !ALLOWLISTED_PLAN_SET.has(payment.planId)
@@ -783,13 +782,9 @@ export function reconcileStripeLedger({
     },
     reconciliation: {
       paidCheckoutSessions: {
-        ...reconciliation(
-          paidCheckoutSessions.length,
-          checkoutMatchedById
-        ),
+        ...reconciliation(paidCheckoutSessions.length, checkoutMatchedById),
         matchedByAnyStripeId: checkoutMatchedByAnyId,
-        unmatchedByCheckoutId:
-          paidCheckoutSessions.length - checkoutMatchedById
+        unmatchedByCheckoutId: paidCheckoutSessions.length - checkoutMatchedById
       },
       purchaseRows: {
         ...reconciliation(ledgerRows.length, ledgerCheckoutMatched),

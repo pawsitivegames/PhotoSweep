@@ -516,9 +516,7 @@ function stripeAmount(object) {
     object?.charge?.amount,
     object?.latest_charge?.amount
   ]
-  return candidates.find(
-    (value) => Number.isInteger(value) && value >= 0
-  )
+  return candidates.find((value) => Number.isInteger(value) && value >= 0)
 }
 
 function stripeCurrency(object) {
@@ -1290,9 +1288,7 @@ async function activateCheckoutSession(
       : purchases.map((item, index) =>
           index === purchaseIndex ? purchase : item
         )
-  await store.upsertLicense(
-    licenseFromPurchases(sessionId, nextPurchases)
-  )
+  await store.upsertLicense(licenseFromPurchases(sessionId, nextPurchases))
   if (purchase.status === "active") {
     const revoked = await applyPendingStripeRevocation(purchase, store)
     if (revoked.status !== "active") {

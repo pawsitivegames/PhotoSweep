@@ -59,7 +59,12 @@ export function createFirestoreLicenseStore({
   async function setIndex(kind, value, sessionId, transaction) {
     if (!value) return
     const ref = indexes.doc(`${kind}_${encodeKey(value)}`)
-    const data = { kind, value: String(value).toLowerCase(), sessionId, updatedAt: now() }
+    const data = {
+      kind,
+      value: String(value).toLowerCase(),
+      sessionId,
+      updatedAt: now()
+    }
     if (transaction) transaction.set(ref, data, { merge: true })
     else await ref.set(data, { merge: true })
   }
@@ -181,10 +186,9 @@ export function createFirestoreLicenseStore({
     },
 
     async markStripeEventProcessed(eventId) {
-      await stripeEvents.doc(eventId).set(
-        { eventId, processedAt: now() },
-        { merge: true }
-      )
+      await stripeEvents
+        .doc(eventId)
+        .set({ eventId, processedAt: now() }, { merge: true })
     },
 
     async recordAnalyticsEvent(event) {
@@ -207,7 +211,9 @@ export function createFirestoreLicenseStore({
         licensesBySessionId: Object.fromEntries(
           licenseDocs.docs.map((doc) => [doc.id, doc.data()])
         ),
-        indexes: Object.fromEntries(indexDocs.docs.map((doc) => [doc.id, doc.data()])),
+        indexes: Object.fromEntries(
+          indexDocs.docs.map((doc) => [doc.id, doc.data()])
+        ),
         pendingStripeRevocations: Object.fromEntries(
           pendingDocs.docs.map((doc) => {
             const data = doc.data()
