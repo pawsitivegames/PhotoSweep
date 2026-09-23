@@ -33,6 +33,16 @@ function stripUndefined(value) {
   )
 }
 
+function purchasesForLicense(license) {
+  if (!license) return []
+  return Array.isArray(license.purchases)
+    ? license.purchases
+    : (() => {
+        const { purchases: _purchases, ...purchase } = license
+        return [purchase]
+      })()
+}
+
 export function createFirestoreLicenseStore({
   firestore = new Firestore(),
   collectionPrefix = process.env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ??
@@ -72,25 +82,38 @@ export function createFirestoreLicenseStore({
         transaction.set(licenses.doc(cleanLicense.sessionId), cleanLicense, {
           merge: true
         })
-        await setIndex("email", cleanLicense.email, cleanLicense.sessionId, transaction)
-        await setIndex(
-          "stripe_customer",
-          cleanLicense.stripeCustomerId,
-          cleanLicense.sessionId,
-          transaction
-        )
-        await setIndex(
-          "stripe_checkout_session",
-          cleanLicense.stripeCheckoutSessionId,
-          cleanLicense.sessionId,
-          transaction
-        )
-        await setIndex(
-          "stripe_payment_intent",
-          cleanLicense.stripePaymentIntentId,
-          cleanLicense.sessionId,
-          transaction
-        )
+        for (const purchase of purchasesForLicense(cleanLicense)) {
+          await setIndex(
+            "email",
+            purchase.email,
+            cleanLicense.sessionId,
+            transaction
+          )
+          await setIndex(
+            "stripe_customer",
+            purchase.stripeCustomerId,
+            cleanLicense.sessionId,
+            transaction
+          )
+          await setIndex(
+            "stripe_checkout_session",
+            purchase.stripeCheckoutSessionId,
+            cleanLicense.sessionId,
+            transaction
+          )
+          await setIndex(
+            "stripe_payment_intent",
+            purchase.stripePaymentIntentId,
+            cleanLicense.sessionId,
+            transaction
+          )
+          await setIndex(
+            "stripe_charge",
+            purchase.stripeChargeId,
+            cleanLicense.sessionId,
+            transaction
+          )
+        }
       })
     },
 
@@ -121,6 +144,10 @@ export function createFirestoreLicenseStore({
 
     async getSessionIdByStripePaymentIntentId(paymentIntentId) {
       return getIndex("stripe_payment_intent", paymentIntentId)
+    },
+
+    async getSessionIdByStripeChargeId(chargeId) {
+      return getIndex("stripe_charge", chargeId)
     },
 
     async recordPendingStripeRevocation(revocation) {

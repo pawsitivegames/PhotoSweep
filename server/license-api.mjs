@@ -466,12 +466,17 @@ function expandableStripeId(value) {
 function stripePaymentIntentId(object) {
   return (
     expandableStripeId(object?.payment_intent) ??
-    expandableStripeId(object?.charge?.payment_intent)
+    expandableStripeId(object?.paymentIntentId) ??
+    expandableStripeId(object?.charge?.payment_intent) ??
+    expandableStripeId(object?.latest_charge?.payment_intent)
   )
 }
 
 function stripeCheckoutSessionId(object) {
-  const checkoutSession = expandableStripeId(object?.checkout_session)
+  const checkoutSession =
+    expandableStripeId(object?.checkout_session) ??
+    expandableStripeId(object?.checkoutSessionId) ??
+    expandableStripeId(object?.session)
   if (checkoutSession) return checkoutSession
   if (typeof object?.id === "string" && object.id.startsWith("cs_")) {
     return object.id
@@ -480,12 +485,133 @@ function stripeCheckoutSessionId(object) {
 }
 
 function stripeChargeId(object) {
-  const charge = expandableStripeId(object?.charge)
+  const charge =
+    expandableStripeId(object?.charge) ??
+    expandableStripeId(object?.latest_charge) ??
+    expandableStripeId(object?.payment_intent?.latest_charge) ??
+    expandableStripeId(object?.charges?.data?.[0])
   if (charge) return charge
   if (typeof object?.id === "string" && object.id.startsWith("ch_")) {
     return object.id
   }
   return undefined
+}
+
+function stripeCustomerId(object) {
+  return (
+    expandableStripeId(object?.customer) ??
+    expandableStripeId(object?.payment_intent?.customer) ??
+    expandableStripeId(object?.charge?.customer) ??
+    expandableStripeId(object?.latest_charge?.customer)
+  )
+}
+
+function stripeAmount(object) {
+  const candidates = [
+    object?.amount_total,
+    object?.amount_received,
+    object?.amount,
+    object?.payment_intent?.amount_received,
+    object?.payment_intent?.amount,
+    object?.charge?.amount,
+    object?.latest_charge?.amount
+  ]
+  return candidates.find(
+    (value) => Number.isInteger(value) && value >= 0
+  )
+}
+
+function stripeCurrency(object) {
+  return (
+    (typeof object?.currency === "string" && object.currency) ||
+    (typeof object?.payment_intent?.currency === "string" &&
+      object.payment_intent.currency) ||
+    (typeof object?.charge?.currency === "string" && object.charge.currency) ||
+    (typeof object?.latest_charge?.currency === "string" &&
+      object.latest_charge.currency)
+  )
+}
+
+function stripeTimestampMs(object, fallback = now()) {
+  const parsed = Number(object?.created)
+  if (!Number.isFinite(parsed)) return fallback
+  return parsed < 100_000_000_000 ? parsed * 1000 : parsed
+}
+
+function stripePlanId(object) {
+  const candidates = [
+    object?.metadata?.planId,
+    object?.metadata?.plan_id,
+    object?.payment_intent?.metadata?.planId,
+    object?.payment_intent?.metadata?.plan_id,
+    object?.charge?.metadata?.planId,
+    object?.latest_charge?.metadata?.planId
+  ]
+  return candidates.find(
+    (value) => typeof value === "string" && PLAN_CONFIG[value]
+  )
+}
+
+function appendStripeEventId(purchase, eventId) {
+  const existing = Array.isArray(purchase?.stripeEventIds)
+    ? purchase.stripeEventIds
+    : purchase?.stripeEventId
+      ? [purchase.stripeEventId]
+      : []
+  const eventIds = [...new Set([...existing, eventId].filter(Boolean))]
+  return eventIds.length > 0 ? eventIds : undefined
+}
+
+function stripePurchaseFields(
+  object,
+  { existing, eventId, eventCreatedAt, purchasedAt, refundedAt } = {}
+) {
+  const fields = {
+    stripeCustomerId: stripeCustomerId(object),
+    stripeCheckoutSessionId: stripeCheckoutSessionId(object),
+    stripePaymentIntentId: stripePaymentIntentId(object),
+    stripeChargeId: stripeChargeId(object),
+    stripeAmount: stripeAmount(object),
+    stripeCurrency: stripeCurrency(object)
+  }
+  const planId = stripePlanId(object)
+  if (planId) fields.planId = planId
+  if (existing?.purchasedAt === undefined) {
+    fields.purchasedAt = purchasedAt ?? stripeTimestampMs(object)
+  }
+  if (refundedAt !== undefined) fields.refundedAt = refundedAt
+  const eventIds = appendStripeEventId(existing, eventId)
+  if (eventIds) {
+    fields.stripeEventIds = eventIds
+    fields.stripeEventId = eventIds[eventIds.length - 1]
+  }
+  if (eventCreatedAt !== undefined && fields.purchasedAt === undefined) {
+    fields.purchasedAt = eventCreatedAt
+  }
+  return fields
+}
+
+function mergeStripePurchase(
+  purchase,
+  object,
+  { eventId, eventCreatedAt, purchasedAt, refundedAt } = {}
+) {
+  const merged = { ...purchase }
+  const fields = stripePurchaseFields(object, {
+    existing: purchase,
+    eventId,
+    eventCreatedAt,
+    purchasedAt,
+    refundedAt
+  })
+  for (const [key, value] of Object.entries(fields)) {
+    if (key === "stripeEventIds" || key === "stripeEventId") {
+      merged[key] = value
+    } else if (value !== undefined && merged[key] === undefined) {
+      merged[key] = value
+    }
+  }
+  return merged
 }
 
 function pendingStripeRevocationKeys({
@@ -500,24 +626,86 @@ function pendingStripeRevocationKeys({
   ].filter(Boolean)
 }
 
-function pendingStripeRevocationFromObject(object, reason) {
+function pendingStripeRevocationFromObject(
+  object,
+  reason,
+  { eventId, eventCreatedAt, deactivate = true } = {}
+) {
   const paymentIntentId = stripePaymentIntentId(object)
   const checkoutSessionId = stripeCheckoutSessionId(object)
   const chargeId = stripeChargeId(object)
   if (!paymentIntentId && !checkoutSessionId && !chargeId) return undefined
-  return { paymentIntentId, checkoutSessionId, chargeId, reason }
+  const pending = {
+    paymentIntentId,
+    checkoutSessionId,
+    chargeId,
+    customerId: stripeCustomerId(object),
+    amount: stripeAmount(object),
+    currency: stripeCurrency(object),
+    planId: stripePlanId(object),
+    reason,
+    deactivate,
+    eventId,
+    eventCreatedAt,
+    refundedAt:
+      reason === "charge.refunded"
+        ? eventCreatedAt ?? stripeTimestampMs(object)
+        : undefined
+  }
+  if (eventId) pending.stripeEventIds = [eventId]
+  return pending
+}
+
+function mergePendingStripeFields(purchase, pending) {
+  const merged = { ...purchase }
+  const fields = {
+    stripePaymentIntentId: pending.paymentIntentId,
+    stripeCheckoutSessionId: pending.checkoutSessionId,
+    stripeChargeId: pending.chargeId,
+    stripeCustomerId: pending.customerId,
+    stripeAmount: pending.amount,
+    stripeCurrency: pending.currency,
+    planId: pending.planId,
+    refundedAt: pending.refundedAt
+  }
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && merged[key] === undefined) merged[key] = value
+  }
+  const eventIds = [
+    ...new Set(
+      [
+        ...(Array.isArray(merged.stripeEventIds)
+          ? merged.stripeEventIds
+          : merged.stripeEventId
+            ? [merged.stripeEventId]
+            : []),
+        ...(Array.isArray(pending.stripeEventIds)
+          ? pending.stripeEventIds
+          : []),
+        pending.eventId
+      ].filter(Boolean)
+    )
+  ]
+  if (eventIds.length > 0) {
+    merged.stripeEventIds = eventIds
+    merged.stripeEventId = eventIds[eventIds.length - 1]
+  }
+  return merged
 }
 
 function purchaseMatchesStripeObject(purchase, object) {
   const paymentIntentId = stripePaymentIntentId(object)
   const checkoutSessionId = stripeCheckoutSessionId(object)
+  const chargeId = stripeChargeId(object)
   return (
     (paymentIntentId && purchase.stripePaymentIntentId === paymentIntentId) ||
     (checkoutSessionId &&
       purchase.stripeCheckoutSessionId === checkoutSessionId) ||
+    (chargeId && purchase.stripeChargeId === chargeId) ||
     (typeof object?.id === "string" &&
       (purchase.stripeCheckoutSessionId === object.id ||
-        purchase.stripePaymentIntentId === object.id))
+        purchase.stripePaymentIntentId === object.id ||
+        purchase.stripeChargeId === object.id))
   )
 }
 
@@ -709,6 +897,9 @@ export function createMemoryLicenseStore(seed = {}) {
     sessionByStripePaymentIntentId: new Map(
       Object.entries(seed.sessionByStripePaymentIntentId ?? {})
     ),
+    sessionByStripeChargeId: new Map(
+      Object.entries(seed.sessionByStripeChargeId ?? {})
+    ),
     pendingStripeRevocations: new Map(
       Object.entries(seed.pendingStripeRevocations ?? {})
     ),
@@ -746,6 +937,12 @@ export function createMemoryLicenseStore(seed = {}) {
             license.sessionId
           )
         }
+        if (purchase.stripeChargeId) {
+          state.sessionByStripeChargeId.set(
+            purchase.stripeChargeId,
+            license.sessionId
+          )
+        }
       }
     },
     async deactivateLicense(sessionId, reason) {
@@ -772,6 +969,9 @@ export function createMemoryLicenseStore(seed = {}) {
     },
     async getSessionIdByStripePaymentIntentId(paymentIntentId) {
       return state.sessionByStripePaymentIntentId.get(paymentIntentId)
+    },
+    async getSessionIdByStripeChargeId(chargeId) {
+      return state.sessionByStripeChargeId.get(chargeId)
     },
     async recordPendingStripeRevocation(revocation) {
       const recorded = {
@@ -819,6 +1019,9 @@ export function createMemoryLicenseStore(seed = {}) {
         sessionByStripePaymentIntentId: Object.fromEntries(
           state.sessionByStripePaymentIntentId
         ),
+        sessionByStripeChargeId: Object.fromEntries(
+          state.sessionByStripeChargeId
+        ),
         pendingStripeRevocations: Object.fromEntries(
           state.pendingStripeRevocations
         ),
@@ -841,6 +1044,7 @@ export function createJsonFileLicenseStore(filePath) {
           sessionByStripeCustomerId: {},
           sessionByStripeCheckoutSessionId: {},
           sessionByStripePaymentIntentId: {},
+          sessionByStripeChargeId: {},
           pendingStripeRevocations: {},
           processedStripeEvents: [],
           analyticsEvents: []
@@ -889,6 +1093,10 @@ export function createJsonFileLicenseStore(filePath) {
               purchase.stripePaymentIntentId
             ] = license.sessionId
           }
+          if (purchase.stripeChargeId) {
+            state.sessionByStripeChargeId[purchase.stripeChargeId] =
+              license.sessionId
+          }
         }
       })
     },
@@ -922,6 +1130,10 @@ export function createJsonFileLicenseStore(filePath) {
     async getSessionIdByStripePaymentIntentId(paymentIntentId) {
       const state = await readState()
       return state.sessionByStripePaymentIntentId[paymentIntentId]
+    },
+    async getSessionIdByStripeChargeId(chargeId) {
+      const state = await readState()
+      return state.sessionByStripeChargeId[chargeId]
     },
     async recordPendingStripeRevocation(revocation) {
       await mutate((state) => {
@@ -991,21 +1203,36 @@ async function applyPendingStripeRevocation(purchase, store) {
     checkoutSessionId: purchase.stripeCheckoutSessionId
   })
   if (!pending) return purchase
+  const enriched = mergePendingStripeFields(purchase, pending)
+  if (pending.deactivate === false) return enriched
   return {
-    ...purchase,
+    ...enriched,
     status: "inactive",
     inactiveReason: pending.reason
   }
 }
 
-async function recordPendingStripeRevocation(store, object, reason) {
+async function recordPendingStripeRevocation(
+  store,
+  object,
+  reason,
+  { eventId, eventCreatedAt, deactivate = true } = {}
+) {
   if (typeof store.recordPendingStripeRevocation !== "function") return
-  const revocation = pendingStripeRevocationFromObject(object, reason)
+  const revocation = pendingStripeRevocationFromObject(object, reason, {
+    eventId,
+    eventCreatedAt,
+    deactivate
+  })
   if (!revocation) return
   await store.recordPendingStripeRevocation(revocation)
 }
 
-async function activateCheckoutSession(session, store) {
+async function activateCheckoutSession(
+  session,
+  store,
+  { eventId, eventCreatedAt } = {}
+) {
   const planId = session?.metadata?.planId
   const sessionId = sessionFromStripeObject(session)
   if (!PLAN_CONFIG[planId] || !sessionId || session.payment_status !== "paid") {
@@ -1013,49 +1240,91 @@ async function activateCheckoutSession(session, store) {
   }
   const existing = await store.getLicenseBySessionId(sessionId)
   const purchases = purchasesForLicense(existing)
+  let purchaseIndex = purchases.findIndex((purchase) =>
+    purchaseMatchesStripeObject(purchase, session)
+  )
   if (
-    purchases.some(
-      (purchase) => purchase.stripeCheckoutSessionId === session.id
-    )
+    purchaseIndex === -1 &&
+    purchases.length === 1 &&
+    purchases[0].planId === planId &&
+    !purchases[0].stripeCheckoutSessionId
   ) {
-    return undefined
+    purchaseIndex = 0
   }
-  const purchasedAt = now()
-  let purchase = {
-    planId,
-    status: "active",
-    email:
-      session.customer_details?.email ??
-      session.customer_email ??
-      session.metadata?.email,
-    stripeCustomerId:
-      typeof session.customer === "string" ? session.customer : undefined,
-    stripeCheckoutSessionId: session.id,
-    stripePaymentIntentId: stripePaymentIntentId(session),
-    purchasedAt,
-    expiresAt: planExpiry(planId, purchasedAt)
+  const existingPurchase =
+    purchaseIndex === -1 ? undefined : purchases[purchaseIndex]
+  const purchasedAt =
+    existingPurchase?.purchasedAt ?? stripeTimestampMs(session)
+  const email =
+    session.customer_details?.email ??
+    session.customer_email ??
+    session.metadata?.email
+  let purchase = existingPurchase
+    ? mergeStripePurchase(existingPurchase, session, {
+        eventId,
+        eventCreatedAt,
+        purchasedAt
+      })
+    : mergeStripePurchase(
+        {
+          planId,
+          status: "active",
+          email,
+          purchasedAt
+        },
+        session,
+        { eventId, eventCreatedAt, purchasedAt }
+      )
+  if (purchase.email === undefined && email !== undefined) {
+    purchase = { ...purchase, email }
+  }
+  if (purchase.planId === undefined) purchase.planId = planId
+  if (purchase.status === undefined) purchase.status = "active"
+  if (purchase.expiresAt === undefined) {
+    purchase.expiresAt = planExpiry(purchase.planId, purchase.purchasedAt)
   }
   purchase = await applyPendingStripeRevocation(purchase, store)
+  const nextPurchases =
+    purchaseIndex === -1
+      ? [...purchases, purchase]
+      : purchases.map((item, index) =>
+          index === purchaseIndex ? purchase : item
+        )
   await store.upsertLicense(
-    licenseFromPurchases(sessionId, [...purchases, purchase])
+    licenseFromPurchases(sessionId, nextPurchases)
   )
   if (purchase.status === "active") {
     const revoked = await applyPendingStripeRevocation(purchase, store)
     if (revoked.status !== "active") {
       const latest = await store.getLicenseBySessionId(sessionId)
       const nextPurchases = purchasesForLicense(latest).map((item) =>
-        item.stripeCheckoutSessionId === session.id ? revoked : item
+        purchaseMatchesStripeObject(item, session) ? revoked : item
       )
       await store.upsertLicense(licenseFromPurchases(sessionId, nextPurchases))
       purchase = revoked
     }
   }
-  return purchase
+  return {
+    purchase,
+    created: purchaseIndex === -1
+  }
 }
 
-async function deactivateStripeObject(object, store, reason) {
+async function deactivateStripeObject(
+  object,
+  store,
+  reason,
+  {
+    eventId,
+    eventCreatedAt,
+    deactivate = true,
+    recordPending = deactivate,
+    refundedAt = undefined
+  } = {}
+) {
   const paymentIntentId = stripePaymentIntentId(object)
   const checkoutSessionId = stripeCheckoutSessionId(object)
+  const chargeId = stripeChargeId(object)
   let sessionId = sessionFromStripeObject(object)
   if (!sessionId && paymentIntentId) {
     sessionId = await store.getSessionIdByStripePaymentIntentId(paymentIntentId)
@@ -1064,28 +1333,44 @@ async function deactivateStripeObject(object, store, reason) {
     sessionId =
       await store.getSessionIdByStripeCheckoutSessionId(checkoutSessionId)
   }
-  let deactivated
+  if (!sessionId && chargeId) {
+    if (typeof store.getSessionIdByStripeChargeId === "function") {
+      sessionId = await store.getSessionIdByStripeChargeId(chargeId)
+    }
+  }
+  let updated
   if (sessionId) {
     const license = await store.getLicenseBySessionId(sessionId)
     if (license) {
       const purchases = purchasesForLicense(license).map((purchase) => {
         if (!purchaseMatchesStripeObject(purchase, object)) return purchase
-        deactivated = purchase
-        return {
-          ...purchase,
-          status: "inactive",
-          inactiveReason: reason
-        }
+        const enriched = mergeStripePurchase(purchase, object, {
+          eventId,
+          eventCreatedAt,
+          refundedAt
+        })
+        updated = deactivate
+          ? {
+              ...enriched,
+              status: "inactive",
+              inactiveReason: reason
+            }
+          : enriched
+        return updated
       })
-      if (deactivated) {
+      if (updated) {
         await store.upsertLicense(licenseFromPurchases(sessionId, purchases))
       }
     }
   }
-  if (!deactivated) {
-    await recordPendingStripeRevocation(store, object, reason)
+  if (!updated && recordPending) {
+    await recordPendingStripeRevocation(store, object, reason, {
+      eventId,
+      eventCreatedAt,
+      deactivate
+    })
   }
-  return deactivated
+  return updated
 }
 
 function isFullChargeRefund(charge) {
@@ -1104,9 +1389,16 @@ async function recordMonetizationEvent(store, event) {
   }
 }
 
-async function deactivateExpiredCheckoutSession(session, store) {
+async function deactivateExpiredCheckoutSession(
+  session,
+  store,
+  { eventId, eventCreatedAt } = {}
+) {
   if (!sessionFromStripeObject(session) || !session?.id) return
-  await deactivateStripeObject(session, store, "checkout.session.expired")
+  await deactivateStripeObject(session, store, "checkout.session.expired", {
+    eventId,
+    eventCreatedAt
+  })
 }
 
 export async function handleStripeWebhook(request, env, store) {
@@ -1121,17 +1413,22 @@ export async function handleStripeWebhook(request, env, store) {
     return jsonResponse({ received: true, duplicate: true })
   }
   const object = event.data?.object
+  const eventCreatedAt = stripeTimestampMs(event)
   if (
     event.type === "checkout.session.completed" ||
     event.type === "checkout.session.async_payment_succeeded"
   ) {
-    const purchase = await activateCheckoutSession(object, store)
-    if (purchase?.status === "active") {
+    const activation = await activateCheckoutSession(object, store, {
+      eventId: event.id,
+      eventCreatedAt
+    })
+    const purchase = activation?.purchase
+    if (activation?.created && purchase?.status === "active") {
       await recordMonetizationEvent(store, {
         name: "purchase_completed",
         planId: purchase.planId
       })
-    } else if (purchase?.status === "inactive") {
+    } else if (activation?.created && purchase?.status === "inactive") {
       await recordMonetizationEvent(store, {
         name:
           purchase.inactiveReason === "charge.refunded"
@@ -1141,24 +1438,39 @@ export async function handleStripeWebhook(request, env, store) {
       })
     }
   } else if (event.type === "checkout.session.expired") {
-    await deactivateExpiredCheckoutSession(object, store)
+    await deactivateExpiredCheckoutSession(object, store, {
+      eventId: event.id,
+      eventCreatedAt
+    })
   } else if (event.type === "checkout.session.async_payment_failed") {
     await recordMonetizationEvent(store, {
       name: "purchase_failed",
       planId: object?.metadata?.planId
     })
-  } else if (
-    event.type === "charge.dispute.created" ||
-    (event.type === "charge.refunded" && isFullChargeRefund(object))
-  ) {
-    const license = await deactivateStripeObject(object, store, event.type)
-    if (license) {
+  } else if (event.type === "charge.refunded") {
+    const fullRefund = isFullChargeRefund(object)
+    const purchase = await deactivateStripeObject(object, store, event.type, {
+      eventId: event.id,
+      eventCreatedAt,
+      deactivate: fullRefund,
+      recordPending: true,
+      refundedAt: eventCreatedAt
+    })
+    if (fullRefund && purchase) {
       await recordMonetizationEvent(store, {
-        name:
-          event.type === "charge.refunded"
-            ? "purchase_refunded"
-            : "purchase_failed",
-        planId: license.planId
+        name: "purchase_refunded",
+        planId: purchase.planId
+      })
+    }
+  } else if (event.type === "charge.dispute.created") {
+    const purchase = await deactivateStripeObject(object, store, event.type, {
+      eventId: event.id,
+      eventCreatedAt
+    })
+    if (purchase) {
+      await recordMonetizationEvent(store, {
+        name: "purchase_failed",
+        planId: purchase.planId
       })
     }
   }
