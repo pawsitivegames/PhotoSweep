@@ -182,10 +182,22 @@ describe("createFirestoreLicenseStore", () => {
     const firestore = new FakeFirestore()
     const store = createFirestoreLicenseStore({ firestore: firestore as never })
 
-    await store.recordAnalyticsEvent({ name: "app_opened", planId: "free" })
+    await store.recordAnalyticsEvent({
+      name: "app_opened",
+      planId: "free",
+      installId: "123e4567-e89b-42d3-a456-426614174000",
+      extensionVersion: "2.3.0.1",
+      dayKey: "2026-09-23"
+    })
     const snapshot = await store.snapshot()
 
     expect(snapshot.analyticsEvents).toHaveLength(1)
-    expect(snapshot.analyticsEvents[0]).toMatchObject({ name: "app_opened", planId: "free" })
+    expect(snapshot.analyticsEvents[0]).toMatchObject({
+      name: "app_opened",
+      planId: "free",
+      installId: "123e4567-e89b-42d3-a456-426614174000",
+      extensionVersion: "2.3.0.1",
+      dayKey: "2026-09-23"
+    })
   })
 })

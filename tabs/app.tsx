@@ -112,9 +112,12 @@ import {
 import {
   ANALYTICS_CONSENT_STORAGE_KEY,
   countBucket,
+  ProviderConnectionTracker,
   sendPrivacySafeAnalyticsEvent,
-  type PrivacySafeAnalyticsEvent
+  type PrivacySafeAnalyticsEvent,
+  utcDayKey
 } from "../lib/privacy-analytics"
+import { getOrCreateInstallId } from "../lib/install-identity"
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../lib/privacy-disclosure"
 import {
   providerBatchLimit as configuredProviderBatchLimit,
@@ -207,6 +210,14 @@ const DELETE_REPORTS_KEY = "deleteReports"
 const TRASH_RESULT_REPORTS_KEY = "trashResultReports"
 const duplicateDetectionEngine = new DuplicateDetectionEngine()
 const APP_CLIENT_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+function extensionVersionForAnalytics(): string | undefined {
+  try {
+    return chrome.runtime.getManifest().version
+  } catch {
+    return undefined
+  }
+}
 
 function WorkflowRail({
   stage,
@@ -1299,8 +1310,18 @@ export default function App() {
   }
   const decisionMemoryStore = decisionMemoryStoreRef.current
   const restoreRequestByIdRef = useRef(
-    new Map<string, { operationId: string; generation: number; history: boolean }>()
+    new Map<
+      string,
+      {
+        operationId?: string
+        generation: number
+        history: boolean
+        provider: PhotoProvider
+      }
+    >()
   )
+  const providerConnectionTrackerRef = useRef(new ProviderConnectionTracker())
+  const installIdPromiseRef = useRef<Promise<string> | null>(null)
   const resetReviewRef = useRef<() => void>(() => {})
   const [cacheEntryCount, setCacheEntryCount] = useState<number | null>(null)
   const [cacheStatus, setCacheStatus] = useState<string | undefined>()
@@ -1571,7 +1592,7 @@ export default function App() {
 
   const trackEvent = useCallback(
     (event: PrivacySafeAnalyticsEvent) => {
-      if (analyticsConsent !== true) return
+      if (analyticsConsent !== true || !licenseApiBaseUrl) return
       const safeEvent = {
         ...event,
         provider:
@@ -1579,11 +1600,21 @@ export default function App() {
         scanMode: event.scanMode ?? settingsRef.current.scanMode,
         planId: event.planId ?? getEffectivePlanId(entitlement)
       }
-      void sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, safeEvent).catch(
-        () => {
+      if (!installIdPromiseRef.current) {
+        installIdPromiseRef.current = getOrCreateInstallId()
+      }
+      void installIdPromiseRef.current
+        .then((installId) =>
+          sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, {
+            ...safeEvent,
+            installId,
+            extensionVersion: extensionVersionForAnalytics(),
+            dayKey: utcDayKey()
+          })
+        )
+        .catch(() => {
           // Analytics is optional; never interrupt scan, report, or Trash flows.
-        }
-      )
+        })
     },
     [analyticsConsent, entitlement, licenseApiBaseUrl]
   )
@@ -2230,24 +2261,32 @@ export default function App() {
       setRecoveryHistoryBusyId(null)
       restoreGenerationRef.current = null
       restoreInFlightRef.current = false
-      if (restoreRequest) {
-        void persistRecoveryRestoreStatus(restoreRequest.operationId, {
-          success: result.success,
-          ...(result.error ? { error: result.error } : {})
+      if (result.success && restoreRequest && !restoreRequest.history) {
+        trackEvent({
+          name: "undo_completed",
+          provider: restoreRequest.provider
         })
-          .then((records) => {
-            setRecoveryHistorySafely(records)
-            if (result.success && !failedUndo && restoreRequest.history) {
-              resetReviewRef.current()
-              setTrashWarningSafely(
-                "Provider restore completed. Run a new scoped scan to verify the library state."
-              )
-            }
+      }
+      if (restoreRequest) {
+        if (restoreRequest.operationId) {
+          void persistRecoveryRestoreStatus(restoreRequest.operationId, {
+            success: result.success,
+            ...(result.error ? { error: result.error } : {})
           })
-          .catch((error) => {
-            const message = error instanceof Error ? error.message : String(error)
-            setReportError(`Could not update recovery history: ${message}`)
-          })
+            .then((records) => {
+              setRecoveryHistorySafely(records)
+              if (result.success && !failedUndo && restoreRequest.history) {
+                resetReviewRef.current()
+                setTrashWarningSafely(
+                  "Provider restore completed. Run a new scoped scan to verify the library state."
+                )
+              }
+            })
+            .catch((error) => {
+              const message = error instanceof Error ? error.message : String(error)
+              setReportError(`Could not update recovery history: ${message}`)
+            })
+        }
       }
       if (failedUndo === null) return
       console.error("GPD: Restore failed:", result.error)
@@ -2256,7 +2295,7 @@ export default function App() {
         `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
       )
     },
-    [setRecoveryHistorySafely, trashLifecycle]
+    [setRecoveryHistorySafely, setTrashWarningSafely, trackEvent, trashLifecycle]
   )
 
   const patchScanCheckpoint = useCallback(
@@ -2307,6 +2346,7 @@ export default function App() {
           if (
             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
           ) {
+            providerConnectionTrackerRef.current.reset()
             invalidatePaidConversionContext()
             scanLifecycle.reset()
             cachedMediaItemsRef.current = null
@@ -2527,6 +2567,16 @@ export default function App() {
           }
           if (msg.success) {
             cancelHealthCheckRetry()
+            if (
+              providerConnectionTrackerRef.current.markConnected(
+                healthCheckProvider
+              )
+            ) {
+              trackEvent({
+                name: "provider_connected",
+                provider: healthCheckProvider
+              })
+            }
             if (accountIdentityChanged) {
               invalidatePaidConversionContext()
             }
@@ -2749,6 +2799,9 @@ export default function App() {
         }
         case "gptkLog":
           if ((message as { level?: string }).level === "error") {
+            providerConnectionTrackerRef.current.markDisconnected(
+              settingsRef.current.sourceProvider ?? "google"
+            )
             dispatch({
               type: "GP_TAB_CLOSED",
               provider: settingsRef.current.sourceProvider ?? "google"
@@ -2796,7 +2849,8 @@ export default function App() {
     patchScanCheckpoint,
     cancelHealthCheckRetry,
     scheduleHealthCheckRetry,
-    storedReviewScope
+    storedReviewScope,
+    trackEvent
   ])
 
   // Keep refs so async callbacks always see latest values
@@ -4200,6 +4254,7 @@ export default function App() {
   const handleOpenProvider = useCallback(
     (provider: PhotoProvider) => {
       if (photoDataConsent !== true) return
+      providerConnectionTrackerRef.current.reset()
       invalidatePaidConversionContext()
       cancelHealthCheckRetry()
       setSidePanelSourceConfirmed(true)
@@ -4261,13 +4316,12 @@ export default function App() {
     const restore = trashLifecycle.beginRestore(undoData, requestId)
     restoreInFlightRef.current = true
     restoreGenerationRef.current = paidConversionGenerationRef.current
-    if (undoData.operationId) {
-      restoreRequestByIdRef.current.set(requestId, {
-        operationId: undoData.operationId,
-        generation: paidConversionGenerationRef.current,
-        history: false
-      })
-    }
+    restoreRequestByIdRef.current.set(requestId, {
+      operationId: undoData.operationId,
+      generation: paidConversionGenerationRef.current,
+      history: false,
+      provider: restore.provider
+    })
     ratingPromptDeferredRef.current = false
     autoSelectNextResultsRef.current = false
     pendingSelectionsRef.current = {
@@ -4334,7 +4388,8 @@ export default function App() {
       restoreRequestByIdRef.current.set(requestId, {
         operationId: record.operationId,
         generation: paidConversionGenerationRef.current,
-        history: true
+        history: true,
+        provider: restore.provider
       })
       restoreGenerationRef.current = paidConversionGenerationRef.current
       restoreInFlightRef.current = true

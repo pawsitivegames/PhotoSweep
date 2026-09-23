@@ -70,8 +70,10 @@ By default it listens on `127.0.0.1:8787` and uses
 - `POST /analytics`
 
   - Body is one allowlisted product/reliability event.
-  - Accepted fields are event name, provider, scan mode, plan id, count buckets,
-    and error category.
+  - Accepted fields are event name, opaque UUID v4 install id, extension version,
+    UTC day key, provider, scan mode, plan id, count buckets, and error category.
+  - `provider_connected` requires a provider. Client telemetry without all three
+    funnel identity fields is rejected.
   - The backend sanitizes the event again before bounded storage.
   - Photo URLs, thumbnails, filenames, album names, exact timestamps,
     people/location labels, page content, and raw reports are not accepted.

@@ -17,6 +17,8 @@ Use this page to find the canonical document for a reader task. The root
   release gate and external evidence checklist.
 - [Licensing backend](LICENSING_BACKEND.md) — API contract, plans, environment
   variables, key handling, recovery, and deployment constraints.
+- [Standing-board funnel evidence](STANDING_BOARD_FUNNEL_EVIDENCE.md) — privacy-safe
+  Firestore export schema, derivations, and import verification.
 - [Dependency overrides](DEPENDENCY_OVERRIDES.md) — temporary production
   dependency overrides and their required release verification.
 

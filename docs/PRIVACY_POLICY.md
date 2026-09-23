@@ -46,8 +46,9 @@ Allowed license/support data includes:
 - Stripe customer, checkout session, and payment identifiers
 - buyer email when supplied through Stripe Checkout or a license recovery flow
 - signed entitlement token state
-- extension version, provider, plan, scan mode, count buckets, error category,
-  and redacted diagnostic logs if the user chooses to export diagnostics
+- extension version, a locally generated opaque install id, a UTC day key,
+  provider, plan, scan mode, count buckets, error category, and redacted
+  diagnostic logs if the user chooses to export diagnostics
 - limited product telemetry such as app opened, scan, checkout, export, Trash,
   entitlement, and categorized error events, with provider, scan mode, plan, and
   count buckets where applicable
@@ -56,14 +57,20 @@ Optional client telemetry is sent only after the user accepts the in-product
 disclosure. It helps measure reliability and feature use and can be declined
 without affecting scans, review, reports, Trash, licensing, or recovery. It does
 not include photo content, filenames, album names, raw reports, or provider URLs.
+The install id is a random UUID kept in Chrome extension storage. It is not
+derived from or linked to a Google, iCloud, or Amazon account, email address,
+photo URL, or other photo data. It is sent only with consent and is not reset
+when the user changes providers.
 
 Payment lifecycle events created by the license service, such as a completed
 purchase or full refund, are recorded as operational payment events without
 photo-library context.
 
 PhotoSweep's license service must not receive photo URLs, thumbnails, filenames,
-album names, raw reports, exact timestamps, people/location labels, or page
+album names, exact timestamps from the client, people/location labels, or page
 content.
+The service may stamp a server receipt time on accepted telemetry for aggregate
+funnel calculations; that receipt time is not supplied by the client.
 
 ## Third Parties
 
