@@ -1,4 +1,10 @@
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
@@ -23,9 +29,11 @@ const traceRunId =
 
 describe("bounded TLC to TypeScript trace replay", () => {
   it("replays real TLC modules with provenance, coverage, and a detected negative divergence", async () => {
+    const outputParent = join(root, "tmp/verification")
+    mkdirSync(outputParent, { recursive: true })
     const outputDirectory = process.env.MODEL_TRACE_REPLAY_OUTPUT
       ? resolve(root, process.env.MODEL_TRACE_REPLAY_OUTPUT)
-      : mkdtempSync(join(root, "tmp/verification/model-trace-replay-"))
+      : mkdtempSync(join(outputParent, "model-trace-replay-"))
     const exported = exportTraceBundle({
       root,
       outputDirectory,
