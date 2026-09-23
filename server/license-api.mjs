@@ -26,6 +26,7 @@ const ANALYTICS_EVENT_NAMES = new Set([
   "app_opened",
   "scan_started",
   "scan_completed",
+  "provider_connected",
   "upgrade_prompt_shown",
   "upgrade_prompt_dismissed",
   "checkout_started",
@@ -37,6 +38,7 @@ const ANALYTICS_EVENT_NAMES = new Set([
   "export_clicked",
   "trash_attempted",
   "trash_completed",
+  "undo_completed",
   "error"
 ])
 const ANALYTICS_PROVIDERS = new Set(["google", "icloud", "amazon"])
@@ -272,6 +274,31 @@ function optionalEnum(value, allowed) {
   return typeof value === "string" && allowed.has(value) ? value : undefined
 }
 
+function isValidInstallId(value) {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  )
+}
+
+function isValidExtensionVersion(value) {
+  return (
+    typeof value === "string" &&
+    value.length <= 32 &&
+    /^\d{1,5}\.\d{1,5}\.\d{1,5}(?:\.\d{1,5})?$/.test(value)
+  )
+}
+
+function isValidDayKey(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false
+  }
+  const date = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
 function hasInvalidOptionalEnum(input, key, allowed) {
   return (
     input[key] !== undefined && optionalEnum(input[key], allowed) === undefined
@@ -291,7 +318,14 @@ function hasInvalidOptionalBucket(input, key) {
 function sanitizeAnalyticsEvent(input) {
   if (!input || typeof input !== "object") return undefined
   const name = optionalEnum(input.name, ANALYTICS_EVENT_NAMES)
-  if (!name) return undefined
+  if (
+    !name ||
+    !isValidInstallId(input.installId) ||
+    !isValidExtensionVersion(input.extensionVersion) ||
+    !isValidDayKey(input.dayKey)
+  ) {
+    return undefined
+  }
   if (
     hasInvalidOptionalEnum(input, "provider", ANALYTICS_PROVIDERS) ||
     hasInvalidOptionalEnum(input, "scanMode", ANALYTICS_SCAN_MODES) ||
@@ -314,12 +348,17 @@ function sanitizeAnalyticsEvent(input) {
     ) ||
     hasInvalidOptionalBucket(input, "photoCountBucket") ||
     hasInvalidOptionalBucket(input, "duplicateGroupCountBucket") ||
-    hasInvalidOptionalEnum(input, "errorCategory", ANALYTICS_ERROR_CATEGORIES)
+    hasInvalidOptionalEnum(input, "errorCategory", ANALYTICS_ERROR_CATEGORIES) ||
+    (name === "provider_connected" &&
+      optionalEnum(input.provider, ANALYTICS_PROVIDERS) === undefined)
   ) {
     return undefined
   }
   return {
     name,
+    installId: input.installId,
+    extensionVersion: input.extensionVersion,
+    dayKey: input.dayKey,
     provider: optionalEnum(input.provider, ANALYTICS_PROVIDERS),
     scanMode: optionalEnum(input.scanMode, ANALYTICS_SCAN_MODES),
     planId: optionalEnum(input.planId, ANALYTICS_PLAN_IDS),

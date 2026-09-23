@@ -1329,6 +1329,9 @@ describe("license API", () => {
           provider: "google",
           scanMode: "smart",
           planId: "free",
+          installId: "123e4567-e89b-42d3-a456-426614174000",
+          extensionVersion: "2.3.0.1",
+          dayKey: "2026-09-23",
           photoCountBucket: "1k-5k",
           duplicateGroupCountBucket: "0-99",
           upgradeReason: "scan",
@@ -1349,6 +1352,9 @@ describe("license API", () => {
       provider: "google",
       scanMode: "smart",
       planId: "free",
+      installId: "123e4567-e89b-42d3-a456-426614174000",
+      extensionVersion: "2.3.0.1",
+      dayKey: "2026-09-23",
       photoCountBucket: "1k-5k",
       duplicateGroupCountBucket: "0-99",
       upgradeReason: "scan",
@@ -1362,6 +1368,75 @@ describe("license API", () => {
       "photos.google.com"
     )
     expect(JSON.stringify(snapshot.analyticsEvents)).not.toContain("IMG_1234")
+  })
+
+  it("accepts provider connection events with only allowlisted funnel fields", async () => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    const response = await api(
+      new Request("https://license.test/analytics", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "provider_connected",
+          provider: "icloud",
+          installId: "123e4567-e89b-42d3-a456-426614174000",
+          extensionVersion: "2.3.0.1",
+          dayKey: "2026-09-23",
+          accountEmail: "private@example.com",
+          photoUrl: "https://icloud.example/private"
+        })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(store.snapshot().analyticsEvents).toEqual([
+      {
+        name: "provider_connected",
+        installId: "123e4567-e89b-42d3-a456-426614174000",
+        extensionVersion: "2.3.0.1",
+        dayKey: "2026-09-23",
+        provider: "icloud",
+        scanMode: undefined,
+        planId: undefined,
+        photoCountBucket: undefined,
+        duplicateGroupCountBucket: undefined,
+        errorCategory: undefined,
+        upgradeReason: undefined,
+        dismissalReason: undefined,
+        paidReturnOutcome: undefined,
+        activationOutcome: undefined,
+        recordedAt: expect.any(Number)
+      }
+    ])
+    expect(JSON.stringify(store.snapshot().analyticsEvents)).not.toContain(
+      "private@example.com"
+    )
+  })
+
+  it("rejects client analytics without the stable funnel metadata", async () => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    const response = await api(
+      new Request("https://license.test/analytics", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "app_opened" })
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(store.snapshot().analyticsEvents).toEqual([])
   })
 
   it("rejects client attempts to forge payment lifecycle analytics", async () => {

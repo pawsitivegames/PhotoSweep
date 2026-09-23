@@ -4,10 +4,30 @@ import type {
   CheckoutReturnOutcome,
   UpgradeReason
 } from "./paid-conversion"
+import { isValidInstallId } from "./install-identity"
 import type { PhotoProvider, ScanMode } from "./types"
 
 export const ANALYTICS_CONSENT_STORAGE_KEY = "photoSweepAnalyticsConsent"
 
+const ANALYTICS_EVENT_NAMES = new Set<AnalyticsEventName>([
+  "app_opened",
+  "scan_started",
+  "scan_completed",
+  "provider_connected",
+  "upgrade_prompt_shown",
+  "upgrade_prompt_dismissed",
+  "checkout_started",
+  "paid_return",
+  "restore_requested",
+  "restore_completed",
+  "restore_not_found",
+  "entitlement_refreshed",
+  "export_clicked",
+  "trash_attempted",
+  "trash_completed",
+  "undo_completed",
+  "error"
+])
 const ANALYTICS_PROVIDERS = new Set<PhotoProvider>([
   "google",
   "icloud",
@@ -59,6 +79,7 @@ export type AnalyticsEventName =
   | "app_opened"
   | "scan_started"
   | "scan_completed"
+  | "provider_connected"
   | "upgrade_prompt_shown"
   | "upgrade_prompt_dismissed"
   | "checkout_started"
@@ -70,6 +91,7 @@ export type AnalyticsEventName =
   | "export_clicked"
   | "trash_attempted"
   | "trash_completed"
+  | "undo_completed"
   | "error"
 
 export interface PrivacySafeAnalyticsEvent {
@@ -84,6 +106,9 @@ export interface PrivacySafeAnalyticsEvent {
   dismissalReason?: "continue_free" | "dismissed"
   paidReturnOutcome?: CheckoutReturnOutcome
   activationOutcome?: ActivationOutcome
+  installId?: string
+  extensionVersion?: string
+  dayKey?: string
 }
 
 export function countBucket(count: number): string {
@@ -97,9 +122,11 @@ export function countBucket(count: number): string {
 
 export function buildAnalyticsEvent(
   event: PrivacySafeAnalyticsEvent
-): PrivacySafeAnalyticsEvent {
+): PrivacySafeAnalyticsEvent | undefined {
+  const name = optionalAllowed(event.name, ANALYTICS_EVENT_NAMES)
+  if (!name) return undefined
   return {
-    name: event.name,
+    name,
     provider: optionalAllowed(event.provider, ANALYTICS_PROVIDERS),
     scanMode: optionalAllowed(event.scanMode, ANALYTICS_SCAN_MODES),
     planId: optionalAllowed(event.planId, ANALYTICS_PLAN_IDS),
@@ -146,6 +173,15 @@ export function buildAnalyticsEvent(
             ANALYTICS_ACTIVATION_OUTCOMES
           )
         }
+      : {}),
+    ...(optionalInstallId(event.installId)
+      ? { installId: optionalInstallId(event.installId) }
+      : {}),
+    ...(optionalExtensionVersion(event.extensionVersion)
+      ? { extensionVersion: optionalExtensionVersion(event.extensionVersion) }
+      : {}),
+    ...(optionalDayKey(event.dayKey)
+      ? { dayKey: optionalDayKey(event.dayKey) }
       : {})
   }
 }
@@ -157,17 +193,75 @@ function optionalAllowed<T extends string>(
   return typeof value === "string" && allowed.has(value) ? value : undefined
 }
 
+function optionalInstallId(value: string | undefined): string | undefined {
+  return isValidInstallId(value) ? value : undefined
+}
+
+function optionalExtensionVersion(
+  value: string | undefined
+): string | undefined {
+  return typeof value === "string" &&
+    value.length <= 32 &&
+    /^\d{1,5}\.\d{1,5}\.\d{1,5}(?:\.\d{1,5})?$/.test(value)
+    ? value
+    : undefined
+}
+
+function optionalDayKey(value: string | undefined): string | undefined {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    return undefined
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    ? value
+    : undefined
+}
+
+export function utcDayKey(date = new Date()): string {
+  return date.toISOString().slice(0, 10)
+}
+
+export class ProviderConnectionTracker {
+  private connectedProvider: PhotoProvider | null = null
+
+  markConnected(provider: PhotoProvider): boolean {
+    if (this.connectedProvider === provider) return false
+    this.connectedProvider = provider
+    return true
+  }
+
+  markDisconnected(provider: PhotoProvider): void {
+    if (this.connectedProvider === provider) this.connectedProvider = null
+  }
+
+  reset(): void {
+    this.connectedProvider = null
+  }
+}
+
 export async function sendPrivacySafeAnalyticsEvent(
   apiBaseUrl: string | undefined,
   event: PrivacySafeAnalyticsEvent,
   fetchImpl: typeof fetch = fetch
 ): Promise<boolean> {
   if (!apiBaseUrl) return false
+  const safeEvent = buildAnalyticsEvent(event)
+  if (
+    !safeEvent?.installId ||
+    !safeEvent.extensionVersion ||
+    !safeEvent.dayKey
+  ) {
+    return false
+  }
   const response = await fetchImpl(`${apiBaseUrl}/analytics`, {
     method: "POST",
     credentials: "include",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(buildAnalyticsEvent(event))
+    body: JSON.stringify(safeEvent)
   })
   return response.ok
 }
