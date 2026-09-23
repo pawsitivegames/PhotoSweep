@@ -33,6 +33,7 @@
     "license:serve": "node server/node-server.mjs",
     "analytics:export": "node tools/export-funnel-evidence.mjs",
     "stripe:setup-products": "node tools/setup-stripe-products.mjs",
+    "stripe:reconcile": "node tools/export-stripe-ledger-evidence.mjs",
     "sync:scripts": "cp scripts/photo-provider-command-host.js scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
     "predev": "PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1 node tools/write-build-flags.mjs && npm run build:gptk && npm run copy:wasm && npm run build:worker && npm run sync:scripts",
     "dev": "plasmo dev",

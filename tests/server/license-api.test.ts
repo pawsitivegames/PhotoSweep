@@ -202,6 +202,98 @@ describe("license API", () => {
     ])
   })
 
+  it("backfills Stripe ledger fields and event ids on an existing purchase row", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const licenseSessionId = "pls_ledger_backfill"
+    await store.upsertLicense({
+      sessionId: licenseSessionId,
+      planId: "cleanup_pass",
+      status: "active",
+      stripePaymentIntentId: "pi_ledger_backfill",
+      purchasedAt: 1_700_000_000_000
+    })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_ledger_paid",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_ledger_backfill",
+              created: 1_700_000_001,
+              customer: { id: "cus_ledger_backfill" },
+              payment_intent: {
+                id: "pi_ledger_backfill",
+                latest_charge: { id: "ch_ledger_backfill" }
+              },
+              amount_total: 499,
+              currency: "usd",
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              customer_details: { email: "ledger-private@example.com" },
+              metadata: {
+                planId: "cleanup_pass",
+                licenseSessionId
+              }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    const enriched =
+      store.snapshot().licensesBySessionId[licenseSessionId].purchases[0]
+    expect(enriched).toMatchObject({
+      stripeCheckoutSessionId: "cs_ledger_backfill",
+      stripePaymentIntentId: "pi_ledger_backfill",
+      stripeChargeId: "ch_ledger_backfill",
+      stripeCustomerId: "cus_ledger_backfill",
+      stripeAmount: 499,
+      stripeCurrency: "usd",
+      purchasedAt: 1_700_000_000_000,
+      status: "active",
+      stripeEventIds: ["evt_ledger_paid"]
+    })
+    expect(JSON.stringify(store.snapshot().analyticsEvents)).not.toContain(
+      "ledger-private@example.com"
+    )
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_ledger_refund",
+          type: "charge.refunded",
+          data: {
+            object: {
+              id: "ch_ledger_backfill",
+              payment_intent: "pi_ledger_backfill",
+              customer: "cus_ledger_backfill",
+              amount: 499,
+              amount_refunded: 499,
+              currency: "usd"
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    const refunded =
+      store.snapshot().licensesBySessionId[licenseSessionId].purchases[0]
+    expect(refunded).toMatchObject({
+      status: "inactive",
+      inactiveReason: "charge.refunded",
+      refundedAt: expect.any(Number),
+      stripeEventIds: ["evt_ledger_paid", "evt_ledger_refund"]
+    })
+  })
+
   it("hands a checkout session to the extension from the success page", async () => {
     const keys = testKeys()
     const api = createLicenseApi({
@@ -223,6 +315,64 @@ describe("license API", () => {
     expect(html).toContain('type: "photosweep-license-session"')
     expect(html).toContain("test-extension-id")
     expect(html).toContain("pls_success")
+  })
+
+  it("backfills an unkeyed purchase only when its plan and customer match uniquely", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const licenseSessionId = "pls_unique_backfill"
+    await store.upsertLicense({
+      sessionId: licenseSessionId,
+      purchases: [
+        {
+          planId: "mini_cleanup",
+          status: "active",
+          stripeCustomerId: "cus_unique_backfill",
+          purchasedAt: 1_700_000_000_000
+        },
+        {
+          planId: "lifetime",
+          status: "active",
+          stripeCustomerId: "cus_other",
+          purchasedAt: 1_700_000_001_000
+        }
+      ]
+    })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_unique_backfill",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_unique_backfill",
+              customer: "cus_unique_backfill",
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              metadata: {
+                planId: "mini_cleanup",
+                licenseSessionId
+              }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    const purchases =
+      store.snapshot().licensesBySessionId[licenseSessionId].purchases
+    expect(purchases).toHaveLength(2)
+    expect(purchases[0]).toMatchObject({
+      planId: "mini_cleanup",
+      stripeCheckoutSessionId: "cs_unique_backfill",
+      stripeCustomerId: "cus_unique_backfill"
+    })
   })
 
   it("waits for delayed payment success before activating access", async () => {
@@ -1047,6 +1197,75 @@ describe("license API", () => {
     })
   })
 
+  it("applies a charge-only pending refund after activation", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const licenseSessionId = "pls_charge_only_refund"
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_charge_only_refund",
+          type: "charge.refunded",
+          data: {
+            object: {
+              id: "ch_charge_only",
+              amount: 299,
+              amount_refunded: 299,
+              currency: "usd"
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+    expect(store.snapshot().pendingStripeRevocations).toMatchObject({
+      "ch:ch_charge_only": expect.objectContaining({
+        reason: "charge.refunded"
+      })
+    })
+
+    expect(
+      (
+        await sendWebhook(api, env.STRIPE_WEBHOOK_SECRET, {
+          id: "evt_charge_only_activation",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_charge_only",
+              payment_intent: {
+                id: "pi_charge_only",
+                latest_charge: { id: "ch_charge_only" }
+              },
+              payment_status: "paid",
+              client_reference_id: licenseSessionId,
+              metadata: {
+                planId: "mini_cleanup",
+                licenseSessionId
+              }
+            }
+          }
+        })
+      ).status
+    ).toBe(200)
+
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      status: "inactive",
+      inactiveReason: "charge.refunded",
+      stripeChargeId: "ch_charge_only",
+      stripeEventIds: expect.arrayContaining([
+        "evt_charge_only_refund",
+        "evt_charge_only_activation"
+      ])
+    })
+  })
+
   it("rejects unsigned webhooks", async () => {
     const keys = testKeys()
     const api = createLicenseApi({
@@ -1541,6 +1760,40 @@ describe("license API", () => {
       provider: "google",
       scanMode: "smart",
       planId: "free"
+    })
+  })
+
+  it("adds the charge index when upgrading a legacy JSON store", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "photosweep-legacy-"))
+    const storePath = path.join(dir, "licenses.json")
+    await fs.writeFile(
+      storePath,
+      JSON.stringify({
+        licensesBySessionId: {},
+        sessionByEmail: {},
+        sessionByStripeCustomerId: {},
+        sessionByStripeCheckoutSessionId: {},
+        sessionByStripePaymentIntentId: {},
+        pendingStripeRevocations: {},
+        processedStripeEvents: [],
+        analyticsEvents: []
+      })
+    )
+
+    const store = createJsonFileLicenseStore(storePath)
+    await store.upsertLicense({
+      sessionId: "pls_legacy",
+      planId: "lifetime",
+      status: "active",
+      stripeChargeId: "ch_legacy",
+      purchasedAt: 1000
+    })
+
+    await expect(store.getSessionIdByStripeChargeId("ch_legacy")).resolves.toBe(
+      "pls_legacy"
+    )
+    await expect(store.snapshot()).resolves.toMatchObject({
+      sessionByStripeChargeId: { ch_legacy: "pls_legacy" }
     })
   })
 })

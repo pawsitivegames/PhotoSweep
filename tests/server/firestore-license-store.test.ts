@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest"
 import { createFirestoreLicenseStore } from "../../server/firestore-license-store.mjs"
 
 class FakeDocSnapshot {
-  constructor(public id: string, private value: unknown) {}
+  constructor(
+    public id: string,
+    private value: unknown
+  ) {}
   get exists() {
     return this.value !== undefined
   }
@@ -25,7 +28,9 @@ class FakeDocRef {
     return new FakeDocSnapshot(this.id, this.store.get(this.id))
   }
   async set(value: Record<string, unknown>, options?: { merge?: boolean }) {
-    const previous = options?.merge ? (this.store.get(this.id) as object) : undefined
+    const previous = options?.merge
+      ? (this.store.get(this.id) as object)
+      : undefined
     this.store.set(this.id, { ...(previous ?? {}), ...value })
   }
 }
@@ -53,16 +58,24 @@ class FakeCollectionRef {
   }
   async get() {
     return new FakeQuerySnapshot(
-      [...this.store.entries()].map(([id, value]) => new FakeDocSnapshot(id, value))
+      [...this.store.entries()].map(
+        ([id, value]) => new FakeDocSnapshot(id, value)
+      )
     )
   }
   orderBy(field: string, direction: "asc" | "desc") {
     const docs = [...this.store.entries()]
       .map(([id, value]) => new FakeDocSnapshot(id, value))
       .sort((a, b) => {
-        const av = (a.data() as Record<string, unknown>)?.[field] as number | undefined
-        const bv = (b.data() as Record<string, unknown>)?.[field] as number | undefined
-        return direction === "desc" ? (bv ?? 0) - (av ?? 0) : (av ?? 0) - (bv ?? 0)
+        const av = (a.data() as Record<string, unknown>)?.[field] as
+          | number
+          | undefined
+        const bv = (b.data() as Record<string, unknown>)?.[field] as
+          | number
+          | undefined
+        return direction === "desc"
+          ? (bv ?? 0) - (av ?? 0)
+          : (av ?? 0) - (bv ?? 0)
       })
     return new FakeQuery(docs)
   }
@@ -73,7 +86,11 @@ class FakeTransaction {
   get(ref: FakeDocRef) {
     return ref.get()
   }
-  set(ref: FakeDocRef, value: Record<string, unknown>, options?: { merge?: boolean }) {
+  set(
+    ref: FakeDocRef,
+    value: Record<string, unknown>,
+    options?: { merge?: boolean }
+  ) {
     this.writes.push(() => ref.set(value, options))
   }
 }
@@ -84,7 +101,9 @@ class FakeFirestore {
     if (!this.collections.has(name)) this.collections.set(name, new Map())
     return new FakeCollectionRef(this.collections.get(name)!)
   }
-  async runTransaction<T>(callback: (transaction: FakeTransaction) => Promise<T>) {
+  async runTransaction<T>(
+    callback: (transaction: FakeTransaction) => Promise<T>
+  ) {
     const writes: Array<() => Promise<void>> = []
     const result = await callback(new FakeTransaction(writes))
     for (const write of writes) await write()
@@ -105,6 +124,7 @@ describe("createFirestoreLicenseStore", () => {
       stripeCustomerId: "cus_123",
       stripeCheckoutSessionId: "cs_123",
       stripePaymentIntentId: "pi_123",
+      stripeChargeId: "ch_123",
       purchasedAt: 1000
     })
 
@@ -112,10 +132,67 @@ describe("createFirestoreLicenseStore", () => {
       planId: "lifetime",
       status: "active"
     })
-    await expect(store.getSessionIdByEmail("buyer@example.com")).resolves.toBe("sess_1")
-    await expect(store.getSessionIdByStripeCustomerId("cus_123")).resolves.toBe("sess_1")
-    await expect(store.getSessionIdByStripeCheckoutSessionId("cs_123")).resolves.toBe("sess_1")
-    await expect(store.getSessionIdByStripePaymentIntentId("pi_123")).resolves.toBe("sess_1")
+    await expect(store.getSessionIdByEmail("buyer@example.com")).resolves.toBe(
+      "sess_1"
+    )
+    await expect(store.getSessionIdByStripeCustomerId("cus_123")).resolves.toBe(
+      "sess_1"
+    )
+    await expect(
+      store.getSessionIdByStripeCheckoutSessionId("cs_123")
+    ).resolves.toBe("sess_1")
+    await expect(
+      store.getSessionIdByStripePaymentIntentId("pi_123")
+    ).resolves.toBe("sess_1")
+    await expect(store.getSessionIdByStripeChargeId("ch_123")).resolves.toBe(
+      "sess_1"
+    )
+  })
+
+  it("indexes every purchase in a multi-purchase ledger", async () => {
+    const firestore = new FakeFirestore()
+    const store = createFirestoreLicenseStore({ firestore: firestore as never })
+
+    await store.upsertLicense({
+      sessionId: "sess_multi",
+      purchases: [
+        {
+          planId: "mini_cleanup",
+          status: "inactive",
+          stripeCheckoutSessionId: "cs_old",
+          stripePaymentIntentId: "pi_old",
+          stripeChargeId: "ch_old",
+          purchasedAt: 1000
+        },
+        {
+          planId: "lifetime",
+          status: "active",
+          stripeCheckoutSessionId: "cs_new",
+          stripePaymentIntentId: "pi_new",
+          stripeChargeId: "ch_new",
+          purchasedAt: 2000
+        }
+      ]
+    })
+
+    await expect(
+      store.getSessionIdByStripeCheckoutSessionId("cs_old")
+    ).resolves.toBe("sess_multi")
+    await expect(
+      store.getSessionIdByStripePaymentIntentId("pi_old")
+    ).resolves.toBe("sess_multi")
+    await expect(store.getSessionIdByStripeChargeId("ch_old")).resolves.toBe(
+      "sess_multi"
+    )
+    await expect(
+      store.getSessionIdByStripeCheckoutSessionId("cs_new")
+    ).resolves.toBe("sess_multi")
+    await expect(
+      store.getSessionIdByStripePaymentIntentId("pi_new")
+    ).resolves.toBe("sess_multi")
+    await expect(store.getSessionIdByStripeChargeId("ch_new")).resolves.toBe(
+      "sess_multi"
+    )
   })
 
   it("deactivates licenses and tracks processed Stripe events", async () => {
