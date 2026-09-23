@@ -85,12 +85,15 @@ function uniqueObjects(objects, fallbackPrefix) {
 }
 
 function paymentIntentId(object) {
-  return (
+  const id =
     objectId(object?.payment_intent) ??
     objectId(object?.paymentIntentId) ??
     objectId(object?.charge?.payment_intent) ??
     objectId(object?.latest_charge?.payment_intent)
-  )
+  if (id) return id
+  return typeof object?.id === "string" && object.id.startsWith("pi_")
+    ? object.id
+    : undefined
 }
 
 function checkoutSessionId(object) {
