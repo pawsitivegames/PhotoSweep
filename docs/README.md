@@ -19,6 +19,8 @@ Use this page to find the canonical document for a reader task. The root
   variables, key handling, recovery, and deployment constraints.
 - [Standing-board funnel evidence](STANDING_BOARD_FUNNEL_EVIDENCE.md) — privacy-safe
   Firestore export schema, derivations, and import verification.
+- [Standing board Stripe ledger evidence](STANDING_BOARD_STRIPE_LEDGER_EVIDENCE.md)
+  — Phase B reconciliation exporter, privacy-safe output, and pass conditions.
 - [Dependency overrides](DEPENDENCY_OVERRIDES.md) — temporary production
   dependency overrides and their required release verification.
 

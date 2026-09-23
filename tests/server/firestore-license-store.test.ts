@@ -105,6 +105,7 @@ describe("createFirestoreLicenseStore", () => {
       stripeCustomerId: "cus_123",
       stripeCheckoutSessionId: "cs_123",
       stripePaymentIntentId: "pi_123",
+      stripeChargeId: "ch_123",
       purchasedAt: 1000
     })
 
@@ -116,6 +117,53 @@ describe("createFirestoreLicenseStore", () => {
     await expect(store.getSessionIdByStripeCustomerId("cus_123")).resolves.toBe("sess_1")
     await expect(store.getSessionIdByStripeCheckoutSessionId("cs_123")).resolves.toBe("sess_1")
     await expect(store.getSessionIdByStripePaymentIntentId("pi_123")).resolves.toBe("sess_1")
+    await expect(store.getSessionIdByStripeChargeId("ch_123")).resolves.toBe("sess_1")
+  })
+
+  it("indexes every purchase in a multi-purchase ledger", async () => {
+    const firestore = new FakeFirestore()
+    const store = createFirestoreLicenseStore({ firestore: firestore as never })
+
+    await store.upsertLicense({
+      sessionId: "sess_multi",
+      purchases: [
+        {
+          planId: "mini_cleanup",
+          status: "inactive",
+          stripeCheckoutSessionId: "cs_old",
+          stripePaymentIntentId: "pi_old",
+          stripeChargeId: "ch_old",
+          purchasedAt: 1000
+        },
+        {
+          planId: "lifetime",
+          status: "active",
+          stripeCheckoutSessionId: "cs_new",
+          stripePaymentIntentId: "pi_new",
+          stripeChargeId: "ch_new",
+          purchasedAt: 2000
+        }
+      ]
+    })
+
+    await expect(store.getSessionIdByStripeCheckoutSessionId("cs_old")).resolves.toBe(
+      "sess_multi"
+    )
+    await expect(store.getSessionIdByStripePaymentIntentId("pi_old")).resolves.toBe(
+      "sess_multi"
+    )
+    await expect(store.getSessionIdByStripeChargeId("ch_old")).resolves.toBe(
+      "sess_multi"
+    )
+    await expect(store.getSessionIdByStripeCheckoutSessionId("cs_new")).resolves.toBe(
+      "sess_multi"
+    )
+    await expect(store.getSessionIdByStripePaymentIntentId("pi_new")).resolves.toBe(
+      "sess_multi"
+    )
+    await expect(store.getSessionIdByStripeChargeId("ch_new")).resolves.toBe(
+      "sess_multi"
+    )
   })
 
   it("deactivates licenses and tracks processed Stripe events", async () => {
