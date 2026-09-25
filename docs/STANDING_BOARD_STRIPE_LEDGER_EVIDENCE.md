@@ -140,6 +140,22 @@ threshold.
   Session, PaymentIntent, or Charge.
 - `refunds`: refund objects paired to a successful payment.
 
+When a customer upgrades to lifetime in the same license session, the stored
+Firestore entitlement pointer is authoritative. A paid allow-listed earlier
+Checkout Session is treated as superseded for the
+`unmatched_paid_checkout_sessions` blocker only when it has no ledger match by
+Checkout Session, PaymentIntent, or Charge; it has a `licenseSessionId`; and a
+ledger row for that same license session stores a different Checkout Session ID
+that is another paid allow-listed Checkout Session in the reconcile input.
+`reconciliation.paidCheckoutSessions.supersededPaidCheckoutSessions` reports
+the count, and
+`reconciliation.paidCheckoutSessions.unmatchedByCheckoutIdExcludingSuperseded`
+reports the remaining checkout-ID gap used by that blocker. The equivalent
+counts are also available under `quality`. Superseded sessions remain in
+`metrics.paid_checkouts`, gross revenue, and net-revenue arithmetic because
+they are real paid Stripe checkouts. This rule does not write Firestore,
+backfill identifiers, or emit a board PASS.
+
 `quality.blockers` is intentionally evidence-oriented. Examples include
 `purchase_rows_missing_stripe_checkout_match`,
 `successful_payments_without_customer_identity`,

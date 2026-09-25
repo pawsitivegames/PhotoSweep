@@ -14,7 +14,9 @@ function checkout({
   customerId,
   planId = "cleanup_pass",
   amount = 499,
-  currency = "usd"
+  currency = "usd",
+  licenseSessionId,
+  createdAt = created
 }: {
   id: string
   paymentIntentId: string
@@ -22,17 +24,22 @@ function checkout({
   planId?: string
   amount?: number
   currency?: string
+  licenseSessionId?: string
+  createdAt?: number
 }) {
   return {
     id,
-    created,
+    created: createdAt,
     payment_status: "paid",
     payment_intent: paymentIntentId,
     customer: customerId,
     amount_total: amount,
     currency,
     customer_details: { email: "private@example.com" },
-    metadata: { planId }
+    metadata: {
+      planId,
+      ...(licenseSessionId ? { licenseSessionId } : {})
+    }
   }
 }
 
@@ -41,20 +48,51 @@ function paymentIntent({
   customerId,
   amount = 499,
   currency = "usd",
-  planId = "cleanup_pass"
+  planId = "cleanup_pass",
+  createdAt = created
 }: {
   id: string
   customerId?: string
   amount?: number
   currency?: string
   planId?: string
+  createdAt?: number
 }) {
   return {
     id,
-    created,
+    created: createdAt,
     status: "succeeded",
     amount,
     amount_received: amount,
+    currency,
+    customer: customerId,
+    metadata: { planId }
+  }
+}
+
+function charge({
+  id,
+  paymentIntentId,
+  customerId,
+  amount = 499,
+  currency = "usd",
+  planId = "cleanup_pass",
+  createdAt = created
+}: {
+  id: string
+  paymentIntentId: string
+  customerId?: string
+  amount?: number
+  currency?: string
+  planId?: string
+  createdAt?: number
+}) {
+  return {
+    id,
+    created: createdAt,
+    payment_intent: paymentIntentId,
+    paid: true,
+    amount,
     currency,
     customer: customerId,
     metadata: { planId }
@@ -146,6 +184,126 @@ describe("reconcileStripeLedger", () => {
     })
     expect(evidence.quality.blockers).toContain(
       "purchase_rows_missing_stripe_checkout_match"
+    )
+  })
+
+  it("excludes superseded same-session plan checkouts from the blocker", () => {
+    const upgradeCases = [
+      {
+        licenseSessionId: "pls_LNUm8rvNO5qm2JMjl6vJGELh",
+        customerId: "cus_upgrade_1",
+        earlier: {
+          id: "cs_live_a1HdbMmZbjgTUNWVxg00MUSTaU5PZ4a0sKYhrRQkPeh9xSSshjsxkIwWU5",
+          paymentIntentId: "pi_3U6CcLLuiS5pnsDP15K5zfEd",
+          chargeId: "ch_3U6CcLLuiS5pnsDP1oyTNGNT",
+          planId: "cleanup_pass",
+          amount: 499,
+          createdAt: created + 10
+        },
+        current: {
+          id: "cs_live_a1TARvTW5gVP5UYZRloThT88V9k4P1fLYjyHXMOuAZruYKvZ0GlL6OYGri",
+          paymentIntentId: "pi_3U6ChWLuiS5pnsDP0qn2GNrj",
+          chargeId: "ch_upgrade_lifetime_1",
+          planId: "lifetime",
+          amount: 999,
+          createdAt: created + 370
+        }
+      },
+      {
+        licenseSessionId: "pls_yMmTsLt_PQGtYV0FcvMNQSX1",
+        customerId: "cus_upgrade_2",
+        earlier: {
+          id: "cs_live_a1NALDKcL5cKwXIwj5hmoUIXGViHfITGt3e2evMqE5h2ieeri6p55EO2JO",
+          paymentIntentId: "pi_3Tz6O8LuiS5pnsDP0mUCIsJ4",
+          chargeId: "ch_3Tz6O8LuiS5pnsDP0cCZT6sF",
+          planId: "mini_cleanup",
+          amount: 299,
+          createdAt: created + 20
+        },
+        current: {
+          id: "cs_live_a1Pt6lNYdxifRVME1RwoGBPsTRXM5YQxnFEDDQmpKXljuVEZztid1xbPcg",
+          paymentIntentId: "pi_upgrade_lifetime_2",
+          chargeId: "ch_upgrade_lifetime_2",
+          planId: "lifetime",
+          amount: 999,
+          createdAt: created + 33_002
+        }
+      }
+    ]
+
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: {
+        licensesBySessionId: Object.fromEntries(
+          upgradeCases.map(({ licenseSessionId, customerId, current }) => [
+            licenseSessionId,
+            {
+              sessionId: licenseSessionId,
+              purchases: [
+                ledgerRow({
+                  checkoutSessionId: current.id,
+                  paymentIntentId: current.paymentIntentId,
+                  chargeId: current.chargeId,
+                  customerId,
+                  planId: current.planId
+                })
+              ]
+            }
+          ])
+        )
+      },
+      stripe: {
+        checkoutSessions: upgradeCases.flatMap(
+          ({ licenseSessionId, customerId, earlier, current }) => [
+            checkout({ ...earlier, customerId, licenseSessionId }),
+            checkout({ ...current, customerId, licenseSessionId })
+          ]
+        ),
+        paymentIntents: upgradeCases.flatMap(
+          ({ customerId, earlier, current }) => [
+            paymentIntent({ ...earlier, customerId }),
+            paymentIntent({ ...current, customerId })
+          ]
+        ),
+        charges: upgradeCases.flatMap(
+          ({ customerId, earlier, current }) => [
+            charge({ ...earlier, customerId }),
+            charge({ ...current, customerId })
+          ]
+        ),
+        refunds: []
+      }
+    })
+
+    expect(evidence.metrics).toMatchObject({
+      paid_checkouts: 4,
+      gross_revenue: {
+        amountMinor: 2796,
+        currency: "usd"
+      },
+      net_revenue: {
+        amountMinor: 2796,
+        currency: "usd"
+      }
+    })
+    expect(evidence.reconciliation.paidCheckoutSessions).toMatchObject({
+      total: 4,
+      matched: 2,
+      unmatched: 2,
+      matchedByAnyStripeId: 2,
+      supersededPaidCheckoutSessions: 2,
+      nonSupersededPaidCheckoutSessions: 2,
+      matchedByCheckoutIdExcludingSuperseded: 2,
+      unmatchedByCheckoutIdExcludingSuperseded: 0,
+      rateExcludingSuperseded: 1
+    })
+    expect(evidence.quality).toMatchObject({
+      supersededPaidCheckoutSessions: 2,
+      unmatchedByCheckoutIdExcludingSuperseded: 0
+    })
+    expect(evidence.quality.blockers).not.toContain(
+      "unmatched_paid_checkout_sessions"
     )
   })
 

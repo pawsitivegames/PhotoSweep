@@ -506,6 +506,16 @@ function matchLedgerRow(row, payments, checkoutSessions) {
   )
 }
 
+function ledgerRowMatchesCheckoutSessionIds(row, session) {
+  return (
+    (row.stripeCheckoutSessionId &&
+      row.stripeCheckoutSessionId === session.id) ||
+    (row.stripePaymentIntentId &&
+      row.stripePaymentIntentId === session.paymentIntentId) ||
+    (row.stripeChargeId && row.stripeChargeId === session.chargeId)
+  )
+}
+
 function ledgerRowForPayment(payment, ledger) {
   return ledger.find(
     (row) =>
@@ -1081,6 +1091,29 @@ export function reconcileStripeLedger({
   const paidCheckoutSessions = checkoutSessions.filter(
     (session) => session.paid && session.planId
   )
+  const paidCheckoutSessionIds = new Set(
+    paidCheckoutSessions.map((session) => session.id).filter(Boolean)
+  )
+  const supersededPaidCheckoutSessions = paidCheckoutSessions.filter(
+    (session) =>
+      !ledgerRows.some((row) =>
+        ledgerRowMatchesCheckoutSessionIds(row, session)
+      ) &&
+      session.licenseSessionId &&
+      ledgerRowContexts.some(
+        ({ row, sourceSessionId }) =>
+          sourceSessionId === session.licenseSessionId &&
+          row.stripeCheckoutSessionId &&
+          row.stripeCheckoutSessionId !== session.id &&
+          paidCheckoutSessionIds.has(row.stripeCheckoutSessionId)
+      )
+  )
+  const supersededPaidCheckoutSessionSet = new Set(
+    supersededPaidCheckoutSessions
+  )
+  const nonSupersededPaidCheckoutSessions = paidCheckoutSessions.filter(
+    (session) => !supersededPaidCheckoutSessionSet.has(session)
+  )
   const eligiblePayments = payments.filter(
     (payment) => payment.success && ALLOWLISTED_PLAN_SET.has(payment.planId)
   )
@@ -1103,12 +1136,16 @@ export function reconcileStripeLedger({
   const checkoutMatchedById = paidCheckoutSessions.filter((session) =>
     ledgerRows.some((row) => row.stripeCheckoutSessionId === session.id)
   ).length
+  const checkoutMatchedByIdExcludingSuperseded =
+    nonSupersededPaidCheckoutSessions.filter((session) =>
+      ledgerRows.some((row) => row.stripeCheckoutSessionId === session.id)
+    ).length
+  const unmatchedByCheckoutIdExcludingSuperseded =
+    nonSupersededPaidCheckoutSessions.length -
+    checkoutMatchedByIdExcludingSuperseded
   const checkoutMatchedByAnyId = paidCheckoutSessions.filter((session) =>
-    ledgerRows.some(
-      (row) =>
-        row.stripeCheckoutSessionId === session.id ||
-        row.stripePaymentIntentId === session.paymentIntentId ||
-        row.stripeChargeId === session.chargeId
+    ledgerRows.some((row) =>
+      ledgerRowMatchesCheckoutSessionIds(row, session)
     )
   ).length
   const checkoutMatchedByLicenseSessionId = paidCheckoutSessions.filter(
@@ -1232,7 +1269,7 @@ export function reconcileStripeLedger({
     (payment) => payment.success && !ALLOWLISTED_PLAN_SET.has(payment.planId)
   ).length
   const blockers = []
-  if (checkoutMatchedById !== paidCheckoutSessions.length) {
+  if (unmatchedByCheckoutIdExcludingSuperseded > 0) {
     appendBlocker(blockers, "unmatched_paid_checkout_sessions")
   }
   if (ledgerCheckoutMatched !== ledgerRows.length) {
@@ -1297,6 +1334,8 @@ export function reconcileStripeLedger({
     metricDetails: {
       paid_checkouts: {
         mappedToAllowlistedPlan: paidCheckoutSessions.length,
+        supersededPaidCheckoutSessions:
+          supersededPaidCheckoutSessions.length,
         unmatchedCustomerIdCount: paidCheckoutSessions.filter(
           (session) => !session.customerId
         ).length,
@@ -1338,7 +1377,18 @@ export function reconcileStripeLedger({
         ...reconciliation(paidCheckoutSessions.length, checkoutMatchedById),
         matchedByAnyStripeId: checkoutMatchedByAnyId,
         matchedByLicenseSessionId: checkoutMatchedByLicenseSessionId,
-        unmatchedByCheckoutId: paidCheckoutSessions.length - checkoutMatchedById
+        unmatchedByCheckoutId: paidCheckoutSessions.length - checkoutMatchedById,
+        supersededPaidCheckoutSessions:
+          supersededPaidCheckoutSessions.length,
+        nonSupersededPaidCheckoutSessions:
+          nonSupersededPaidCheckoutSessions.length,
+        matchedByCheckoutIdExcludingSuperseded,
+        unmatchedByCheckoutIdExcludingSuperseded,
+        rateExcludingSuperseded:
+          nonSupersededPaidCheckoutSessions.length === 0
+            ? null
+            : checkoutMatchedByIdExcludingSuperseded /
+              nonSupersededPaidCheckoutSessions.length
       },
       purchaseRows: {
         ...reconciliation(ledgerRows.length, ledgerCheckoutMatched),
@@ -1368,6 +1418,9 @@ export function reconcileStripeLedger({
       refundAggregateFallbackUsed,
       unmappedSuccessfulPaymentCount: unmappedSuccessfulPayments,
       currencyMismatchedRefundCount: currencyMismatchedRefunds.length,
+      supersededPaidCheckoutSessions:
+        supersededPaidCheckoutSessions.length,
+      unmatchedByCheckoutIdExcludingSuperseded,
       ledgerRowCount: ledgerRows.length
     },
     privacy: {
