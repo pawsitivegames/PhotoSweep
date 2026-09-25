@@ -185,6 +185,9 @@ describe("reconcileStripeLedger", () => {
     expect(evidence.quality.blockers).toContain(
       "purchase_rows_missing_stripe_checkout_match"
     )
+    expect(evidence.quality.blockers).toContain(
+      "unmatched_paid_checkout_sessions"
+    )
   })
 
   it("excludes superseded same-session plan checkouts from the blocker", () => {
