@@ -5,7 +5,10 @@ import os from "node:os"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
-import { runStripeLedgerEvidenceExport } from "../../tools/export-stripe-ledger-evidence.mjs"
+import {
+  fetchStripeLedgerObjects,
+  runStripeLedgerEvidenceExport
+} from "../../tools/export-stripe-ledger-evidence.mjs"
 
 describe("Stripe ledger evidence exporter", () => {
   it("reads offline exports, writes aggregate JSON, and excludes customer PII", async () => {
@@ -15,6 +18,7 @@ describe("Stripe ledger evidence exporter", () => {
     const ledgerPath = path.join(directory, "ledger.json")
     const stripePath = path.join(directory, "stripe.json")
     const outputPath = path.join(directory, "evidence.json")
+    const enrichmentReportPath = path.join(directory, "enrichment.json")
     await fs.writeFile(
       ledgerPath,
       JSON.stringify({
@@ -74,12 +78,15 @@ describe("Stripe ledger evidence exporter", () => {
         "--stripe-export",
         stripePath,
         "--output",
-        outputPath
+        outputPath,
+        "--enrich-report",
+        enrichmentReportPath
       ],
       now: new Date("2026-10-01T00:00:00.000Z")
     })
 
-    expect(result.outputPath).toBe(outputPath)
+    expect(result).toHaveProperty("outputPath", outputPath)
+    if (!("outputPath" in result)) throw new Error("Expected an output path.")
     const output = await fs.readFile(outputPath, "utf8")
     const evidence = JSON.parse(output)
     expect(evidence).toMatchObject({
@@ -93,5 +100,101 @@ describe("Stripe ledger evidence exporter", () => {
     })
     expect(output).not.toContain("private@example.com")
     expect(output).not.toContain("cus_cli")
+    const enrichment = JSON.parse(
+      await fs.readFile(enrichmentReportPath, "utf8")
+    )
+    expect(enrichment).toMatchObject({
+      readOnly: true,
+      dryRun: true,
+      backfillRequiresOwnerApproval: true,
+      privacy: {
+        ownerOnlyArtifact: true,
+        containsOpaqueStripeCustomerIds: true
+      },
+      summary: {
+        uniqueMatchCount: 1,
+        enrichableRowCount: 1
+      }
+    })
+    expect(enrichment.rows[0].candidate).not.toHaveProperty(
+      "customerIdentityKey"
+    )
+  })
+
+  it("expands customer paths for live Stripe reads without mutating anything", async () => {
+    const requests: URL[] = []
+    const result = await fetchStripeLedgerObjects({
+      fromMs: Date.parse("2026-09-01T00:00:00.000Z"),
+      toMs: Date.parse("2026-10-01T00:00:00.000Z"),
+      secret: "sk_test_not_written",
+      fetchImpl: async (input, init) => {
+        requests.push(new URL(String(input)))
+        expect(init?.headers).toMatchObject({
+          authorization: "Bearer sk_test_not_written"
+        })
+        return {
+          ok: true,
+          async json() {
+            return { data: [], has_more: false }
+          }
+        } as Response
+      }
+    })
+
+    expect(result).toMatchObject({
+      checkoutSessions: [],
+      paymentIntents: [],
+      charges: [],
+      refunds: []
+    })
+    expect(requests).toHaveLength(4)
+    const expandsByPath = new Map(
+      requests.map((request) => [
+        request.pathname,
+        request.searchParams.getAll("expand[]")
+      ])
+    )
+    expect(expandsByPath.get("/v1/checkout/sessions")).toEqual(
+      expect.arrayContaining(["data.customer", "data.payment_intent.customer"])
+    )
+    expect(expandsByPath.get("/v1/payment_intents")).toEqual(
+      expect.arrayContaining(["data.customer"])
+    )
+    expect(expandsByPath.get("/v1/charges")).toEqual(
+      expect.arrayContaining(["data.customer", "data.payment_intent.customer"])
+    )
+    expect(expandsByPath.get("/v1/refunds")).toEqual(
+      expect.arrayContaining(["data.charge.customer"])
+    )
+  })
+
+  it("rejects output paths that would overwrite read-only inputs", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "photosweep-stripe-path-safety-")
+    )
+    const ledgerPath = path.join(directory, "ledger.json")
+    const stripePath = path.join(directory, "stripe.json")
+    await fs.writeFile(ledgerPath, JSON.stringify({ purchases: [] }))
+    await fs.writeFile(stripePath, JSON.stringify({ refunds: [] }))
+
+    await expect(
+      runStripeLedgerEvidenceExport({
+        argv: [
+          "--from",
+          "2026-09-01T00:00:00.000Z",
+          "--to",
+          "2026-10-01T00:00:00.000Z",
+          "--ledger-export",
+          ledgerPath,
+          "--stripe-export",
+          stripePath,
+          "--output",
+          ledgerPath
+        ]
+      })
+    ).rejects.toThrow("would overwrite a read-only input export")
+    await expect(fs.readFile(ledgerPath, "utf8")).resolves.toBe(
+      JSON.stringify({ purchases: [] })
+    )
   })
 })

@@ -12,7 +12,8 @@ const STRIPE_API_VERSION = "2026-02-25.clover"
 function usage() {
   return `Usage:
   npm run stripe:reconcile -- --from <ISO> --to <ISO> \\
-    --ledger-export <path> --stripe-export <path> [--output <path>]
+    --ledger-export <path> --stripe-export <path> [--output <path>] \\
+    [--enrich-report <path>]
 
 Live sources:
   --live-firestore       Read the Firestore license snapshot using ADC.
@@ -22,6 +23,8 @@ Offline sources:
   --ledger-export <path> JSON Firestore snapshot or purchase-row export.
   --stripe-export <path> JSON object with checkoutSessions, paymentIntents,
                          charges, and refunds arrays.
+  --enrich-report <path> Optional read-only dry-run report of uniquely
+                         matchable purchase rows. It never writes Firestore.
 
 Required:
   --from <ISO>           Inclusive window start.
@@ -142,7 +145,11 @@ export async function fetchStripeLedgerObjects({
         toMs,
         secret,
         fetchImpl,
-        expands: ["data.payment_intent", "data.customer"]
+        expands: [
+          "data.payment_intent",
+          "data.payment_intent.customer",
+          "data.customer"
+        ]
       }),
       listStripeCollection({
         resource: "/payment_intents",
@@ -150,7 +157,11 @@ export async function fetchStripeLedgerObjects({
         toMs,
         secret,
         fetchImpl,
-        expands: ["data.customer", "data.latest_charge"]
+        expands: [
+          "data.customer",
+          "data.latest_charge",
+          "data.latest_charge.customer"
+        ]
       }),
       listStripeCollection({
         resource: "/charges",
@@ -158,7 +169,11 @@ export async function fetchStripeLedgerObjects({
         toMs,
         secret,
         fetchImpl,
-        expands: ["data.payment_intent", "data.customer"]
+        expands: [
+          "data.payment_intent",
+          "data.payment_intent.customer",
+          "data.customer"
+        ]
       }),
       listStripeCollection({
         resource: "/refunds",
@@ -166,7 +181,12 @@ export async function fetchStripeLedgerObjects({
         toMs,
         secret,
         fetchImpl,
-        expands: ["data.charge", "data.payment_intent"]
+        expands: [
+          "data.charge",
+          "data.charge.customer",
+          "data.payment_intent",
+          "data.payment_intent.customer"
+        ]
       })
     ])
   return { checkoutSessions, paymentIntents, charges, refunds }
@@ -197,6 +217,29 @@ async function loadStripe(args, { fromMs, toMs, env, fetchImpl }) {
   })
 }
 
+function assertOutputPathsAreSafe(args) {
+  const inputPaths = [
+    args["ledger-export"] ?? args.ledger,
+    args["stripe-export"] ?? args.stripe
+  ]
+    .filter(Boolean)
+    .map((filePath) => path.resolve(filePath))
+  const outputPaths = [args.output, args["enrich-report"]]
+    .filter(Boolean)
+    .map((filePath) => path.resolve(filePath))
+  const conflictingInput = outputPaths.find((outputPath) =>
+    inputPaths.includes(outputPath)
+  )
+  if (conflictingInput) {
+    throw new Error(
+      `Output path would overwrite a read-only input export: ${conflictingInput}`
+    )
+  }
+  if (new Set(outputPaths).size !== outputPaths.length) {
+    throw new Error("Evidence and enrichment report paths must be different.")
+  }
+}
+
 export async function runStripeLedgerEvidenceExport({
   argv = process.argv.slice(2),
   env = process.env,
@@ -208,6 +251,7 @@ export async function runStripeLedgerEvidenceExport({
   const fromMs = parseTimestamp(args.from, "--from")
   const toMs = parseTimestamp(args.to, "--to")
   if (toMs <= fromMs) throw new Error("--to must be after --from.")
+  assertOutputPathsAreSafe(args)
   const ledger = await loadLedger(args, env)
   const stripe = await loadStripe(args, { fromMs, toMs, env, fetchImpl })
   const evidence = reconcileStripeLedger({
@@ -216,17 +260,41 @@ export async function runStripeLedgerEvidenceExport({
     fromMs,
     toMs,
     pricePlanMap: pricePlanMap(env),
-    generatedAt: now.toISOString()
+    generatedAt: now.toISOString(),
+    includeEnrichmentReport: Boolean(args["enrich-report"])
   })
-  const outputPath = args.output
-  const serialized = `${JSON.stringify(evidence, null, 2)}\n`
-  if (outputPath) {
-    const absolutePath = path.resolve(outputPath)
-    await fs.mkdir(path.dirname(absolutePath), { recursive: true })
-    await fs.writeFile(absolutePath, serialized)
-    return { outputPath: absolutePath, evidence }
+  const enrichmentReport = evidence.enrichmentReport
+  const evidenceForOutput = { ...evidence }
+  delete evidenceForOutput.enrichmentReport
+  const outputPath = args.output ? path.resolve(args.output) : undefined
+  const enrichmentReportPath = args["enrich-report"]
+    ? path.resolve(args["enrich-report"])
+    : undefined
+  const serialized = `${JSON.stringify(evidenceForOutput, null, 2)}\n`
+  if (enrichmentReportPath) {
+    await fs.mkdir(path.dirname(enrichmentReportPath), {
+      recursive: true
+    })
+    await fs.writeFile(
+      enrichmentReportPath,
+      `${JSON.stringify(enrichmentReport, null, 2)}\n`
+    )
   }
-  return { evidence, serialized }
+  if (outputPath) {
+    await fs.mkdir(path.dirname(outputPath), { recursive: true })
+    await fs.writeFile(outputPath, serialized)
+    return {
+      outputPath,
+      ...(enrichmentReportPath ? { enrichmentReportPath } : {}),
+      evidence: evidenceForOutput,
+      ...(enrichmentReportPath ? { enrichmentReport } : {})
+    }
+  }
+  return {
+    evidence: evidenceForOutput,
+    serialized,
+    ...(enrichmentReportPath ? { enrichmentReport } : {})
+  }
 }
 
 const currentFile = fileURLToPath(import.meta.url)

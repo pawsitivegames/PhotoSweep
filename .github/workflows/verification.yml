@@ -53,7 +53,7 @@ jobs:
           curl --fail --location --retry 3 \
             --output tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar \
             https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-          echo "32d64fbbc464559fc7192341b27b885fa4eb6b92d1648d2b49fb9cdcb7aacf81  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
+          echo "7c6a30fcfca96c6d7476e705a545837afbf66446c3fcb34bf39b838cd50ee0c0  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
 
       - name: Run fast verification scope
         run: npm run verify:all -- --out-dir tmp/verification/ci-fast
@@ -98,7 +98,7 @@ jobs:
           curl --fail --location --retry 3 \
             --output tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar \
             https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-          echo "32d64fbbc464559fc7192341b27b885fa4eb6b92d1648d2b49fb9cdcb7aacf81  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
+          echo "7c6a30fcfca96c6d7476e705a545837afbf66446c3fcb34bf39b838cd50ee0c0  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
 
       - name: Run nightly verification scope
         run: npm run verify:nightly -- --out-dir tmp/verification/ci-nightly
