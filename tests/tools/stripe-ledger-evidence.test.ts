@@ -107,6 +107,10 @@ describe("Stripe ledger evidence exporter", () => {
       readOnly: true,
       dryRun: true,
       backfillRequiresOwnerApproval: true,
+      privacy: {
+        ownerOnlyArtifact: true,
+        containsOpaqueStripeCustomerIds: true
+      },
       summary: {
         uniqueMatchCount: 1,
         enrichableRowCount: 1
@@ -161,6 +165,36 @@ describe("Stripe ledger evidence exporter", () => {
     )
     expect(expandsByPath.get("/v1/refunds")).toEqual(
       expect.arrayContaining(["data.charge.customer"])
+    )
+  })
+
+  it("rejects output paths that would overwrite read-only inputs", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "photosweep-stripe-path-safety-")
+    )
+    const ledgerPath = path.join(directory, "ledger.json")
+    const stripePath = path.join(directory, "stripe.json")
+    await fs.writeFile(ledgerPath, JSON.stringify({ purchases: [] }))
+    await fs.writeFile(stripePath, JSON.stringify({ refunds: [] }))
+
+    await expect(
+      runStripeLedgerEvidenceExport({
+        argv: [
+          "--from",
+          "2026-09-01T00:00:00.000Z",
+          "--to",
+          "2026-10-01T00:00:00.000Z",
+          "--ledger-export",
+          ledgerPath,
+          "--stripe-export",
+          stripePath,
+          "--output",
+          ledgerPath
+        ]
+      })
+    ).rejects.toThrow("would overwrite a read-only input export")
+    await expect(fs.readFile(ledgerPath, "utf8")).resolves.toBe(
+      JSON.stringify({ purchases: [] })
     )
   })
 })

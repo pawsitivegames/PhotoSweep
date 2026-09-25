@@ -319,6 +319,10 @@ describe("reconcileStripeLedger", () => {
       readOnly: true,
       dryRun: true,
       backfillRequiresOwnerApproval: true,
+      privacy: {
+        ownerOnlyArtifact: true,
+        containsOpaqueStripeCustomerIds: true
+      },
       summary: {
         uniqueMatchCount: 1,
         enrichableRowCount: 1
@@ -337,6 +341,127 @@ describe("reconcileStripeLedger", () => {
     expect(JSON.stringify(evidence.enrichmentReport)).not.toContain(
       "customer_details"
     )
+  })
+
+  it("marks shared license-session candidates ambiguous across purchase rows", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      includeEnrichmentReport: true,
+      ledger: {
+        licensesBySessionId: {
+          shared_session: {
+            sessionId: "shared_session",
+            purchases: [
+              {
+                planId: "cleanup_pass",
+                status: "active",
+                purchasedAt: fromMs + 60_000
+              },
+              {
+                planId: "cleanup_pass",
+                status: "active",
+                purchasedAt: fromMs + 120_000
+              }
+            ]
+          }
+        }
+      },
+      stripe: {
+        checkoutSessions: [
+          {
+            id: "cs_shared",
+            created,
+            payment_status: "paid",
+            payment_intent: "pi_shared",
+            amount_total: 499,
+            currency: "usd",
+            metadata: {
+              planId: "cleanup_pass",
+              licenseSessionId: "shared_session"
+            }
+          }
+        ],
+        paymentIntents: [
+          paymentIntent({
+            id: "pi_shared",
+            planId: "cleanup_pass"
+          })
+        ],
+        charges: [],
+        refunds: []
+      }
+    })
+
+    expect(evidence.enrichmentReport.summary).toMatchObject({
+      uniqueMatchCount: 0,
+      ambiguousCount: 2,
+      enrichableRowCount: 0
+    })
+    expect(evidence.enrichmentReport.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "ambiguous",
+          ambiguityReason: "candidate_reused_by_rows",
+          conflictingRowIndexes: [0, 1]
+        }),
+        expect.objectContaining({
+          status: "ambiguous",
+          ambiguityReason: "candidate_reused_by_rows",
+          conflictingRowIndexes: [0, 1]
+        })
+      ])
+    )
+  })
+
+  it("does not propose enrichment when existing Stripe identifiers conflict", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      includeEnrichmentReport: true,
+      ledger: {
+        purchases: [
+          {
+            planId: "cleanup_pass",
+            status: "active",
+            stripePaymentIntentId: "pi_first",
+            stripeChargeId: "ch_second",
+            purchasedAt: fromMs + 60_000
+          }
+        ]
+      },
+      stripe: {
+        checkoutSessions: [],
+        paymentIntents: [
+          paymentIntent({
+            id: "pi_first",
+            planId: "cleanup_pass"
+          })
+        ],
+        charges: [
+          {
+            id: "ch_second",
+            created,
+            payment_intent: "pi_second",
+            paid: true,
+            amount: 499,
+            currency: "usd",
+            metadata: { planId: "cleanup_pass" }
+          }
+        ],
+        refunds: []
+      }
+    })
+
+    expect(evidence.enrichmentReport.summary).toMatchObject({
+      uniqueMatchCount: 0,
+      conflictingIdentifierCount: 1
+    })
+    expect(evidence.enrichmentReport.rows[0]).toMatchObject({
+      status: "conflicting_identifiers",
+      ambiguityReason: "conflicting_existing_stripe_ids",
+      fieldsToEnrich: []
+    })
   })
 
   it("pairs multiple refunds once and removes the refunded customer from paid customers", () => {
@@ -428,18 +553,67 @@ describe("reconcileStripeLedger", () => {
       currency: "usd"
     })
     expect(evidence.metrics.net_revenue).toMatchObject({
-      amountMinor: 0,
+      amountMinor: null,
       refundAmountMinorByCurrency: { usd: 1499 }
     })
     expect(evidence.metricDetails.net_revenue).toMatchObject({
       matchedRefundCount: 2,
-      unmatchedRefundCount: 1
+      unmatchedRefundCount: 1,
+      netAssertable: false
     })
     expect(evidence.reconciliation.refunds).toMatchObject({
       total: 3,
       matched: 2,
       unmatched: 1
     })
+  })
+
+  it("does not assert net revenue from a charge aggregate without a refund feed", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: {
+        purchases: [
+          ledgerRow({
+            checkoutSessionId: "cs_aggregate",
+            paymentIntentId: "pi_aggregate"
+          })
+        ]
+      },
+      stripe: {
+        checkoutSessions: [
+          checkout({
+            id: "cs_aggregate",
+            paymentIntentId: "pi_aggregate"
+          })
+        ],
+        paymentIntents: [
+          paymentIntent({
+            id: "pi_aggregate"
+          })
+        ],
+        charges: [
+          {
+            id: "ch_aggregate",
+            created,
+            payment_intent: "pi_aggregate",
+            paid: true,
+            amount: 499,
+            amount_refunded: 100,
+            currency: "usd"
+          }
+        ]
+      }
+    })
+
+    expect(evidence.metrics.net_revenue.amountMinor).toBeNull()
+    expect(evidence.metricDetails.net_revenue).toMatchObject({
+      refundAggregateFallbackUsed: true,
+      netAssertable: false
+    })
+    expect(evidence.quality.blockers).toContain(
+      "refund_feed_missing_using_charge_aggregate"
+    )
   })
 
   it("blocks a single-currency revenue assertion when successful payments mix currencies", () => {

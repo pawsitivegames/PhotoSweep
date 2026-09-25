@@ -92,7 +92,9 @@ Customer relationship where available, but does not use customer email,
 customer name, receipt email, or other full customer PII in either output.
 `--enrich-report` is an optional dry run: it lists row indexes and opaque Stripe
 IDs that are uniquely matchable, plus ambiguous/unmatched rows, for a later
-owner/CoS-approved backfill. It never writes Firestore.
+owner/CoS-approved backfill. The report is a separate owner-only artifact and
+may contain opaque Stripe Customer IDs for that backfill; it contains no email,
+name, or full customer PII. It never writes Firestore.
 
 ## Reading the JSON
 
@@ -131,7 +133,9 @@ threshold.
   `matchedByLicenseSessionId` and
   `matchedByAnyStripeIdOrLicenseSessionId` expose the durable Checkout
   metadata/session link used by the optional dry-run report. The report's
-  `uniqueMatchCount` is not a write or a PASS.
+  `uniqueMatchCount` is not a write or a PASS. Rows sharing one candidate
+  payment, or carrying conflicting known Stripe IDs, are reported as
+  ambiguous/conflicting and are not proposed for enrichment.
 - `successfulPayments`: payment rows matched to the ledger by Checkout
   Session, PaymentIntent, or Charge.
 - `refunds`: refund objects paired to a successful payment.
@@ -149,7 +153,10 @@ reported as an unmapped-payment blocker.
 Refunds are deduplicated by Stripe refund ID, paired by PaymentIntent or
 Charge, and subtracted once from the matching payment in the same currency.
 `refund_currency_mismatch` blocks a net amount rather than subtracting a
-cross-currency value.
+cross-currency value. Unmatched refunds and the charge `amount_refunded`
+fallback used when no Refund feed is present also make
+`metricDetails.net_revenue.netAssertable` false; the numeric net amount is
+null until the refund set is complete.
 Customers with a successful payment and any matched refund are excluded from
 `paid_customers`; `refunded_customers` counts each resolved customer once.
 The exporter prefers an expanded Stripe Customer object (or its opaque ID) from
@@ -167,7 +174,9 @@ already identifiable by the license session or a Stripe payment identifier.
 Historical rows that remain unmatched after the authorized export require a
 separate owner-run one-time backfill/replay; this PR does not invent evidence
 for those rows. The optional report is a dry run only and sets
-`backfillRequiresOwnerApproval: true`.
+`backfillRequiresOwnerApproval: true`. Its `privacy.ownerOnlyArtifact` is true
+and `privacy.containsOpaqueStripeCustomerIds` identifies the only customer
+identifier it may contain.
 
 ## Revenue and balance transactions
 

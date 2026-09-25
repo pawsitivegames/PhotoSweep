@@ -217,6 +217,29 @@ async function loadStripe(args, { fromMs, toMs, env, fetchImpl }) {
   })
 }
 
+function assertOutputPathsAreSafe(args) {
+  const inputPaths = [
+    args["ledger-export"] ?? args.ledger,
+    args["stripe-export"] ?? args.stripe
+  ]
+    .filter(Boolean)
+    .map((filePath) => path.resolve(filePath))
+  const outputPaths = [args.output, args["enrich-report"]]
+    .filter(Boolean)
+    .map((filePath) => path.resolve(filePath))
+  const conflictingInput = outputPaths.find((outputPath) =>
+    inputPaths.includes(outputPath)
+  )
+  if (conflictingInput) {
+    throw new Error(
+      `Output path would overwrite a read-only input export: ${conflictingInput}`
+    )
+  }
+  if (new Set(outputPaths).size !== outputPaths.length) {
+    throw new Error("Evidence and enrichment report paths must be different.")
+  }
+}
+
 export async function runStripeLedgerEvidenceExport({
   argv = process.argv.slice(2),
   env = process.env,
@@ -228,6 +251,7 @@ export async function runStripeLedgerEvidenceExport({
   const fromMs = parseTimestamp(args.from, "--from")
   const toMs = parseTimestamp(args.to, "--to")
   if (toMs <= fromMs) throw new Error("--to must be after --from.")
+  assertOutputPathsAreSafe(args)
   const ledger = await loadLedger(args, env)
   const stripe = await loadStripe(args, { fromMs, toMs, env, fetchImpl })
   const evidence = reconcileStripeLedger({
@@ -242,28 +266,26 @@ export async function runStripeLedgerEvidenceExport({
   const enrichmentReport = evidence.enrichmentReport
   const evidenceForOutput = { ...evidence }
   delete evidenceForOutput.enrichmentReport
-  const outputPath = args.output
+  const outputPath = args.output ? path.resolve(args.output) : undefined
   const enrichmentReportPath = args["enrich-report"]
+    ? path.resolve(args["enrich-report"])
+    : undefined
   const serialized = `${JSON.stringify(evidenceForOutput, null, 2)}\n`
   if (enrichmentReportPath) {
-    const absoluteEnrichmentReportPath = path.resolve(enrichmentReportPath)
-    await fs.mkdir(path.dirname(absoluteEnrichmentReportPath), {
+    await fs.mkdir(path.dirname(enrichmentReportPath), {
       recursive: true
     })
     await fs.writeFile(
-      absoluteEnrichmentReportPath,
+      enrichmentReportPath,
       `${JSON.stringify(enrichmentReport, null, 2)}\n`
     )
   }
   if (outputPath) {
-    const absolutePath = path.resolve(outputPath)
-    await fs.mkdir(path.dirname(absolutePath), { recursive: true })
-    await fs.writeFile(absolutePath, serialized)
+    await fs.mkdir(path.dirname(outputPath), { recursive: true })
+    await fs.writeFile(outputPath, serialized)
     return {
-      outputPath: absolutePath,
-      ...(enrichmentReportPath
-        ? { enrichmentReportPath: path.resolve(enrichmentReportPath) }
-        : {}),
+      outputPath,
+      ...(enrichmentReportPath ? { enrichmentReportPath } : {}),
       evidence: evidenceForOutput,
       ...(enrichmentReportPath ? { enrichmentReport } : {})
     }

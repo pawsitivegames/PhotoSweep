@@ -681,6 +681,21 @@ function enrichmentCandidate(payment, matchedBy) {
   }
 }
 
+function knownPaymentKeysForLedgerIdentifiers(row, payments) {
+  const keys = new Set()
+  for (const field of [
+    "stripeCheckoutSessionId",
+    "stripePaymentIntentId",
+    "stripeChargeId"
+  ]) {
+    if (!row[field]) continue
+    for (const payment of payments) {
+      if (payment[field] === row[field]) keys.add(payment.key)
+    }
+  }
+  return keys
+}
+
 function buildEnrichmentReport({
   ledgerRowContexts,
   payments,
@@ -688,56 +703,137 @@ function buildEnrichmentReport({
   toMs,
   generatedAt
 }) {
-  const rows = ledgerRowContexts.map(({ row, rowIndex, sourceSessionId }) => {
-    const candidates = []
-    for (const payment of payments) {
-      const matchedBy = paymentMatchReasons(row, sourceSessionId, payment)
-      if (matchedBy.length === 0) continue
-      candidates.push({
-        payment,
-        matchedBy,
-        planMismatch:
-          Boolean(row.planId) &&
-          Boolean(payment.planId) &&
-          row.planId !== payment.planId
-      })
-    }
-    const planMismatchCandidates = candidates.filter(
-      ({ planMismatch }) => planMismatch
-    )
-    const usableCandidates = candidates.filter(
-      ({ planMismatch }) => !planMismatch
-    )
-    let status = "unmatched"
-    let candidate
-    let candidateList = []
-    let fieldsToEnrich = []
-    if (candidates.length > 0 && usableCandidates.length === 0) {
-      status = "plan_mismatch"
-      candidateList = planMismatchCandidates.map(({ payment, matchedBy }) =>
-        enrichmentCandidate(payment, matchedBy)
+  const evaluations = ledgerRowContexts.map(
+    ({ row, rowIndex, sourceSessionId }) => {
+      const candidates = []
+      for (const payment of payments) {
+        const matchedBy = paymentMatchReasons(row, sourceSessionId, payment)
+        if (matchedBy.length === 0) continue
+        candidates.push({
+          payment,
+          matchedBy,
+          planMismatch:
+            Boolean(row.planId) &&
+            Boolean(payment.planId) &&
+            row.planId !== payment.planId
+        })
+      }
+      const planMismatchCandidates = candidates.filter(
+        ({ planMismatch }) => planMismatch
       )
-    } else if (usableCandidates.length > 1) {
-      status = "ambiguous"
-      candidateList = usableCandidates.map(({ payment, matchedBy }) =>
-        enrichmentCandidate(payment, matchedBy)
+      const usableCandidates = candidates.filter(
+        ({ planMismatch }) => !planMismatch
       )
-    } else if (usableCandidates.length === 1) {
-      const match = usableCandidates[0]
-      candidate = enrichmentCandidate(match.payment, match.matchedBy)
-      fieldsToEnrich = enrichableStripeFields(row, match.payment)
-      status = fieldsToEnrich.length > 0 ? "unique" : "already_reconciled"
+      const knownIdentifierPaymentKeys = knownPaymentKeysForLedgerIdentifiers(
+        row,
+        payments
+      )
+      let status = "unmatched"
+      let candidate
+      let candidateList = []
+      let fieldsToEnrich = []
+      let candidatePaymentKey
+      let candidatePayment
+      let ambiguityReason
+      let conflictingRowIndexes
+      if (knownIdentifierPaymentKeys.size > 1) {
+        status = "conflicting_identifiers"
+        ambiguityReason = "conflicting_existing_stripe_ids"
+        candidateList = candidates.map(({ payment, matchedBy }) =>
+          enrichmentCandidate(payment, matchedBy)
+        )
+      } else if (candidates.length > 0 && usableCandidates.length === 0) {
+        status = "plan_mismatch"
+        candidateList = planMismatchCandidates.map(({ payment, matchedBy }) =>
+          enrichmentCandidate(payment, matchedBy)
+        )
+      } else if (usableCandidates.length > 1) {
+        status = "ambiguous"
+        candidateList = usableCandidates.map(({ payment, matchedBy }) =>
+          enrichmentCandidate(payment, matchedBy)
+        )
+      } else if (usableCandidates.length === 1) {
+        const match = usableCandidates[0]
+        candidate = enrichmentCandidate(match.payment, match.matchedBy)
+        candidatePaymentKey = match.payment.key
+        candidatePayment = match.payment
+        fieldsToEnrich = enrichableStripeFields(row, match.payment)
+        status = fieldsToEnrich.length > 0 ? "unique" : "already_reconciled"
+      }
+      return {
+        rowIndex,
+        firestoreSessionId: sourceSessionId ?? null,
+        status,
+        matchedBy: candidate?.matchedBy ?? [],
+        fieldsToEnrich,
+        candidate,
+        candidatePaymentKey,
+        candidatePayment,
+        candidateList,
+        ambiguityReason,
+        conflictingRowIndexes
+      }
     }
-    return {
+  )
+  const rowsByCandidate = new Map()
+  for (const evaluation of evaluations) {
+    if (!evaluation.candidatePaymentKey) continue
+    const rows = rowsByCandidate.get(evaluation.candidatePaymentKey) ?? []
+    rows.push(evaluation)
+    rowsByCandidate.set(evaluation.candidatePaymentKey, rows)
+  }
+  for (const evaluation of evaluations) {
+    if (
+      evaluation.status !== "unique" ||
+      !evaluation.candidatePaymentKey ||
+      !rowsByCandidate
+        .get(evaluation.candidatePaymentKey)
+        ?.some(
+          ({ status, fieldsToEnrich }) =>
+            status === "unique" && fieldsToEnrich.length > 0
+        )
+    ) {
+      continue
+    }
+    const conflictingRows = rowsByCandidate
+      .get(evaluation.candidatePaymentKey)
+      .filter(({ fieldsToEnrich }) => fieldsToEnrich.length > 0)
+    if (conflictingRows.length <= 1) continue
+    evaluation.status = "ambiguous"
+    evaluation.matchedBy = []
+    evaluation.fieldsToEnrich = []
+    evaluation.candidateList = evaluation.candidate
+      ? [evaluation.candidate]
+      : []
+    evaluation.candidate = undefined
+    evaluation.ambiguityReason = "candidate_reused_by_rows"
+    evaluation.conflictingRowIndexes = conflictingRows.map(
+      ({ rowIndex }) => rowIndex
+    )
+  }
+  const rows = evaluations.map(
+    ({
       rowIndex,
-      firestoreSessionId: sourceSessionId ?? null,
+      firestoreSessionId,
       status,
-      matchedBy: candidate?.matchedBy ?? [],
+      matchedBy,
+      fieldsToEnrich,
+      candidate,
+      candidateList,
+      ambiguityReason,
+      conflictingRowIndexes
+    }) => ({
+      rowIndex,
+      firestoreSessionId,
+      status,
+      matchedBy,
       fieldsToEnrich,
       ...(candidate ? { candidate } : {}),
-      ...(candidateList.length > 0 ? { candidates: candidateList } : {})
-    }
-  })
+      ...(candidateList.length > 0 ? { candidates: candidateList } : {}),
+      ...(ambiguityReason ? { ambiguityReason } : {}),
+      ...(conflictingRowIndexes ? { conflictingRowIndexes } : {})
+    })
+  )
   const count = (status) => rows.filter((row) => row.status === status).length
   return {
     schemaVersion: 1,
@@ -749,11 +845,19 @@ function buildEnrichmentReport({
     readOnly: true,
     dryRun: true,
     backfillRequiresOwnerApproval: true,
+    privacy: {
+      containsEmails: false,
+      containsNames: false,
+      containsFullCustomerPii: false,
+      containsOpaqueStripeCustomerIds: true,
+      ownerOnlyArtifact: true
+    },
     summary: {
       purchaseRowCount: rows.length,
       uniqueMatchCount: count("unique"),
       alreadyReconciledCount: count("already_reconciled"),
       ambiguousCount: count("ambiguous"),
+      conflictingIdentifierCount: count("conflicting_identifiers"),
       planMismatchCount: count("plan_mismatch"),
       unmatchedCount: count("unmatched"),
       enrichableRowCount: rows.filter(
@@ -897,6 +1001,7 @@ export function reconcileStripeLedger({
 
   const refunds = []
   const refundIds = new Set()
+  let refundAggregateFallbackUsed = false
   for (const refund of refundObjects) {
     if (!isSuccessfulRefund(refund)) continue
     const id =
@@ -929,6 +1034,7 @@ export function reconcileStripeLedger({
       const id = `charge-aggregate:${ids.chargeId ?? ids.paymentIntentId}`
       if (refundIds.has(id)) continue
       refundIds.add(id)
+      refundAggregateFallbackUsed = true
       const identity = customerIdentity(charge)
       refunds.push({
         id,
@@ -1097,7 +1203,9 @@ export function reconcileStripeLedger({
     gross.missing === 0 &&
     gross.currencies.length === 1 &&
     refundSummary.missing === 0 &&
-    currencyMismatchedRefunds.length === 0
+    currencyMismatchedRefunds.length === 0 &&
+    unmatchedRefunds === 0 &&
+    !refundAggregateFallbackUsed
   const netMissingAmountOrCurrencyCount = gross.missing + refundSummary.missing
   const grossMetric = metricAmount(
     gross.totals,
@@ -1154,6 +1262,9 @@ export function reconcileStripeLedger({
   }
   if (unmatchedRefunds > 0) {
     appendBlocker(blockers, "refunds_without_original_payment_match")
+  }
+  if (refundAggregateFallbackUsed) {
+    appendBlocker(blockers, "refund_feed_missing_using_charge_aggregate")
   }
 
   const result = {
@@ -1218,7 +1329,9 @@ export function reconcileStripeLedger({
           eligibleRefunds.length - eligibleRefundSummary.missing,
         unmatchedRefundCount: unmatchedRefunds,
         missingAmountOrCurrencyCount: refundSummary.missing,
-        currencyMismatchedRefundCount: currencyMismatchedRefunds.length
+        currencyMismatchedRefundCount: currencyMismatchedRefunds.length,
+        refundAggregateFallbackUsed,
+        netAssertable: netAmountComplete
       }
     },
     reconciliation: {
@@ -1253,6 +1366,7 @@ export function reconcileStripeLedger({
         paidCustomerStats.guestSurrogateCount +
         refundedCustomerStats.guestSurrogateCount,
       unmatchedRefundCount: unmatchedRefunds,
+      refundAggregateFallbackUsed,
       unmappedSuccessfulPaymentCount: unmappedSuccessfulPayments,
       currencyMismatchedRefundCount: currencyMismatchedRefunds.length,
       ledgerRowCount: ledgerRows.length
