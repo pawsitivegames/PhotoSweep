@@ -189,6 +189,156 @@ describe("reconcileStripeLedger", () => {
     })
   })
 
+  it("uses a payment-level guest surrogate when Stripe has no Customer object", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: {
+        purchases: [
+          {
+            planId: "cleanup_pass",
+            status: "active",
+            stripeCheckoutSessionId: "cs_guest",
+            stripePaymentIntentId: "pi_guest",
+            purchasedAt: fromMs + 60_000
+          },
+          {
+            planId: "cleanup_pass",
+            status: "inactive",
+            stripeCheckoutSessionId: "cs_guest_refunded",
+            stripePaymentIntentId: "pi_guest_refunded",
+            purchasedAt: fromMs + 120_000
+          }
+        ]
+      },
+      stripe: {
+        checkoutSessions: [
+          checkout({
+            id: "cs_guest",
+            paymentIntentId: "pi_guest"
+          }),
+          checkout({
+            id: "cs_guest_refunded",
+            paymentIntentId: "pi_guest_refunded"
+          })
+        ],
+        paymentIntents: [
+          paymentIntent({ id: "pi_guest" }),
+          paymentIntent({ id: "pi_guest_refunded" })
+        ],
+        charges: [],
+        refunds: [
+          {
+            id: "re_guest",
+            created: created + 10,
+            payment_intent: "pi_guest_refunded",
+            amount: 499,
+            currency: "usd",
+            status: "succeeded"
+          }
+        ]
+      }
+    })
+
+    expect(evidence.metrics).toMatchObject({
+      paid_checkouts: 2,
+      paid_customers: 1,
+      refunded_customers: 1
+    })
+    expect(evidence.metricDetails.paid_customers).toMatchObject({
+      unresolvedCustomerPaymentCount: 0,
+      guestSurrogateCount: 1
+    })
+    expect(evidence.metricDetails.refunded_customers).toMatchObject({
+      unresolvedCustomerPaymentCount: 0,
+      guestSurrogateCount: 1
+    })
+    expect(evidence.quality.blockers).not.toContain(
+      "successful_payments_without_customer_identity"
+    )
+    expect(evidence.quality.blockers).not.toContain(
+      "refunds_without_customer_identity"
+    )
+    expect(JSON.stringify(evidence)).not.toContain("guest_payment_intent")
+  })
+
+  it("reports uniquely matchable historical rows without writing a backfill", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      includeEnrichmentReport: true,
+      ledger: {
+        licensesBySessionId: {
+          license_session_1: {
+            sessionId: "license_session_1",
+            purchases: [
+              {
+                planId: "cleanup_pass",
+                status: "active",
+                purchasedAt: fromMs + 60_000
+              }
+            ]
+          }
+        }
+      },
+      stripe: {
+        checkoutSessions: [
+          {
+            id: "cs_historical",
+            created,
+            payment_status: "paid",
+            payment_intent: "pi_historical",
+            amount_total: 499,
+            currency: "usd",
+            metadata: {
+              planId: "cleanup_pass",
+              licenseSessionId: "license_session_1"
+            }
+          }
+        ],
+        paymentIntents: [
+          paymentIntent({
+            id: "pi_historical",
+            planId: "cleanup_pass"
+          })
+        ],
+        charges: [],
+        refunds: []
+      }
+    })
+
+    expect(evidence.reconciliation.purchaseRows).toMatchObject({
+      matchedByCheckoutId: 0,
+      matchedByLicenseSessionId: 1,
+      uniquelyMatchableForEnrich: 1
+    })
+    expect(evidence.quality.blockers).toContain(
+      "purchase_rows_missing_stripe_checkout_match"
+    )
+    expect(evidence.enrichmentReport).toMatchObject({
+      readOnly: true,
+      dryRun: true,
+      backfillRequiresOwnerApproval: true,
+      summary: {
+        uniqueMatchCount: 1,
+        enrichableRowCount: 1
+      }
+    })
+    expect(evidence.enrichmentReport.rows[0]).toMatchObject({
+      rowIndex: 0,
+      firestoreSessionId: "license_session_1",
+      status: "unique",
+      matchedBy: ["license_session_id"],
+      candidate: {
+        stripeCheckoutSessionId: "cs_historical",
+        stripePaymentIntentId: "pi_historical"
+      }
+    })
+    expect(JSON.stringify(evidence.enrichmentReport)).not.toContain(
+      "customer_details"
+    )
+  })
+
   it("pairs multiple refunds once and removes the refunded customer from paid customers", () => {
     const evidence = reconcileStripeLedger({
       fromMs,
