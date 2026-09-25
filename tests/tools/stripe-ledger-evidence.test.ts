@@ -85,7 +85,8 @@ describe("Stripe ledger evidence exporter", () => {
       now: new Date("2026-10-01T00:00:00.000Z")
     })
 
-    expect(result.outputPath).toBe(outputPath)
+    expect(result).toHaveProperty("outputPath", outputPath)
+    if (!("outputPath" in result)) throw new Error("Expected an output path.")
     const output = await fs.readFile(outputPath, "utf8")
     const evidence = JSON.parse(output)
     expect(evidence).toMatchObject({
