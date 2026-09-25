@@ -513,4 +513,52 @@ describe("reconcileStripeLedger", () => {
       "gross_revenue_currency_or_amount_gap"
     )
   })
+
+  it("does not subtract a refund in a different currency", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: {
+        purchases: [
+          ledgerRow({
+            checkoutSessionId: "cs_currency_refund",
+            paymentIntentId: "pi_currency_refund"
+          })
+        ]
+      },
+      stripe: {
+        checkoutSessions: [
+          checkout({
+            id: "cs_currency_refund",
+            paymentIntentId: "pi_currency_refund"
+          })
+        ],
+        paymentIntents: [
+          paymentIntent({
+            id: "pi_currency_refund",
+            currency: "usd"
+          })
+        ],
+        charges: [],
+        refunds: [
+          {
+            id: "re_currency_mismatch",
+            created: created + 10,
+            payment_intent: "pi_currency_refund",
+            amount: 100,
+            currency: "eur",
+            status: "succeeded"
+          }
+        ]
+      }
+    })
+
+    expect(evidence.metrics.net_revenue).toMatchObject({
+      amountMinor: null,
+      amountsByCurrency: { usd: 499 },
+      refundAmountMinorByCurrency: {}
+    })
+    expect(evidence.currencyConsistent).toBe(false)
+    expect(evidence.quality.blockers).toContain("refund_currency_mismatch")
+  })
 })

@@ -358,10 +358,6 @@ function rawLedgerRowsWithContext(input) {
   ]
 }
 
-function rawLedgerRows(input) {
-  return rawLedgerRowsWithContext(input).map(({ row }) => row)
-}
-
 function normalizedLedgerRow(row) {
   return {
     ...row,
