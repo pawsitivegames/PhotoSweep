@@ -1136,17 +1136,15 @@ export function reconcileStripeLedger({
   const checkoutMatchedById = paidCheckoutSessions.filter((session) =>
     ledgerRows.some((row) => row.stripeCheckoutSessionId === session.id)
   ).length
-  const checkoutMatchedByIdExcludingSuperseded =
+  const matchedByCheckoutIdExcludingSuperseded =
     nonSupersededPaidCheckoutSessions.filter((session) =>
       ledgerRows.some((row) => row.stripeCheckoutSessionId === session.id)
     ).length
   const unmatchedByCheckoutIdExcludingSuperseded =
     nonSupersededPaidCheckoutSessions.length -
-    checkoutMatchedByIdExcludingSuperseded
+    matchedByCheckoutIdExcludingSuperseded
   const checkoutMatchedByAnyId = paidCheckoutSessions.filter((session) =>
-    ledgerRows.some((row) =>
-      ledgerRowMatchesCheckoutSessionIds(row, session)
-    )
+    ledgerRows.some((row) => ledgerRowMatchesCheckoutSessionIds(row, session))
   ).length
   const checkoutMatchedByLicenseSessionId = paidCheckoutSessions.filter(
     (session) =>
@@ -1334,8 +1332,7 @@ export function reconcileStripeLedger({
     metricDetails: {
       paid_checkouts: {
         mappedToAllowlistedPlan: paidCheckoutSessions.length,
-        supersededPaidCheckoutSessions:
-          supersededPaidCheckoutSessions.length,
+        supersededPaidCheckoutSessions: supersededPaidCheckoutSessions.length,
         unmatchedCustomerIdCount: paidCheckoutSessions.filter(
           (session) => !session.customerId
         ).length,
@@ -1377,9 +1374,9 @@ export function reconcileStripeLedger({
         ...reconciliation(paidCheckoutSessions.length, checkoutMatchedById),
         matchedByAnyStripeId: checkoutMatchedByAnyId,
         matchedByLicenseSessionId: checkoutMatchedByLicenseSessionId,
-        unmatchedByCheckoutId: paidCheckoutSessions.length - checkoutMatchedById,
-        supersededPaidCheckoutSessions:
-          supersededPaidCheckoutSessions.length,
+        unmatchedByCheckoutId:
+          paidCheckoutSessions.length - checkoutMatchedById,
+        supersededPaidCheckoutSessions: supersededPaidCheckoutSessions.length,
         nonSupersededPaidCheckoutSessions:
           nonSupersededPaidCheckoutSessions.length,
         matchedByCheckoutIdExcludingSuperseded,
@@ -1387,7 +1384,7 @@ export function reconcileStripeLedger({
         rateExcludingSuperseded:
           nonSupersededPaidCheckoutSessions.length === 0
             ? null
-            : checkoutMatchedByIdExcludingSuperseded /
+            : matchedByCheckoutIdExcludingSuperseded /
               nonSupersededPaidCheckoutSessions.length
       },
       purchaseRows: {
@@ -1418,8 +1415,7 @@ export function reconcileStripeLedger({
       refundAggregateFallbackUsed,
       unmappedSuccessfulPaymentCount: unmappedSuccessfulPayments,
       currencyMismatchedRefundCount: currencyMismatchedRefunds.length,
-      supersededPaidCheckoutSessions:
-        supersededPaidCheckoutSessions.length,
+      supersededPaidCheckoutSessions: supersededPaidCheckoutSessions.length,
       unmatchedByCheckoutIdExcludingSuperseded,
       ledgerRowCount: ledgerRows.length
     },

@@ -266,12 +266,10 @@ describe("reconcileStripeLedger", () => {
             paymentIntent({ ...current, customerId })
           ]
         ),
-        charges: upgradeCases.flatMap(
-          ({ customerId, earlier, current }) => [
-            charge({ ...earlier, customerId }),
-            charge({ ...current, customerId })
-          ]
-        ),
+        charges: upgradeCases.flatMap(({ customerId, earlier, current }) => [
+          charge({ ...earlier, customerId }),
+          charge({ ...current, customerId })
+        ]),
         refunds: []
       }
     })
