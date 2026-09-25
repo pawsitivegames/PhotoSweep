@@ -19,7 +19,7 @@ store, or production gate.
 | Trash/Undo integration           | PASS           | 48/48 Chromium extension integration tests, including account drift, stale restore rejection, partial provider results, multi-batch Trash, Undo, cancellation, deferred full-scan upgrade, and reload persistence.                |
 | Request-bound timeout/recovery  | PASS           | Bounded source-bound replay: 256 traces, 5,926 passes, 0 failures, 0 unsupported steps; request IDs, timeout ambiguity, late/stale replies, drift/crash cancellation, duplicate replies, and Undo are covered. |
 | Unit/component/server coverage   | PASS           | 765/765 Vitest tests across 64 files. License API, Stripe webhook/idempotency, recovery, JSON/Firestore adapters, privacy-safe analytics, and the Smart metadata-only video path are included.                                                     |
-| Type and package checks          | PASS           | `npm run typecheck`; production package audit reports Manifest V3, app version 2.3.0, Chrome version 2.3.0.1, and the configured license host permission.                                                                                  |
+| Type and package checks          | PASS (prior candidate) | `npm run typecheck`; the prior production package audit reports Manifest V3, app version 2.3.0, Chrome version 2.3.0.1, and the configured license host permission. The next package target is Chrome version 2.3.0.3 and must be audited after packaging. |
 | Production artifact hygiene      | PASS           | Fresh CWS ZIP audit: 40 files; ZIP SHA-256 and manifest SHA-256 are recorded in the matching sidecar; development entitlement markers are absent.                                                                                           |
 | Dependency install/security      | PASS with note | npm lockfile is synchronized and `npm ci --dry-run` passes; npm production audit reports zero vulnerabilities; pnpm production audit has no high-severity findings but still reports two moderate transitive advisories.                     |
 
@@ -179,10 +179,10 @@ The latest production-shaped read-only route recheck returned `200`, `200`,
 and unauthenticated `401` for `/checkout/success`, `/checkout/cancel`, and
 `/entitlement`, respectively: [`api-readonly-recheck-20260918T220342Z.md`](../tmp/verification-live-payment-20260918T074901/api-readonly-recheck-20260918T220342Z.md).
 
-### Chrome Web Store public listing — PASS (scoped); older candidate draft saved; current candidate upload/publication — UNVERIFIED
+### Chrome Web Store public listing — PASS (scoped); prior candidate artifact historical; next candidate upload/publication — UNVERIFIED
 
-The current locally verified candidate is distinct from the earlier saved
-Chrome draft: app version `2.3.0`, Chrome Web Store version `2.3.0.1`, ZIP
+The prior locally verified candidate is distinct from the earlier saved Chrome
+draft: app version `2.3.0`, Chrome Web Store version `2.3.0.1`, ZIP
 [`photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.zip`](../build/photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.zip),
 SHA-256 `9e42d6ba598195864806421ad741c82adee62fc416c7ace81960008406e2f861`,
 and matching metadata sidecar
@@ -191,6 +191,11 @@ The ZIP manifest, sidecar hash, package audit, formal release run, typecheck, an
 were freshly checked. This dirty-worktree artifact has not been uploaded; the
 draft evidence below refers to the older `2.2.9` candidate and must not be
 interpreted as proof that `2.3.0.1` is in Chrome.
+
+The next reupload target configured on tip is app version `2.3.0` / Chrome
+version `2.3.0.3`. A fresh ZIP, sidecar, and package audit must be generated
+from the merged `main` tip; the historical `2.3.0.1` artifact above is not the
+next upload.
 
 Historical draft evidence:
 
