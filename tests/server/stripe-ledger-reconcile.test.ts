@@ -262,13 +262,39 @@ describe("reconcileStripeLedger", () => {
         ),
         paymentIntents: upgradeCases.flatMap(
           ({ customerId, earlier, current }) => [
-            paymentIntent({ ...earlier, customerId }),
-            paymentIntent({ ...current, customerId })
+            paymentIntent({
+              id: earlier.paymentIntentId,
+              customerId,
+              amount: earlier.amount,
+              planId: earlier.planId,
+              createdAt: earlier.createdAt
+            }),
+            paymentIntent({
+              id: current.paymentIntentId,
+              customerId,
+              amount: current.amount,
+              planId: current.planId,
+              createdAt: current.createdAt
+            })
           ]
         ),
         charges: upgradeCases.flatMap(({ customerId, earlier, current }) => [
-          charge({ ...earlier, customerId }),
-          charge({ ...current, customerId })
+          charge({
+            id: earlier.chargeId,
+            paymentIntentId: earlier.paymentIntentId,
+            customerId,
+            amount: earlier.amount,
+            planId: earlier.planId,
+            createdAt: earlier.createdAt
+          }),
+          charge({
+            id: current.chargeId,
+            paymentIntentId: current.paymentIntentId,
+            customerId,
+            amount: current.amount,
+            planId: current.planId,
+            createdAt: current.createdAt
+          })
         ]),
         refunds: []
       }
