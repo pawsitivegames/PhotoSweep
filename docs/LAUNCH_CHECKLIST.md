@@ -140,6 +140,9 @@ launch complete until every item has current evidence.
 - Confirm a fresh checkout and a valid recovery link persist
   `photoSweepLicenseSessionId`; entitlement refresh sends it in
   `x-photosweep-license-session` while retaining credentials.
+- For the next CWS reupload, keep app version `2.3.0` and verify
+  `package.json.chromeVersion` is `2.3.0.3` on the merged `main` tip before
+  packaging.
 
 ## 4. Policy And Store Pages
 

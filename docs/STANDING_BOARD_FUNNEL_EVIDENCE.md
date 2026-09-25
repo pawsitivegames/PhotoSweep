@@ -4,6 +4,15 @@ PhotoSweep Phase A records a consented, privacy-safe event row that Store
 Growth can aggregate without importing photo or account data. This document is
 the import and verification contract for the standing board.
 
+## Next-shipment build binding
+
+The next CWS reupload target from the current app line is app version `2.3.0`
+with Chrome version `2.3.0.3`; the public listing remains `2.3.0.2` until an
+owner-approved upload and publication. The Phase A client and API contract are
+present on this source line, but the live API still needs an owner-approved
+redeploy from the merged `main` tip before new rows can be imported. This
+document does not claim a standing-board PASS.
+
 ## Observed standing-board passConditions
 
 The following conditions are quoted from the observed standing board. They are
