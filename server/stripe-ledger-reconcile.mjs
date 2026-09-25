@@ -782,22 +782,21 @@ function buildEnrichmentReport({
     rows.push(evaluation)
     rowsByCandidate.set(evaluation.candidatePaymentKey, rows)
   }
+  const candidateReuseRows = new Map(
+    [...rowsByCandidate.entries()].map(([candidateKey, rows]) => [
+      candidateKey,
+      rows.filter(
+        ({ status, fieldsToEnrich }) =>
+          status === "unique" && fieldsToEnrich.length > 0
+      )
+    ])
+  )
   for (const evaluation of evaluations) {
-    if (
-      evaluation.status !== "unique" ||
-      !evaluation.candidatePaymentKey ||
-      !rowsByCandidate
-        .get(evaluation.candidatePaymentKey)
-        ?.some(
-          ({ status, fieldsToEnrich }) =>
-            status === "unique" && fieldsToEnrich.length > 0
-        )
-    ) {
+    if (evaluation.status !== "unique" || !evaluation.candidatePaymentKey) {
       continue
     }
-    const conflictingRows = rowsByCandidate
-      .get(evaluation.candidatePaymentKey)
-      .filter(({ fieldsToEnrich }) => fieldsToEnrich.length > 0)
+    const conflictingRows =
+      candidateReuseRows.get(evaluation.candidatePaymentKey) ?? []
     if (conflictingRows.length <= 1) continue
     evaluation.status = "ambiguous"
     evaluation.matchedBy = []
