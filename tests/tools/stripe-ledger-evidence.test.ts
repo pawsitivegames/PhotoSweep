@@ -151,19 +151,13 @@ describe("Stripe ledger evidence exporter", () => {
       ])
     )
     expect(expandsByPath.get("/v1/checkout/sessions")).toEqual(
-      expect.arrayContaining([
-        "data.customer",
-        "data.payment_intent.customer"
-      ])
+      expect.arrayContaining(["data.customer", "data.payment_intent.customer"])
     )
     expect(expandsByPath.get("/v1/payment_intents")).toEqual(
       expect.arrayContaining(["data.customer"])
     )
     expect(expandsByPath.get("/v1/charges")).toEqual(
-      expect.arrayContaining([
-        "data.customer",
-        "data.payment_intent.customer"
-      ])
+      expect.arrayContaining(["data.customer", "data.payment_intent.customer"])
     )
     expect(expandsByPath.get("/v1/refunds")).toEqual(
       expect.arrayContaining(["data.charge.customer"])
