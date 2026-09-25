@@ -1098,6 +1098,7 @@ export function reconcileStripeLedger({
     gross.currencies.length === 1 &&
     refundSummary.missing === 0 &&
     currencyMismatchedRefunds.length === 0
+  const netMissingAmountOrCurrencyCount = gross.missing + refundSummary.missing
   const grossMetric = metricAmount(
     gross.totals,
     gross.currencies,
@@ -1110,7 +1111,7 @@ export function reconcileStripeLedger({
       netTotals,
       netCurrencies,
       gross.complete,
-      gross.missing,
+      netMissingAmountOrCurrencyCount,
       grossRecords.length,
       { amountComplete: netAmountComplete }
     ),
