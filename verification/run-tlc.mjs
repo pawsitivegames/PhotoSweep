@@ -1,10 +1,17 @@
-import { createHash } from "node:crypto"
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
-import { resolve, join } from "node:path"
 import { spawnSync } from "node:child_process"
+import { createHash } from "node:crypto"
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs"
+import { join, resolve } from "node:path"
 
 const PINNED_TLC_VERSION = "1.8.0"
-const PINNED_TLC_SHA256 = "7c6a30fcfca96c6d7476e705a545837afbf66446c3fcb34bf39b838cd50ee0c0"
+const PINNED_TLC_SHA256 =
+  "7c6a30fcfca96c6d7476e705a545837afbf66446c3fcb34bf39b838cd50ee0c0"
 
 function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex")
@@ -38,8 +45,12 @@ function parseArgs(argv) {
 }
 
 function parseSummary(output) {
-  const generated = output.match(/(\d+) states generated, (\d+) distinct states found/)
-  const depth = output.match(/depth of the complete state graph search is (\d+)/)
+  const generated = output.match(
+    /(\d+) states generated, (\d+) distinct states found/
+  )
+  const depth = output.match(
+    /depth of the complete state graph search is (\d+)/
+  )
   const requiredActions = [
     "Confirm",
     "ManualTrashAllConfirm",
@@ -222,8 +233,12 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
   const result = runTlc({
     root,
     jarPath: args.jar,
-    outputDirectory: resolve(root, args["out-dir"] ?? "tmp/verification/current")
+    outputDirectory: resolve(
+      root,
+      args["out-dir"] ?? "tmp/verification/current"
+    )
   })
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
-  process.exitCode = result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1
+  process.exitCode =
+    result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1
 }
