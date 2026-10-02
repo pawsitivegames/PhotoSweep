@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   buildAnalyticsEvent,
   countBucket,
-  sendPrivacySafeAnalyticsEvent
+  ProviderConnectionTracker,
+  sendPrivacySafeAnalyticsEvent,
+  utcDayKey
 } from "../../lib/privacy-analytics"
 import { buildSupportDiagnosticsReport } from "../../lib/support-diagnostics"
 
@@ -44,6 +46,9 @@ describe("privacy analytics", () => {
         name: "trash_completed",
         provider: "google",
         photoCountBucket: "0-99",
+        installId: "123e4567-e89b-42d3-a456-426614174000",
+        extensionVersion: "2.3.0.1",
+        dayKey: "2026-09-23",
         photoUrl: "https://photos.example/private"
       } as Parameters<typeof sendPrivacySafeAnalyticsEvent>[1] & {
         photoUrl: string
@@ -64,7 +69,10 @@ describe("privacy analytics", () => {
         body: {
           name: "trash_completed",
           provider: "google",
-          photoCountBucket: "0-99"
+          photoCountBucket: "0-99",
+          installId: "123e4567-e89b-42d3-a456-426614174000",
+          extensionVersion: "2.3.0.1",
+          dayKey: "2026-09-23"
         }
       }
     ])
@@ -104,9 +112,39 @@ describe("privacy analytics", () => {
       errorCategory: "private-error-details"
     })
 
-    expect(invalid.photoCountBucket).toBeUndefined()
-    expect(invalid.duplicateGroupCountBucket).toBeUndefined()
-    expect(invalid.errorCategory).toBeUndefined()
+    expect(invalid?.photoCountBucket).toBeUndefined()
+    expect(invalid?.duplicateGroupCountBucket).toBeUndefined()
+    expect(invalid?.errorCategory).toBeUndefined()
+  })
+
+  it("requires valid funnel metadata before sending", async () => {
+    const sent = await sendPrivacySafeAnalyticsEvent(
+      "https://license.example",
+      {
+        name: "app_opened",
+        installId: "not-an-install-id",
+        extensionVersion: "2.3.0.1",
+        dayKey: "2026-09-23"
+      },
+      vi.fn() as unknown as typeof fetch
+    )
+
+    expect(sent).toBe(false)
+  })
+
+  it("tracks one successful connection per provider session", () => {
+    const tracker = new ProviderConnectionTracker()
+
+    expect(tracker.markConnected("google")).toBe(true)
+    expect(tracker.markConnected("google")).toBe(false)
+    expect(tracker.markConnected("icloud")).toBe(true)
+    tracker.markDisconnected("icloud")
+    expect(tracker.markConnected("icloud")).toBe(true)
+  })
+
+  it("formats UTC day keys", () => {
+    expect(utcDayKey(new Date("2026-09-23T23:59:59.999Z"))).toBe("2026-09-23")
+    expect(utcDayKey(new Date("2026-09-24T00:00:00.000Z"))).toBe("2026-09-24")
   })
 })
 

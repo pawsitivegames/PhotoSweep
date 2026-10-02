@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { cpSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
@@ -13,6 +13,7 @@ import {
   writeReplayBundleReport
 } from "../../verification/trace-replay"
 import { classifyTraceReplayResult } from "../../verification/trace-replay-status.mjs"
+import { createOwnedScratch } from "./owned-scratch"
 
 const root = resolve(process.cwd())
 const traceCount = Number(process.env.MODEL_TRACE_REPLAY_TRACES ?? "256")
@@ -23,9 +24,13 @@ const traceRunId =
 
 describe("bounded TLC to TypeScript trace replay", () => {
   it("replays real TLC modules with provenance, coverage, and a detected negative divergence", async () => {
-    const outputDirectory = process.env.MODEL_TRACE_REPLAY_OUTPUT
-      ? resolve(root, process.env.MODEL_TRACE_REPLAY_OUTPUT)
-      : mkdtempSync(join(root, "tmp/verification/model-trace-replay-"))
+    const configuredOutputPath = process.env.MODEL_TRACE_REPLAY_OUTPUT
+    const ownedOutputDirectory = configuredOutputPath
+      ? undefined
+      : createOwnedScratch(root, "tmp/verification", "model-trace-replay-")
+    const outputDirectory = configuredOutputPath
+      ? resolve(root, configuredOutputPath)
+      : ownedOutputDirectory!.path
     const exported = exportTraceBundle({
       root,
       outputDirectory,
@@ -262,9 +267,12 @@ describe("bounded TLC to TypeScript trace replay", () => {
       "child runner did not return the expected unsupported-seam exit 2"
     )
 
-    const tamperedDirectory = mkdtempSync(
-      join(root, "tmp/verification/model-trace-replay-tampered-")
+    const ownedTamperedDirectory = createOwnedScratch(
+      root,
+      "tmp/verification",
+      "model-trace-replay-tampered-"
     )
+    const tamperedDirectory = ownedTamperedDirectory.path
     cpSync(outputDirectory, tamperedDirectory, { recursive: true })
     const tamperedTracesPath = join(tamperedDirectory, "traces.json")
     const tamperedTraces = JSON.parse(readFileSync(tamperedTracesPath, "utf8"))
@@ -324,5 +332,11 @@ describe("bounded TLC to TypeScript trace replay", () => {
       "buildId does not match current source"
     )
     expect(verifyReplaySource(null, { root }).ok).toBe(false)
+
+    // Reaching this point means every assertion succeeded. If an assertion
+    // throws or the run is interrupted, owned scratch remains for diagnosis.
+    // Explicit caller output is never owned or removed.
+    ownedTamperedDirectory.complete(true)
+    ownedOutputDirectory?.complete(true)
   }, 90_000)
 })

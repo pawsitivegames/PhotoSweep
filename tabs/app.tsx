@@ -127,9 +127,12 @@ import {
 import {
   ANALYTICS_CONSENT_STORAGE_KEY,
   countBucket,
+  ProviderConnectionTracker,
   sendPrivacySafeAnalyticsEvent,
-  type PrivacySafeAnalyticsEvent
+  type PrivacySafeAnalyticsEvent,
+  utcDayKey
 } from "../lib/privacy-analytics"
+import { getOrCreateInstallId } from "../lib/install-identity"
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../lib/privacy-disclosure"
 import {
   providerBatchLimit as configuredProviderBatchLimit,
@@ -270,6 +273,14 @@ interface PendingProviderRetrieval {
   timeoutId: number
   resolve: (value: OriginalContentHashResult | VideoPlaybackResult) => void
   reject: (error: Error) => void
+}
+
+function extensionVersionForAnalytics(): string | undefined {
+  try {
+    return chrome.runtime.getManifest().version
+  } catch {
+    return undefined
+  }
 }
 
 function WorkflowRail({
@@ -1426,6 +1437,8 @@ export default function App() {
     >()
   )
   const restoreCommitInFlightRef = useRef(false)
+  const providerConnectionTrackerRef = useRef(new ProviderConnectionTracker())
+  const installIdPromiseRef = useRef<Promise<string> | null>(null)
   const resetReviewRef = useRef<() => void>(() => {})
   const [cacheEntryCount, setCacheEntryCount] = useState<number | null>(null)
   const [cacheStatus, setCacheStatus] = useState<string | undefined>()
@@ -1825,7 +1838,7 @@ export default function App() {
 
   const trackEvent = useCallback(
     (event: PrivacySafeAnalyticsEvent) => {
-      if (analyticsConsent !== true) return
+      if (analyticsConsent !== true || !licenseApiBaseUrl) return
       const safeEvent = {
         ...event,
         provider:
@@ -1833,11 +1846,21 @@ export default function App() {
         scanMode: event.scanMode ?? settingsRef.current.scanMode,
         planId: event.planId ?? getEffectivePlanId(entitlement)
       }
-      void sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, safeEvent).catch(
-        () => {
+      if (!installIdPromiseRef.current) {
+        installIdPromiseRef.current = getOrCreateInstallId()
+      }
+      void installIdPromiseRef.current
+        .then((installId) =>
+          sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, {
+            ...safeEvent,
+            installId,
+            extensionVersion: extensionVersionForAnalytics(),
+            dayKey: utcDayKey()
+          })
+        )
+        .catch(() => {
           // Analytics is optional; never interrupt scan, report, or Trash flows.
-        }
-      )
+        })
     },
     [analyticsConsent, entitlement, licenseApiBaseUrl]
   )
@@ -2568,6 +2591,12 @@ export default function App() {
         error: result.error
       })
       if (restoreOutcome === undefined) return
+      if (result.success && !restoreRequest.history) {
+        trackEvent({
+          name: "undo_completed",
+          provider: restoreRequest.provider
+        })
+      }
       if (!restoreRequest.operationId) {
         restoreCommitInFlightRef.current = true
         setReportError(
@@ -2651,6 +2680,7 @@ export default function App() {
       persistRestoreStatusSafely,
       setTrashWarningSafely,
       setUndoDataSafely,
+      trackEvent,
       trashLifecycle
     ]
   )
@@ -2961,6 +2991,7 @@ export default function App() {
           ) {
             reviewHydrationClosedRef.current = true
             scanReviewGenerationRef.current += 1
+            providerConnectionTrackerRef.current.reset()
             invalidatePaidConversionContext()
             scanLifecycle.reset()
             cachedMediaItemsRef.current = null
@@ -3242,6 +3273,16 @@ export default function App() {
           }
           if (msg.success) {
             cancelHealthCheckRetry()
+            if (
+              providerConnectionTrackerRef.current.markConnected(
+                healthCheckProvider
+              )
+            ) {
+              trackEvent({
+                name: "provider_connected",
+                provider: healthCheckProvider
+              })
+            }
             if (accountIdentityChanged) {
               invalidatePaidConversionContext()
             }
@@ -3588,6 +3629,9 @@ export default function App() {
         }
         case "gptkLog":
           if ((message as { level?: string }).level === "error") {
+            providerConnectionTrackerRef.current.markDisconnected(
+              settingsRef.current.sourceProvider ?? "google"
+            )
             dispatch({
               type: "GP_TAB_CLOSED",
               provider: settingsRef.current.sourceProvider ?? "google"
@@ -3688,6 +3732,7 @@ export default function App() {
     storedReviewScope,
     setReportError,
     setTrashWarningSafely,
+    trackEvent,
     trashLifecycle
   ])
 
@@ -5737,6 +5782,7 @@ export default function App() {
       if (photoDataConsent !== true) return
       reviewHydrationClosedRef.current = true
       scanReviewGenerationRef.current += 1
+      providerConnectionTrackerRef.current.reset()
       invalidatePaidConversionContext()
       cancelHealthCheckRetry()
       setSidePanelSourceConfirmed(true)

@@ -13,7 +13,7 @@ import { join, relative, resolve } from "node:path"
 export const TRACE_SCHEMA_VERSION = 1
 export const PINNED_TLC_VERSION = "1.8.0"
 export const PINNED_TLC_SHA256 =
-  "20322939d1b55bb0a3f674ab34bb69b87c711a6b35559d32445cb7d7f6d3bb58"
+  "b490f45c1de08e4ff9753259a00338981b9cf464f01ca9e9cd5f19f33cf0bb92"
 export const TRACE_MODEL_PATH = "verification/model/TrashLifecycle.tla"
 export const TRACE_CONFIG_PATH = "verification/model/TrashLifecycle.cfg"
 

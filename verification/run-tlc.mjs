@@ -1,12 +1,19 @@
-import { createHash } from "node:crypto"
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
-import { resolve, join, relative } from "node:path"
 import { spawnSync } from "node:child_process"
+import { createHash } from "node:crypto"
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs"
+import { join, relative, resolve } from "node:path"
 import { runKeeperSelectionTlc } from "./run-keeper-selection-tlc.mjs"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
 
 const PINNED_TLC_VERSION = "1.8.0"
-const PINNED_TLC_SHA256 = "20322939d1b55bb0a3f674ab34bb69b87c711a6b35559d32445cb7d7f6d3bb58"
+const PINNED_TLC_SHA256 =
+  "b490f45c1de08e4ff9753259a00338981b9cf464f01ca9e9cd5f19f33cf0bb92"
 
 function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex")
@@ -40,8 +47,12 @@ function parseArgs(argv) {
 }
 
 function parseSummary(output) {
-  const generated = output.match(/(\d+) states generated, (\d+) distinct states found/)
-  const depth = output.match(/depth of the complete state graph search is (\d+)/)
+  const generated = output.match(
+    /(\d+) states generated, (\d+) distinct states found/
+  )
+  const depth = output.match(
+    /depth of the complete state graph search is (\d+)/
+  )
   const requiredActions = [
     "Confirm",
     "ManualTrashAllConfirm",
@@ -119,8 +130,8 @@ export function runTlc({
   const outputDirectoryAbsolute = resolve(root, outputDirectory)
   mkdirSync(outputDirectoryAbsolute, { recursive: true })
   const resolvedJar = resolve(root, jarPath ?? newestLocalJar(root) ?? "")
-  const logPath = join(outputDirectory, "model-tlc.log")
-  const resultPath = join(outputDirectory, "model.json")
+  const logPath = join(outputDirectoryAbsolute, "model-tlc.log")
+  const resultPath = join(outputDirectoryAbsolute, "model.json")
   if (!existsSync(resolvedJar)) {
     const result = {
       status: "BLOCKED",
@@ -160,8 +171,8 @@ export function runTlc({
     resolvedJar,
     "tlc2.TLC",
     "-nowarning",
-    // Keep TLC state and counterexample output inside this run directory so
-    // source fingerprints never include generated model artifacts.
+    // Keep TLC metadata and generated trace-exploration specs in this run
+    // directory so source fingerprints never include model output.
     "-metadir",
     outputDirectoryAbsolute,
     "-teSpecOutDir",
@@ -177,7 +188,7 @@ export function runTlc({
   let processResult
   try {
     processResult = spawnSync("java", command, {
-      cwd: outputDirectoryAbsolute,
+      cwd: root,
       encoding: "utf8",
       maxBuffer: 20 * 1024 * 1024
     })

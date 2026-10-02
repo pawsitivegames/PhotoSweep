@@ -54,7 +54,7 @@ export const RECOVERY_AUTHORITY_BINDING = Object.freeze({
   runnerPath: "verification/run-recovery-authority-tlc.mjs",
   jarVersion: "1.8.0",
   jarSha256:
-    "20322939d1b55bb0a3f674ab34bb69b87c711a6b35559d32445cb7d7f6d3bb58"
+    "b490f45c1de08e4ff9753259a00338981b9cf464f01ca9e9cd5f19f33cf0bb92"
 })
 
 function sha256(bytes) {

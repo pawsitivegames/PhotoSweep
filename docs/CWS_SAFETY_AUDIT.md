@@ -4,6 +4,10 @@ Date: 2026-09-19
 Candidate: PhotoSweep app 2.3.0 / Chrome Web Store 2.3.0.1  
 Status: **BLOCKED for release submission pending external and runtime gates**
 
+This is a historical audit of the `2.3.0.1` candidate. The next reupload
+target is Chrome version `2.3.0.3`; rerun the package and store checks against
+the fresh artifact built from the merged `main` tip.
+
 This audit records repository and local artifact evidence. A local pass does not
 prove Chrome Web Store approval, account eligibility, provider behavior, device
 coverage, payment settlement, or production publication.
