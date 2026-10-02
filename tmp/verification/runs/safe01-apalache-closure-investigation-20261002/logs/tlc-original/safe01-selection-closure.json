@@ -1,0 +1,122 @@
+{
+  "statesGenerated": 0,
+  "statesExplored": 0,
+  "depth": 0,
+  "coverageCounts": {
+    "BulkApplyStrategy": 0,
+    "ManualChoose": 0,
+    "ManualTrashAll": 0,
+    "SkipGroup": 0,
+    "SelectGroup": 0,
+    "ReviewGroup": 0,
+    "ConfirmTrash": 0
+  },
+  "coverageRanges": {
+    "BulkApplyStrategy": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "ManualChoose": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "ManualTrashAll": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "SkipGroup": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "SelectGroup": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "ReviewGroup": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "ConfirmTrash": {
+      "minimum": 0,
+      "maximum": 0
+    }
+  },
+  "coverageActions": [],
+  "coverageComplete": false,
+  "modelComplete": false,
+  "id": "SAFE-01-closure-model",
+  "status": "FAIL",
+  "runId": null,
+  "exitCode": 130,
+  "tlcExitCode": 130,
+  "checksRun": 23,
+  "modulePath": "verification/model/KeeperSelection.tla",
+  "configPath": "verification/model/KeeperSelection.closure.cfg",
+  "configuredInvariants": [
+    "TypeOK",
+    "InvExactlyOneKeeper",
+    "InvKeeperBelongsToGroup",
+    "InvGroupsHaveDisjointMembers",
+    "InvTotalRanking",
+    "InvStrictRanking",
+    "InvAutomaticKeeperIsBest",
+    "InvDecisionProvenanceConsistent",
+    "InvNoLockedGroupProposal",
+    "InvLockedGroupImmutable",
+    "InvProposedTrashTargetsAreExact",
+    "InvEveryIncludedNonKeeperIsProposed",
+    "InvNoKeeperIsProposedForTrash",
+    "InvManualTrashAllTargetsAllMedia",
+    "InvBulkStrategyDoesNotDispatchTrash",
+    "InvDispatchMatchesConfirmation",
+    "InvSelectionSafety"
+  ],
+  "configuredProperties": [
+    "PropBulkIncludesEligibleGroups",
+    "PropBulkDoesNotReviewGroups",
+    "PropBulkReopensChangedPlans",
+    "PropBulkOverridesManualChoices",
+    "PropBulkDoesNotDispatchTrash",
+    "PropSelectGroupIsExplicitPerSetReview"
+  ],
+  "sourceRoots": [
+    "lib",
+    "components",
+    "tabs",
+    "scripts",
+    "workers",
+    "background",
+    "contents",
+    "server",
+    ".github",
+    "Google-Photos-Toolkit",
+    "tests",
+    "verification",
+    "tools",
+    "package.json",
+    "stryker.config.mjs",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ".env.example",
+    "lib/generated/build-flags.ts",
+    "docs/PLATFORM_PARITY_PLAN.md",
+    "tsconfig.json",
+    "tsconfig.test.json",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "playwright.e2e.config.ts",
+    "build/chrome-mv3-prod/manifest.json"
+  ],
+  "sourceFingerprintBefore": "0a5f4b9a1b8f52708036e3130e5efcce3a2b6b1c2557402d18df8214617ff0db",
+  "sourceFingerprintAfter": "0a5f4b9a1b8f52708036e3130e5efcce3a2b6b1c2557402d18df8214617ff0db",
+  "sourceFileCountBefore": 290,
+  "sourceFileCountAfter": 290,
+  "sourceDrift": false,
+  "moduleSha256": "aebf558cfee46c37b082d28e09249de663d1232fd35802bb1290ddeda191e0a1",
+  "configSha256": "61a9ec47210f11e626659c5355b8288dd630ea8ad685c07a1d78cc684e5129fe",
+  "jarVersion": "1.8.0",
+  "jarPath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar",
+  "jarSha256": "b490f45c1de08e4ff9753259a00338981b9cf464f01ca9e9cd5f19f33cf0bb92",
+  "artifact": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp-live-duplicate-test/postmerge-final-20261002/final-run/safe01-selection-closure-tlc.log"
+}

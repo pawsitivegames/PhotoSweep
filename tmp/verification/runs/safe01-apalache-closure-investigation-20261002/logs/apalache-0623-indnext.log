@@ -1,0 +1,52 @@
+# Usage statistics is OFF. We care about your privacy.
+# If you want to help our project, consider enabling statistics with config --enable-stats=true.
+
+Output directory: /tmp/safe01-closure-investigation-20261002/run-0623/KeeperSelection.tla/2026-10-02T14-22-07_2983957026785307492
+# APALACHE version: 0.62.3 | build: 3eb15b2                       I@14:22:07.138
+  > constants.cfg: Loading TLC configuration                      I@14:22:07.141
+checker.init overrides the value from the TLC configuration.      W@14:22:07.196
+checker.next overrides the value from the TLC configuration.      W@14:22:07.196
+Tuning:                                                           I@14:22:07.196
+PASS #0: SanyParser                                               I@14:22:07.353
+PASS #1: TypeCheckerSnowcat                                       I@14:22:07.783
+ > Running Snowcat .::.                                           I@14:22:07.783
+ > Your types are purrfect!                                       I@14:22:08.148
+ > All expressions are typed                                      I@14:22:08.148
+PASS #2: ConfigurationPass                                        I@14:22:08.200
+  > constants.cfg: found INVARIANTS: InvSelectionSafety           I@14:22:08.364
+  > Set the initialization predicate to InvSelectionSafety        I@14:22:08.366
+  > Set the transition predicate to Next                          I@14:22:08.366
+  > Set the constant initialization predicate to CInit            I@14:22:08.367
+  > Set an invariant to InvSelectionSafety                        I@14:22:08.367
+PASS #3: DesugarerPass                                            I@14:22:08.422
+  > Desugaring...                                                 I@14:22:08.422
+PASS #4: InlinePass                                               I@14:22:08.486
+Leaving only relevant operators: CInit, CInitPrimed, InvSelectionSafety, InvSelectionSafetyPrimed, Next I@14:22:08.486
+PASS #5: TemporalPass                                             I@14:22:08.815
+  > Rewriting temporal operators...                               I@14:22:08.816
+  > No temporal property specified, nothing to encode             I@14:22:08.816
+PASS #6: InlinePass                                               I@14:22:08.959
+Leaving only relevant operators: CInit, CInitPrimed, InvSelectionSafety, InvSelectionSafetyPrimed, Next I@14:22:08.959
+PASS #7: PrimingPass                                              I@14:22:09.165
+  > Introducing CInitPrimed for CInit'                            I@14:22:09.166
+  > Introducing InvSelectionSafetyPrimed for InvSelectionSafety'  I@14:22:09.167
+PASS #8: VCGen                                                    I@14:22:09.338
+  > Producing verification conditions from the invariant InvSelectionSafety I@14:22:09.339
+  > VCGen produced 31 verification condition(s)                   I@14:22:09.345
+PASS #9: PreprocessingPass                                        I@14:22:09.721
+  > Before preprocessing: unique renaming                         I@14:22:09.721
+ > Applying standard transformations:                             I@14:22:09.728
+  > PrimePropagation                                              I@14:22:09.728
+  > Desugarer                                                     I@14:22:10.063
+  > UniqueRenamer                                                 I@14:22:10.443
+  > Normalizer                                                    I@14:22:10.790
+  > SetMembershipSimplifier                                       I@14:22:11.181
+  > Keramelizer                                                   I@14:22:11.505
+  > After preprocessing: UniqueRenamer                            I@14:22:11.824
+PASS #10: TransitionFinderPass                                    I@14:22:12.136
+To understand the error, read the manual:                         I@14:22:12.144
+  [https://apalache-mc.org/docs/apalache/principles/assignments.html] I@14:22:12.144
+Assignment error: KeeperSelection.tla:285:6-285:19: includedGroups' is used before it is assigned. See https://apalache-mc.org/docs/apalache/principles/assignments.html E@14:22:12.144
+It took me 0 days  0 hours  0 min  5 sec                          I@14:22:12.145
+Total time: 5.4 sec                                               I@14:22:12.145
+EXITCODE: ERROR (255)

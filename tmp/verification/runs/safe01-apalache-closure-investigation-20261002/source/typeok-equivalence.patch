@@ -1,0 +1,19 @@
+--- KeeperSelection.canonical.tla
++++ KeeperSelection.apalache-equivalent.tla
+@@ -282,13 +282,13 @@
+   /\ keepers \in [Groups -> SUBSET Members]
+   /\ decisionSource \in [Groups -> SourceKinds]
+   /\ manualKeepers \in [Groups -> SUBSET Members]
+-  /\ includedGroups \subseteq EligibleGroups
++  /\ includedGroups \in SUBSET EligibleGroups
+   /\ EligibleGroups \subseteq Groups
+-  /\ reviewedGroups \subseteq EligibleGroups
++  /\ reviewedGroups \in SUBSET EligibleGroups
+   /\ trashTargets \in [Groups -> SUBSET Members]
+   /\ dispatchCount \in 0..1
+   /\ confirmedDispatchCount \in 0..1
+-  /\ reviewedGroupsAtDispatch \subseteq EligibleGroups
++  /\ reviewedGroupsAtDispatch \in SUBSET EligibleGroups
+   /\ bulkDispatchOccurred \in {TRUE, FALSE}
+ 
+ InvExactlyOneKeeper ==

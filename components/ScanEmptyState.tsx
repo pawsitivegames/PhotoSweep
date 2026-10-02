@@ -4,9 +4,11 @@ import Typography from "@mui/material/Typography"
 
 export function ScanEmptyState({
   compact = false,
+  identityPending = false,
   onChangeSettings
 }: {
   compact?: boolean
+  identityPending?: boolean
   onChangeSettings: () => void
 }) {
   return (
@@ -26,19 +28,35 @@ export function ScanEmptyState({
         variant={compact ? "body2" : "h6"}
         color={compact ? "text.primary" : "text.secondary"}
         fontWeight={compact ? 800 : undefined}>
-        No duplicate sets found in this scan.
+        {identityPending
+          ? "Confirming the connected photo library"
+          : "No duplicate sets found in this scan."}
       </Typography>
       <Typography
         variant={compact ? "caption" : "body2"}
         color="text.secondary">
-        No duplicate sets were found among the items this scan examined. Widen
-        the date range or try Full scan to look for copies saved farther apart.
+        {identityPending ? (
+          <>
+            PhotoSweep is verifying that these results belong to the connected
+            account. Selection, export, and cleanup are unavailable until the
+            account is confirmed. Reconnect the account used for this scan if
+            verification does not finish.
+          </>
+        ) : (
+          <>
+            No duplicate sets were found among the items this scan examined.
+            Widen the date range or try Full scan to look for copies saved
+            farther apart.
+          </>
+        )}
       </Typography>
-      <Button
-        variant={compact ? "outlined" : "contained"}
-        onClick={onChangeSettings}>
-        Change scan settings
-      </Button>
+      {!identityPending && (
+        <Button
+          variant={compact ? "outlined" : "contained"}
+          onClick={onChangeSettings}>
+          Change scan settings
+        </Button>
+      )}
     </Box>
   )
 }

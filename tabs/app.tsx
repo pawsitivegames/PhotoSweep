@@ -6665,7 +6665,11 @@ export default function App() {
               {state.status === "results" &&
                 groups.length === 0 &&
                 storageChecked && (
-                  <ScanEmptyState compact onChangeSettings={handleReset} />
+                  <ScanEmptyState
+                    compact
+                    identityPending={!stateIdentityValidated}
+                    onChangeSettings={handleReset}
+                  />
                 )}
               {state.status === "results" && groups.length > 0 && (
                 <>

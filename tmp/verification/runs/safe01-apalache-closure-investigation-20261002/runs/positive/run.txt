@@ -1,0 +1,1 @@
+ check --config=/tmp/safe01-closure-investigation-20261002/constants.cfg --init=InvSelectionSafety --next=Next --inv=InvSelectionSafety --length=1 --no-deadlock --out-dir=/tmp/safe01-closure-investigation-20261002/run-0623-equivalent --write-intermediate=true /tmp/safe01-closure-investigation-20261002/KeeperSelection.tla

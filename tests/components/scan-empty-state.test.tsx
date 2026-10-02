@@ -6,6 +6,27 @@ import { ScanEmptyState } from "../../components/ScanEmptyState"
 import theme from "../../lib/theme"
 
 describe("ScanEmptyState", () => {
+  it("shows identity validation status instead of a no-duplicates result", () => {
+    render(
+      <ThemeProvider theme={theme}>
+        <ScanEmptyState
+          identityPending
+          onChangeSettings={vi.fn()}
+        />
+      </ThemeProvider>
+    )
+
+    expect(
+      screen.getByText("Confirming the connected photo library")
+    ).toBeVisible()
+    expect(
+      screen.getByText(/selection, export, and cleanup are unavailable/i)
+    ).toBeVisible()
+    expect(
+      screen.queryByText("No duplicate sets found in this scan.")
+    ).not.toBeInTheDocument()
+  })
+
   it("[PARITY-05] scopes the no-match result to the items this scan examined", () => {
     const onChangeSettings = vi.fn()
     render(

@@ -1,0 +1,53 @@
+# Usage statistics is OFF. We care about your privacy.
+# If you want to help our project, consider enabling statistics with config --enable-stats=true.
+
+Output directory: /tmp/safe01-closure-investigation-20261002/run/KeeperSelection.tla/2026-10-02T14-20-36_9237872250514359737
+# APALACHE version: 0.58.3 | build: f4ac7ff                       I@14:20:36.542
+  > constants.cfg: Loading TLC configuration                      I@14:20:36.545
+  >  init is set in TLC config but overridden via `init` cli option or apalache.cfg; using InvSelectionSafety W@14:20:36.590
+  >  next is set in TLC config but overridden via `next` cli option or apalache.cfg; using Next W@14:20:36.590
+  >  inv is set in TLC config but overridden via `inv` cli option or apalache.cfg; using InvSelectionSafety W@14:20:36.590
+Tuning: search.outputTraces=false                                 I@14:20:36.601
+PASS #0: SanyParser                                               I@14:20:36.721
+PASS #1: TypeCheckerSnowcat                                       I@14:20:37.078
+ > Running Snowcat .::.                                           I@14:20:37.078
+ > Your types are purrfect!                                       I@14:20:37.452
+ > All expressions are typed                                      I@14:20:37.452
+PASS #2: ConfigurationPass                                        I@14:20:37.505
+  > constants.cfg: found INVARIANTS: InvSelectionSafety           I@14:20:37.618
+  > Set the initialization predicate to InvSelectionSafety        I@14:20:37.620
+  > Set the transition predicate to Next                          I@14:20:37.620
+  > Set the constant initialization predicate to CInit            I@14:20:37.620
+  > Set an invariant to InvSelectionSafety                        I@14:20:37.620
+PASS #3: DesugarerPass                                            I@14:20:37.670
+  > Desugaring...                                                 I@14:20:37.670
+PASS #4: InlinePass                                               I@14:20:37.739
+Leaving only relevant operators: CInit, CInitPrimed, InvSelectionSafety, InvSelectionSafetyPrimed, Next I@14:20:37.740
+PASS #5: TemporalPass                                             I@14:20:38.163
+  > Rewriting temporal operators...                               I@14:20:38.163
+  > No temporal property specified, nothing to encode             I@14:20:38.163
+PASS #6: InlinePass                                               I@14:20:38.332
+Leaving only relevant operators: CInit, CInitPrimed, InvSelectionSafety, InvSelectionSafetyPrimed, Next I@14:20:38.332
+PASS #7: PrimingPass                                              I@14:20:38.472
+  > Introducing CInitPrimed for CInit'                            I@14:20:38.473
+  > Introducing InvSelectionSafetyPrimed for InvSelectionSafety'  I@14:20:38.473
+PASS #8: VCGen                                                    I@14:20:38.704
+  > Producing verification conditions from the invariant InvSelectionSafety I@14:20:38.704
+  > VCGen produced 31 verification condition(s)                   I@14:20:38.709
+PASS #9: PreprocessingPass                                        I@14:20:39.030
+  > Before preprocessing: unique renaming                         I@14:20:39.030
+ > Applying standard transformations:                             I@14:20:39.034
+  > PrimePropagation                                              I@14:20:39.034
+  > Desugarer                                                     I@14:20:39.328
+  > UniqueRenamer                                                 I@14:20:39.654
+  > Normalizer                                                    I@14:20:41.121
+  > SetMembershipSimplifier                                       I@14:20:41.563
+  > Keramelizer                                                   I@14:20:41.834
+  > After preprocessing: UniqueRenamer                            I@14:20:42.300
+PASS #10: TransitionFinderPass                                    I@14:20:42.553
+To understand the error, read the manual:                         I@14:20:42.558
+  [https://apalache-mc.org/docs/apalache/principles/assignments.html] I@14:20:42.559
+Assignment error: KeeperSelection.tla:285:6-285:19: includedGroups' is used before it is assigned. See https://apalache-mc.org/docs/apalache/principles/assignments.html E@14:20:42.559
+It took me 0 days  0 hours  0 min  6 sec                          I@14:20:42.559
+Total time: 6.15 sec                                              I@14:20:42.559
+EXITCODE: ERROR (255)

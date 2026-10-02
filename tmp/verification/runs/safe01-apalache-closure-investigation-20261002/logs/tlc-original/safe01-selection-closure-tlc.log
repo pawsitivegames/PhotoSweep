@@ -1,0 +1,23 @@
+TLC2 Version 2026.10.02.163556 (rev: 1813307)
+Running breadth-first search Model-Checking with fp 31 and seed -9084776106829002381 with 1 worker on 10 cores with 8192MB heap and 64MB offheap memory [pid: 54485] (Mac OS X 27.0.1 aarch64, Homebrew 17.0.20.1 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/verification/model/KeeperSelection.tla
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/Naturals.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/FiniteSets.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/_TLCTrace.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/Sequences.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/TLC.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/TLCExt.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /private/var/folders/fh/nlk1clwj26ldjxg9ndcxmw1m0000gn/T/tlc-2637694383514412318/Integers.tla (jar:file:/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/parity-final-20261002/tooling/tla2tools-1.8.0.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module KeeperSelection
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module KeeperSelection
+Starting... (2026-10-02 13:53:16)
+Computing initial states...

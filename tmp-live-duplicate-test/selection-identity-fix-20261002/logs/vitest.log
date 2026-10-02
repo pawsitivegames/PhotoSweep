@@ -1,0 +1,12 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder
+
+
+ Test Files  100 passed (100)
+      Tests  1825 passed (1825)
+   Start at  14:36:43
+   Duration  29.78s (transform 4.43s, setup 9.76s, import 10.13s, tests 131.32s, environment 20.54s)
+

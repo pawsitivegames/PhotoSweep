@@ -1,0 +1,5 @@
+Exact positive closure command (Apalache 0.62.3):
+  /tmp/safe01-closure-investigation-20261002/tool-0623/apalache-0.62.3/bin/apalache-mc check --config=/tmp/safe01-closure-investigation-20261002/constants.cfg --init=InvSelectionSafety --next=Next --inv=InvSelectionSafety --length=1 --no-deadlock --out-dir=/tmp/safe01-closure-investigation-20261002/run-0623-equivalent --write-intermediate=true /tmp/safe01-closure-investigation-20261002/KeeperSelection.tla
+
+Expected negative-control command; same source/options, config sets only UnsafeAutoTrash = TRUE:
+  /tmp/safe01-closure-investigation-20261002/tool-0623/apalache-0.62.3/bin/apalache-mc check --config=/tmp/safe01-closure-investigation-20261002/constants-negative.cfg --init=InvSelectionSafety --next=Next --inv=InvSelectionSafety --length=1 --no-deadlock --out-dir=/tmp/safe01-closure-investigation-20261002/run-0623-negative --write-intermediate=true /tmp/safe01-closure-investigation-20261002/KeeperSelection.tla

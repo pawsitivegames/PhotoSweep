@@ -1,0 +1,21 @@
+🟣 Plasmo v0.90.5
+🔴 The Browser Extension Framework
+🔵 INFO   | Prepare to bundle the extension...
+🔵 INFO   | Building for target: chrome-mv3
+🔵 INFO   | Loaded environment variables from: []
+Browserslist: browsers data (caniuse-lite) is 24 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 24 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 24 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 24 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 24 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+🟢 DONE   | Finished in 2166ms!

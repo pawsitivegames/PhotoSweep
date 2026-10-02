@@ -1,0 +1,2734 @@
+{
+  "name": "ApalacheIR",
+  "version": "1.0",
+  "description": "https://apalache-mc.org/docs/adr/005adr-json.html",
+  "modules": [
+    {
+      "kind": "TlaModule",
+      "name": "counterexample",
+      "declarations": [
+        {
+          "type": "(() => Bool)",
+          "kind": "TlaOperDecl",
+          "name": "ConstInit",
+          "formalParams": [],
+          "isRecursive": false,
+          "body": {
+            "type": "Bool",
+            "kind": "OperEx",
+            "oper": "AND",
+            "args": [
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetA"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-a"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetB"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-b"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetC"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-c"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetD"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-d"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetE"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-e"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetF"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-f"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "BestQuality"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "best_quality"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "EligibleGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group1"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-1"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group2"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-2"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group3"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-3"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Groups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-3"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "LargestResolution"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "largest_resolution"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Members"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-a"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-b"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-c"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-d"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-e"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-f"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NewestTaken"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NewestUpload"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_upload"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NonStorageCounting"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "non_storage_counting"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "OldestTaken"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "oldest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Strategies"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "best_quality"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "largest_resolution"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "newest_taken"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "newest_upload"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "non_storage_counting"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "oldest_taken"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Bool",
+                    "kind": "NameEx",
+                    "name": "UnsafeAutoTrash"
+                  },
+                  {
+                    "type": "Bool",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaBool",
+                      "value": true
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "(() => Bool)",
+          "kind": "TlaOperDecl",
+          "name": "State0",
+          "formalParams": [],
+          "isRecursive": false,
+          "body": {
+            "type": "Bool",
+            "kind": "OperEx",
+            "oper": "AND",
+            "args": [
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetA"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-a"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetB"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-b"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetC"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-c"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetD"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-d"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetE"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-e"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetF"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-f"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "BestQuality"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "best_quality"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "EligibleGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group1"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-1"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group2"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-2"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group3"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-3"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Groups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-3"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "LargestResolution"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "largest_resolution"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Members"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-a"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-b"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-c"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-d"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-e"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-f"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NewestTaken"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NewestUpload"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_upload"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NonStorageCounting"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "non_storage_counting"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "OldestTaken"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "oldest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Strategies"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "best_quality"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "largest_resolution"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "newest_taken"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "newest_upload"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "non_storage_counting"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "oldest_taken"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Bool",
+                    "kind": "NameEx",
+                    "name": "UnsafeAutoTrash"
+                  },
+                  {
+                    "type": "Bool",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaBool",
+                      "value": true
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Bool",
+                    "kind": "NameEx",
+                    "name": "bulkDispatchOccurred"
+                  },
+                  {
+                    "type": "Bool",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaBool",
+                      "value": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Int",
+                    "kind": "NameEx",
+                    "name": "confirmedDispatchCount"
+                  },
+                  {
+                    "type": "Int",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaInt",
+                      "value": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Str)",
+                    "kind": "NameEx",
+                    "name": "decisionSource"
+                  },
+                  {
+                    "type": "(Str -> Str)",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Str>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Str>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "manual-trash-all"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Str>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "manual-trash-all"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Str>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "automatic"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Int",
+                    "kind": "NameEx",
+                    "name": "dispatchCount"
+                  },
+                  {
+                    "type": "Int",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaInt",
+                      "value": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "includedGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": []
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "NameEx",
+                    "name": "keepers"
+                  },
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Set(Str)>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": [
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-f"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "NameEx",
+                    "name": "manualKeepers"
+                  },
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Set(Str)>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "reviewedGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": []
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "reviewedGroupsAtDispatch"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": []
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "selectedStrategy"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "NameEx",
+                    "name": "trashTargets"
+                  },
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Set(Str)>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "(() => Bool)",
+          "kind": "TlaOperDecl",
+          "name": "State1",
+          "formalParams": [],
+          "isRecursive": false,
+          "body": {
+            "type": "Bool",
+            "kind": "OperEx",
+            "oper": "AND",
+            "args": [
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetA"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-a"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetB"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-b"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetC"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-c"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetD"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-d"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetE"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-e"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "AssetF"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "asset-f"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "BestQuality"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "best_quality"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "EligibleGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group1"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-1"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group2"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-2"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "Group3"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "group-3"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Groups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-3"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "LargestResolution"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "largest_resolution"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Members"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-a"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-b"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-c"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-d"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-e"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "asset-f"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NewestTaken"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NewestUpload"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "newest_upload"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "NonStorageCounting"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "non_storage_counting"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "OldestTaken"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "oldest_taken"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "Strategies"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "best_quality"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "largest_resolution"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "newest_taken"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "newest_upload"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "non_storage_counting"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "oldest_taken"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Bool",
+                    "kind": "NameEx",
+                    "name": "UnsafeAutoTrash"
+                  },
+                  {
+                    "type": "Bool",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaBool",
+                      "value": true
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Bool",
+                    "kind": "NameEx",
+                    "name": "bulkDispatchOccurred"
+                  },
+                  {
+                    "type": "Bool",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaBool",
+                      "value": true
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Int",
+                    "kind": "NameEx",
+                    "name": "confirmedDispatchCount"
+                  },
+                  {
+                    "type": "Int",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaInt",
+                      "value": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Str)",
+                    "kind": "NameEx",
+                    "name": "decisionSource"
+                  },
+                  {
+                    "type": "(Str -> Str)",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Str>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Str>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "automatic"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Str>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "automatic"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Str>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "automatic"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Int",
+                    "kind": "NameEx",
+                    "name": "dispatchCount"
+                  },
+                  {
+                    "type": "Int",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaInt",
+                      "value": 1
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "includedGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": [
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-1"
+                        }
+                      },
+                      {
+                        "type": "Str",
+                        "kind": "ValEx",
+                        "value": {
+                          "kind": "TlaStr",
+                          "value": "group-2"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "NameEx",
+                    "name": "keepers"
+                  },
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Set(Str)>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": [
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-c"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": [
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-d"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": [
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-f"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "NameEx",
+                    "name": "manualKeepers"
+                  },
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Set(Str)>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "reviewedGroups"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": []
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Set(Str)",
+                    "kind": "NameEx",
+                    "name": "reviewedGroupsAtDispatch"
+                  },
+                  {
+                    "type": "Set(Str)",
+                    "kind": "OperEx",
+                    "oper": "SET_ENUM",
+                    "args": []
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "Str",
+                    "kind": "NameEx",
+                    "name": "selectedStrategy"
+                  },
+                  {
+                    "type": "Str",
+                    "kind": "ValEx",
+                    "value": {
+                      "kind": "TlaStr",
+                      "value": "non_storage_counting"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Bool",
+                "kind": "OperEx",
+                "oper": "EQ",
+                "args": [
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "NameEx",
+                    "name": "trashTargets"
+                  },
+                  {
+                    "type": "(Str -> Set(Str))",
+                    "kind": "OperEx",
+                    "oper": "Apalache!SetAsFun",
+                    "args": [
+                      {
+                        "type": "Set(<<Str, Set(Str)>>)",
+                        "kind": "OperEx",
+                        "oper": "SET_ENUM",
+                        "args": [
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-1"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": [
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-a"
+                                    }
+                                  },
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-b"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-2"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": [
+                                  {
+                                    "type": "Str",
+                                    "kind": "ValEx",
+                                    "value": {
+                                      "kind": "TlaStr",
+                                      "value": "asset-e"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "<<Str, Set(Str)>>",
+                            "kind": "OperEx",
+                            "oper": "TUPLE",
+                            "args": [
+                              {
+                                "type": "Str",
+                                "kind": "ValEx",
+                                "value": {
+                                  "kind": "TlaStr",
+                                  "value": "group-3"
+                                }
+                              },
+                              {
+                                "type": "Set(Str)",
+                                "kind": "OperEx",
+                                "oper": "SET_ENUM",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "(() => Bool)",
+          "kind": "TlaOperDecl",
+          "name": "InvariantViolation",
+          "formalParams": [],
+          "isRecursive": false,
+          "body": {
+            "type": "Bool",
+            "kind": "NameEx",
+            "name": "bulkDispatchOccurred"
+          }
+        }
+      ]
+    }
+  ]
+}
