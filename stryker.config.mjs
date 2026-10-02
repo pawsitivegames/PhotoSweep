@@ -1,5 +1,6 @@
 const mutationOutput =
-  process.env.VERIFICATION_MUTATION_DIR ?? "tmp/verification/current/mutation-run"
+  process.env.VERIFICATION_MUTATION_DIR ??
+  "tmp/verification/current/mutation-run"
 
 /**
  * The mutation scope is intentionally limited to the destructive-operation
@@ -36,6 +37,8 @@ export default {
     "tests/commands/google-photos-commands.test.ts",
     "tests/commands/icloud-photos-commands.test.ts",
     "tests/commands/amazon-photos-commands.test.ts",
+    "tests/commands/provider-session-host.test.ts",
+    "tests/commands/provider-capability-host.test.ts",
     "tests/verification/safety-properties.test.ts",
     "tests/verification/model-conformance.test.ts",
     "tests/verification/fault-boundary.test.ts"
@@ -57,7 +60,20 @@ export default {
   disableTypeChecks: true,
   ignorePatterns: [
     "/.agents/**",
+    "/.chrome-profile/**",
+    "/.chrome-live-validation/**",
+    "/.claude/settings.local.json",
+    "/.env",
+    "/.env*.local",
+    "/.gp-auth.json",
+    "/.plasmo/**",
+    "/.vscode/settings.json",
+    "/.vscode/tasks.json",
+    "/log/**/*.log*",
+    "/playwright-report/**",
     "/tmp",
+    "/tmp-live-duplicate-test/**",
+    "/venv/**",
     "/build",
     "/Google-Photos-Toolkit",
     "/test-results",

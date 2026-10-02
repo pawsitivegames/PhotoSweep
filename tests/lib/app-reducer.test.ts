@@ -97,6 +97,28 @@ describe("HEALTH_CHECK_RESULT", () => {
     expect(next.status).toBe("disconnected")
   })
 
+  it("uses provider-specific recovery guidance when health is unavailable", () => {
+    const next = appReducer(
+      { status: "connecting" },
+      {
+        type: "HEALTH_CHECK_RESULT",
+        payload: {
+          app: APP_ID,
+          action: "healthCheck.result",
+          success: false,
+          hasGptk: false,
+          provider: "amazon"
+        }
+      }
+    )
+    expect(next).toMatchObject({
+      status: "disconnected",
+      error: expect.stringMatching(
+        /Amazon Photos is not ready.*sign in again if needed/i
+      )
+    })
+  })
+
   it("does NOT downgrade from results when health check succeeds", () => {
     const next = appReducer(resultsState, {
       type: "HEALTH_CHECK_RESULT",
@@ -135,6 +157,32 @@ describe("HEALTH_CHECK_RESULT", () => {
     expect(next.status).toBe("results")
     expect(next).toBe(state)
   })
+
+  it("clears iCloud results when the provider page session changes", () => {
+    const state: AppState = {
+      status: "results",
+      mediaItems,
+      groups,
+      totalItems: 4,
+      sourceProvider: "icloud",
+      providerSessionId: "icloud-session-old"
+    }
+    const next = appReducer(state, {
+      type: "HEALTH_CHECK_RESULT",
+      payload: {
+        app: APP_ID,
+        action: "healthCheck.result",
+        success: true,
+        hasGptk: true,
+        provider: "icloud",
+        providerSessionId: "icloud-session-new"
+      }
+    })
+    expect(next).toMatchObject({
+      status: "connected",
+      providerSessionId: "icloud-session-new"
+    })
+  })
 })
 
 // ============================================================
@@ -166,6 +214,35 @@ describe("SCAN_COMPLETE", () => {
       status: "results",
       totalItems: 4,
       groups,
+    })
+  })
+
+  it("retains an iCloud zone token only for the completed scan result", () => {
+    const next = appReducer(
+      {
+        status: "scanning",
+        phase: "fetching",
+        itemsProcessed: 0,
+        totalEstimate: 0,
+        message: "",
+        requestId: "r",
+        hasGptk: true,
+        providerSessionId: "icloud-session"
+      },
+      {
+        type: "SCAN_COMPLETE",
+        mediaItems,
+        groups,
+        totalItems: 4,
+        sourceProvider: "icloud",
+        providerSyncToken: "zone-token"
+      }
+    )
+
+    expect(next).toMatchObject({
+      status: "results",
+      providerSessionId: "icloud-session",
+      providerSyncToken: "zone-token"
     })
   })
 })
@@ -213,9 +290,26 @@ describe("SCAN_ERROR", () => {
   it("enters disconnected state", () => {
     const next = appReducer(
       { status: "scanning", phase: "fetching", itemsProcessed: 0, totalEstimate: 0, message: "", requestId: "r", hasGptk: true },
-      { type: "SCAN_ERROR", error: "network failure" }
+      {
+        type: "SCAN_ERROR",
+        error: "network failure",
+        scanCoverage: {
+          status: "failed",
+          stopReason: "auth_expired",
+          itemsVisited: 2,
+          itemsReturned: 0,
+          itemsSkipped: 2,
+          unknownDateItemsSkipped: 0,
+          mediaTypesCovered: { photos: true, videos: true },
+          canResume: false
+        }
+      }
     )
     expect(next.status).toBe("disconnected")
+    expect(next).toMatchObject({
+      status: "disconnected",
+      scanCoverage: { status: "failed", stopReason: "auth_expired" }
+    })
   })
 })
 
@@ -254,6 +348,33 @@ describe("TRASH_PROGRESS", () => {
 // ============================================================
 // TRASH_COMPLETE — critical: correct items removed, groups collapsed
 // ============================================================
+
+describe("TRASH_STARTED", () => {
+  it("invalidates the iCloud sync token before provider mutation", () => {
+    const next = appReducer(
+      {
+        ...resultsState,
+        sourceProvider: "icloud",
+        providerSessionId: "icloud-session",
+        providerSyncToken: "zone-token"
+      },
+      {
+        type: "TRASH_STARTED",
+        totalToTrash: 1,
+        mediaItems,
+        groups,
+        totalItems: 4,
+        sourceProvider: "icloud",
+        providerSessionId: "icloud-session"
+      }
+    )
+
+    expect(next.status).toBe("trashing")
+    if (next.status === "trashing") {
+      expect(next.providerSyncToken).toBeUndefined()
+    }
+  })
+})
 
 describe("TRASH_COMPLETE", () => {
   it("removes trashed keys from mediaItems", () => {

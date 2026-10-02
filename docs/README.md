@@ -33,6 +33,9 @@ Use this page to find the canonical document for a reader task. The root
 
 - [Remediation plan](IMPROVEMENT_PLAN.md) — implementation backlog and status
   notes; verify items against code and tests before acting on them.
+- [Provider parity plan](PLATFORM_PARITY_PLAN.md) — task list and acceptance gates
+  for bringing Google Photos, iCloud Photos, and Amazon Photos scan, album,
+  Trash, and recovery behavior into line.
 - [Marketing plan](MARKETING.md) — canonical marketing and listing copy
   direction.
 - [Monetization research](MONETIZATION_RESEARCH.md) — background research and

@@ -261,7 +261,10 @@ export function applyRememberedDecisions(params: {
       if (!allIdentitiesPresent) continue
       selections.keptOverrides[group.id] = new Set(keptKeys)
       selections.keepDecisionProvenance![group.id] = {
-        source: "legacy_preserved"
+        // This record can only be written from an explicit manual session
+        // choice. Once every stable member identity is validated, restore that
+        // choice as manual so the default strategy does not replace it.
+        source: "manual"
       }
     }
     selections.reviewedGroupIds.add(group.id)

@@ -13,7 +13,11 @@ function makeItem(
     thumb: `https://example.com/${mediaKey}`,
     productUrl: `https://photos.google.com/photo/${mediaKey}`,
     timestamp: Date.parse("2024-06-01T12:00:00.000Z"),
+    timestampProvenance: "capture",
     creationTimestamp: Date.parse("2024-06-02T12:00:00.000Z"),
+    creationTimestampProvenance: "creation",
+    provider: "google",
+    mediaKind: "photo",
     resWidth: 1920,
     resHeight: 1080,
     fileName,
@@ -91,8 +95,47 @@ describe("review report", () => {
 
     const csv = reviewReportToCsv(report)
     expect(csv).toContain("duplicateKind,matchReasons")
+    expect(csv).toContain("providerUrl")
     expect(csv).toContain(
       '"same filename,same filename stem,same dimensions,same taken date"'
+    )
+  })
+
+  it("exports a provider-neutral item link for non-Google media", () => {
+    const report = buildReviewReport({
+      groups: [group],
+      mediaItems: {
+        keep: {
+          ...makeItem("keep"),
+          provider: "icloud",
+          productUrl: "https://www.icloud.com/photos/#/photo/keep"
+        },
+        trash: {
+          ...makeItem("trash"),
+          provider: "amazon",
+          productUrl: "https://www.amazon.ca/photos/all/gallery/trash"
+        }
+      },
+      selectedGroupIds: new Set(["group-1"]),
+      getKept: () => new Set(["keep"])
+    })
+
+    expect(report.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mediaKey: "keep",
+          providerUrl: "https://www.icloud.com/photos/#/photo/keep",
+          googlePhotosUrl: "https://www.icloud.com/photos/#/photo/keep"
+        }),
+        expect.objectContaining({
+          mediaKey: "trash",
+          providerUrl: "https://www.amazon.ca/photos/all/gallery/trash",
+          googlePhotosUrl: "https://www.amazon.ca/photos/all/gallery/trash"
+        })
+      ])
+    )
+    expect(reviewReportToCsv(report)).toContain(
+      "https://www.amazon.ca/photos/all/gallery/trash"
     )
   })
 
@@ -121,8 +164,51 @@ describe("review report", () => {
     })
 
     const csv = reviewReportToCsv(report)
-    expect(csv).toContain("isOriginalQuality,takesUpSpace,spaceTaken")
-    expect(csv).toContain("false,false,0")
+    expect(csv).toContain(
+      "isOriginalQuality,contentHashAlgorithm,contentHashVerificationSource,videoPlaybackCapability,hasLivePhotoAssociation,takesUpSpace,spaceTaken"
+    )
+    expect(csv).toContain(",false,,,unknown,false,false,0,")
+  })
+
+  it("labels fallback dates and unknown favorite/hash evidence without promoting them", () => {
+    const report = buildReviewReport({
+      groups: [group],
+      mediaItems: {
+        keep: makeItem("keep"),
+        trash: {
+          ...makeItem("trash"),
+          timestamp: Date.parse("2024-06-02T12:00:00.000Z"),
+          timestampProvenance: "creation",
+          creationTimestamp: Date.parse("2024-06-03T12:00:00.000Z"),
+          creationTimestampProvenance: "capture",
+          favoriteStatus: "unknown",
+          favoriteSource: "unavailable",
+          isFavorite: false,
+          mediaKind: "unknown"
+        }
+      },
+      selectedGroupIds: new Set(),
+      getKept: () => new Set(["keep"])
+    })
+
+    expect(report.items.find((item) => item.mediaKey === "trash")).toMatchObject({
+      takenAt: null,
+      timestampProvenance: "creation",
+      timestampValue: "2024-06-02T12:00:00.000Z",
+      uploadedAt: null,
+      creationTimestampProvenance: "capture",
+      creationTimestampValue: "2024-06-03T12:00:00.000Z",
+      mediaKind: "unknown",
+      favoriteStatus: "unknown",
+      favoriteSource: "unavailable",
+      contentHashAlgorithm: null,
+      contentHashVerificationSource: null
+    })
+
+    const csv = reviewReportToCsv(report)
+    expect(csv).toContain("timestampProvenance")
+    expect(csv).toContain("favoriteStatus")
+    expect(csv).toContain("contentHashVerificationSource")
   })
 
   it("counts selected groups only within the exported report scope", () => {

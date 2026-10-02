@@ -58,9 +58,34 @@ describe("DuplicateDetectionEngine", () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       undefined
     )
     expect(fullDetectDuplicates).not.toHaveBeenCalled()
+  })
+
+  it("forwards the cache namespace to smart detection", async () => {
+    const engine = new DuplicateDetectionEngine()
+
+    await expect(
+      engine.detect({
+        mode: "smart",
+        mediaItems,
+        threshold: 0.95,
+        cacheNamespace: "google:test@example.com"
+      })
+    ).resolves.toBe(groups)
+
+    expect(smartDetectDuplicates).toHaveBeenCalledWith(
+      mediaItems,
+      0.95,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "google:test@example.com"
+    )
   })
 
   it("returns full detection groups without leaking timing internals", async () => {

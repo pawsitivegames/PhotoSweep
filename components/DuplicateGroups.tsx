@@ -32,10 +32,15 @@ import {
   describeKeepRecommendation,
   recommendKeepForGroup
 } from "../lib/keep-strategy"
+import { favoriteStatusForItem } from "../lib/favorite-status"
 import { buildThumbUrl } from "../lib/photo-url"
 import { photoSweepColors } from "../lib/theme"
 import type { KeepDecision } from "../lib/duplicate-review-session"
 import type { DuplicateGroup, GpdMediaItem } from "../lib/types"
+import type {
+  OriginalContentHashResult,
+  VideoPlaybackResult
+} from "../lib/provider-retrieval"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import { useBlobUrl } from "./useBlobUrl"
 
@@ -46,7 +51,8 @@ const REVIEW_CARD_WIDTH = 190
 const REVIEW_CARD_GAP = 12
 const REVIEW_ROW_HEADER_HEIGHT = 82
 const REVIEW_ROW_VERTICAL_PADDING = 24
-const REVIEW_CARD_ESTIMATED_HEIGHT = 286
+// Allow room for wrapped keeper guidance; underestimated rows overlap the next set.
+const REVIEW_CARD_ESTIMATED_HEIGHT = 340
 const REVIEW_ROW_ACTION_HEIGHT = 54
 const REVIEW_ROW_MARGIN_BOTTOM = 16
 
@@ -86,8 +92,7 @@ const sxPaperBase = {
   borderRadius: 3,
   border: "1px solid",
   borderColor: "divider",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.97), rgba(244,248,246,0.9))",
+  background: photoSweepColors.surface,
   boxShadow: `0 16px 44px ${photoSweepColors.shadow}`,
   transition:
     "opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease"
@@ -112,7 +117,7 @@ const sxThumbnailsWrapper = {
   flexWrap: "wrap",
   gap: 1.5,
   p: 1.5,
-  backgroundColor: "rgba(244,248,246,0.72)"
+  backgroundColor: photoSweepColors.surfaceSubtle
 }
 const sxItemWrapper = {
   position: "relative",
@@ -124,12 +129,10 @@ const sxItemWrapper = {
 const sxCardBase = {
   width: "100%",
   overflow: "hidden",
-  boxShadow: "0 8px 22px rgba(23, 32, 28, 0.05)",
-  transition:
-    "border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, background-color 0.15s ease",
+  boxShadow: "0 1px 3px rgba(27, 45, 66, 0.05)",
+  transition: "border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease",
   "&:hover": {
-    transform: "translateY(-2px)",
-    boxShadow: "0 16px 34px rgba(23, 32, 28, 0.13)"
+    boxShadow: "0 6px 16px rgba(27, 45, 66, 0.1)"
   }
 }
 const sxCardContent = {
@@ -143,14 +146,14 @@ const sxViewerBtn = {
   position: "absolute",
   top: 6,
   right: 6,
-  bgcolor: "rgba(23,32,28,0.66)",
+  bgcolor: "rgba(27,45,66,0.78)",
   color: "white",
   transition: "opacity 0.15s ease, background-color 0.15s ease",
-  minWidth: 32,
-  minHeight: 32,
+  minWidth: 44,
+  minHeight: 44,
   backdropFilter: "blur(10px)",
-  boxShadow: "0 8px 18px rgba(23, 32, 28, 0.24)",
-  "&:hover": { bgcolor: "rgba(23,32,28,0.84)" }
+  boxShadow: `0 8px 18px ${photoSweepColors.shadowDeep}`,
+  "&:hover": { bgcolor: "rgba(27,45,66,0.94)" }
 }
 const sxOpenInFullIcon = { fontSize: 14 }
 const sxStatusChip = { width: "fit-content", height: 20, fontSize: 11 }
@@ -209,11 +212,11 @@ function useMeasuredWidth<T extends HTMLElement>(
 }
 
 const FALLBACK_THUMBNAIL_BACKDROPS = [
-  "linear-gradient(135deg, #A7C7E7 0%, #F8D6C4 48%, #7E9F90 100%)",
-  "linear-gradient(135deg, #D8E2DC 0%, #FFE5D9 52%, #9D8189 100%)",
-  "linear-gradient(135deg, #B8C0FF 0%, #FFD6A5 50%, #CAFFBF 100%)",
-  "linear-gradient(135deg, #CDE7F0 0%, #F6D6AD 45%, #8FA998 100%)",
-  "linear-gradient(135deg, #E3D5CA 0%, #B7B7A4 55%, #6B705C 100%)"
+  "linear-gradient(135deg, #DCE6F5 0%, #F7F4EF 52%, #BCCBE0 100%)",
+  "linear-gradient(135deg, #E7ECF5 0%, #CDD8E8 52%, #F1E6D8 100%)",
+  "linear-gradient(135deg, #D2DDF0 0%, #F1E7DB 50%, #C1CEE1 100%)",
+  "linear-gradient(135deg, #E3EBF3 0%, #D8CFC2 45%, #F3F6FB 100%)",
+  "linear-gradient(135deg, #D6E0EC 0%, #F2E7DB 55%, #BDCCE0 100%)"
 ]
 
 function fallbackThumbnailBackground(seed: string): string {
@@ -228,11 +231,13 @@ function fallbackThumbnailBackground(seed: string): string {
 function ThumbnailImage({
   src,
   alt,
-  height = 132
+  height = 132,
+  fit = "cover"
 }: {
   src: string
   alt: string
   height?: number
+  fit?: "cover" | "contain"
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -280,7 +285,7 @@ function ThumbnailImage({
             position: "absolute",
             inset: 0,
             background:
-              "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(23,32,28,0.1))"
+              "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(27,45,66,0.1))"
           }
         }}
       />
@@ -294,7 +299,12 @@ function ThumbnailImage({
           component="img"
           image={blobUrl}
           alt={alt}
-          sx={{ height, objectFit: "cover" }}
+          sx={{
+            height,
+            width: "100%",
+            objectFit: fit,
+            bgcolor: photoSweepColors.surfaceSubtle
+          }}
         />
       ) : (
         <Skeleton variant="rectangular" height={height} animation="wave" />
@@ -535,7 +545,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 gridTemplateColumns: "1fr",
                 gap: 1,
                 p: 1,
-                bgcolor: "rgba(244,248,246,0.52)"
+                bgcolor: photoSweepColors.surfaceSubtle
               }
             : undefined
         ]}>
@@ -543,6 +553,12 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           const item = mediaItems[key]
           if (!item) return null
           const isKept = keptSet.has(key)
+          const favoriteStatus = favoriteStatusForItem(item)
+          const favoriteProtected = favoriteStatus === "favorite"
+          const isLastKeptCopy =
+            !readOnly && !favoriteProtected && isKept && keptSet.size === 1
+          const movesToTrash = isSelected && !isKept && !favoriteProtected
+          const lastKeeperHintId = `last-kept-copy-${encodeURIComponent(group.id)}-${encodeURIComponent(key)}`
           const isUserDecision =
             decisionSource === "manual" || decisionSource === "legacy_preserved"
           const isExplicitlyKept = isUserDecision && isSelected && isKept
@@ -571,28 +587,28 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                     "&:hover": compact
                       ? {
                           transform: "none",
-                          boxShadow: "0 8px 18px rgba(23, 32, 28, 0.08)"
+                          boxShadow: "0 4px 12px rgba(27, 45, 66, 0.08)"
                         }
                       : sxCardBase["&:hover"],
                     bgcolor: isExplicitlyKept
-                      ? "rgba(228, 243, 241, 0.8)"
-                      : isSelected
-                        ? "rgba(253, 235, 232, 0.55)"
+                      ? photoSweepColors.primarySoft
+                      : movesToTrash
+                        ? photoSweepColors.errorSoft
                         : "background.paper",
                     borderColor: isExplicitlyKept
                       ? "primary.main"
-                      : isSelected
+                      : movesToTrash
                         ? "error.main"
                         : "divider",
-                    borderWidth: isExplicitlyKept || isSelected ? 2 : 1,
+                    borderWidth: isExplicitlyKept || movesToTrash ? 2 : 1,
                     boxShadow: isExplicitlyKept
                       ? compact
                         ? `0 6px 16px ${photoSweepColors.primaryShadow}`
                         : `0 12px 28px ${photoSweepColors.primaryShadow}`
-                      : isSelected
+                      : movesToTrash
                         ? compact
-                          ? "0 6px 16px rgba(217, 74, 61, 0.1)"
-                          : "0 12px 28px rgba(217, 74, 61, 0.11)"
+                          ? `0 6px 16px ${photoSweepColors.errorShadow}`
+                          : `0 12px 28px ${photoSweepColors.errorShadow}`
                         : undefined
                   }
                 ]}>
@@ -600,23 +616,34 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                   aria-label={
                     readOnly
                       ? `View ${itemLabel} full size`
-                      : isKept
-                        ? `Keep ${itemLabel} (currently kept; click to move to Trash)`
-                        : `Keep ${itemLabel} (currently moves to Trash; click to keep)`
+                      : favoriteProtected
+                        ? `${itemLabel} is a favorite and is protected from Trash`
+                        : isLastKeptCopy
+                          ? `Keep ${itemLabel} (currently kept; this is the last kept copy, so at least one copy must remain kept.)`
+                          : isKept
+                          ? `Keep ${itemLabel} (currently kept; click to move to Trash)`
+                        : favoriteStatus === "unknown"
+                          ? `Keep ${itemLabel} (currently moves to Trash; favorite status unknown; click to keep)`
+                          : `Keep ${itemLabel} (currently moves to Trash; click to keep)`
                   }
-                  aria-pressed={readOnly ? undefined : isKept}
+                  aria-describedby={
+                    isLastKeptCopy ? lastKeeperHintId : undefined
+                  }
+                  aria-pressed={
+                    readOnly ? undefined : isKept || favoriteProtected
+                  }
                   sx={
                     compact
                       ? {
                           display: "grid",
-                          gridTemplateColumns: "104px minmax(0, 1fr)",
+                          gridTemplateColumns: "minmax(0, 1fr)",
                           alignItems: "stretch"
                         }
                       : undefined
                   }
                   onClick={() => {
-                    if (!readOnly) onToggleKept(group, key)
-                    else onOpenViewer(group, itemIndex)
+                    if (readOnly) onOpenViewer(group, itemIndex)
+                    else if (!favoriteProtected) onToggleKept(group, key)
                   }}>
                   <ThumbnailImage
                     src={
@@ -627,7 +654,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                           : buildThumbUrl(item.thumb, { height: 200 })
                     }
                     alt={item.fileName || item.mediaKey}
-                    height={compact ? 116 : 132}
+                    height={compact ? 196 : 132}
+                    fit={compact ? "contain" : "cover"}
                   />
                   <CardContent
                     sx={[
@@ -664,7 +692,15 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         variant="caption"
                         color="text.secondary"
                         display="block">
-                        <span style={{ opacity: 0.6 }}>Taken </span>
+                        <span style={{ opacity: 0.6 }}>
+                          {item.timestampProvenance === "capture"
+                            ? "Taken "
+                            : item.timestampProvenance === "creation"
+                              ? "Created "
+                              : item.timestampProvenance === "modified"
+                                ? "Modified "
+                                : "Date (source unknown) "}
+                        </span>
                         {new Date(item.timestamp).toLocaleDateString(
                           undefined,
                           {
@@ -680,7 +716,15 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         variant="caption"
                         color="text.secondary"
                         display="block">
-                        <span style={{ opacity: 0.6 }}>Uploaded </span>
+                        <span style={{ opacity: 0.6 }}>
+                          {item.creationTimestampProvenance === "creation"
+                            ? "Uploaded "
+                            : item.creationTimestampProvenance === "modified"
+                              ? "Modified "
+                              : item.creationTimestampProvenance === "capture"
+                                ? "Capture date "
+                                : "Date (source unknown) "}
+                        </span>
                         {new Date(item.creationTimestamp).toLocaleDateString(
                           undefined,
                           {
@@ -697,6 +741,23 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                       display="block">
                       {storageStatusLabel(item)}
                     </Typography>
+                    {favoriteProtected ? (
+                      <Chip
+                        label="Favorite protected"
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        sx={sxStatusChip}
+                      />
+                    ) : favoriteStatus === "unknown" ? (
+                      <Chip
+                        label="Favorite status unknown"
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        sx={sxStatusChip}
+                      />
+                    ) : null}
                     {isExplicitlyKept ? (
                       <Chip
                         icon={<CheckCircleRoundedIcon />}
@@ -713,16 +774,34 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         variant="outlined"
                         sx={sxStatusChip}
                       />
-                    ) : isSelected ? (
+                    ) : movesToTrash ? (
                       <Chip
                         icon={<DeleteOutlineRoundedIcon />}
-                        label="Moves to Trash"
+                        label={
+                          favoriteStatus === "unknown"
+                            ? "Moves to Trash · favorite unknown"
+                            : "Moves to Trash"
+                        }
                         size="small"
                         color="error"
                         variant="outlined"
                         sx={sxStatusChip}
                       />
                     ) : null}
+                    {isLastKeptCopy && (
+                      <Typography
+                        id={lastKeeperHintId}
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          maxWidth: "100%",
+                          whiteSpace: "normal",
+                          lineHeight: 1.35
+                        }}>
+                        At least one copy stays kept. Use “Mark all copies for
+                        Trash” to move every copy to Trash.
+                      </Typography>
+                    )}
                   </CardContent>
                 </CardActionArea>
               </Card>
@@ -751,7 +830,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: 0.75,
-            bgcolor: "rgba(244,248,246,0.72)"
+            bgcolor: photoSweepColors.surfaceSubtle
           }}>
           <Button
             size="small"
@@ -784,6 +863,14 @@ interface DuplicateGroupsProps {
   keepDecisionByGroupId?: Map<string, KeepDecision>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
+  onVerifyOriginal?: (
+    item: GpdMediaItem,
+    signal: AbortSignal
+  ) => Promise<OriginalContentHashResult>
+  onLoadVideo?: (
+    item: GpdMediaItem,
+    signal: AbortSignal
+  ) => Promise<VideoPlaybackResult>
   readOnly?: boolean
   heading?: string
   compact?: boolean
@@ -847,6 +934,8 @@ export function DuplicateGroups({
   keepDecisionByGroupId,
   onToggleKept,
   onTrashAll,
+  onVerifyOriginal,
+  onLoadVideo,
   readOnly = false,
   heading,
   compact = false
@@ -1130,6 +1219,8 @@ export function DuplicateGroups({
           }
           onNextGroup={handleNextGroup}
           onPrevGroup={handlePrevGroup}
+          onVerifyOriginal={readOnly ? undefined : onVerifyOriginal}
+          onLoadVideo={readOnly ? undefined : onLoadVideo}
         />
       )}
     </Box>

@@ -21,6 +21,7 @@ export interface DuplicateDetectionRequest {
   signal?: AbortSignal
   logger?: ScanLogger
   onPartialGroups?: (groups: DuplicateGroup[]) => void
+  cacheNamespace?: string
 }
 
 export class DuplicateDetectionEngine {
@@ -33,7 +34,8 @@ export class DuplicateDetectionEngine {
         request.onProgress,
         request.signal,
         request.logger,
-        request.onPartialGroups
+        request.onPartialGroups,
+        request.cacheNamespace
       )
     }
 
@@ -43,7 +45,8 @@ export class DuplicateDetectionEngine {
       request.onProgress,
       request.signal,
       request.logger,
-      request.onPartialGroups
+      request.onPartialGroups,
+      request.cacheNamespace
     )
     return result.groups
   }

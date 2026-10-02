@@ -1,11 +1,15 @@
 import { buildDeleteReport, type DeleteReport } from "./delete-report"
 import { classifyDuplicateGroup } from "./duplicate-classifier"
 import {
-  recommendKeepForGroup,
+  recommendDefaultKeepForGroup,
   type KeepRecommendation,
   type KeepStrategy
 } from "./keep-strategy"
 import { buildReviewReport, type ReviewReport } from "./review-report"
+import {
+  favoriteStatusForItem,
+  isConfirmedFavorite
+} from "./favorite-status"
 import type { DuplicateGroup, GpdMediaItem, PhotoProvider } from "./types"
 
 export const DUPLICATE_REVIEW_SELECTIONS_VERSION = 2 as const
@@ -48,6 +52,8 @@ export interface DuplicateTrashPlan {
   mediaKeysToTrash: string[]
   blockedMediaKeys: string[]
   blockedGroupIds: string[]
+  /** Targets whose unknown favorite state needs explicit user acknowledgement. */
+  unknownFavoriteMediaKeys?: string[]
   provider: PhotoProvider
   icloudAssetRefs?: NonNullable<GpdMediaItem["icloudAsset"]>[]
 }
@@ -61,6 +67,10 @@ export type DuplicateReviewAction =
       type: "apply_keep_strategy"
       groupIds: Iterable<string>
       strategy: KeepStrategy
+      /** Re-include these eligible sets in the Trash proposal review. */
+      includeGroupIds?: Iterable<string>
+      /** An explicit strategy-menu action replaces per-set manual keep choices. */
+      overrideManualChoices?: boolean
     }
   | { type: "replace"; selections: DuplicateReviewSelections }
   | { type: "clear" }
@@ -69,6 +79,7 @@ interface DuplicateReviewSessionParams {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
   selections?: DuplicateReviewSelections
+  defaultStrategy?: KeepStrategy
 }
 
 function cloneSelections(
@@ -91,6 +102,10 @@ function cloneSelections(
   }
 }
 
+function sameMediaKeySet(left: Set<string>, right: Set<string>): boolean {
+  return left.size === right.size && [...left].every((key) => right.has(key))
+}
+
 function defaultSelections(): DuplicateReviewSelections {
   return {
     selectedGroupIds: new Set(),
@@ -110,10 +125,12 @@ export class DuplicateReviewSession {
   private readonly groups: DuplicateGroup[]
   private readonly mediaItems: Record<string, GpdMediaItem>
   private readonly groupsById: Map<string, DuplicateGroup>
+  private readonly defaultStrategy: KeepStrategy
 
   constructor(params: DuplicateReviewSessionParams) {
     this.groups = params.groups
     this.mediaItems = params.mediaItems
+    this.defaultStrategy = params.defaultStrategy ?? "best_quality"
     this.groupsById = new Map(params.groups.map((group) => [group.id, group]))
     this.selections = this.sanitize(params.selections ?? defaultSelections())
     this.selectedGroupIds = this.selections.selectedGroupIds
@@ -177,23 +194,45 @@ export class DuplicateReviewSession {
           current.keepDecisionProvenance![action.groupId] = { source: "manual" }
         }
         break
-      case "apply_keep_strategy":
+      case "apply_keep_strategy": {
+        const previouslyIncludedGroupIds = new Set(current.selectedGroupIds)
+        for (const groupId of action.includeGroupIds ?? []) {
+          if (this.groupsById.has(groupId)) {
+            if (!previouslyIncludedGroupIds.has(groupId)) {
+              // Newly proposed groups need another per-set review even if a
+              // prior Skip action had marked them reviewed.
+              current.reviewedGroupIds.delete(groupId)
+            }
+            current.selectedGroupIds.add(groupId)
+          }
+        }
         for (const groupId of action.groupIds) {
           const group = this.groupsById.get(groupId)
           if (!group) continue
           const existingProvenance =
             current.keepDecisionProvenance[groupId]
           if (
-            existingProvenance?.source === "manual" ||
-            existingProvenance?.source === "legacy_preserved"
+            existingProvenance?.source === "manual" &&
+            !action.overrideManualChoices
           ) {
             continue
           }
-          const recommendation = recommendKeepForGroup(
+          const recommendation = recommendDefaultKeepForGroup(
             group,
             this.mediaItems,
             action.strategy
           )
+          if (
+            previouslyIncludedGroupIds.has(groupId) &&
+            !sameMediaKeySet(
+              this.resolveKept(group),
+              new Set(recommendation.keptMediaKeys)
+            )
+          ) {
+            // Changing the keeper changes the proposed Trash targets, so the
+            // set must pass through per-set review again before confirmation.
+            current.reviewedGroupIds.delete(groupId)
+          }
           current.keptOverrides[groupId] = new Set(
             recommendation.keptMediaKeys
           )
@@ -203,6 +242,7 @@ export class DuplicateReviewSession {
           }
         }
         break
+      }
       case "replace":
         return this.sanitize(action.selections)
       case "clear":
@@ -239,6 +279,7 @@ export class DuplicateReviewSession {
     const dedupKeys: string[] = []
     const mediaKeysToTrash: string[] = []
     const blockedMediaKeys: string[] = []
+    const unknownFavoriteMediaKeys: string[] = []
     const blockedGroupIds = new Set<string>()
     const dedupKeyCounts = new Map<string, number>()
 
@@ -267,6 +308,7 @@ export class DuplicateReviewSession {
         if (!item?.dedupKey) continue
 
         const blocked =
+          isConfirmedFavorite(item) ||
           !classification.canProposeTrash ||
           (dedupKeyCounts.get(item.dedupKey) ?? 0) > 1
         if (blocked) {
@@ -275,6 +317,9 @@ export class DuplicateReviewSession {
           continue
         }
 
+        if (favoriteStatusForItem(item) === "unknown") {
+          unknownFavoriteMediaKeys.push(mediaKey)
+        }
         dedupKeys.push(item.dedupKey)
         mediaKeysToTrash.push(mediaKey)
       }
@@ -299,6 +344,9 @@ export class DuplicateReviewSession {
       mediaKeysToTrash,
       blockedMediaKeys,
       blockedGroupIds: [...blockedGroupIds],
+      ...(unknownFavoriteMediaKeys.length > 0
+        ? { unknownFavoriteMediaKeys }
+        : {}),
       provider,
       ...(icloudAssetRefs ? { icloudAssetRefs } : {})
     }
@@ -365,7 +413,8 @@ export class DuplicateReviewSession {
       const provenance = this.normalizeProvenance(suppliedProvenance[groupId])
       if (keys.size === 0) {
         keptOverrides[groupId] = new Set()
-        keepDecisionProvenance[groupId] = provenance ?? { source: "manual" }
+        keepDecisionProvenance[groupId] =
+          provenance ?? { source: "legacy_preserved" }
       } else if (filtered.length > 0) {
         keptOverrides[groupId] = new Set(filtered)
         keepDecisionProvenance[groupId] =
@@ -377,7 +426,10 @@ export class DuplicateReviewSession {
         keptOverrides[groupId] = new Set(group.mediaKeys)
         keepDecisionProvenance[groupId] = { source: "legacy_preserved" }
       }
-      reviewedGroupIds.add(groupId)
+      // Review completion is explicit persisted state. A manual or legacy
+      // choice shows that the user made a decision, but a later bulk action
+      // can invalidate review while preserving that choice. Older stored
+      // records without reviewedGroupIds are migrated in deserializeSelections.
     }
 
     return {
@@ -395,8 +447,8 @@ export class DuplicateReviewSession {
   private resolveDecision(group: DuplicateGroup): KeepDecision {
     const override = this.selections.keptOverrides[group.id]
     const provenance = this.selections.keepDecisionProvenance?.[group.id]
-    const strategy = provenance?.strategy ?? "best_quality"
-    const recommendation = recommendKeepForGroup(
+    const strategy = provenance?.strategy ?? this.defaultStrategy
+    const recommendation = recommendDefaultKeepForGroup(
       group,
       this.mediaItems,
       strategy
@@ -449,6 +501,36 @@ export class DuplicateReviewSession {
     }
     return { source: provenance.source, strategy: provenance.strategy }
   }
+}
+
+/**
+ * Applies the persistent default to every current group while retaining only
+ * explicit manual per-group choices. Legacy and automatic choices are
+ * recomputed from the current media metadata and selected strategy.
+ */
+export function applyDefaultKeepStrategyToSelections(params: {
+  groups: DuplicateGroup[]
+  mediaItems: Record<string, GpdMediaItem>
+  selections?: DuplicateReviewSelections
+  strategy: KeepStrategy
+}): DuplicateReviewSelections {
+  const current = new DuplicateReviewSession({
+    groups: params.groups,
+    mediaItems: params.mediaItems,
+    selections: params.selections,
+    defaultStrategy: params.strategy
+  })
+  const updated = current.update({
+    type: "apply_keep_strategy",
+    groupIds: params.groups.map((group) => group.id),
+    strategy: params.strategy
+  })
+  return new DuplicateReviewSession({
+    groups: params.groups,
+    mediaItems: params.mediaItems,
+    selections: updated,
+    defaultStrategy: params.strategy
+  }).selections
 }
 
 function isKeepStrategyValue(value: unknown): value is KeepStrategy {

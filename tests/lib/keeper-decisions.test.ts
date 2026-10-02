@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  applyDefaultKeepStrategyToSelections,
   DuplicateReviewSession,
-  type DuplicateReviewSelections
+  type DuplicateReviewSelections,
+  type StoredDuplicateReviewSelections
 } from "../../lib/duplicate-review-session"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
 
@@ -50,8 +52,21 @@ function session(selections?: DuplicateReviewSelections) {
   })
 }
 
+function hydrateSelections(
+  stored: StoredDuplicateReviewSelections
+): DuplicateReviewSelections {
+  return {
+    selectedGroupIds: new Set(stored.selectedGroupIds),
+    reviewedGroupIds: new Set(stored.reviewedGroupIds),
+    keptOverrides: Object.fromEntries(
+      Object.entries(stored.keptOverrides).map(([id, keys]) => [id, new Set(keys)])
+    ),
+    keepDecisionProvenance: stored.keepDecisionProvenance
+  }
+}
+
 describe("keeper decision contract", () => {
-  it("keeps all copies and proposes zero Trash when evidence is insufficient", () => {
+  it("uses deterministic fallback metadata when automatic quality evidence is insufficient", () => {
     const uncertainItems = {
       a: item("a", { isOriginalQuality: null }),
       b: item("b", { isOriginalQuality: null }),
@@ -69,11 +84,11 @@ describe("keeper decision contract", () => {
 
     const decision = review.keepDecisionByGroupId.get("g1")!
     expect(decision.source).toBe("automatic")
-    expect(decision.recommendation.status).toBe(
-      "no_confident_recommendation"
-    )
-    expect(decision.keptMediaKeys).toEqual(new Set(["a", "b", "c"]))
-    expect(review.duplicateCount()).toBe(0)
+    expect(decision.recommendation).toMatchObject({
+      status: "recommended",
+      reasonCode: "deterministic_tiebreak"
+    })
+    expect(decision.keptMediaKeys).toEqual(new Set(["a"]))
   })
 
   it("records an automatic strategy and preserves it through serialization", () => {
@@ -108,7 +123,7 @@ describe("keeper decision contract", () => {
     })
   })
 
-  it("gives manual multi-keep, keep-all, and Trash-all decisions precedence", () => {
+  it("preserves manual multi-keep, keep-all, and Trash-all decisions during passive strategy application", () => {
     const initial = session()
     const manualMulti = session(
       initial.update({
@@ -161,7 +176,107 @@ describe("keeper decision contract", () => {
     expect(trashAllAfterStrategy.serialize().keptOverrides.g1).toEqual([])
   })
 
-  it("migrates an old override as legacy-preserved and never lets strategy replace it", () => {
+  it("replaces manual keeper and Trash-all choices when a strategy is explicitly selected", () => {
+    const manualSelections: DuplicateReviewSelections = {
+      selectedGroupIds: new Set(["g1", "g2"]),
+      reviewedGroupIds: new Set(["g1", "g2"]),
+      keptOverrides: {
+        g1: new Set(["a", "c"]),
+        g2: new Set<string>()
+      },
+      keepDecisionProvenance: {
+        g1: { source: "manual" },
+        g2: { source: "manual" }
+      }
+    }
+    const manuallyReviewed = session(manualSelections)
+    const applied = session(
+      manuallyReviewed.update({
+        type: "apply_keep_strategy",
+        groupIds: ["g1", "g2"],
+        strategy: "best_quality",
+        includeGroupIds: ["g1", "g2"],
+        overrideManualChoices: true
+      })
+    )
+
+    expect(applied.selectedGroupIds).toEqual(new Set(["g1", "g2"]))
+    expect(applied.keptFor(g1)).toEqual(new Set(["b"]))
+    expect(applied.keptFor(g2)).toEqual(new Set(["e"]))
+    expect(applied.decisionFor(g1).source).toBe("automatic")
+    expect(applied.decisionFor(g2).source).toBe("automatic")
+    expect(applied.reviewedGroupIds).toEqual(new Set())
+    expect(applied.trashPlan([g1, g2]).mediaKeysToTrash).toEqual([
+      "a",
+      "c",
+      "d"
+    ])
+  })
+
+  it("preserves only explicit manual-empty overrides across hydration and default reapplication", () => {
+    const manualSelections = session().update({
+      type: "trash_all_copies",
+      groupId: "g1"
+    })
+    const manualStored = new DuplicateReviewSession({
+      groups: [g1, g2],
+      mediaItems,
+      selections: manualSelections
+    }).serialize()
+    const manualHydrated = session(hydrateSelections(manualStored))
+    const manualReapplied = new DuplicateReviewSession({
+      groups: [g1, g2],
+      mediaItems,
+      selections: applyDefaultKeepStrategyToSelections({
+        groups: [g1, g2],
+        mediaItems,
+        selections: manualHydrated.selections,
+        strategy: "largest_resolution"
+      }),
+      defaultStrategy: "largest_resolution"
+    })
+    expect(manualHydrated.decisionFor(g1).source).toBe("manual")
+    expect(manualReapplied.keptFor(g1)).toEqual(new Set())
+    expect(manualReapplied.decisionFor(g1).source).toBe("manual")
+
+    const legacySnapshots: StoredDuplicateReviewSelections[] = [
+      {
+        selectedGroupIds: ["g1"],
+        reviewedGroupIds: ["g1"],
+        keptOverrides: { g1: [] }
+      },
+      {
+        selectedGroupIds: ["g1"],
+        reviewedGroupIds: ["g1"],
+        keptOverrides: { g1: [] },
+        keepDecisionProvenance: { g1: { source: "legacy_preserved" } }
+      }
+    ]
+
+    for (const legacySnapshot of legacySnapshots) {
+      const legacyHydrated = session(hydrateSelections(legacySnapshot))
+      expect(legacyHydrated.decisionFor(g1).source).toBe("legacy_preserved")
+
+      const legacyReapplied = new DuplicateReviewSession({
+        groups: [g1, g2],
+        mediaItems,
+        selections: applyDefaultKeepStrategyToSelections({
+          groups: [g1, g2],
+          mediaItems,
+          selections: legacyHydrated.selections,
+          strategy: "largest_resolution"
+        }),
+        defaultStrategy: "largest_resolution"
+      })
+      expect(legacyReapplied.keptFor(g1)).toEqual(new Set(["c"]))
+      expect(legacyReapplied.decisionFor(g1)).toMatchObject({
+        source: "automatic",
+        strategy: "largest_resolution"
+      })
+    }
+  })
+
+  it("recomputes a legacy override when a new automatic strategy is applied", () => {
     const restored = session({
       selectedGroupIds: new Set(["g1"]),
       reviewedGroupIds: new Set(["g1"]),
@@ -178,8 +293,85 @@ describe("keeper decision contract", () => {
         strategy: "largest_resolution"
       })
     })
-    expect(afterStrategy.keptFor(g1)).toEqual(new Set(["a"]))
-    expect(afterStrategy.decisionFor(g1).source).toBe("legacy_preserved")
+    expect(afterStrategy.keptFor(g1)).toEqual(new Set(["c"]))
+    expect(afterStrategy.decisionFor(g1)).toMatchObject({
+      source: "automatic",
+      strategy: "largest_resolution",
+      recommendation: {
+        status: "recommended",
+        keptMediaKeys: ["c"]
+      }
+    })
+  })
+
+  it("reapplies defaults across every group, preserving manual and replacing automatic or legacy choices", () => {
+    const g3 = group("g3", "f", "g")
+    const allGroups = [g1, g2, g3]
+    const allItems = {
+      ...mediaItems,
+      f: item("f", { isOriginalQuality: true, resWidth: 100 }),
+      g: item("g", { isOriginalQuality: false, resWidth: 900 })
+    }
+    const previous = {
+      selectedGroupIds: new Set(["g1"]),
+      reviewedGroupIds: new Set(["g1", "g2", "g3"]),
+      keptOverrides: {
+        g1: new Set(["a"]),
+        g2: new Set(["d"]),
+        g3: new Set(["f"])
+      },
+      keepDecisionProvenance: {
+        g1: { source: "manual" as const },
+        g3: { source: "automatic" as const, strategy: "best_quality" as const }
+      }
+    }
+
+    const largestResolution = applyDefaultKeepStrategyToSelections({
+      groups: allGroups,
+      mediaItems: allItems,
+      selections: previous,
+      strategy: "largest_resolution"
+    })
+    const largestSession = new DuplicateReviewSession({
+      groups: allGroups,
+      mediaItems: allItems,
+      selections: largestResolution,
+      defaultStrategy: "largest_resolution"
+    })
+
+    expect(largestSession.keptFor(g1)).toEqual(new Set(["a"]))
+    expect(largestSession.decisionFor(g1).source).toBe("manual")
+    expect(largestSession.keptFor(g2)).toEqual(new Set(["e"]))
+    expect(largestSession.decisionFor(g2).source).toBe("automatic")
+    expect(largestSession.keptFor(g3)).toEqual(new Set(["g"]))
+    expect(largestSession.decisionFor(g3).strategy).toBe("largest_resolution")
+
+    const stored = largestSession.serialize()
+    const hydrated = {
+      selectedGroupIds: new Set(stored.selectedGroupIds),
+      reviewedGroupIds: new Set(stored.reviewedGroupIds),
+      keptOverrides: Object.fromEntries(
+        Object.entries(stored.keptOverrides).map(([id, keys]) => [id, new Set(keys)])
+      ),
+      keepDecisionProvenance: stored.keepDecisionProvenance
+    }
+    const bestQuality = applyDefaultKeepStrategyToSelections({
+      groups: allGroups,
+      mediaItems: allItems,
+      selections: hydrated,
+      strategy: "best_quality"
+    })
+    const bestQualitySession = new DuplicateReviewSession({
+      groups: allGroups,
+      mediaItems: allItems,
+      selections: bestQuality,
+      defaultStrategy: "best_quality"
+    })
+
+    expect(bestQualitySession.keptFor(g1)).toEqual(new Set(["a"]))
+    expect(bestQualitySession.decisionFor(g1).source).toBe("manual")
+    expect(bestQualitySession.keptFor(g2)).toEqual(new Set(["e"]))
+    expect(bestQualitySession.keptFor(g3)).toEqual(new Set(["f"]))
   })
 
   it("keeps every current member when all saved keeper keys are stale", () => {
@@ -212,9 +404,25 @@ describe("keeper decision contract", () => {
     )
 
     expect(next.selectedGroupIds).toEqual(new Set(["g1"]))
-    expect(next.reviewedGroupIds).toEqual(new Set(["g1"]))
+    expect(next.reviewedGroupIds).toEqual(new Set())
     expect(next.keptFor(g1)).toEqual(new Set(["c"]))
     expect(next.keptFor(g2)).toEqual(new Set(["e"]))
     expect(next.selections.keepDecisionProvenance?.g2).toBeUndefined()
+  })
+
+  it("does not mark automatically selected keeper sets as reviewed after hydration", () => {
+    const restored = session({
+      selectedGroupIds: new Set(["g1"]),
+      reviewedGroupIds: new Set(),
+      keptOverrides: { g1: new Set(["c"]) },
+      keepDecisionProvenance: {
+        g1: { source: "automatic", strategy: "largest_resolution" }
+      }
+    })
+
+    expect(restored.selectedGroupIds).toEqual(new Set(["g1"]))
+    expect(restored.reviewedGroupIds).toEqual(new Set())
+    expect(restored.keptFor(g1)).toEqual(new Set(["c"]))
+    expect(restored.trashPlan([g1]).mediaKeysToTrash).toEqual(["a", "b"])
   })
 })

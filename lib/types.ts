@@ -1,7 +1,16 @@
 // Shared message types for communication between extension components.
 // All messages include `app: "GPD"` to filter out unrelated messages.
 
+import type { KeepStrategy } from "./keep-strategy"
+
 export const APP_ID = "GPD" as const
+
+/** Public, non-secret identity for the exact packaged extension build. */
+export interface RuntimeBuildIdentity {
+  extensionId: string
+  packageVersion: string
+  buildId: string
+}
 
 // ============================================================
 // Base message type
@@ -10,6 +19,7 @@ export const APP_ID = "GPD" as const
 interface BaseMessage {
   app: typeof APP_ID
   clientId?: string
+  runtimeBuildIdentity?: RuntimeBuildIdentity
 }
 
 // ============================================================
@@ -40,6 +50,68 @@ export interface HealthCheckMessage extends BaseMessage {
   requestId?: string
 }
 
+export const PROVIDER_HEALTH_SCHEMA_VERSION = 1 as const
+export const PROVIDER_HEALTH_CONTRACT_VERSION = "provider-parity-v1" as const
+
+export type ProviderHealthStatus = "ready" | "unavailable"
+
+/**
+ * Bounded, non-sensitive adapter health evidence. Providers must never put
+ * cookies, account identifiers, media IDs, or response bodies in this value.
+ */
+export interface ProviderHealthSnapshot {
+  schemaVersion: typeof PROVIDER_HEALTH_SCHEMA_VERSION
+  contractVersion: typeof PROVIDER_HEALTH_CONTRACT_VERSION
+  provider: PhotoProvider
+  status: ProviderHealthStatus
+  checks: {
+    page: boolean
+    session: boolean
+    readPath: boolean
+  }
+}
+
+export function isProviderHealthSnapshot(
+  value: unknown,
+  provider?: PhotoProvider
+): value is ProviderHealthSnapshot {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false
+  }
+  const candidate = value as Record<string, unknown>
+  const checks = candidate.checks
+  if (!checks || typeof checks !== "object" || Array.isArray(checks)) {
+    return false
+  }
+  const checkRecord = checks as Record<string, unknown>
+  const validProvider =
+    candidate.provider === "google" ||
+    candidate.provider === "icloud" ||
+    candidate.provider === "amazon"
+  const validStatus =
+    candidate.status === "ready" || candidate.status === "unavailable"
+  const checksAreBoolean =
+    typeof checkRecord.page === "boolean" &&
+    typeof checkRecord.session === "boolean" &&
+    typeof checkRecord.readPath === "boolean"
+  if (
+    candidate.schemaVersion !== PROVIDER_HEALTH_SCHEMA_VERSION ||
+    candidate.contractVersion !== PROVIDER_HEALTH_CONTRACT_VERSION ||
+    !validProvider ||
+    (provider !== undefined && candidate.provider !== provider) ||
+    !validStatus ||
+    !checksAreBoolean
+  ) {
+    return false
+  }
+  return (
+    candidate.status !== "ready" ||
+    (checkRecord.page === true &&
+      checkRecord.session === true &&
+      checkRecord.readPath === true)
+  )
+}
+
 export interface HealthCheckResultMessage extends BaseMessage {
   action: "healthCheck.result"
   success: boolean
@@ -47,6 +119,11 @@ export interface HealthCheckResultMessage extends BaseMessage {
   provider?: PhotoProvider
   requestId?: string
   accountEmail?: string
+  /** User-visible label only; never used as a provider account identifier. */
+  accountDisplayName?: string
+  /** Opaque document-session marker for providers without a stable account ID. */
+  providerSessionId?: string
+  health?: ProviderHealthSnapshot
   error?: string
 }
 
@@ -85,10 +162,46 @@ export type PhotoProvider = "google" | "icloud" | "amazon"
  */
 export type ContentHashAlgorithm = "md5" | "sha256" | "provider-fingerprint"
 
+export type ContentHashVerificationSource =
+  | "local-original-bytes"
+  | "provider-fingerprint"
+  | "provider-checksum"
+
 export interface ContentHashEvidence {
   value: string
   algorithm: ContentHashAlgorithm
   provenance: "original-content"
+  /** How the evidence was established; absent only on legacy stored records. */
+  verificationSource?: ContentHashVerificationSource
+  /** `paired-live-photo` is valid only for a digest covering the associated still and motion originals. */
+  contentRole?: "single-file" | "live-photo-still" | "live-photo-motion" | "paired-live-photo"
+}
+
+export type MediaKind = "photo" | "video" | "live-photo" | "unknown"
+export type TimestampProvenance =
+  | "capture"
+  | "creation"
+  | "modified"
+  | "unknown"
+export type CreationTimestampProvenance =
+  | "creation"
+  | "modified"
+  | "capture"
+  | "unknown"
+export type FavoriteStatus = "favorite" | "not-favorite" | "unknown"
+export type FavoriteSource =
+  | "provider-metadata"
+  | "provider-lookup"
+  | "unavailable"
+export type VideoPlaybackCapability = "available" | "unavailable" | "unknown"
+
+/** Exact per-target effect state returned by Trash/restore adapters. */
+export interface MutationOutcome {
+  operation: "trash" | "restore"
+  /** Stable request identity, normally the target's dedupKey. */
+  targetKey: string
+  status: "confirmed" | "failed" | "unknown"
+  reason?: string
 }
 
 /** Confidence is separate from a relationship such as RAW/JPEG or same asset. */
@@ -105,11 +218,65 @@ export interface ScanOptions {
   similarityThreshold: number // 0.80 - 1.00
   scanMode: ScanMode
   dateRange?: {
-    from?: string // ISO date string
+    /** Inclusive ISO calendar date in the browser's local timezone. */
+    from?: string
+    /** Inclusive ISO calendar date in the browser's local timezone. */
     to?: string
   }
   albumScope?: ScanAlbumScope
 }
+
+export type ScanCoverageStopReason =
+  | "exhausted"
+  | "user_limit"
+  | "cancelled"
+  | "loaded_items_only"
+  | "auth_expired"
+  | "provider_error"
+  | "pagination_error"
+  | "watermark_reached"
+  | "changes_caught_up"
+  | "coverage_unknown"
+
+interface ScanCoverageCounts {
+  /** Provider records or loaded candidates examined by this attempt. */
+  itemsVisited: number
+  /** Normalized media items returned to the shared review flow. */
+  itemsReturned: number
+  /** Examined records omitted from the returned media items. */
+  itemsSkipped: number
+  /** Records skipped because their timestamp was absent or invalid in a date-scoped scan. */
+  unknownDateItemsSkipped: number
+  /** Provider records that could not be normalized into review items. */
+  unmappedItemsSkipped?: number
+  /** Exact provider total for this scope, when the provider supplies one. */
+  totalItems?: number
+  /** Media types the adapter actually covered in this scan attempt. */
+  mediaTypesCovered: { photos: boolean; videos: boolean }
+  /** True only when a durable extension checkpoint can resume this scan. */
+  canResume: boolean
+  /** Number of provider pages successfully read for this scan attempt. */
+  pagesRead?: number
+  /** Logical item counts returned by each provider page, in read order. */
+  pageSizes?: number[]
+}
+
+export type ScanCoverage =
+  | (ScanCoverageCounts & {
+      status: "complete"
+      stopReason: "exhausted" | "watermark_reached" | "changes_caught_up"
+    })
+  | (ScanCoverageCounts & {
+      status: "partial"
+      stopReason: Exclude<
+        ScanCoverageStopReason,
+        "exhausted" | "watermark_reached" | "changes_caught_up"
+      >
+    })
+  | (ScanCoverageCounts & {
+      status: "failed"
+      stopReason: "auth_expired" | "provider_error" | "pagination_error"
+    })
 
 export interface ScanProgressMessage extends BaseMessage {
   action: "scanLibrary.progress"
@@ -132,6 +299,7 @@ export interface ScanResultMessage extends BaseMessage {
   error?: string
   mediaItems?: GpdMediaItem[]
   groups?: DuplicateGroup[]
+  scanCoverage?: ScanCoverage
 }
 
 export interface CancelScanMessage extends BaseMessage {
@@ -170,13 +338,23 @@ export interface GptkCommandMessage extends BaseMessage {
   }
 }
 
+export type GptkResultErrorCode = "unsupported_capability"
+
 export interface GptkResultMessage extends BaseMessage {
   action: "gptkResult"
   command: string
   requestId: string
+  /** Stamped by the trusted extension worker from the routed provider tab. */
+  provider?: PhotoProvider
   success: boolean
   data?: unknown
+  /** Opaque provider page-session marker; never an account credential. */
+  providerSessionId?: string
+  /** Opaque iCloud zone cursor; only persisted with a complete session-bound scan. */
+  providerSyncToken?: string
   error?: string
+  errorCode?: GptkResultErrorCode
+  scanCoverage?: ScanCoverage
 }
 
 export interface GptkProgressMessage extends BaseMessage {
@@ -193,6 +371,92 @@ export interface GptkLogMessage extends BaseMessage {
   action: "gptkLog"
   level: "info" | "error" | "success"
   message: string
+}
+
+/** One-use, exact-item Google original-byte fetch request from the provider page.
+ * The signed resource URL stays in flight only and must never be logged/stored. */
+export interface ProviderOriginalHashFetchMessage extends BaseMessage {
+  action: "providerOriginalHash.fetch"
+  requestId: string
+  provider: "google"
+  providerSessionId: string
+  scanScopeFingerprint: string
+  mediaKey: string
+  resourceUrl: string
+  mediaKind: Extract<MediaKind, "photo" | "video" | "live-photo">
+  maxBytes: number
+  aggregateBudgetBytes: number
+}
+
+/** Cancel only the exact in-flight provider original fetch. */
+export interface ProviderOriginalHashCancelMessage extends BaseMessage {
+  action: "providerOriginalHash.cancel"
+  requestId: string
+  provider: "google"
+  providerSessionId: string
+  scanScopeFingerprint: string
+  mediaKey: string
+}
+
+export interface ProviderOriginalHashRelayResponse {
+  requestId: string
+  providerSessionId: string
+  scanScopeFingerprint: string
+  mediaKey: string
+  success: boolean
+  data?: {
+    mediaKey: string
+    scopeFingerprint: string
+    contentHash: ContentHashEvidence
+    byteLength: number
+    mimeType: string
+  }
+  error?: string
+}
+
+/**
+ * Full recovery-history transactions run in the background worker so app tabs
+ * cannot race read/modify/write updates to the same extension storage value.
+ */
+export type RecoveryHistoryTransaction =
+  | { kind: "read" }
+  | { kind: "clear" }
+  | { kind: "createPendingTrash"; report: unknown; context: unknown }
+  | { kind: "recordTrashResult"; report: unknown; context: unknown }
+  | {
+      kind: "beginRestore"
+      operationId: string
+      requestId: string
+      provider: PhotoProvider
+      providerSessionId: string
+      accountEmail?: string
+      targetDedupKeys: string[]
+    }
+  | {
+      kind: "updateRestore"
+      operationId: string
+      requestId: string
+      provider: PhotoProvider
+      providerSessionId: string
+      accountEmail?: string
+      params: unknown
+    }
+
+export interface RecoveryHistoryTransactionMessage extends BaseMessage {
+  action: "recoveryHistory.transaction"
+  transactionId: string
+  transaction: RecoveryHistoryTransaction
+}
+
+export interface RecoveryHistoryTransactionResponse {
+  action: "recoveryHistory.transaction.result"
+  transactionId: string
+  success: boolean
+  operationId?: string
+  requestId?: string
+  targetDedupKeys?: string[]
+  records?: unknown
+  error?: string
 }
 
 // ============================================================
@@ -216,6 +480,9 @@ export type AppMessage =
   | GptkResultMessage
   | GptkProgressMessage
   | GptkLogMessage
+  | ProviderOriginalHashFetchMessage
+  | ProviderOriginalHashCancelMessage
+  | RecoveryHistoryTransactionMessage
 
 // ============================================================
 // Data types
@@ -228,12 +495,19 @@ export interface GpdMediaItem {
   /** @deprecated Legacy provider metadata; never establishes verified identity by itself. */
   exactContentHash?: string
   contentHash?: ContentHashEvidence
+  /** Safe metadata retained with a verified original-byte digest. */
+  originalByteLength?: number
+  originalMimeType?: string
   thumb: string // bare thumbnail URL; use buildThumbUrl() for sized renditions
   productUrl?: string // link to item in the provider's web app
   provider?: PhotoProvider
   sequenceIndex?: number // provider list order, used as a smart-scan neighbor hint
   timestamp: number // taken date
+  timestampProvenance?: TimestampProvenance
   creationTimestamp: number // upload date
+  creationTimestampProvenance?: CreationTimestampProvenance
+  mediaKind?: MediaKind
+  mimeType?: string
   resWidth?: number
   resHeight?: number
   fileName?: string
@@ -241,9 +515,16 @@ export interface GpdMediaItem {
   takesUpSpace?: boolean | null
   spaceTaken?: number
   isOwned?: boolean
+  /** Legacy projection; omitted when the provider has not supplied a boolean. */
   isFavorite?: boolean
+  favoriteStatus?: FavoriteStatus
+  favoriteSource?: FavoriteSource
   isOriginalQuality?: boolean | null
-  duration?: number // video duration (undefined for photos)
+  /** Canonical video duration in milliseconds; absent for photos or unknown units. */
+  duration?: number
+  videoPlaybackCapability?: VideoPlaybackCapability
+  /** Provider-stable link only; never derive from adjacency or isLivePhoto alone. */
+  livePhotoAssociationId?: string
   // iCloud only: the CPLAsset record ref needed to trash/recover via CloudKit
   // records/modify. changeTag is captured at scan time; if it goes stale before
   // trash (rare: the asset was edited elsewhere), the modify fails closed and
@@ -289,8 +570,13 @@ export interface StoredState {
     scanDate: number
     totalItems: number
     newestCreationTimestamp?: number // for incremental fetch on next scan
+    /** Provider ordering watermark used for incremental library scans. */
+    scanWatermarkTimestamp?: number
+    /** Opaque iCloud zone cursor, scoped by the stored provider page session. */
+    providerSyncToken?: string
     mediaItemsAreComplete?: boolean
     accountEmail?: string
+    providerSessionId?: string
     sourceProvider?: PhotoProvider
     dateRange?: ScanSettings["dateRange"]
     albumScope?: ScanSettings["albumScope"]
@@ -298,6 +584,7 @@ export interface StoredState {
     similarityThreshold?: number
     smartWindowSec?: number
     scopeFingerprint?: string
+    scanCoverage?: ScanCoverage
   }
   selections?: {
     version?: number
@@ -318,6 +605,8 @@ export interface StoredState {
 
 export interface ScanSettings {
   sourceProvider?: PhotoProvider
+  /** Persistent automatic keeper preference, applied when review results are ready. */
+  defaultKeepStrategy?: KeepStrategy
   similarityThreshold: number
   scanMode: ScanMode
   /**
@@ -329,7 +618,9 @@ export interface ScanSettings {
    */
   smartWindowSec?: number
   dateRange?: {
+    /** Inclusive ISO calendar date in the browser's local timezone. */
     from?: string
+    /** Inclusive ISO calendar date in the browser's local timezone. */
     to?: string
   }
   albumScope?: ScanAlbumScope
@@ -348,6 +639,7 @@ export interface ScanAlbumScope {
 
 export const DEFAULT_SETTINGS: ScanSettings = {
   sourceProvider: "google",
+  defaultKeepStrategy: "best_quality",
   similarityThreshold: 0.95,
   scanMode: "smart",
   smartWindowSec: 1

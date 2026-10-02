@@ -20,7 +20,7 @@ coverage, payment settlement, or production publication.
 | Release formal verification | PASS locally | `tmp/verification/runs/release-formal-20260918T2220Z/aggregate-result.json`; all 29 evidence entries passed across 13 commands, source drift false; mocked browser boundaries used Playwright's bundled Chromium (not Brave), while live provider evidence remains explicitly Aside-scoped |
 | Production build | PASS | `npm run package:cws`; MV3 app version 2.3.0, Chrome candidate version 2.3.0.1 |
 | Package audit | PASS | `PHOTOSWEEP_AUDIT_STRICT_DEV_KEY_ABSENCE=1 npm run audit:extension-package`; 79 explicit host permissions |
-| Candidate ZIP | PASS locally | `build/photosweep-cws-v2.3.0.1-sha256-d11ba6e99b11.zip`; SHA-256 `d11ba6e99b113ee8cf7ec9bf0e484d33ff1610d764228af3ac51aec920ff61fb`; 40 files; sidecar `build/photosweep-cws-v2.3.0.1-sha256-d11ba6e99b11.json` |
+| Candidate ZIP | PASS locally | `tmp/verification/historical-package-archive/photosweep-cws-v2.3.0.1-sha256-d11ba6e99b11.zip`; SHA-256 `d11ba6e99b113ee8cf7ec9bf0e484d33ff1610d764228af3ac51aec920ff61fb`; 40 files; sidecar `tmp/verification/historical-package-archive/photosweep-cws-v2.3.0.1-sha256-d11ba6e99b11.json` |
 | Codex Security scan | UNVERIFIED | Standard scan is still running against the pre-change HEAD snapshot; its result must not be treated as a current-candidate pass |
 
 ## Policy controls checked

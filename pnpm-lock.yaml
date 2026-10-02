@@ -90,6 +90,9 @@ importers:
       '@vitest/ui':
         specifier: ^4.1.2
         version: 4.1.11(vitest@4.1.11)
+      esbuild:
+        specifier: 0.18.20
+        version: 0.18.20
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5

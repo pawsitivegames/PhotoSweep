@@ -55,6 +55,44 @@ describe("trash result report", () => {
     expect(report.failedDedupKeys).toEqual(["d1"])
   })
 
+  it("partitions confirmed, failed, ambiguous, and never-issued targets without overlap", () => {
+    const report = buildTrashResultReport({
+      attemptedMediaKeys: ["m1", "m2", "m3", "m4"],
+      attemptedDedupKeys: ["d1", "d2", "d3", "d4"],
+      movedMediaKeys: ["m1"],
+      movedDedupKeys: ["d1"],
+      outcomes: [
+        { operation: "trash", targetKey: "d1", status: "confirmed" },
+        { operation: "trash", targetKey: "d2", status: "unknown" },
+        { operation: "trash", targetKey: "d3", status: "failed" },
+        { operation: "trash", targetKey: "d4", status: "failed" }
+      ],
+      notDispatchedDedupKeys: ["d4"]
+    })
+
+    expect(report).toMatchObject({
+      status: "partial",
+      attemptedCount: 4,
+      movedCount: 1,
+      failedCount: 1,
+      unknownCount: 1,
+      notDispatchedCount: 1,
+      movedDedupKeys: ["d1"],
+      failedDedupKeys: ["d3"],
+      unknownDedupKeys: ["d2"],
+      notDispatchedDedupKeys: ["d4"]
+    })
+    expect(
+      report.movedCount +
+        report.failedCount +
+        report.unknownCount +
+        report.notDispatchedCount
+    ).toBe(report.attemptedCount)
+    expect(new Set(report.outcomes.map((outcome) => outcome.targetKey)).size).toBe(
+      report.attemptedCount
+    )
+  })
+
   it("ignores moved keys that were not attempted", () => {
     const report = buildTrashResultReport({
       attemptedMediaKeys: ["m1", "m2"],

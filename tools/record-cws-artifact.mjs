@@ -1,9 +1,11 @@
+import { spawn, spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { copyFile, readFile, writeFile } from "node:fs/promises"
+import { copyFile, readdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { spawnSync } from "node:child_process"
 
+import { computeSourceFingerprint } from "../verification/source-fingerprint.mjs"
 import {
+  createCwsArtifactMetadata,
   cwsArtifactFileName,
   cwsArtifactMetadataFileName,
   getCwsReleaseIdentity
@@ -24,23 +26,67 @@ function gitOutput(args) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"]
   })
-  if (result.status !== 0) return ""
+  if (result.error) {
+    throw new Error(`git ${args.join(" ")} failed: ${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${args.join(" ")} exited with ${
+        result.status ?? result.signal ?? "unknown"
+      }`
+    )
+  }
   return result.stdout.trim()
 }
 
-function gitBuffer(args) {
-  const result = spawnSync("git", args, {
-    cwd: rootDir,
-    stdio: ["ignore", "pipe", "ignore"]
+async function gitSha256(args) {
+  const hash = createHash("sha256")
+  await new Promise((resolve, reject) => {
+    const gitProcess = spawn("git", args, {
+      cwd: rootDir,
+      stdio: ["ignore", "pipe", "ignore"]
+    })
+    gitProcess.stdout.on("data", (chunk) => hash.update(chunk))
+    gitProcess.stdout.on("error", reject)
+    gitProcess.once("error", reject)
+    gitProcess.once("close", (code, signal) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `git ${args.join(" ")} exited with ${
+              code ?? signal ?? "unknown"
+            }`
+          )
+        )
+        return
+      }
+      resolve()
+    })
   })
-  if (result.status !== 0 || !result.stdout) return Buffer.alloc(0)
-  return result.stdout
+  return hash.digest("hex")
+}
+
+async function containsBuildId(directory, buildId) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      if (await containsBuildId(entryPath, buildId)) return true
+    } else if (entry.isFile() && entry.name.endsWith(".js")) {
+      if ((await readFile(entryPath, "utf8")).includes(buildId)) return true
+    }
+  }
+  return false
 }
 
 const packageJson = JSON.parse(
   await readFile(path.join(rootDir, "package.json"), "utf8")
 )
 const { appVersion, chromeVersion } = getCwsReleaseIdentity(packageJson)
+const buildId = process.env.PHOTOSWEEP_PACKAGE_BUILD_ID
+if (!buildId)
+  throw new Error(
+    "PHOTOSWEEP_PACKAGE_BUILD_ID is required to record a CWS artifact"
+  )
 const [manifest, zip] = await Promise.all([
   readFile(manifestPath),
   readFile(packagedZip)
@@ -52,6 +98,30 @@ if (manifestJson.version !== chromeVersion) {
     `Built manifest version ${manifestJson.version} does not match configured Chrome version ${chromeVersion}`
   )
 }
+if (!(await containsBuildId(buildDir, buildId))) {
+  throw new Error(
+    "The built extension JavaScript does not contain the package build ID"
+  )
+}
+
+const requirements = JSON.parse(
+  await readFile(
+    path.join(rootDir, "verification", "requirements.json"),
+    "utf8"
+  )
+)
+if (
+  !Array.isArray(requirements.sourceRoots) ||
+  requirements.sourceRoots.length === 0
+) {
+  throw new Error(
+    "verification/requirements.json must define non-empty sourceRoots"
+  )
+}
+const sourceFingerprint = computeSourceFingerprint(
+  rootDir,
+  requirements.sourceRoots
+)
 
 const zipSha256 = sha256(zip)
 const manifestSha256 = sha256(manifest)
@@ -66,14 +136,16 @@ const metadataPath = path.join(
 // verification files, and asking Git to enumerate every untracked descendant
 // can exceed spawnSync's output buffer. Normal mode still reports untracked
 // directories while preserving the dirty-worktree signal.
-const status = gitOutput(["status", "--porcelain=v1", "--untracked-files=normal"])
-const trackedDiff = gitBuffer(["diff", "--binary", "HEAD"])
+const status = gitOutput([
+  "status",
+  "--porcelain=v1",
+  "--untracked-files=normal"
+])
+const trackedDiffSha256 = await gitSha256(["diff", "--binary", "HEAD"])
 
 await copyFile(packagedZip, artifactPath)
 
-const metadata = {
-  schemaVersion: 1,
-  artifactType: "chrome-web-store-zip",
+const metadata = createCwsArtifactMetadata({
   appVersion,
   chromeVersion,
   artifactFile: path.relative(rootDir, artifactPath),
@@ -82,9 +154,12 @@ const metadata = {
   sourceCommit: gitOutput(["rev-parse", "HEAD"]),
   sourceDirty: status.length > 0,
   sourceStatusSha256: sha256(status),
-  trackedDiffSha256: sha256(trackedDiff),
+  trackedDiffSha256,
+  sourceFingerprint: sourceFingerprint.digest,
+  sourceFileCount: sourceFingerprint.fileCount,
+  buildId,
   builtAt: new Date().toISOString()
-}
+})
 
 await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8")
 console.log(JSON.stringify(metadata, null, 2))

@@ -28,6 +28,24 @@ const resultPath = resolve(
 )
 const runId = process.env.VERIFICATION_RUN_ID ?? null
 
+function configuredSourceRoots() {
+  const raw = process.env.VERIFICATION_SOURCE_ROOTS
+  if (!raw) return undefined
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) &&
+      parsed.every((entry) => typeof entry === "string" && entry.length > 0)
+      ? parsed
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function mutationSourceFingerprint() {
+  return computeSourceFingerprint(root, configuredSourceRoots())
+}
+
 const NATIVE_MUTATION_STATUSES = new Set([
   "Killed",
   "Survived",
@@ -258,7 +276,12 @@ function mutationKey(mutant) {
 
 function triagePolicyPath() {
   const configured = process.env.VERIFICATION_MUTATION_TRIAGE_POLICY
-  return configured ? resolve(root, configured) : null
+  if (configured) return resolve(root, configured)
+  const defaultPolicy = resolve(
+    root,
+    "verification/evidence/mutation-triage-policy.json"
+  )
+  return existsSync(defaultPolicy) ? defaultPolicy : null
 }
 
 function readTriagePolicy(path, sourceDigest, rawHash) {
@@ -603,7 +626,7 @@ function run() {
   }
 
   try {
-    sourceBefore = computeSourceFingerprint(root)
+    sourceBefore = mutationSourceFingerprint()
   } catch (error) {
     return emitResult(
       makeResult(null, {
@@ -685,9 +708,53 @@ function run() {
     )
   }
 
+  // Stryker's Vitest runner invokes the package pretest hook, which writes a
+  // test-entitlement build-flags module. Mutation evidence is bound to the
+  // production source baseline, so restore the production flags before the
+  // after-fingerprint check. Without this boundary the mutation run reports
+  // false source drift even when the mutated source files were restored.
+  const buildFlagsScript = resolve(root, "tools/write-build-flags.mjs")
+  if (existsSync(buildFlagsScript)) {
+    try {
+      const restoreBuildFlags = spawnSync(
+        process.execPath,
+        [buildFlagsScript],
+        {
+          cwd: root,
+          env: {
+            ...process.env,
+            PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+          },
+          encoding: "utf8",
+          maxBuffer: 10 * 1024 * 1024
+        }
+      )
+      if (restoreBuildFlags.error || restoreBuildFlags.status !== 0) {
+        throw new Error(
+          `Could not restore production build flags: ${
+            restoreBuildFlags.error
+              ? errorMessage(restoreBuildFlags.error)
+              : `exit ${String(restoreBuildFlags.status)}`
+          }`
+        )
+      }
+    } catch (error) {
+      return emitResult(
+        makeResult(sourceBefore, {
+          status: "BLOCKED",
+          exitCode: 2,
+          checksRun: 0,
+          ...childFields(child),
+          rawLog: logPath,
+          message: errorMessage(error)
+        })
+      )
+    }
+  }
+
   let sourceAfter = null
   try {
-    sourceAfter = computeSourceFingerprint(root)
+    sourceAfter = mutationSourceFingerprint()
   } catch (error) {
     return emitResult(
       makeResult(sourceBefore, {

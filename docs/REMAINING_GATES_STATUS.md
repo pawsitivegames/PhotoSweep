@@ -183,10 +183,10 @@ and unauthenticated `401` for `/checkout/success`, `/checkout/cancel`, and
 
 The current locally verified candidate is distinct from the earlier saved
 Chrome draft: app version `2.3.0`, Chrome Web Store version `2.3.0.1`, ZIP
-[`photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.zip`](../build/photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.zip),
+[`photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.zip`](../tmp/verification/historical-package-archive/photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.zip),
 SHA-256 `9e42d6ba598195864806421ad741c82adee62fc416c7ace81960008406e2f861`,
 and matching metadata sidecar
-[`photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.json`](../build/photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.json).
+[`photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.json`](../tmp/verification/historical-package-archive/photosweep-cws-v2.3.0.1-sha256-9e42d6ba5981.json).
 The ZIP manifest, sidecar hash, package audit, formal release run, typecheck, and 765-test suite
 were freshly checked. This dirty-worktree artifact has not been uploaded; the
 draft evidence below refers to the older `2.2.9` candidate and must not be
@@ -201,7 +201,7 @@ The reviewed local candidate version `2.2.9` is built and audited, and it is
 now uploaded into the authenticated Chrome Web Store developer draft under
 `pawsitivegames@gmail.com`; the Package page reports draft `2.2.9` and
 published `2.2.8`. The candidate ZIP is
-`build/photosweep-cws-v2.2.9.zip` with SHA-256
+`tmp/verification/historical-package-archive/photosweep-cws-v2.2.9.zip` with SHA-256
 `a466cef257dbb4a82f129e72e132dd7bfbb35183240690eb4a71ae0bb331cb46`.
 The public listing therefore remains unchanged until the saved draft is
 submitted for review and accepted. The production ZIP is also built and

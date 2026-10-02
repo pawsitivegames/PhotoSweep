@@ -45,6 +45,10 @@
        */
       window.__gptkOverrides = window.__gptkOverrides || {}
       window.__gptkCommandLog = window.__gptkCommandLog || []
+      window.__gptkHeldRestoreResponses =
+        window.__gptkHeldRestoreResponses || Object.create(null)
+      window.__gptkProviderSessionId =
+        window.__gptkProviderSessionId || window.crypto.randomUUID()
       window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
       window.gptkApi = window.gptkApi || {}
       window.WIZ_global_data = window.WIZ_global_data || {
@@ -98,18 +102,20 @@
         }
       }
 
-      function reply(command, requestId, data) {
+      function reply(command, requestId, data, scanCoverage, providerSessionId) {
         window.postMessage({
           app: APP_ID,
           action: "gptkResult",
           command,
           requestId,
           success: true,
-          data
+          data,
+          ...(providerSessionId ? { providerSessionId } : {}),
+          ...(scanCoverage !== undefined ? { scanCoverage } : {})
         })
       }
 
-      function replyError(command, requestId, error, data) {
+      function replyError(command, requestId, error, data, providerSessionId) {
         window.postMessage({
           app: APP_ID,
           action: "gptkResult",
@@ -117,17 +123,20 @@
           requestId,
           success: false,
           error,
+          ...(providerSessionId ? { providerSessionId } : {}),
           ...(data !== undefined ? { data } : {})
         })
       }
 
-      function progress(command, requestId, itemsProcessed) {
+      function progress(command, requestId, itemsProcessed, data, providerSessionId) {
         window.postMessage({
           app: APP_ID,
           action: "gptkProgress",
           command,
           requestId,
-          itemsProcessed
+          itemsProcessed,
+          ...(providerSessionId ? { providerSessionId } : {}),
+          ...(data !== undefined ? { data } : {})
         })
       }
 
@@ -138,7 +147,8 @@
             command,
             requestId,
             override.error || "Stub: trashItems failed",
-            override.data
+            override.data,
+            args?.providerSessionId
           )
           return
         }
@@ -154,19 +164,31 @@
 
         // Emit one gptkProgress per completed batch (mirroring real GPTK behaviour)
         for (let i = batchSize; i < dedupKeys.length; i += batchSize) {
-          progress(command, requestId, Math.min(i, dedupKeys.length))
+          progress(
+            command,
+            requestId,
+            Math.min(i, dedupKeys.length),
+            undefined,
+            args?.providerSessionId
+          )
           // Yield to allow the bridge to relay before the next iteration
           await new Promise((r) => setTimeout(r, 0))
         }
 
         // Final progress (full count) + result
-        progress(command, requestId, dedupKeys.length)
+        progress(
+          command,
+          requestId,
+          dedupKeys.length,
+          undefined,
+          args?.providerSessionId
+        )
         reply(command, requestId, {
           trashedCount: dedupKeys.length,
           trashedKeys: mediaKeysToTrash,
           trashedDedupKeys: dedupKeys,
           retryAttempts: 0
-        })
+        }, undefined, args?.providerSessionId)
       }
 
       async function handleRestoreItems(command, requestId, args) {
@@ -176,11 +198,35 @@
           replyError(
             command,
             requestId,
-            override.error || "Stub: restoreItems failed"
+            override.error || "Stub: restoreItems failed",
+            override.data,
+            args?.providerSessionId
           )
           return
         }
-        reply(command, requestId, {})
+        if (override?.holdResponse === true) {
+          if (override.progressData !== undefined) {
+            progress(
+              command,
+              requestId,
+              Number(override.progressItemsProcessed) || 0,
+              override.progressData,
+              args?.providerSessionId
+            )
+          }
+          window.__gptkHeldRestoreResponses[requestId] = (data) => {
+            delete window.__gptkHeldRestoreResponses[requestId]
+            reply(command, requestId, data, undefined, args?.providerSessionId)
+          }
+          return
+        }
+        const restoredDedupKeys = Array.isArray(args?.dedupKeys)
+          ? args.dedupKeys
+          : []
+        reply(command, requestId, {
+          restoredCount: restoredDedupKeys.length,
+          restoredDedupKeys
+        }, undefined, args?.providerSessionId)
       }
 
       window.addEventListener("message", async (event) => {
@@ -207,14 +253,41 @@
               replyError(
                 command,
                 requestId,
-                override.error || `Stub: ${command} failed`
+                override.error || `Stub: ${command} failed`,
+                undefined,
+                args?.providerSessionId
               )
             } else {
               const data =
                 (override && override.data) ||
                 DEFAULT_RESPONSES[command] ||
                 null
-              reply(command, requestId, data)
+              const scanCoverage =
+                command === "getAllMediaItems"
+                  ? override?.scanCoverage || {
+                      status: "complete",
+                      stopReason: "exhausted",
+                      itemsVisited: Array.isArray(data) ? data.length : 0,
+                      itemsReturned: Array.isArray(data) ? data.length : 0,
+                      itemsSkipped: 0,
+                      unknownDateItemsSkipped: 0,
+                      mediaTypesCovered: { photos: true, videos: true },
+                      canResume: false
+                    }
+                  : undefined
+              const providerSessionId =
+                (data && data.providerSessionId) ||
+                args?.providerSessionId ||
+                (command === "healthCheck"
+                  ? window.__gptkProviderSessionId
+                  : undefined)
+              reply(
+                command,
+                requestId,
+                data,
+                scanCoverage,
+                providerSessionId
+              )
             }
           }
         }

@@ -1,6 +1,12 @@
-import { APP_ID, type PhotoProvider, type ScanMode } from "./types"
 import type { Entitlement } from "./entitlement"
 import { getEffectivePlanId } from "./entitlement"
+import { isRuntimeBuildIdentity } from "./runtime-build-identity"
+import {
+  APP_ID,
+  type PhotoProvider,
+  type RuntimeBuildIdentity,
+  type ScanMode
+} from "./types"
 
 export interface SupportDiagnosticsInput {
   version: string
@@ -11,6 +17,7 @@ export interface SupportDiagnosticsInput {
   duplicateGroupCountBucket?: string
   errorCategory?: string
   recentLogs?: string[]
+  runtimeBuildIdentity?: RuntimeBuildIdentity
 }
 
 export interface SupportDiagnosticsReport {
@@ -26,6 +33,7 @@ export interface SupportDiagnosticsReport {
   duplicateGroupCountBucket?: string
   errorCategory?: string
   recentLogs: string[]
+  runtimeBuildIdentity?: RuntimeBuildIdentity
 }
 
 function redactLog(line: string): string {
@@ -44,6 +52,11 @@ export function buildSupportDiagnosticsReport(
   input: SupportDiagnosticsInput
 ): SupportDiagnosticsReport {
   const createdAt = new Date().toISOString()
+  const runtimeBuildIdentity = isRuntimeBuildIdentity(
+    input.runtimeBuildIdentity
+  )
+    ? input.runtimeBuildIdentity
+    : undefined
   return {
     app: APP_ID,
     reportId: `photosweep-diagnostics-${createdAt.replace(/[:.]/g, "-")}`,
@@ -56,6 +69,9 @@ export function buildSupportDiagnosticsReport(
     photoCountBucket: input.photoCountBucket,
     duplicateGroupCountBucket: input.duplicateGroupCountBucket,
     errorCategory: input.errorCategory,
-    recentLogs: (input.recentLogs ?? []).map(redactLog)
+    recentLogs: (input.recentLogs ?? []).map(redactLog),
+    ...(runtimeBuildIdentity?.packageVersion === input.version
+      ? { runtimeBuildIdentity }
+      : {})
   }
 }

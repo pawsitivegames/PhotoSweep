@@ -150,11 +150,9 @@ export function isFreeIcloudPlan(
 
 export function scanSettingsForEntitlement(
   settings: ScanSettings,
-  entitlement: Entitlement | null | undefined
+  _entitlement: Entitlement | null | undefined
 ): ScanSettings {
-  return isFreeIcloudPlan(settings, entitlement)
-    ? { ...settings, icloudBatchLimit: undefined }
-    : settings
+  return settings
 }
 
 export function canUseScanMode(
@@ -302,10 +300,7 @@ export function canResumeCheckpoint(
   entitlement: Entitlement | null | undefined
 ): boolean {
   const limits = getPlanLimits(entitlement)
-  const settings = scanSettingsForEntitlement(checkpoint.settings, entitlement)
-  if (isFreeIcloudPlan(checkpoint.settings, entitlement) && !hasScopedScan(settings)) {
-    return false
-  }
+  const settings = checkpoint.settings
   const estimate =
     checkpoint.totalEstimate ||
     checkpoint.mediaItems?.length ||

@@ -12,6 +12,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { ActionBar, CleanupBar } from "../../components/ActionBar"
+import { KEEP_STRATEGY_LABELS } from "../../lib/keep-strategy"
 import theme from "../../lib/theme"
 
 interface Props {
@@ -173,6 +174,7 @@ describe("ActionBar", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
+            includedGroupCount={1}
             duplicateCount={4}
             reviewedGroupCount={3}
             totalGroupCount={3}
@@ -190,6 +192,7 @@ describe("ActionBar", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
+            includedGroupCount={0}
             duplicateCount={0}
             reviewedGroupCount={3}
             totalGroupCount={3}
@@ -198,15 +201,39 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
       const btn = screen.getByRole("button", {
-        name: /No duplicates selected/i
+        name: /No media items proposed for Trash/i
       })
       expect(btn).toBeDisabled()
+    })
+
+    it("announces included sets separately from proposed Trash items", () => {
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            includedGroupCount={1}
+            duplicateCount={0}
+            reviewedGroupCount={1}
+            totalGroupCount={1}
+            onTrash={vi.fn()}
+          />
+        </ThemeProvider>
+      )
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "1 set included · 0 media items proposed for Trash"
+      )
+      expect(
+        screen.getByRole("button", {
+          name: "No media items proposed for Trash"
+        })
+      ).toBeDisabled()
     })
 
     it("shows singular item summary when duplicateCount is 1", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
+            includedGroupCount={1}
             duplicateCount={1}
             reviewedGroupCount={3}
             totalGroupCount={3}
@@ -214,13 +241,16 @@ describe("ActionBar", () => {
           />
         </ThemeProvider>
       )
-      expect(screen.getByText("1 item ready")).toBeInTheDocument()
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "1 set included · 1 media item proposed for Trash"
+      )
     })
 
     it("keeps cleanup locked until every visible set is reviewed", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
+            includedGroupCount={2}
             duplicateCount={4}
             reviewedGroupCount={1}
             totalGroupCount={3}
@@ -228,7 +258,9 @@ describe("ActionBar", () => {
           />
         </ThemeProvider>
       )
-      expect(screen.getByText("2 sets left to review")).toBeInTheDocument()
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "2 sets included · 4 media items proposed for Trash · 2 sets left to review"
+      )
       expect(
         screen.getByRole("button", { name: /Review 2 more to continue/i })
       ).toBeDisabled()
@@ -279,6 +311,41 @@ describe("ActionBar", () => {
       )
     })
 
+    it("routes every Selection strategy choice to the keep handler", () => {
+      const { callbacks } = renderActionBar({ compact: true })
+
+      for (const label of Object.values(KEEP_STRATEGY_LABELS)) {
+        fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+        fireEvent.click(screen.getByRole("menuitem", { name: label }))
+      }
+
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenCalledTimes(6)
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenNthCalledWith(
+        1,
+        "best_quality"
+      )
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenNthCalledWith(
+        2,
+        "largest_resolution"
+      )
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenNthCalledWith(
+        3,
+        "newest_taken"
+      )
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenNthCalledWith(
+        4,
+        "oldest_taken"
+      )
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenNthCalledWith(
+        5,
+        "newest_upload"
+      )
+      expect(callbacks.onApplyKeepStrategy).toHaveBeenNthCalledWith(
+        6,
+        "non_storage_counting"
+      )
+    })
+
     it("shows the non-storage-counting keep strategy", () => {
       const { callbacks } = renderActionBar()
       fireEvent.click(screen.getByRole("button", { name: /Auto Keep/i }))
@@ -322,6 +389,7 @@ describe("ActionBar", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
+            includedGroupCount={0}
             duplicateCount={0}
             reviewedGroupCount={3}
             totalGroupCount={3}
@@ -330,7 +398,7 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
       const btn = screen.getByRole("button", {
-        name: /No duplicates selected/i
+        name: /No media items proposed for Trash/i
       })
       fireEvent.click(btn)
       expect(onTrash).not.toHaveBeenCalled()

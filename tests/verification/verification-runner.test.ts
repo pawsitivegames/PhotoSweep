@@ -8,9 +8,10 @@ import {
   unlinkSync,
   writeFileSync
 } from "node:fs"
-import { join, resolve } from "node:path"
+import { join, relative, resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
+import { runKeeperSelectionTlc } from "../../verification/run-keeper-selection-tlc.mjs"
 import { computeSourceFingerprint } from "../../verification/source-fingerprint.mjs"
 
 const root = resolve(process.cwd())
@@ -26,6 +27,11 @@ describe("verification runner integrity", () => {
       `runner-corruption-${Date.now()}-${process.pid}`
     )
     const archiveDirectory = `${runDirectory}-archive`
+    const invalidTlcJarPath = join(
+      root,
+      "tmp/verification",
+      `invalid-tlc-tools-${Date.now()}-${process.pid}.jar`
+    )
     const stalePass = JSON.stringify(
       {
         schemaVersion: 1,
@@ -41,6 +47,7 @@ describe("verification runner integrity", () => {
 
     mkdirSync(join(root, "tmp/verification/current"), { recursive: true })
     writeFileSync(stalePath, `${stalePass}\n`)
+    writeFileSync(invalidTlcJarPath, "not the pinned TLC jar\n")
     try {
       const result = spawnSync(
         process.execPath,
@@ -57,9 +64,9 @@ describe("verification runner integrity", () => {
           cwd: root,
           env: {
             ...process.env,
-            // The child writes a fresh FAIL result with its own runId. The
-            // runner must surface that failure instead of reading current/.
-            VERIFICATION_TLC_JAR: join(runDirectory, "missing-tla-tools.jar")
+            // A present jar with the wrong digest makes the model command
+            // produce a fresh FAIL. A missing jar is correctly BLOCKED.
+            VERIFICATION_TLC_JAR: invalidTlcJarPath
           },
           encoding: "utf8"
         }
@@ -75,20 +82,99 @@ describe("verification runner integrity", () => {
       )
       expect(modelCommand?.exitCode).not.toBe(0)
 
+      const runRegistry = JSON.parse(
+        readFileSync(join(runDirectory, "requirements.json"), "utf8")
+      )
+      const canonicalRegistry = JSON.parse(
+        readFileSync(join(root, "verification/requirements.json"), "utf8")
+      )
+      const evidence = JSON.parse(
+        readFileSync(join(runDirectory, "evidence.json"), "utf8")
+      )
+      const authorityModelIds = [
+        "SAFE-12-authority-model",
+        "SAFE-12-authority-negative-control",
+        "SAFE-12-authority-clear-negative-control"
+      ]
+      for (const id of authorityModelIds) {
+        const runObligation = runRegistry.properties
+          .flatMap((property: { obligations: Array<{ id: string; artifact: string }> }) => property.obligations)
+          .find((obligation: { id: string }) => obligation.id === id)
+        expect(runObligation).toBeDefined()
+        const canonicalObligation = canonicalRegistry.properties
+          .flatMap((property: { obligations: Array<{ id: string; artifact: string }> }) => property.obligations)
+          .find((obligation: { id: string }) => obligation.id === id)
+        expect(canonicalObligation).toBeDefined()
+        const registryArtifactSuffix = canonicalObligation.artifact.replace(
+          "tmp/verification/current/",
+          ""
+        )
+        const expectedArtifact = join(
+          relative(root, runDirectory),
+          registryArtifactSuffix
+        ).split("\\").join("/")
+        expect(runObligation.artifact).toBe(expectedArtifact)
+
+        const evidenceEntry = evidence.entries.find(
+          (entry: { id: string }) => entry.id === id
+        )
+        expect(evidenceEntry?.artifact).toBe(runObligation.artifact)
+        expect(existsSync(join(root, evidenceEntry.artifact))).toBe(true)
+        const artifact = JSON.parse(
+          readFileSync(join(root, evidenceEntry.artifact), "utf8")
+        )
+        expect(artifact.id).toBe(id)
+      }
+
       const freshModel = JSON.parse(
         readFileSync(join(runDirectory, "model-SAFE-01.json"), "utf8")
       )
+      const freshRawModel = JSON.parse(
+        readFileSync(
+          join(runDirectory, "model-run/safe01-selection.json"),
+          "utf8"
+        )
+      )
       expect(freshModel.status).toBe("FAIL")
       expect(freshModel.runId).not.toBe("stale-run-that-must-not-be-used")
+      expect(freshRawModel.status).toBe("FAIL")
+      expect(freshRawModel.message).toContain("integrity mismatch")
       expect(readFileSync(stalePath, "utf8")).toBe(`${stalePass}\n`)
     } finally {
+      if (existsSync(invalidTlcJarPath)) unlinkSync(invalidTlcJarPath)
       if (hadStaleFile && previous) writeFileSync(stalePath, previous)
       else if (existsSync(stalePath)) {
         // This test created the file only to model a stale artifact.
         unlinkSync(stalePath)
       }
     }
-  }, 15_000)
+  }, 60_000)
+
+  it("classifies an unavailable pinned TLC jar as BLOCKED", () => {
+    const outputDirectory = join(
+      root,
+      "tmp/verification",
+      `runner-missing-tlc-${Date.now()}-${process.pid}`
+    )
+    const result = runKeeperSelectionTlc({
+      root,
+      jarPath: join(outputDirectory, "missing-tla-tools.jar"),
+      outputDirectory,
+      runId: `missing-tlc-${process.pid}`
+    })
+
+    try {
+      expect(result.status).toBe("BLOCKED")
+      expect(result.exitCode).toBe(2)
+      expect(result.sourceDrift).toBe(false)
+      const artifact = JSON.parse(readFileSync(result.resultPath, "utf8"))
+      expect(artifact.status).toBe("BLOCKED")
+      expect(artifact.runId).toBe(`missing-tlc-${process.pid}`)
+      expect(artifact.message).toContain("jar is unavailable")
+    } finally {
+      rmSync(outputDirectory, { recursive: true, force: true })
+    }
+  })
 
   it("refuses to reuse a nonempty explicitly selected output directory", () => {
     const runDirectory = join(

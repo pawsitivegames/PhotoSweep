@@ -81,16 +81,14 @@ export function ActionBar({
         px: compact ? 1 : { xs: 1.5, md: 2 },
         py: compact ? 1 : 1.25,
         mb: compact ? 1 : 2,
-        borderRadius: compact ? 2.25 : 3,
+        borderRadius: compact ? 1.5 : 1.5,
         border: "1px solid",
         borderColor: compact
           ? photoSweepColors.border
-          : "rgba(214,226,221,0.86)",
-        bgcolor: compact
-          ? photoSweepColors.surface
-          : photoSweepColors.surfaceTint,
-        backdropFilter: compact ? "none" : "saturate(180%) blur(24px)",
-        boxShadow: compact ? "none" : `0 18px 52px ${photoSweepColors.shadow}`,
+          : photoSweepColors.border,
+        bgcolor: photoSweepColors.surface,
+        backdropFilter: "none",
+        boxShadow: "0 2px 8px rgba(27, 45, 66, 0.05)",
         display: "flex",
         justifyContent: compact ? "space-between" : "flex-start",
         alignItems: compact ? "center" : "stretch",
@@ -168,7 +166,7 @@ export function ActionBar({
               p: 0.25,
               "& .MuiToggleButton-root": {
                 borderColor: "transparent",
-                minHeight: 38,
+                minHeight: 42,
                 px: 1,
                 fontSize: 12.5,
                 fontWeight: 700
@@ -431,6 +429,7 @@ export function ActionBar({
 }
 
 interface CleanupBarProps {
+  includedGroupCount: number
   duplicateCount: number
   reviewedGroupCount: number
   totalGroupCount: number
@@ -439,6 +438,7 @@ interface CleanupBarProps {
 }
 
 export function CleanupBar({
+  includedGroupCount,
   duplicateCount,
   reviewedGroupCount,
   totalGroupCount,
@@ -465,10 +465,10 @@ export function CleanupBar({
         borderColor: hasSelection
           ? photoSweepColors.primaryBorder
           : photoSweepColors.border,
-        borderRadius: compact ? 2.25 : 3,
-        bgcolor: photoSweepColors.surfaceTint,
-        backdropFilter: "saturate(180%) blur(24px)",
-        boxShadow: `0 18px 52px ${photoSweepColors.shadow}`,
+        borderRadius: 1.5,
+        bgcolor: photoSweepColors.surface,
+        backdropFilter: "none",
+        boxShadow: "0 4px 14px rgba(27, 45, 66, 0.09)",
         display: "grid",
         gridTemplateColumns: compact
           ? "1fr"
@@ -477,19 +477,27 @@ export function CleanupBar({
         gap: 1
       }}>
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="subtitle2" fontWeight={850}>
-          {hasSelection
-            ? `${duplicateCount.toLocaleString()} item${duplicateCount === 1 ? "" : "s"} ready`
-            : reviewComplete
-              ? "No duplicates selected"
-              : `${remainingCount.toLocaleString()} set${remainingCount === 1 ? "" : "s"} left to review`}
+        <Typography
+          variant="subtitle2"
+          fontWeight={850}
+          role="status"
+          aria-live="polite">
+          {includedGroupCount.toLocaleString()} set
+          {includedGroupCount === 1 ? "" : "s"} included ·{" "}
+          {duplicateCount.toLocaleString()} media item
+          {duplicateCount === 1 ? "" : "s"} proposed for Trash
+          {!reviewComplete &&
+            ` · ${remainingCount.toLocaleString()} set${
+              remainingCount === 1 ? "" : "s"
+            } left to review`}
         </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ display: "block", lineHeight: 1.35 }}>
-          Audit report saved before cleanup · Undo is available after supported
-          trash actions.
+          Review included sets across result filters before confirming. Audit
+          report is saved before cleanup; Undo is available after supported
+          Trash actions.
         </Typography>
       </Box>
       <Button
@@ -499,7 +507,7 @@ export function CleanupBar({
         disabled={!hasSelection}
         onClick={onTrash}
         sx={{
-          minHeight: 42,
+          minHeight: 44,
           minWidth: compact ? 0 : 210,
           width: compact ? "100%" : "auto",
           fontWeight: 850
@@ -507,7 +515,7 @@ export function CleanupBar({
         {hasSelection
           ? `Review & move ${duplicateCount.toLocaleString()} to Trash`
           : reviewComplete
-            ? "No duplicates selected"
+            ? "No media items proposed for Trash"
             : `Review ${remainingCount.toLocaleString()} more to continue`}
       </Button>
     </Paper>

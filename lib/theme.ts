@@ -1,30 +1,11 @@
+import "@fontsource/dm-sans/400.css"
+import "@fontsource/dm-sans/500.css"
+import "@fontsource/dm-sans/600.css"
+import "@fontsource/dm-sans/700.css"
 import { createTheme } from "@mui/material/styles"
+import { photoSweepColors } from "./photo-sweep-colors"
 
-export const photoSweepColors = {
-  canvasTop: "#F6FAF8",
-  canvasBottom: "#EDF6F3",
-  surface: "#FFFFFF",
-  surfaceSoft: "#F4F8F6",
-  surfaceTint: "rgba(255,255,255,0.9)",
-  border: "#D6E2DD",
-  borderStrong: "#B8CBC4",
-  ink: "#17201C",
-  muted: "#66736D",
-  primary: "#0B6E69",
-  primaryDark: "#084F4B",
-  primarySoft: "#E4F3F1",
-  primaryBorder: "#9ECBC6",
-  primaryShadow: "rgba(11, 110, 105, 0.18)",
-  success: "#248A4B",
-  successDark: "#176535",
-  successSoft: "#E5F4EA",
-  warning: "#B7791F",
-  warningSoft: "#FFF3D8",
-  error: "#E25148",
-  errorDark: "#B9362F",
-  errorSoft: "#FDEBE8",
-  shadow: "rgba(23, 32, 28, 0.09)"
-}
+export { photoSweepColors } from "./photo-sweep-colors"
 
 const theme = createTheme({
   palette: {
@@ -44,6 +25,12 @@ const theme = createTheme({
       main: photoSweepColors.warning,
       light: photoSweepColors.warningSoft,
       dark: "#8A5A14"
+    },
+    info: {
+      main: photoSweepColors.primary,
+      light: photoSweepColors.primarySoft,
+      dark: photoSweepColors.primaryDark,
+      contrastText: "#FFFFFF"
     },
     error: {
       main: photoSweepColors.error,
@@ -95,10 +82,10 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: "rgba(246,250,248,0.82)",
+          backgroundColor: photoSweepColors.surfaceTint,
           color: photoSweepColors.ink,
           boxShadow: `0 1px 0 ${photoSweepColors.shadow}`,
-          backdropFilter: "saturate(180%) blur(22px)"
+          backdropFilter: "saturate(160%) blur(18px)"
         }
       }
     },
@@ -109,18 +96,19 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: "none",
-          borderRadius: 10,
+          borderRadius: 8,
           fontWeight: 600,
           boxShadow: "none",
-          minHeight: 36,
+          minHeight: 40,
           letterSpacing: 0,
           transition:
-            "background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease",
-          "&:hover": {
-            transform: "translateY(-1px)"
+            "background-color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease",
+          "&.MuiButton-contained": {
+            minHeight: 44
           },
-          "&:active": {
-            transform: "translateY(0)"
+          "&:focus-visible": {
+            outline: `3px solid ${photoSweepColors.primary}`,
+            outlineOffset: 2
           }
         }
       }
@@ -130,6 +118,23 @@ const theme = createTheme({
         root: {
           backgroundImage: "none"
         }
+      }
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          border: `1px solid ${photoSweepColors.border}`,
+          borderRadius: 12,
+          backgroundColor: photoSweepColors.surface,
+          backgroundImage: "none",
+          boxShadow: `0 18px 56px ${photoSweepColors.shadowDeep}`
+        }
+      }
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: { borderRadius: 8 },
+        message: { lineHeight: 1.45 }
       }
     },
     MuiChip: {
@@ -145,7 +150,8 @@ const theme = createTheme({
         root: {
           textTransform: "none",
           fontWeight: 600,
-          borderRadius: 8,
+          borderRadius: 6,
+          minHeight: 40,
           borderColor: photoSweepColors.border,
           transition:
             "background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease",
@@ -167,7 +173,7 @@ const theme = createTheme({
         root: {
           borderRadius: 999,
           height: 7,
-          backgroundColor: "#E2EBE7"
+          backgroundColor: photoSweepColors.borderStrong
         }
       }
     }

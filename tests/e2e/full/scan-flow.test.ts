@@ -133,7 +133,7 @@ test("connects to Google Photos and completes a scan", async () => {
       .getByText(/Duplicate Sets Ready/)
       .isVisible()
     const hasNoDuplicates = await appPage
-      .getByText("No duplicates found in your library.")
+      .getByText("No duplicate sets found in this scan.")
       .isVisible()
     expect(hasDuplicates || hasNoDuplicates).toBe(true)
   } finally {

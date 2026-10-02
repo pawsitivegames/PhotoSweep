@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-09-15",
+  "registryVersion": "2026-09-21",
   "project": "PhotoSweep",
   "sourceRoots": [
     "lib",
@@ -23,6 +23,7 @@
     "pnpm-workspace.yaml",
     ".env.example",
     "lib/generated/build-flags.ts",
+    "docs/PLATFORM_PARITY_PLAN.md",
     "tsconfig.json",
     "tsconfig.test.json",
     "vitest.config.ts",
@@ -38,8 +39,30 @@
   "properties": [
     {
       "id": "SAFE-01",
-      "requirement": "Automatic selection keeps at least one distinct provider item in every nonempty group; insufficient evidence keeps all; manual Trash-all is separately confirmed.",
-      "seams": ["lib/keep-strategy.ts", "lib/duplicate-review-session.ts"],
+      "requirement": "Every nonempty review group receives exactly one deterministic automatic default keeper, using Best quality initially and a persisted user-selected strategy thereafter. Passive default recomputation and hydration preserve explicit manual per-group choices, including multi-item keepers and a manual Trash-all decision with no keeper; automatic and legacy decisions are recomputed. An explicit Selection-menu strategy choice applies the chosen strategy to every completed result group, replaces prior manual keeper, multi-keep, and Trash-all choices, and includes only eligible groups in the proposed cleanup review. Quality, resolution, file size, trusted timestamps, and stable media-key ordering resolve incomplete or tied evidence. For each included group, the exact proposed Trash targets are its media members minus its keeper set; no keeper is proposed. Safety eligibility, favorite, and repeated-identity gates continue to constrain proposals. The action clears prior reviewed status whenever inclusion or proposed Trash targets change, retains review only for unchanged plans, never marks groups reviewed, and never dispatches provider Trash. Provider Trash remains behind per-set review and the existing explicit confirmation path. The standalone conservative recommendation helper may still report insufficient evidence; that does not leave the review default unresolved.",
+      "seams": [
+        "lib/keep-strategy.ts",
+        "lib/duplicate-review-session.ts",
+        "lib/keep-strategy-feedback.ts",
+        "lib/stored-review-scope.ts",
+        "lib/provider-review-storage.ts",
+        "components/ActionBar.tsx",
+        "tabs/app.tsx",
+        "tests/lib/keep-strategy-feedback.test.ts",
+        "tests/lib/keeper-decisions.test.ts",
+        "tests/lib/provider-review-storage.test.ts",
+        "tests/e2e/integration/app-tab.test.ts",
+        "tests/verification/safety-properties.test.ts",
+        "verification/model/KeeperSelection.tla",
+        "verification/model/KeeperSelection.cfg",
+        "verification/model/KeeperSelection.closure.cfg",
+        "verification/model/KeeperSelection.negative.cfg",
+        "verification/run-keeper-selection-tlc.mjs",
+        "verification/run-tlc.mjs",
+        "verification/source-fingerprint.mjs",
+        "verification/verification-runner.mjs",
+        "verification/model/KeeperSelection.md"
+      ],
       "obligations": [
         {
           "id": "SAFE-01-properties",
@@ -64,7 +87,11 @@
     {
       "id": "SAFE-02",
       "requirement": "Every dispatched target belongs to the exact confirmed review and provider/session context; selection or context drift invalidates authorization.",
-      "seams": ["lib/review-preflight.ts", "lib/trash-dispatch-guard.ts", "tabs/app.tsx"],
+      "seams": [
+        "lib/review-preflight.ts",
+        "lib/trash-dispatch-guard.ts",
+        "tabs/app.tsx"
+      ],
       "obligations": [
         {
           "id": "SAFE-02-properties",
@@ -98,7 +125,12 @@
     {
       "id": "SAFE-03",
       "requirement": "Unknown account identity is never reported as verified; provider-session-only operation carries an explicitly weaker claim.",
-      "seams": ["lib/review-preflight.ts", "scripts/google-photos-commands.js", "scripts/icloud-photos-commands.js", "scripts/amazon-photos-commands.js"],
+      "seams": [
+        "lib/review-preflight.ts",
+        "scripts/google-photos-commands.js",
+        "scripts/icloud-photos-commands.js",
+        "scripts/amazon-photos-commands.js"
+      ],
       "obligations": [
         {
           "id": "SAFE-03-properties",
@@ -148,7 +180,11 @@
     {
       "id": "SAFE-05",
       "requirement": "Reported successful targets are a subset of requested and provider-confirmed targets; timeout or ambiguous response remains unknown.",
-      "seams": ["lib/trash-lifecycle.ts", "lib/trash-result-report.ts", "scripts/*-photos-commands.js"],
+      "seams": [
+        "lib/trash-lifecycle.ts",
+        "lib/trash-result-report.ts",
+        "scripts/*-photos-commands.js"
+      ],
       "obligations": [
         {
           "id": "SAFE-05-properties",
@@ -198,7 +234,11 @@
     {
       "id": "SAFE-07",
       "requirement": "A crash, reload, failed persistence, or service-worker restart cannot initiate unconfirmed Trash; ambiguous in-flight operations require reconciliation before replay.",
-      "seams": ["lib/trash-lifecycle.ts", "lib/recovery-history.ts", "background/*"],
+      "seams": [
+        "lib/trash-lifecycle.ts",
+        "lib/recovery-history.ts",
+        "background/*"
+      ],
       "obligations": [
         {
           "id": "SAFE-07-model",
@@ -221,9 +261,151 @@
       ]
     },
     {
+      "id": "SAFE-12",
+      "requirement": "Restore mutation recovery preserves exact per-target confirmed, failed, and unknown outcomes plus the never-dispatched subset through durable reload; only failed targets may be retried, and unknown stays sticky. A bounded worker-authority model covers durable pre-dispatch guards, exact ACK binding, reload revocation, active-only overlap reservation, retained unknown safety rows, and selective clear.",
+      "seams": [
+        "lib/trash-lifecycle.ts",
+        "lib/recovery-history.ts",
+        "tests/verification/safety-properties.test.ts",
+        "tests/verification/mutation-outcome-recovery-refinement.test.ts",
+        "tests/verification/mutation-outcome-model-evidence.test.ts",
+        "tests/verification/recovery-capacity.test.ts",
+        "tests/lib/recovery-history-capacity.test.ts",
+        "verification/model/MutationOutcomeRecovery.tla",
+        "verification/model/MutationOutcomeRecovery.cfg",
+        "verification/model/MutationOutcomeRecovery.negative.cfg",
+        "verification/run-mutation-outcomes-tlc.mjs",
+        "verification/mutation-outcome-model-evidence.mjs",
+        "background/recovery-history-transactions.ts",
+        "tests/background/service-worker.test.ts",
+        "tests/verification/recovery-authority-correspondence-map.test.ts",
+        "tests/verification/recovery-authority-model-evidence.test.ts",
+        "verification/model/RecoveryAuthority.tla",
+        "verification/model/RecoveryAuthority.cfg",
+        "verification/model/RecoveryAuthority.negative.cfg",
+        "verification/model/RecoveryAuthority.clear-negative.cfg",
+        "verification/run-recovery-authority-tlc.mjs",
+        "verification/recovery-authority-model-evidence.mjs"
+      ],
+      "obligations": [
+        {
+          "id": "SAFE-12-properties",
+          "scope": "fast",
+          "proofClass": "generated-property",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-generated-oracle",
+          "scope": "fast",
+          "proofClass": "generated-implementation-oracle",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12-generated-oracle.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-capacity",
+          "scope": "fast",
+          "proofClass": "implementation-boundary",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12-capacity.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-evidence-binding",
+          "scope": "fast",
+          "proofClass": "source-bound-evidence-verifier",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12-evidence-binding.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-worker-authority",
+          "scope": "fast",
+          "proofClass": "service-worker-boundary-test",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12-worker-authority.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-authority-correspondence-map",
+          "scope": "fast",
+          "proofClass": "static-model-correspondence-map",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12-authority-correspondence-map.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-authority-evidence-binding",
+          "scope": "fast",
+          "proofClass": "source-bound-evidence-verifier",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-12-authority-evidence-binding.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-model",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model:outcomes",
+          "artifact": "tmp/verification/current/model-SAFE-12.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-negative-control",
+          "scope": "fast",
+          "proofClass": "finite-model",
+          "kind": "model",
+          "command": "pnpm verify:model:outcomes",
+          "artifact": "tmp/verification/current/model-SAFE-12-negative-control.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-authority-model",
+          "scope": "fast",
+          "proofClass": "finite-service-worker-authority-model",
+          "kind": "model",
+          "command": "node verification/run-recovery-authority-tlc.mjs",
+          "artifact": "tmp/verification/current/model-SAFE-12-authority.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-authority-negative-control",
+          "scope": "fast",
+          "proofClass": "finite-model-negative-control",
+          "kind": "model",
+          "command": "node verification/run-recovery-authority-tlc.mjs",
+          "artifact": "tmp/verification/current/model-SAFE-12-authority-negative-control.json",
+          "mandatory": true
+        },
+        {
+          "id": "SAFE-12-authority-clear-negative-control",
+          "scope": "fast",
+          "proofClass": "finite-model-negative-control",
+          "kind": "model",
+          "command": "node verification/run-recovery-authority-tlc.mjs",
+          "artifact": "tmp/verification/current/model-SAFE-12-authority-clear-negative-control.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
       "id": "SAFE-08",
       "requirement": "Saved selection migration never turns stale or malformed keeper IDs into unintended automatic Trash; manual choices remain authoritative.",
-      "seams": ["lib/duplicate-review-session.ts", "lib/decision-memory.ts", "lib/stored-review-scope.ts"],
+      "seams": [
+        "lib/duplicate-review-session.ts",
+        "lib/decision-memory.ts",
+        "lib/stored-review-scope.ts"
+      ],
       "obligations": [
         {
           "id": "SAFE-08-properties",
@@ -239,7 +421,11 @@
     {
       "id": "SAFE-09",
       "requirement": "Account changes and stale payment responses cannot grant access in another context; production artifacts cannot enable test entitlement bypass.",
-      "seams": ["lib/paid-access-lifecycle.ts", "tabs/app.tsx", "tools/write-build-flags.mjs"],
+      "seams": [
+        "lib/paid-access-lifecycle.ts",
+        "tabs/app.tsx",
+        "tools/write-build-flags.mjs"
+      ],
       "obligations": [
         {
           "id": "SAFE-09-properties",
@@ -264,7 +450,11 @@
     {
       "id": "SAFE-10",
       "requirement": "Untrusted page messages cannot trigger unauthorized provider operations or expose sensitive data.",
-      "seams": ["scripts/photo-provider-command-host.js", "background/index.ts", "lib/types.ts"],
+      "seams": [
+        "scripts/photo-provider-command-host.js",
+        "background/index.ts",
+        "lib/types.ts"
+      ],
       "obligations": [
         {
           "id": "SAFE-10-boundary",
@@ -282,6 +472,30 @@
           "kind": "browser",
           "command": "pnpm test:integration -- tests/e2e/integration/security-boundary.test.ts --grep security-boundary",
           "artifact": "tmp/verification/current/browser-security.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "SAFE-13",
+      "requirement": "Passive default-strategy recomputation and hydration preserve manual decisions and whether each duplicate set is already included in cleanup. An explicit Selection-menu strategy action replaces earlier manual keeper, multi-keep, and Trash-all choices with the selected strategy for every completed result group, and includes only eligible groups and their non-keepers in the proposed cleanup review. It reopens per-set review whenever inclusion or proposed Trash targets change, leaves unchanged reviewed plans intact, does not mark groups reviewed, and does not dispatch provider Trash; each changed set still requires review before the existing explicit confirmation path. Explicit review invalidation and replaced automatic keeper provenance survive normalization and reload. Safety eligibility, favorite, and repeated-identity gates continue to constrain proposals.",
+      "seams": [
+        "lib/duplicate-review-session.ts",
+        "lib/keep-strategy-feedback.ts",
+        "tabs/app.tsx",
+        "tests/verification/safety-properties.test.ts",
+        "tests/lib/keep-strategy-feedback.test.ts",
+        "tests/components/keep-strategy-application.test.tsx",
+        "tests/e2e/integration/app-tab.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "SAFE-13-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-SAFE-13.json",
           "mandatory": true
         }
       ]
@@ -375,7 +589,10 @@
     {
       "id": "DELIVERABLE-08",
       "requirement": "The evidence engine validates exact source and artifact identity and rejects corruption, incomplete checks, and mandatory skips.",
-      "seams": ["verification/evidence-engine.mjs", "verification/evidence-engine.test.ts"],
+      "seams": [
+        "verification/evidence-engine.mjs",
+        "verification/evidence-engine.test.ts"
+      ],
       "obligations": [
         {
           "id": "EVIDENCE-ENGINE-01",
@@ -389,9 +606,326 @@
       ]
     },
     {
+      "id": "PARITY-01",
+      "requirement": "Every provider exposes the same capability vocabulary and scan-result envelope; provider visits, returned/skipped records, unknown dates, resumability, cancellation, failures, and incomplete coverage are explicit and visible in the app.",
+      "seams": [
+        "lib/provider-operations.ts",
+        "lib/scan-coverage.ts",
+        "lib/types.ts",
+        "lib/app-reducer.ts",
+        "lib/provider-scan-cancellation.ts",
+        "components/ScanConfig.tsx",
+        "components/ScanCoverageNotice.tsx",
+        "background/index.ts",
+        "scripts/google-photos-commands.js",
+        "scripts/icloud-photos-commands.js",
+        "scripts/amazon-photos-commands.js",
+        "tabs/app.tsx"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-01-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-01.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-02",
+      "requirement": "Non-Google scan results, resumable checkpoints, embedding cache namespaces, pending Trash commands, and recovery restores are bound to the provider page session that produced them; a missing or changed session fails closed. Persisted provider sessions survive reload only when the current stable provider identity fingerprint matches; identity changes rotate the session, and providers without a stable identity marker rotate restored sessions for the current document. A same-document host reinitialization must use the latest rotated session ID, compare the next stable identity against its prior fingerprint, and rotate when identity is unavailable. Raw account or owner markers are never persisted. Google retains stable account-email binding.",
+      "seams": [
+        "lib/scan-results.ts",
+        "lib/scan-checkpoint.ts",
+        "lib/scan-lifecycle.ts",
+        "lib/stored-review-scope.ts",
+        "lib/review-preflight.ts",
+        "lib/recovery-history.ts",
+        "lib/trash-dispatch-guard.ts",
+        "lib/trash-lifecycle.ts",
+        "lib/embedding-cache.ts",
+        "lib/duplicate-detector.ts",
+        "lib/duplicate-detection-engine.ts",
+        "lib/types.ts",
+        "lib/app-reducer.ts",
+        "background/index.ts",
+        "scripts/photo-provider-command-host.js",
+        "tabs/app.tsx",
+        "tests/lib/provider-session-binding.test.ts",
+        "tests/commands/provider-session-host.test.ts",
+        "tests/lib/stored-review-scope.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-02-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-02.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-03",
+      "requirement": "Google, iCloud, and Amazon personal-album scans are selectable and bound to the provider/session scope. iCloud album enumeration follows CloudKit continuation cursors and folder relationships, and album scans revalidate membership, use the album-specific count and membership indexes, and never fall back to loaded DOM items. Amazon album enumeration and member pagination validate IDs, ownership class, response counts, and page completion. Shared-library zones remain excluded; incomplete or unsupported provider responses fail closed.",
+      "seams": [
+        "lib/types.ts",
+        "lib/provider-operations.ts",
+        "lib/stored-review-scope.ts",
+        "scripts/photo-provider-command-host.js",
+        "scripts/google-photos-commands.js",
+        "scripts/icloud-photos-commands.js",
+        "scripts/amazon-photos-commands.js",
+        "tabs/app.tsx",
+        "components/ScanConfig.tsx",
+        "tests/commands/google-photos-commands.test.ts",
+        "tests/commands/icloud-photos-commands.test.ts",
+        "tests/commands/amazon-photos-commands.test.ts",
+        "tests/commands/provider-session-host.test.ts",
+        "tests/lib/provider-operations.test.ts",
+        "tests/lib/stored-review-scope.test.ts",
+        "tests/components/scan-config.test.tsx"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-03-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-03.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-04",
+      "requirement": "Trash and restore outcomes use exact provider-confirmed identities. Partial restores retain only un-restored targets, iCloud recovery uses fresh post-Trash change tags, and user-facing recovery destinations and windows are provider-specific.",
+      "seams": [
+        "lib/trash-lifecycle.ts",
+        "lib/recovery-history.ts",
+        "lib/provider-operations.ts",
+        "components/RecoveryHistoryDialog.tsx",
+        "tabs/app.tsx",
+        "scripts/google-photos-commands.js",
+        "scripts/icloud-photos-commands.js",
+        "scripts/amazon-photos-commands.js",
+        "tests/lib/trash-lifecycle.test.ts",
+        "tests/lib/recovery-history.test.ts",
+        "tests/lib/provider-operations.test.ts",
+        "tests/components/recovery-history-dialog.test.tsx",
+        "tests/commands/google-photos-commands.test.ts",
+        "tests/commands/icloud-photos-commands.test.ts",
+        "tests/commands/amazon-photos-commands.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-04-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-04.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-05",
+      "requirement": "The scan setup and results use shared core terms across providers. Provider-specific scan limitations are clear in both layouts, test batches limit provider records visited, coverage distinguishes examined and in-scope items, and an empty result never implies the whole library was checked.",
+      "seams": [
+        "components/ScanConfig.tsx",
+        "components/ScanProgress.tsx",
+        "components/ScanCoverageNotice.tsx",
+        "components/ScanEmptyState.tsx",
+        "tabs/app.tsx",
+        "tests/components/scan-config.test.tsx",
+        "tests/components/scan-coverage-notice.test.tsx",
+        "tests/components/scan-empty-state.test.tsx"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-05-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-05.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-06",
+      "requirement": "Provider adapter conformance tests cover shared pagination anomalies and media coverage, Live Photo pairing limitations are explicit, and destructive live-provider PASS evidence must match the current extension version, source fingerprint, disposable account/scope, and exact synthetic target/keeper inventory. Versioned read-only album evidence may represent empty scopes only when provider/session/album binding, count partitioning, and listing plus membership exhaustion are proven; PARTIAL or stale evidence cannot aggregate as PASS.",
+      "seams": [
+        "lib/provider-operations.ts",
+        "components/ScanConfig.tsx",
+        "scripts/google-photos-commands.js",
+        "scripts/icloud-photos-commands.js",
+        "scripts/amazon-photos-commands.js",
+        "verification/live-provider-evidence.mjs",
+        "verification/verification-runner.mjs",
+        "tests/lib/provider-operations.test.ts",
+        "tests/components/scan-config.test.tsx",
+        "tests/verification/live-provider-evidence.test.ts",
+        "tests/commands/google-photos-commands.test.ts",
+        "tests/commands/icloud-photos-commands.test.ts",
+        "tests/commands/amazon-photos-commands.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-06-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-06.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-07",
+      "requirement": "iCloud incremental checks reuse a stored opaque zone token only for complete, unscoped library results bound to the same provider page session. An exact empty PrimarySync change response reuses cached duplicate candidates. A changed response is applied only after every page reaches moreComing=false, every change is a complete visible CPLMaster/CPLAsset pair, the current library count is known, and a follow-up token check confirms no changes arrived during reconciliation. Deletions, hidden or trashed records, unknown or malformed records, incomplete pairs, token errors, pagination errors, concurrent changes, and all uncertainty fall back to a full ascending library scan. Partial, limited, album-scoped, and date-scoped scans never persist or reuse the token.",
+      "seams": [
+        "lib/scan-results.ts",
+        "lib/scan-coverage.ts",
+        "lib/app-reducer.ts",
+        "lib/types.ts",
+        "components/ScanCoverageNotice.tsx",
+        "scripts/photo-provider-command-host.js",
+        "scripts/icloud-photos-commands.js",
+        "tabs/app.tsx",
+        "tests/lib/scan-results.test.ts",
+        "tests/lib/app-reducer.test.ts",
+        "tests/commands/icloud-photos-commands.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-07-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-07.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-08",
+      "requirement": "Every current packaged extension result includes a service-worker-owned extension ID, manifest version, and per-package build ID. Provider-page identity fields cannot override it. CWS package sidecars bind the same build ID to the exact ZIP SHA-256 and the current source fingerprint, and live evidence with current package expectations rejects mismatched build IDs or artifact hashes. Redacted support diagnostics retain only a validated runtime identity.",
+      "seams": [
+        "lib/types.ts",
+        "lib/runtime-build-identity.ts",
+        "lib/generated/build-flags.ts",
+        "background/index.ts",
+        "tabs/app.tsx",
+        "lib/support-diagnostics.ts",
+        "tools/write-build-flags.mjs",
+        "tools/package-cws.mjs",
+        "tools/cws-artifact.mjs",
+        "tools/record-cws-artifact.mjs",
+        "tools/audit-extension-package.mjs",
+        "verification/release-candidate.mjs",
+        "tests/verification/runner-live-package-binding.test.ts",
+        "tests/verification/release-candidate.test.ts",
+        "verification/live-provider-evidence.mjs",
+        "verification/verification-runner.mjs",
+        "tests/lib/runtime-build-identity.test.ts",
+        "tests/tools/cws-artifact.test.ts",
+        "tests/verification/live-provider-evidence.test.ts",
+        "tests/lib/privacy-analytics.test.ts",
+        "tests/background/service-worker.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-08-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-08.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "PARITY-09",
+      "requirement": "Saved review results, selections, and resumable checkpoints are isolated by provider. Restoring or invalidating one provider cannot replace or erase another provider's review bucket, including when group IDs collide. Legacy unscoped records remain read-only until provider/account/session validation approves them; mismatched or ambiguous records are preserved for recovery. In the same adapter instance, an in-flight legacy migration cannot overwrite a later provider-scoped review write. The global settings key remains a last-used preference.",
+      "seams": [
+        "lib/provider-review-storage.ts",
+        "lib/stored-review-scope.ts",
+        "lib/scan-lifecycle.ts",
+        "tabs/app.tsx",
+        "tests/lib/provider-review-storage.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "PARITY-09-properties",
+          "scope": "fast",
+          "proofClass": "generated-implementation-oracle",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-PARITY-09.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "VIDEO-PLAYBACK",
+      "requirement": "A video in the current provider-bound review can be played in-app only after an explicit viewer action. Each provider returns a scoped HTTPS allowlisted playback handoff for a verified video; the app validates the media/scope binding; the viewer keeps the transient URL only in component memory and clears it on stop, close, navigation, or playback error. Unsupported and failed playback show an explicit unavailable state with the provider-link fallback. Local mock tests establish this adapter/viewer contract only; exact-candidate playback must be verified separately for all three providers.",
+      "seams": [
+        "lib/provider-retrieval.ts",
+        "lib/types.ts",
+        "scripts/google-photos-commands.js",
+        "scripts/icloud-photos-commands.js",
+        "scripts/amazon-photos-commands.js",
+        "background/index.ts",
+        "tabs/app.tsx",
+        "components/PhotoViewerModal.tsx",
+        "tests/commands/google-photos-commands.test.ts",
+        "tests/commands/icloud-photos-commands.test.ts",
+        "tests/commands/amazon-photos-commands.test.ts",
+        "tests/lib/provider-retrieval.test.ts",
+        "tests/components/photo-viewer-modal.test.tsx",
+        "verification/run-properties.mjs",
+        "verification/verification-runner.mjs"
+      ],
+      "obligations": [
+        {
+          "id": "VIDEO-PLAYBACK-properties",
+          "scope": "fast",
+          "proofClass": "implementation",
+          "kind": "test",
+          "command": "pnpm test:properties",
+          "artifact": "tmp/verification/current/properties-VIDEO-PLAYBACK.json",
+          "mandatory": true
+        },
+        {
+          "id": "VIDEO-PLAYBACK-live",
+          "scope": "release",
+          "proofClass": "live-provider",
+          "kind": "provider-fixture",
+          "command": "Exact-current-candidate disposable video playback across Google Photos, iCloud Photos, and Amazon Photos",
+          "artifact": "tmp/verification/current/video-playback.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
       "id": "DELIVERABLE-06",
-      "requirement": "Each live provider claim has a dedicated disposable fixture contract; unavailable fixtures remain explicit blockers and are never replaced by personal-library tests.",
-      "seams": ["verification/provider-fixtures.json"],
+      "requirement": "Each live provider claim has a dedicated disposable fixture contract bound to the current extension build and source fingerprint; unavailable or stale fixtures remain explicit blockers and are never replaced by personal-library tests.",
+      "seams": [
+        "verification/provider-fixtures.json",
+        "verification/live-provider-evidence.mjs"
+      ],
       "obligations": [
         {
           "id": "LIVE-GOOGLE-01",

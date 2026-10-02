@@ -596,6 +596,11 @@ function mediaItem(
     timestamp: 1,
     creationTimestamp: 1,
     provider,
+    // The TLC abstraction has no favorite-state dimension. Its generated
+    // traces refine to a preflight-approved set with explicit non-favorite
+    // evidence so replay can focus on the lifecycle invariants it models.
+    favoriteStatus: "not-favorite",
+    favoriteSource: "provider-metadata",
     fileName: `${mediaKey}.jpg`
   }
 }
@@ -712,7 +717,10 @@ function expectedOutcomeKind(
   requested: string[],
   moved: string[]
 ): TrashOutcome["kind"] {
-  if (moved.length === 0) return "failed"
+  // A dispatched provider request with no confirmed moved identity may still
+  // have changed provider state. Preserve the production lifecycle's unknown
+  // classification instead of projecting it as a safely retryable failure.
+  if (moved.length === 0) return "unknown"
   if (
     action === "ProviderErrorPartial" ||
     action === "ProviderSuccessWithUnknown" ||
@@ -1420,7 +1428,8 @@ class ReplayAdapter {
       const actual = {
         pending: this.lifecycle.isPending(requestId),
         providerDispatched: this.providerDispatched,
-        timeoutRecorded: outcome.kind === "failed"
+        timeoutRecorded:
+          outcome.kind === "unknown" && this.lifecycle.isPending(requestId)
       }
       return this.stepResult(
         index,

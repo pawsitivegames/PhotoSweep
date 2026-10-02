@@ -3,9 +3,19 @@ import { describe, expect, it } from "vitest"
 import { DuplicateReviewSession } from "../../lib/duplicate-review-session"
 import {
   TrashLifecycle,
-  type TrashAuditAdapter
+  type TrashAuditAdapter,
+  type TrashOutcome
 } from "../../lib/trash-lifecycle"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
+
+function expectUnknownOutcome(
+  outcome: TrashOutcome
+): asserts outcome is Extract<TrashOutcome, { kind: "unknown" }> {
+  expect(outcome.kind).toBe("unknown")
+  if (outcome.kind !== "unknown") {
+    throw new Error(`Expected unknown TrashOutcome, received "${outcome.kind}"`)
+  }
+}
 
 function traceFixture(options: { failingPreAudit?: boolean } = {}) {
   const mediaItems: Record<string, GpdMediaItem> = {
@@ -15,7 +25,9 @@ function traceFixture(options: { failingPreAudit?: boolean } = {}) {
       thumb: "keep",
       timestamp: 1,
       creationTimestamp: 1,
-      provider: "google"
+      provider: "google",
+      favoriteStatus: "not-favorite",
+      favoriteSource: "provider-metadata"
     },
     trashA: {
       mediaKey: "trashA",
@@ -23,7 +35,9 @@ function traceFixture(options: { failingPreAudit?: boolean } = {}) {
       thumb: "trash-a",
       timestamp: 1,
       creationTimestamp: 2,
-      provider: "google"
+      provider: "google",
+      favoriteStatus: "not-favorite",
+      favoriteSource: "provider-metadata"
     },
     trashB: {
       mediaKey: "trashB",
@@ -31,7 +45,9 @@ function traceFixture(options: { failingPreAudit?: boolean } = {}) {
       thumb: "trash-b",
       timestamp: 1,
       creationTimestamp: 3,
-      provider: "google"
+      provider: "google",
+      favoriteStatus: "not-favorite",
+      favoriteSource: "provider-metadata"
     }
   }
   const groups: DuplicateGroup[] = [
@@ -100,8 +116,10 @@ describe("scenario traces exercise the production TrashLifecycle seam", () => {
       data: { trashedKeys: [], trashedDedupKeys: [] }
     })
 
-    expect(outcome.kind).toBe("failed")
+    expectUnknownOutcome(outcome)
     expect(outcome.movedMediaKeys).toEqual([])
+    expect(outcome.unknownMediaKeys).toEqual(["trashA", "trashB"])
+    expect(outcome.unknownDedupKeys).toEqual(["d-trash-a", "d-trash-b"])
     expect(outcome.undo).toBeNull()
   })
 

@@ -54,16 +54,20 @@ The only true "doesn't function" item; highest risk.
 Risk: High. Mitigated by discovery-first + fallback + tiny-album live
 validation + Undo.
 
-## Phase 2 — Amazon restore complete; albums pending
+## Phase 2 — Amazon restore complete; personal albums locally implemented
 
 Amazon scan/trash already work; completes parity.
 
 1. **Amazon restore is implemented.** `restoreItems` uses the same
    `/drive/v1/trash` route as trash with `op: "remove"` and keeps the chunking /
    retry behavior covered by command tests.
-2. **Amazon albums remain pending.** Replace `listAlbums` stub with a real Amazon
-   Drive album/nodes call (discover via DevTools). iCloud albums deferred
-   unless discovery finds a clean endpoint; keep its stub but log clearly.
+2. **Amazon personal-album scope is implemented locally.** The adapter uses
+   Amazon Photos page-context node routes, validates album/member pagination,
+   and excludes shared albums or foreign-owned members. This remains a private,
+   change-prone web interface, not a supported public API. The current package
+   has not been loaded into Chrome for live PhotoSweep verification. iCloud
+   personal-album scope is also implemented locally through private CloudKit
+   routes, but needs disposable-account validation against the current build.
 
 Remaining gate: gated live Amazon scan → trash → restore evidence before paid
 claims or provider parity claims.

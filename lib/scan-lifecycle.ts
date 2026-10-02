@@ -1,15 +1,28 @@
 import {
   createScanCheckpoint,
+  canResumeScanCheckpoint,
+  shouldOfferResume,
   updateScanCheckpoint,
   type ScanCheckpoint
 } from "./scan-checkpoint"
-import type { ScanSettings } from "./types"
+import { canResumeCheckpoint, type Entitlement } from "./entitlement"
+import {
+  evaluateReviewPreflight,
+  type ReviewPreflightInput,
+  type ReviewPreflightResult
+} from "./review-preflight"
+import { isScanCoverage } from "./scan-coverage"
+import {
+  mergeCachedScanResults,
+  reusableICloudSyncToken
+} from "./scan-results"
+import type { GpdMediaItem, ScanCoverage, ScanSettings } from "./types"
 
 type ScanCheckpointPatch = Parameters<typeof updateScanCheckpoint>[1]
 
 export interface ScanLifecycleAdapter {
   persist(checkpoint: ScanCheckpoint): Promise<void> | void
-  clear(): Promise<void> | void
+  clear(provider?: ScanSettings["sourceProvider"]): Promise<void> | void
   now?(): number
   createAbortController?(): AbortController
 }
@@ -18,6 +31,7 @@ export interface BeginScanParams {
   requestId: string
   settings: ScanSettings
   accountEmail?: string
+  providerSessionId?: string
 }
 
 export interface ResumeScanParams {
@@ -25,6 +39,20 @@ export interface ResumeScanParams {
   checkpoint: ScanCheckpoint
   patch: ScanCheckpointPatch
 }
+
+export interface ScanResumeIdentity {
+  accountEmail?: string
+  sourceProvider?: ScanSettings["sourceProvider"]
+  providerSessionId?: string
+}
+
+export interface PreparedProviderScanResult {
+  mediaItems: GpdMediaItem[]
+  scanCoverage: ScanCoverage
+}
+
+type ICloudSyncCache = Parameters<typeof reusableICloudSyncToken>[0]
+type ICloudSyncContext = Parameters<typeof reusableICloudSyncToken>[1]
 
 export class ScanLifecycle {
   private activeRequestId: string | null = null
@@ -45,6 +73,64 @@ export class ScanLifecycle {
     return this.abortController?.signal ?? null
   }
 
+  canOfferResume(
+    checkpoint: ScanCheckpoint | null | undefined,
+    identity: ScanResumeIdentity
+  ): checkpoint is ScanCheckpoint {
+    return (
+      shouldOfferResume(checkpoint) &&
+      canResumeScanCheckpoint(checkpoint, identity)
+    )
+  }
+
+  canResumeWithinEntitlement(
+    checkpoint: ScanCheckpoint,
+    entitlement: Entitlement | null | undefined
+  ): boolean {
+    return canResumeCheckpoint(checkpoint, entitlement)
+  }
+
+  isCoverage(value: unknown): value is ScanCoverage {
+    return isScanCoverage(value)
+  }
+
+  prepareProviderResult(
+    mediaItems: unknown,
+    scanCoverage: unknown,
+    cachedMediaItems?: Record<string, GpdMediaItem>
+  ): PreparedProviderScanResult | null {
+    if (
+      !Array.isArray(mediaItems) ||
+      !isScanCoverage(scanCoverage) ||
+      scanCoverage.itemsReturned !== mediaItems.length
+    ) {
+      return null
+    }
+    const reusableCache =
+      cachedMediaItems && Object.keys(cachedMediaItems).length > 0
+        ? cachedMediaItems
+        : undefined
+    return {
+      mediaItems: mergeCachedScanResults(
+        mediaItems as GpdMediaItem[],
+        reusableCache,
+        scanCoverage
+      ),
+      scanCoverage
+    }
+  }
+
+  reusableICloudSyncToken(
+    stored: ICloudSyncCache,
+    context: ICloudSyncContext
+  ): string | undefined {
+    return reusableICloudSyncToken(stored, context)
+  }
+
+  reviewPreflight(input: ReviewPreflightInput): ReviewPreflightResult {
+    return evaluateReviewPreflight(input)
+  }
+
   begin(params: BeginScanParams): {
     checkpoint: ScanCheckpoint
     signal: AbortSignal
@@ -56,6 +142,7 @@ export class ScanLifecycle {
       id: params.requestId,
       settings: params.settings,
       accountEmail: params.accountEmail,
+      providerSessionId: params.providerSessionId,
       now: this.now()
     })
     void this.adapter.persist(this.activeCheckpoint)
@@ -162,19 +249,21 @@ export class ScanLifecycle {
 
   async complete(requestId: string): Promise<boolean> {
     if (!this.isCurrent(requestId)) return false
+    const provider = this.activeCheckpoint?.settings.sourceProvider
     this.abortController = null
     this.activeRequestId = null
     this.activeCheckpoint = null
-    await this.adapter.clear()
+    await this.adapter.clear(provider)
     return true
   }
 
   reset(): void {
+    const provider = this.activeCheckpoint?.settings.sourceProvider
     this.abortController?.abort()
     this.abortController = null
     this.activeRequestId = null
     this.activeCheckpoint = null
-    void this.adapter.clear()
+    void this.adapter.clear(provider)
   }
 
   private now(): number {

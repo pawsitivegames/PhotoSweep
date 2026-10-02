@@ -1,4 +1,8 @@
 import { classifyDuplicateGroup } from "./duplicate-classifier"
+import {
+  favoriteSourceForItem,
+  favoriteStatusForItem
+} from "./favorite-status"
 import type {
   DuplicateEvidenceLevel,
   DuplicateGroup,
@@ -15,9 +19,21 @@ export interface ReviewReportItem {
   dedupKey: string
   fileName: string | null
   takenAt: string | null
+  timestampValue: string | null
+  timestampProvenance: string | null
   uploadedAt: string | null
+  creationTimestampValue: string | null
+  creationTimestampProvenance: string | null
+  mediaKind: string
+  mimeType: string | null
+  favoriteStatus: string
+  favoriteSource: string
   resolution: string | null
   isOriginalQuality: boolean | null
+  contentHashAlgorithm: string | null
+  contentHashVerificationSource: string | null
+  videoPlaybackCapability: string
+  hasLivePhotoAssociation: boolean
   takesUpSpace: boolean | null
   spaceTaken: number | null
   similarity: number
@@ -26,6 +42,9 @@ export interface ReviewReportItem {
   relationship: DuplicateRelationship | null
   canProposeTrash: boolean
   matchReasons: string[]
+  /** Link to the item in the active provider's web app. */
+  providerUrl: string | null
+  /** @deprecated Kept for consumers of pre-parity JSON reports. */
   googlePhotosUrl: string | null
 }
 
@@ -96,10 +115,34 @@ export function buildReviewReport(params: {
         mediaKey: item.mediaKey,
         dedupKey: item.dedupKey,
         fileName: item.fileName ?? null,
-        takenAt: formatReportTimestamp(item.timestamp),
-        uploadedAt: formatReportTimestamp(item.creationTimestamp),
+        takenAt:
+          item.timestampProvenance === "capture"
+            ? formatReportTimestamp(item.timestamp)
+            : null,
+        timestampValue: formatReportTimestamp(item.timestamp),
+        timestampProvenance: item.timestampProvenance ?? "unknown",
+        uploadedAt:
+          item.creationTimestampProvenance === "creation"
+            ? formatReportTimestamp(item.creationTimestamp)
+            : null,
+        creationTimestampValue: formatReportTimestamp(item.creationTimestamp),
+        creationTimestampProvenance:
+          item.creationTimestampProvenance ?? "unknown",
+        mediaKind:
+          item.mediaKind ??
+          (Number.isFinite(item.duration) && (item.duration ?? 0) > 0
+            ? "video"
+            : "unknown"),
+        mimeType: item.mimeType ?? null,
+        favoriteStatus: favoriteStatusForItem(item),
+        favoriteSource: favoriteSourceForItem(item),
         resolution: formatReportResolution(item),
         isOriginalQuality: item.isOriginalQuality ?? null,
+        contentHashAlgorithm: item.contentHash?.algorithm ?? null,
+        contentHashVerificationSource:
+          item.contentHash?.verificationSource ?? null,
+        videoPlaybackCapability: item.videoPlaybackCapability ?? "unknown",
+        hasLivePhotoAssociation: Boolean(item.livePhotoAssociationId),
         takesUpSpace: item.takesUpSpace ?? null,
         spaceTaken: item.spaceTaken ?? null,
         similarity: group.similarity,
@@ -108,6 +151,7 @@ export function buildReviewReport(params: {
         relationship: classification.relationship ?? null,
         canProposeTrash: classification.canProposeTrash,
         matchReasons: classification.matchReasons,
+        providerUrl: item.productUrl ?? null,
         googlePhotosUrl: item.productUrl ?? null
       })
     }
@@ -142,9 +186,21 @@ export function reviewReportToCsv(report: ReviewReport): string {
     "dedupKey",
     "fileName",
     "takenAt",
+    "timestampValue",
+    "timestampProvenance",
     "uploadedAt",
+    "creationTimestampValue",
+    "creationTimestampProvenance",
+    "mediaKind",
+    "mimeType",
+    "favoriteStatus",
+    "favoriteSource",
     "resolution",
     "isOriginalQuality",
+    "contentHashAlgorithm",
+    "contentHashVerificationSource",
+    "videoPlaybackCapability",
+    "hasLivePhotoAssociation",
     "takesUpSpace",
     "spaceTaken",
     "similarity",
@@ -153,7 +209,7 @@ export function reviewReportToCsv(report: ReviewReport): string {
     "evidenceLevel",
     "relationship",
     "canProposeTrash",
-    "googlePhotosUrl"
+    "providerUrl"
   ]
   const rows = report.items.map((item) =>
     headers.map((header) => csvValue(item[header])).join(",")

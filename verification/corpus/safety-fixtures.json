@@ -3,8 +3,8 @@
     "id": "trusted-original-hash",
     "label": "trusted original-content hash",
     "items": [
-      { "mediaKey": "trusted-a", "dedupKey": "provider-a", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },
-      { "mediaKey": "trusted-b", "dedupKey": "provider-b", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }
+      { "mediaKey": "trusted-a", "dedupKey": "provider-a", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "verificationSource": "local-original-bytes", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },
+      { "mediaKey": "trusted-b", "dedupKey": "provider-b", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "verificationSource": "local-original-bytes", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }
     ],
     "expected": { "duplicateKind": "exact", "evidenceLevel": "verified_identical", "canProposeTrash": true }
   },
@@ -16,6 +16,15 @@
       { "mediaKey": "metadata-b", "dedupKey": "provider-d", "fileName": "IMG_1001.jpg", "resWidth": 1200, "resHeight": 800, "timestamp": 1700000000000, "size": 12000 }
     ],
     "expected": { "duplicateKind": "similar", "evidenceLevel": "strong_duplicate_candidate", "canProposeTrash": true }
+  },
+  {
+    "id": "unverified-cross-provider-hash",
+    "label": "matching SHA-256 claims without local original-byte verification",
+    "items": [
+      { "mediaKey": "unverified-hash-a", "dedupKey": "provider-m", "provider": "google", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } },
+      { "mediaKey": "unverified-hash-b", "dedupKey": "provider-n", "provider": "amazon", "contentHash": { "algorithm": "sha256", "provenance": "original-content", "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } }
+    ],
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "similar", "canProposeTrash": true }
   },
   {
     "id": "thumbnail-only",
@@ -42,7 +51,7 @@
       { "mediaKey": "repeat-a", "dedupKey": "same-provider-ref", "contentHash": { "algorithm": "md5", "provenance": "original-content", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } },
       { "mediaKey": "repeat-b", "dedupKey": "same-provider-ref", "contentHash": { "algorithm": "md5", "provenance": "original-content", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }
     ],
-    "expected": { "duplicateKind": "similar", "evidenceLevel": "verified_identical", "relationship": "same_provider_asset", "canProposeTrash": false }
+    "expected": { "duplicateKind": "similar", "evidenceLevel": "similar", "relationship": "same_provider_asset", "canProposeTrash": false }
   },
   {
     "id": "raw-jpeg-related-edit",

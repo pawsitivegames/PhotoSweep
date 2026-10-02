@@ -14,7 +14,11 @@ export interface CachedMediaMetadata {
   contentHash?: ContentHashEvidence
   thumb: string
   timestamp: number
+  timestampProvenance?: GpdMediaItem["timestampProvenance"]
   creationTimestamp: number
+  creationTimestampProvenance?: GpdMediaItem["creationTimestampProvenance"]
+  mediaKind?: GpdMediaItem["mediaKind"]
+  mimeType?: string
   resWidth?: number
   resHeight?: number
   fileName?: string
@@ -22,8 +26,12 @@ export interface CachedMediaMetadata {
   takesUpSpace?: boolean | null
   spaceTaken?: number
   isOwned?: boolean
+  isFavorite?: boolean
+  favoriteStatus?: GpdMediaItem["favoriteStatus"]
+  favoriteSource?: GpdMediaItem["favoriteSource"]
   isOriginalQuality?: boolean | null
   duration?: number
+  videoPlaybackCapability?: GpdMediaItem["videoPlaybackCapability"]
   productUrl?: string
 }
 
@@ -35,6 +43,18 @@ export interface EmbeddingRecord {
   model?: string
 }
 
+/**
+ * Separates otherwise identical provider media keys across account/page
+ * contexts. The namespace must be a stable account fingerprint or an opaque
+ * provider page-session marker, never a provider cookie or access token.
+ */
+export function scopedEmbeddingCacheKey(
+  mediaKey: string,
+  namespace?: string
+): string {
+  return namespace ? `gpd-scope:${namespace}:${mediaKey}` : mediaKey
+}
+
 export function createCachedMediaMetadata(
   item: GpdMediaItem
 ): CachedMediaMetadata {
@@ -44,7 +64,11 @@ export function createCachedMediaMetadata(
     ...(item.contentHash ? { contentHash: item.contentHash } : {}),
     thumb: item.thumb,
     timestamp: item.timestamp,
+    timestampProvenance: item.timestampProvenance,
     creationTimestamp: item.creationTimestamp,
+    creationTimestampProvenance: item.creationTimestampProvenance,
+    mediaKind: item.mediaKind,
+    mimeType: item.mimeType,
     resWidth: item.resWidth,
     resHeight: item.resHeight,
     fileName: item.fileName,
@@ -52,8 +76,12 @@ export function createCachedMediaMetadata(
     takesUpSpace: item.takesUpSpace,
     spaceTaken: item.spaceTaken,
     isOwned: item.isOwned,
+    isFavorite: item.isFavorite,
+    favoriteStatus: item.favoriteStatus,
+    favoriteSource: item.favoriteSource,
     isOriginalQuality: item.isOriginalQuality,
     duration: item.duration,
+    videoPlaybackCapability: item.videoPlaybackCapability,
     productUrl: item.productUrl
   }
 }

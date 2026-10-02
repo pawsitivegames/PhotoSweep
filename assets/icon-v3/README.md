@@ -1,0 +1,9 @@
+# PhotoSweep: photo and sweep icon
+
+Redesigned with the built-in imagegen tool. A photo, an offset duplicate edge, and a golden brush connected to a curved sweep express the extension's name and function. The app's royal blue anchors the palette.
+
+The generated master preserves alpha; exports are 16, 32, 48, 64, and 128 pixels. These are candidate assets; the active extension icons have not been replaced.
+
+## Final generation prompt
+
+Use case: logo-brand. Design a NEW, thoughtfully composed PhotoSweep Chrome extension app icon from scratch. Meaning: duplicate photo cleanup. One cohesive minimal symbol: a large white rounded photo frame, a small pale-blue offset edge behind its upper-left to hint at a duplicate, two simple royal-blue mountain peaks and a round sun inside. A bold small golden-yellow sweeping brush is integrated into the LOWER-RIGHT edge of the photo frame, with a short white handle angled up-right and a single clean curved sweep stroke extending left under the photo. The brush head has a broad simple silhouette with only two bristle divisions; avoid detailed ridges. The sweep curve and photo frame together create one flowing composition. Background: solid royal blue #255BD4 rounded-square tile, genuinely transparent outside rounded corners, no rough edge debris. Style: modern FLAT vector-like brand mark, crisp smooth edges, no texture, no 3D, no dramatic shadows, no gloss, no glow or decorative sparkle. White, royal blue, pale blue #A7BCE8 and golden yellow only. Generous 12 percent safe margin around the main mark. Photo is dominant, brush clearly recognizable but secondary. Strong silhouette and contrast suitable for 16px and 48px Chrome toolbar icons. One square finished icon, no mockup, no text, no lettering, no watermark, no provider logos. Make the overall design calm, intentional, distinctive, and uncluttered.

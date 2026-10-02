@@ -14,7 +14,11 @@ import ListItem from "@mui/material/ListItem"
 import ListItemText from "@mui/material/ListItemText"
 import Typography from "@mui/material/Typography"
 
-import { providerLabel } from "../lib/provider-operations"
+import {
+  providerLabel,
+  providerRecoveryWindowNotice,
+  providerTrashDestination
+} from "../lib/provider-operations"
 import {
   isRecoveryRestorable,
   type RecoveryHistoryRecord
@@ -31,22 +35,32 @@ function statusLabel(status: RecoveryHistoryRecord["status"]): string {
       return "Partially moved"
     case "failed":
       return "Trash failed"
+    case "unknown":
+      return "Trash outcome unknown"
+    case "not_dispatched":
+      return "Not sent to provider"
     case "restored":
       return "Restored"
+    case "restore_partial":
+      return "Partially restored"
     case "restore_failed":
       return "Restore needs retry"
+    case "restore_unknown":
+      return "Restore outcome unknown"
   }
 }
 
 export function RecoveryHistoryDialog({
   open,
   records,
+  loadError,
   onClose,
   onRestore,
   onClear
 }: {
   open: boolean
   records: RecoveryHistoryRecord[]
+  loadError?: string
   onClose: () => void
   onRestore: (record: RecoveryHistoryRecord) => void
   onClear: () => void
@@ -62,7 +76,9 @@ export function RecoveryHistoryDialog({
           PhotoSweep keeps a bounded, local record of provider-confirmed Trash
           moves. It stores identifiers needed for recovery, not photo content.
         </Typography>
-        {records.length === 0 ? (
+        {loadError ? (
+          <Alert severity="warning">{loadError}</Alert>
+        ) : records.length === 0 ? (
           <Alert severity="info">
             No cleanup operations have been recorded.
           </Alert>
@@ -108,7 +124,10 @@ export function RecoveryHistoryDialog({
                               record.status === "restored"
                                 ? "success"
                                 : record.status === "restore_failed" ||
-                                    record.status === "failed"
+                                    record.status === "restore_partial" ||
+                                    record.status === "failed" ||
+                                    record.status === "unknown" ||
+                                    record.status === "restore_unknown"
                                   ? "warning"
                                   : "default"
                             }
@@ -125,9 +144,28 @@ export function RecoveryHistoryDialog({
                           </Typography>
                           <Typography component="span" variant="caption">
                             {record.movedCount.toLocaleString()} moved ·{" "}
-                            {record.failedCount.toLocaleString()} not moved
+                            {record.failedCount.toLocaleString()} failed
+                            {(record.unknownCount ?? 0) > 0
+                              ? ` · ${(record.unknownCount ?? 0).toLocaleString()} outcome unknown`
+                              : ""}
+                            {(record.notDispatchedCount ?? 0) > 0
+                              ? ` · ${(record.notDispatchedCount ?? 0).toLocaleString()} not dispatched`
+                              : ""}
+                            {(record.restoreUnknownCount ?? 0) > 0
+                              ? ` · ${(record.restoreUnknownCount ?? 0).toLocaleString()} restore outcome unknown`
+                              : ""}
                             {record.lastError ? ` · ${record.lastError}` : ""}
                           </Typography>
+                          {restorable && (
+                            <>
+                              <Typography component="span" variant="caption">
+                                Restore from {providerTrashDestination(record.provider)}.
+                              </Typography>
+                              <Typography component="span" variant="caption">
+                                {providerRecoveryWindowNotice(record.provider)}
+                              </Typography>
+                            </>
+                          )}
                         </Box>
                       }
                     />

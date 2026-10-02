@@ -1,11 +1,20 @@
+import { randomUUID } from "node:crypto"
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 
 import { getCwsReleaseIdentity } from "./cws-artifact.mjs"
+import { orderProviderContentScripts } from "./cws-manifest.mjs"
 
 const rootDir = process.cwd()
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm"
+const buildId = randomUUID()
+const packageEnv = {
+  ...process.env,
+  PHOTOSWEEP_PACKAGE_BUILD_ID: buildId
+}
+const baseEnv = { ...process.env }
+delete baseEnv.PHOTOSWEEP_PACKAGE_BUILD_ID
 
 function run(command, args, env = process.env) {
   const result = spawnSync(command, args, {
@@ -27,6 +36,7 @@ async function patchFinalManifest(manifestPath, appVersion, chromeVersion) {
     )
   }
   manifest.version = chromeVersion
+  manifest.content_scripts = orderProviderContentScripts(manifest.content_scripts)
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
 }
 
@@ -35,7 +45,17 @@ const packageJson = JSON.parse(
 )
 const { appVersion, chromeVersion } = getCwsReleaseIdentity(packageJson)
 
-run(npmCommand, ["run", "build"])
+try {
+  run(npmCommand, ["run", "build"], packageEnv)
+} finally {
+  // Keep the ephemeral package identity in the compiled extension bundle, but
+  // restore the local generated source module before source fingerprinting.
+  run(
+    process.execPath,
+    [path.join(rootDir, "tools", "write-build-flags.mjs")],
+    baseEnv
+  )
+}
 
 for (const target of ["chrome-mv3-prod", "chrome-mv3-dev"]) {
   await patchFinalManifest(
@@ -50,8 +70,12 @@ run(
   npmCommand,
   ["run", "audit:extension-package"],
   {
-    ...process.env,
+    ...packageEnv,
     PHOTOSWEEP_AUDIT_STRICT_DEV_KEY_ABSENCE: "1"
   }
 )
-run(process.execPath, [path.join(rootDir, "tools", "record-cws-artifact.mjs")])
+run(
+  process.execPath,
+  [path.join(rootDir, "tools", "record-cws-artifact.mjs")],
+  packageEnv
+)

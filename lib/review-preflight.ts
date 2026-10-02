@@ -27,7 +27,11 @@ export interface ReviewPreflightReason {
 
 export interface ReviewPreflightResult {
   allowed: boolean
-  accountStatus: "verified" | "unavailable" | "mismatch" | "unknown"
+  accountStatus:
+    | "verified"
+    | "session_bound"
+    | "mismatch"
+    | "unknown"
   freshness: "fresh" | "stale" | "unknown"
   scopeStatus: "matched" | "changed" | "unknown"
   summary: string
@@ -39,13 +43,13 @@ export interface ReviewPreflightInput {
   currentProvider?: PhotoProvider | string
   scanAccountEmail?: string
   currentAccountEmail?: string
+  scanProviderSessionId?: string
+  currentProviderSessionId?: string
   scanDate?: number
   scanScopeFingerprint?: string
   currentScopeFingerprint?: string
   selectedCount: number
   connectionValidated: boolean
-  /** iCloud and Amazon currently do not expose a stable account email. */
-  allowUnavailableAccountIdentity?: boolean
   requireFreshScan?: boolean
   requireKnownScope?: boolean
   now?: number
@@ -64,13 +68,24 @@ function normalizedEmail(value: string | undefined): string | undefined {
 function accountStatusFor(
   input: ReviewPreflightInput
 ): ReviewPreflightResult["accountStatus"] {
+  const provider = normalizedProvider(input.currentProvider ?? input.scanProvider)
   const scanAccount = normalizedEmail(input.scanAccountEmail)
   const currentAccount = normalizedEmail(input.currentAccountEmail)
   if (scanAccount && currentAccount) {
     return scanAccount === currentAccount ? "verified" : "mismatch"
   }
   if (scanAccount || currentAccount) return "unknown"
-  return input.allowUnavailableAccountIdentity ? "unavailable" : "unknown"
+  if (provider !== "google") {
+    if (
+      input.scanProviderSessionId &&
+      input.currentProviderSessionId
+    ) {
+      return input.scanProviderSessionId === input.currentProviderSessionId
+        ? "session_bound"
+        : "mismatch"
+    }
+  }
+  return "unknown"
 }
 
 function freshnessFor(
@@ -173,7 +188,7 @@ export function evaluateReviewPreflight(
         "The signed-in photo-provider account changed since this scan."
       )
     )
-  } else if (accountStatus === "unknown" || accountStatus === "unavailable") {
+  } else if (accountStatus === "unknown") {
     reasons.push(
       reason(
         "account_unknown",
@@ -214,24 +229,13 @@ export function evaluateReviewPreflight(
     )
   }
 
-  const blockingReasons = reasons.filter((current) => {
-    if (
-      current.code === "account_unknown" &&
-      input.allowUnavailableAccountIdentity
-    ) {
-      // The weaker provider-session policy is valid only when neither side
-      // exposes an identity. If either side has an email, an absent counterpart
-      // is an unverified mismatch and must continue to block destructive work.
-      return accountStatus !== "unavailable"
-    }
-    return true
-  })
+  const blockingReasons = reasons
 
   const accountSummary =
     accountStatus === "verified"
       ? "account verified"
-      : accountStatus === "unavailable"
-        ? "account identity unavailable"
+      : accountStatus === "session_bound"
+        ? "provider page session matched"
         : accountStatus === "unknown"
           ? "account identity unverified"
           : "account mismatch"
@@ -274,6 +278,8 @@ export function evaluateRecoveryRestorePreflight(input: {
   currentProvider?: PhotoProvider
   recordAccountFingerprint?: string
   currentAccountEmail?: string
+  recordProviderSessionId?: string
+  currentProviderSessionId?: string
   connectionValidated: boolean
 }): ReviewPreflightResult {
   const currentAccountFingerprint = accountFingerprint(
@@ -312,18 +318,44 @@ export function evaluateRecoveryRestorePreflight(input: {
         )
       )
     }
+  } else if (input.recordProvider !== "google") {
+    if (!input.recordProviderSessionId || !input.currentProviderSessionId) {
+      reasons.push(
+        reason(
+          "account_unknown",
+          "The provider session needed to verify this recovery record is unavailable. Reconnect and create a fresh cleanup record in this session."
+        )
+      )
+    } else if (
+      input.recordProviderSessionId !== input.currentProviderSessionId
+    ) {
+      reasons.push(
+        reason(
+          "account_mismatch",
+          "This recovery record belongs to a different provider page session."
+        )
+      )
+    }
+  } else {
+    reasons.push(
+      reason(
+        "account_unknown",
+        "The provider account needed to verify this recovery record is unavailable."
+      )
+    )
   }
-  const blockingReasons = reasons.filter(
-    (current) =>
-      current.code !== "account_unknown" || input.recordProvider === "google"
-  )
+  const blockingReasons = reasons
   const accountStatus = input.recordAccountFingerprint
     ? currentAccountFingerprint
       ? input.recordAccountFingerprint === currentAccountFingerprint
         ? "verified"
         : "mismatch"
       : "unknown"
-    : "unavailable"
+    : input.recordProviderSessionId && input.currentProviderSessionId
+      ? input.recordProviderSessionId === input.currentProviderSessionId
+        ? "session_bound"
+        : "mismatch"
+      : "unknown"
   return {
     allowed: blockingReasons.length === 0,
     accountStatus,
@@ -332,7 +364,11 @@ export function evaluateRecoveryRestorePreflight(input: {
     summary: `${input.recordProvider} recovery · ${
       accountStatus === "verified"
         ? "account verified"
-        : "account identity unavailable"
+        : accountStatus === "session_bound"
+          ? "provider page session matched"
+          : accountStatus === "mismatch"
+            ? "provider session mismatch"
+            : "account or session identity unverified"
     }`,
     reasons
   }

@@ -98,6 +98,33 @@ describe("evidence engine integrity", () => {
     }
   })
 
+  it("recognizes SAFE-12 proof classes while rejecting unknown labels", () => {
+    const fixture = makeFixture()
+    try {
+      const obligation = fixture.registry.properties[0]!.obligations[0]!
+      for (const proofClass of [
+        "generated-property",
+        "generated-implementation-oracle",
+        "implementation-boundary",
+        "source-bound-evidence-verifier",
+        "service-worker-boundary-test",
+        "static-model-correspondence-map",
+        "finite-service-worker-authority-model",
+        "finite-model-negative-control"
+      ]) {
+        obligation.proofClass = proofClass
+        expect(validateRegistry(fixture.registry)).toEqual([])
+      }
+
+      obligation.proofClass = "unregistered-proof-class"
+      expect(
+        validateRegistry(fixture.registry).map((item: { code: string }) => item.code)
+      ).toContain("PROOF_CLASS_INVALID")
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
   it("rejects duplicate and unknown evidence IDs", () => {
     const fixture = makeFixture()
     try {

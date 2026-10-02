@@ -7,6 +7,7 @@
  */
 import { expect, test, type BrowserContext } from "@playwright/test"
 
+import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
 import {
   clearStorage,
   injectScanCheckpoint,
@@ -223,19 +224,47 @@ test("filters review groups by exact and similar classification", async () => {
 
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("Verified identical", { exact: true })).toBeVisible({
+  await expect(
+    page.getByText("Verified identical", { exact: true })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(page.getByText("Similar", { exact: true })).toBeVisible()
 
-  await page
-    .getByRole("button", { name: /Verified identical \(1\)/i })
-    .click()
+  await page.getByRole("button", { name: /Verified identical \(1\)/i }).click()
   await expect(
     page.getByText("Verified identical", { exact: true })
   ).toBeVisible()
   await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
   await expect(page.getByText("2 sets total")).toBeVisible()
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Best quality" }).click()
+  await expect(
+    page
+      .getByRole("region", { name: "Cleanup summary" })
+      .getByRole("status")
+  ).toHaveText(
+    "2 sets included · 2 media items proposed for Trash · 2 sets left to review"
+  )
+  await expect(page.getByText("Verified identical", { exact: true })).toBeVisible()
+  await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review 2 more to continue/i })
+  ).toBeDisabled()
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | { selectedGroupIds?: string[]; reviewedGroupIds?: string[] }
+        | undefined
+    })
+    .toMatchObject({
+      selectedGroupIds: ["exact-group", "similar-group"],
+      reviewedGroupIds: []
+    })
 
   await page
     .getByRole("button", { name: /Candidates & similar \(1\)/i })
@@ -510,7 +539,10 @@ test("dispatch-authorization rejects account drift during deferred audit persist
       }
     })
 
-    await page.getByRole("button", { name: /^Move to Trash$/i }).last().click()
+    await page
+      .getByRole("button", { name: /^Move to Trash$/i })
+      .last()
+      .click()
     await expect
       .poll(() =>
         page.evaluate(
@@ -562,12 +594,13 @@ test("dispatch-authorization rejects account drift during deferred audit persist
     // a Trash result or issuing a destructive provider command.
     await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
-    const commands = await stub.evaluate(() =>
-      (
-        window as unknown as {
-          __gptkCommandLog?: Array<{ command: string }>
-        }
-      ).__gptkCommandLog || []
+    const commands = await stub.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __gptkCommandLog?: Array<{ command: string }>
+          }
+        ).__gptkCommandLog || []
     )
     expect(commands.length).toBeGreaterThan(0)
     expect(commands.map((entry) => entry.command)).toContain("healthCheck")
@@ -642,7 +675,10 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
       }
     })
 
-    await page.getByRole("button", { name: /^Move to Trash$/i }).last().click()
+    await page
+      .getByRole("button", { name: /^Move to Trash$/i })
+      .last()
+      .click()
     await expect
       .poll(() =>
         page.evaluate(
@@ -681,12 +717,13 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
       )
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
-    const commands = await stub.evaluate(() =>
-      (
-        window as unknown as {
-          __gptkCommandLog?: Array<{ command: string }>
-        }
-      ).__gptkCommandLog || []
+    const commands = await stub.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __gptkCommandLog?: Array<{ command: string }>
+          }
+        ).__gptkCommandLog || []
     )
     expect(commands.length).toBeGreaterThan(0)
     expect(commands.map((entry) => entry.command)).toContain("healthCheck")
@@ -1024,12 +1061,151 @@ test("shows 'no duplicates found' when scan returns zero groups", async () => {
   const page = await openAppTab(context, extensionId)
 
   await expect(
-    page.getByText("No duplicates found in your library.")
+    page.getByText("No duplicate sets found in this scan.")
   ).toBeVisible({ timeout: 5000 })
-  await expect(page.getByText(/use Full scan/i)).toBeVisible()
+  await expect(page.getByText(/try Full scan/i)).toBeVisible()
 
   await page.close()
   await clearStorage(context)
+})
+
+test("a delayed identity restore released after scan completion cannot replace its results", async () => {
+  await clearStorage(context)
+  const savedReview = makeGroups(1, 2)
+  await injectScanResults(
+    context,
+    savedReview.groups,
+    savedReview.mediaItems,
+    Object.keys(savedReview.mediaItems).length
+  )
+  await context.addInitScript(() => {
+    if (
+      !location.pathname.endsWith("/tabs/app.html") ||
+      !location.search.includes("delay-review-restore")
+    ) {
+      return
+    }
+    const storage = chrome.storage.local
+    const originalGet = storage.get.bind(storage)
+    let reviewRestoreReads = 0
+    ;(
+      window as unknown as {
+        __gpdReviewRestoreReads?: number
+        __gpdReviewRestorePaused?: boolean
+        __gpdReleaseReviewRestore?: (() => void) | null
+      }
+    ).__gpdReleaseReviewRestore = null
+    storage.get = ((keys: string | string[] | null, callback?: (items: Record<string, unknown>) => void) => {
+      const isReviewRestoreRead =
+        Array.isArray(keys) &&
+        keys.includes("scanResults") &&
+        keys.includes("scanCheckpoint")
+      if (isReviewRestoreRead) reviewRestoreReads += 1
+      return originalGet(keys, (items) => {
+        if (isReviewRestoreRead && reviewRestoreReads === 2 && callback) {
+          const globals = window as unknown as {
+            __gpdReviewRestoreReads?: number
+            __gpdReviewRestorePaused?: boolean
+            __gpdReleaseReviewRestore?: (() => void) | null
+          }
+          globals.__gpdReviewRestoreReads = reviewRestoreReads
+          globals.__gpdReviewRestorePaused = true
+          globals.__gpdReleaseReviewRestore = () => callback(items)
+          return
+        }
+        const globals = window as unknown as {
+          __gpdReviewRestoreReads?: number
+        }
+        globals.__gpdReviewRestoreReads = reviewRestoreReads
+        callback?.(items)
+      })
+    }) as typeof storage.get
+  })
+
+  const stub = await openGptkStubPage(context)
+  await stub.evaluate(() => {
+    ;(
+      window as unknown as {
+        __gptkOverrides: Record<string, unknown>
+      }
+    ).__gptkOverrides.getAllMediaItems = { data: [], delayMs: 700 }
+  })
+  const page = await context.newPage()
+  await page.goto(
+    `chrome-extension://${extensionId}/tabs/app.html?delay-review-restore`
+  )
+
+  try {
+    await expect(page.getByText("Signed in as test@example.com")).toBeVisible({
+      timeout: 8_000
+    })
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __gpdReviewRestorePaused?: boolean
+              }
+            ).__gpdReviewRestorePaused === true
+        )
+      )
+      .toBe(true)
+
+    await page
+      .getByRole("button", {
+        name: /^(Scan recent 30 days|Check entire library(?: instead)?)$/i
+      })
+      .first()
+      .click()
+    await expect
+      .poll(() =>
+        stub.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __gptkCommandLog?: Array<{ command: string }>
+              }
+            ).__gptkCommandLog?.some(
+              (entry) => entry.command === "getAllMediaItems"
+            ) ?? false
+        )
+      )
+      .toBe(true)
+
+    await expect(
+      page.getByText("No duplicate sets found in this scan.")
+    ).toBeVisible({ timeout: 10_000 })
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gpdReleaseReviewRestore?: (() => void) | null
+        }
+      ).__gpdReleaseReviewRestore?.()
+    })
+    await expect(
+      page.getByRole("heading", {
+        name: "1 Duplicate Set to Review",
+        exact: true
+      })
+    ).not.toBeVisible()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __gpdReviewRestoreReads?: number
+              }
+            ).__gpdReviewRestoreReads
+        )
+      )
+      .toBe(2)
+  } finally {
+    await page.close()
+    await stub.close()
+    await clearStorage(context)
+  }
 })
 
 test("migrates untouched old smart defaults to full scan", async () => {
@@ -1112,9 +1288,7 @@ test("opens feedback from settings with the support inbox prefilled", async () =
     await page.getByRole("button", { name: /Help & feedback/i }).click()
 
     await expect(
-      page.getByText(
-        "Opens a new email addressed to pawsitivegames@gmail.com."
-      )
+      page.getByText("Opens a new email addressed to pawsitivegames@gmail.com.")
     ).toBeVisible()
     await expect(
       page.getByRole("link", { name: "Send feedback" })
@@ -1215,13 +1389,7 @@ test("clears resumable checkpoint when a different Google account is detected", 
     page.getByRole("button", { name: /Continue previous scan/i })
   ).not.toBeVisible()
 
-  const sw = context.serviceWorkers()[0]
-  const stored = await sw.evaluate(
-    () =>
-      new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.local.get("scanCheckpoint", resolve)
-      })
-  )
+  const stored = await readLocalStorage(context, ["scanCheckpoint"])
   expect(stored.scanCheckpoint).toBeUndefined()
 
   await page.close()
@@ -1257,9 +1425,9 @@ test("resumes duplicate detection from a checkpointed media list without refetch
     timeout: 5000
   })
   await page.getByRole("button", { name: /Continue previous scan/i }).click()
-  await expect(page.getByText(/No duplicates found/i)).toBeVisible({
-    timeout: 10_000
-  })
+  await expect(
+    page.getByText("No duplicate sets found in this scan.")
+  ).toBeVisible({ timeout: 10_000 })
   await expect(
     page.getByText("How was your PhotoSweep cleanup?")
   ).not.toBeVisible()
@@ -1298,6 +1466,20 @@ test("loads albums and allows choosing an album scan scope", async () => {
   await expect(page.getByText(/2 albums available/i)).toBeVisible({
     timeout: 5000
   })
+  const albumRequest = await gpPage.evaluate(() => {
+    const commands =
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{
+            command: string
+            args?: Record<string, unknown>
+          }>
+        }
+      ).__gptkCommandLog || []
+    return commands.find((entry) => entry.command === "listAlbums")
+  })
+  expect(albumRequest?.args).toMatchObject({ accountEmail: "test@example.com" })
+  expect(albumRequest?.args?.providerSessionId).toEqual(expect.any(String))
   await page.getByRole("combobox", { name: /Library area/i }).click()
   await page.getByRole("option", { name: /Tiny test album/i }).click()
 
@@ -1309,6 +1491,124 @@ test("loads albums and allows choosing an album scan scope", async () => {
   await page.close()
   await gpPage.close()
   await clearStorage(context)
+})
+
+test("drops a delayed Google album response after the same account gets a new page session", async () => {
+  await clearStorage(context)
+  const firstSession = "google-page-session-first"
+  const nextSession = "google-page-session-next"
+  const gpPage = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "same@example.com",
+        providerSessionId: firstSession
+      }
+    },
+    listAlbums: {
+      sequence: [
+        {
+          data: [
+            {
+              mediaKey: "old-page-album",
+              title: "Old page album",
+              isShared: false
+            }
+          ],
+          delayMs: 1_200
+        },
+        {
+          data: [
+            {
+              mediaKey: "new-page-album",
+              title: "New page album",
+              isShared: false
+            }
+          ]
+        }
+      ]
+    }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(page.getByText("Signed in as same@example.com")).toBeVisible({
+      timeout: 8_000
+    })
+    await expect
+      .poll(() =>
+        gpPage.evaluate(
+          () =>
+            (
+              window as unknown as {
+                __gptkCommandLog?: Array<{ command: string }>
+              }
+            ).__gptkCommandLog?.filter(
+              (entry) => entry.command === "listAlbums"
+            ).length ?? 0
+        )
+      )
+      .toBe(1)
+
+    await gpPage.evaluate((sessionId) => {
+      ;(
+        window as unknown as {
+          __gptkOverrides: Record<string, unknown>
+        }
+      ).__gptkOverrides.healthCheck = {
+        data: {
+          hasGptk: true,
+          hasWizData: true,
+          accountEmail: "same@example.com",
+          providerSessionId: sessionId
+        }
+      }
+    }, nextSession)
+    await page.evaluate(() => {
+      chrome.runtime.sendMessage({
+        app: "GPD",
+        action: "healthCheck",
+        provider: "google"
+      })
+    })
+
+    await expect
+      .poll(() =>
+        gpPage.evaluate(() => {
+          const requests =
+            (
+              window as unknown as {
+                __gptkCommandLog?: Array<{
+                  command: string
+                  args?: Record<string, unknown>
+                }>
+              }
+            ).__gptkCommandLog?.filter(
+              (entry) => entry.command === "listAlbums"
+            ) || []
+          return requests[1]?.args?.providerSessionId
+        })
+      )
+      .toBe(nextSession)
+
+    await page.getByRole("button", { name: /Advanced matching/i }).click()
+    await page.getByRole("combobox", { name: /Library area/i }).click()
+    await expect(
+      page.getByRole("option", { name: "New page album" })
+    ).toBeVisible({ timeout: 5_000 })
+    await page.waitForTimeout(1_300)
+    await expect(
+      page.getByRole("option", { name: "Old page album" })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("option", { name: "New page album" })
+    ).toBeVisible()
+  } finally {
+    await page.close()
+    await gpPage.close()
+    await clearStorage(context)
+  }
 })
 
 // ============================================================
@@ -1420,6 +1720,7 @@ test("persists group selections through page reload", async () => {
   )
   await injectSelections(context, ["g1", "g3"], {})
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await expect(
     page.getByRole("heading", {
@@ -1435,6 +1736,17 @@ test("persists group selections through page reload", async () => {
   await expect(checkboxes.nth(1)).not.toBeChecked() // g2 deselected
   await expect(checkboxes.nth(2)).toBeChecked() // g3 selected
 
+  await checkboxes.nth(1).check()
+  await expect(checkboxes.nth(1)).toBeChecked()
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return (
+        stored.selections as { selectedGroupIds?: string[] } | undefined
+      )?.selectedGroupIds
+    })
+    .toEqual(["g1", "g3", "g2"])
+
   await page.reload()
   await expect(
     page.getByRole("heading", {
@@ -1445,10 +1757,18 @@ test("persists group selections through page reload", async () => {
     timeout: 5000
   })
   await expect(checkboxes.nth(0)).toBeChecked()
-  await expect(checkboxes.nth(1)).not.toBeChecked()
+  await expect(checkboxes.nth(1)).toBeChecked()
   await expect(checkboxes.nth(2)).toBeChecked()
+  await expect(
+    page.getByText("3 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review & move 3 to Trash/i })
+  ).toBeVisible()
 
   await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
   await clearStorage(context)
 })
 
@@ -1503,16 +1823,11 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
     timeout: 8_000
   })
 
-  const sw = context.serviceWorkers()[0]
-  const stored = await sw.evaluate(
-    () =>
-      new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.local.get(
-          ["scanResults", "selections", "scanCheckpoint"],
-          resolve
-        )
-      })
-  )
+  const stored = await readLocalStorage(context, [
+    "scanResults",
+    "selections",
+    "scanCheckpoint"
+  ])
   expect(stored.scanResults).toBeUndefined()
   expect(stored.selections).toBeUndefined()
   expect(stored.scanCheckpoint).toBeUndefined()
@@ -1625,7 +1940,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
 
   await expect(
     page.getByRole("button", {
-      name: /Keep key1\.jpg \(currently kept; click to move to Trash\)/
+      name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
     })
   ).toHaveAttribute("aria-pressed", "true")
 
@@ -1635,31 +1950,1223 @@ test("applies an automatic keep strategy and preserves it after reload", async (
     .click()
   await page.getByRole("menuitem", { name: "Largest resolution" }).click()
 
-  await expect(
-    page.getByTestId("keep-decision-g1")
-  ).toHaveText("Suggested keep: Largest resolution")
+  await expect(page.getByTestId("keep-decision-g1")).toHaveText(
+    "Suggested keep: Largest resolution"
+  )
   await expect(
     page.getByRole("button", {
-      name: /Keep key2\.jpg \(currently kept; click to move to Trash\)/
+      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
     })
   ).toHaveAttribute("aria-pressed", "true")
   await expect(
     page.getByRole("button", {
-      name: /Keep key1\.jpg \(currently moves to Trash; click to keep\)/
+      name: /Keep key1\.jpg \(currently moves to Trash; favorite status unknown; click to keep\)/
     })
   ).toHaveAttribute("aria-pressed", "false")
 
   await page.reload()
+  await expect(page.getByTestId("keep-decision-g1")).toHaveText(
+    "Suggested keep: Largest resolution"
+  )
   await expect(
-    page.getByTestId("keep-decision-g1")
-  ).toHaveText("Suggested keep: Largest resolution")
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await page.close()
+  await clearStorage(context)
+})
+
+test("applies all six keep strategies through the app toolbar", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: true,
+        resWidth: 100,
+        resHeight: 100,
+        timestamp: 200,
+        timestampProvenance: "capture",
+        creationTimestamp: 200,
+        creationTimestampProvenance: "creation",
+        takesUpSpace: true,
+        fileName: "key1.jpg"
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: false,
+        resWidth: 400,
+        resHeight: 400,
+        timestamp: 100,
+        timestampProvenance: "capture",
+        creationTimestamp: 100,
+        creationTimestampProvenance: "creation",
+        takesUpSpace: false,
+        fileName: "key2.jpg"
+      }
+    },
+    2
+  )
+
+  // Saved account-scoped results are intentionally held until the provider
+  // identity is known. This intercepted stub supplies that identity without
+  // contacting Google Photos.
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+
+  const strategies = [
+    { label: "Largest resolution", keptKey: "key2" },
+    { label: "Newest taken date", keptKey: "key1" },
+    { label: "Oldest taken date", keptKey: "key2" },
+    { label: "Newest upload date", keptKey: "key1" },
+    { label: "Non-storage-counting", keptKey: "key2" },
+    { label: "Best quality", keptKey: "key1" }
+  ] as const
+  const initialProviderCommands = await stub.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.length ?? 0
+  )
+
+  for (const strategy of strategies) {
+    await page
+      .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+      .first()
+      .click()
+    await page.getByRole("menuitem", { name: strategy.label }).click()
+
+    await expect(
+      page.getByRole("status").filter({
+        hasText: `${strategy.label} was applied and saved as the default: 1 set changed`
+      })
+    ).toContainText(
+      "1 set included for cleanup review; 1 media item proposed for Trash"
+    )
+    await expect(
+      page
+        .getByRole("region", { name: "Cleanup summary" })
+        .getByRole("status")
+    ).toHaveText(
+      "1 set included · 1 media item proposed for Trash · 1 set left to review"
+    )
+    await expect(page.getByRole("checkbox", { name: /Include duplicate set/ })).toHaveAttribute(
+      "aria-checked",
+      "true"
+    )
+    await expect(
+      page.getByRole("button", {
+        name: /Keep key1\.jpg /
+      })
+    ).toHaveAttribute(
+      "aria-pressed",
+      strategy.keptKey === "key1" ? "true" : "false"
+    )
+    await expect(
+      page.getByRole("button", {
+        name: /Keep key2\.jpg /
+      })
+    ).toHaveAttribute(
+      "aria-pressed",
+      strategy.keptKey === "key2" ? "true" : "false"
+    )
+    const trashTarget =
+      strategy.keptKey === "key1"
+        ? page.getByRole("button", {
+            name: /Keep key2\.jpg \(currently moves to Trash/
+          })
+        : page.getByRole("button", {
+            name: /Keep key1\.jpg \(currently moves to Trash/
+          })
+    await expect(trashTarget).toHaveAttribute("aria-pressed", "false")
+    await expect(
+      page.getByRole("button", { name: /Review 1 more to continue/i })
+    ).toBeDisabled()
+    await expect(
+      page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    ).not.toBeVisible()
+  }
+
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | {
+            keptOverrides?: Record<string, string[]>
+            keepDecisionProvenance?: Record<
+              string,
+              { source: string; strategy?: string }
+            >
+            selectedGroupIds?: string[]
+            reviewedGroupIds?: string[]
+          }
+        | undefined
+    })
+    .toMatchObject({
+      keptOverrides: { g1: ["key1"] },
+      keepDecisionProvenance: {
+        g1: { source: "automatic", strategy: "best_quality" }
+      },
+      selectedGroupIds: ["g1"],
+      reviewedGroupIds: []
+    })
+
+  await page.reload()
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5_000 })
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "1 set included · 1 media item proposed for Trash · 1 set left to review"
+  )
+  await expect(
+    page.getByRole("button", { name: /Review 1 more to continue/i })
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently moves to Trash; favorite status unknown/
+    })
+  ).toHaveAttribute("aria-pressed", "false")
+
+  const newProviderCommands = await stub.evaluate(
+    (initialCount) =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.slice(initialCount) ?? [],
+    initialProviderCommands
+  )
+  expect(
+    newProviderCommands.map((entry) => entry.command).filter((command) =>
+      /trash|delete|remove/i.test(command)
+    )
+  ).toEqual([])
+
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
+test("applies Best quality independently across two completed duplicate sets", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "quality-set-a",
+        mediaKeys: ["quality-a-best", "quality-a-high-resolution"],
+        originalMediaKey: "quality-a-high-resolution",
+        similarity: 0.99
+      },
+      {
+        id: "quality-set-b",
+        mediaKeys: ["quality-b-high-resolution", "quality-b-best"],
+        originalMediaKey: "quality-b-high-resolution",
+        similarity: 0.98
+      }
+    ],
+    {
+      "quality-a-best": {
+        ...BASE_MEDIA_ITEMS.key1,
+        mediaKey: "quality-a-best",
+        dedupKey: "quality-a-best",
+        isOriginalQuality: true,
+        resWidth: 100,
+        resHeight: 100,
+        fileName: "quality-a-best.jpg"
+      },
+      "quality-a-high-resolution": {
+        ...BASE_MEDIA_ITEMS.key2,
+        mediaKey: "quality-a-high-resolution",
+        dedupKey: "quality-a-high-resolution",
+        isOriginalQuality: false,
+        resWidth: 4000,
+        resHeight: 3000,
+        fileName: "quality-a-high-resolution.jpg"
+      },
+      "quality-b-high-resolution": {
+        ...BASE_MEDIA_ITEMS.key3,
+        mediaKey: "quality-b-high-resolution",
+        dedupKey: "quality-b-high-resolution",
+        isOriginalQuality: false,
+        resWidth: 5000,
+        resHeight: 4000,
+        fileName: "quality-b-high-resolution.jpg"
+      },
+      "quality-b-best": {
+        ...BASE_MEDIA_ITEMS.key4,
+        mediaKey: "quality-b-best",
+        dedupKey: "quality-b-best",
+        isOriginalQuality: true,
+        resWidth: 200,
+        resHeight: 150,
+        fileName: "quality-b-best.jpg"
+      }
+    },
+    4
+  )
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "2 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+  const initialProviderCommands = await stub.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.length ?? 0
+  )
+
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Best quality" }).click()
+
+  await expect(page.getByTestId("keep-decision-quality-set-a")).toHaveText(
+    "Suggested keep: Best quality"
+  )
+  await expect(page.getByTestId("keep-decision-quality-set-b")).toHaveText(
+    "Suggested keep: Best quality"
+  )
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "2 sets included · 2 media items proposed for Trash · 2 sets left to review"
+  )
+
+  const expectedKeeperStates = [
+    ["quality-a-best.jpg", true],
+    ["quality-a-high-resolution.jpg", false],
+    ["quality-b-high-resolution.jpg", false],
+    ["quality-b-best.jpg", true]
+  ] as const
+  for (const [fileName, isKept] of expectedKeeperStates) {
+    const filePattern = fileName.replaceAll(".", "\\.")
+    const itemButton = page.getByRole("button", {
+      name: new RegExp(`^Keep ${filePattern} \\(`)
+    })
+    await expect(itemButton).toHaveAttribute(
+      "aria-pressed",
+      isKept ? "true" : "false"
+    )
+    if (!isKept) {
+      await expect(itemButton).toHaveAttribute(
+        "aria-label",
+        /currently moves to Trash/
+      )
+    }
+  }
+
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | {
+            keptOverrides?: Record<string, string[]>
+            selectedGroupIds?: string[]
+          }
+        | undefined
+    })
+    .toMatchObject({
+      keptOverrides: {
+        "quality-set-a": ["quality-a-best"],
+        "quality-set-b": ["quality-b-best"]
+      },
+      selectedGroupIds: ["quality-set-a", "quality-set-b"]
+    })
+
+  await page.reload()
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "2 sets included · 2 media items proposed for Trash · 2 sets left to review"
+  )
+  for (const [fileName, isKept] of expectedKeeperStates) {
+    const filePattern = fileName.replaceAll(".", "\\.")
+    const itemButton = page.getByRole("button", {
+      name: new RegExp(`^Keep ${filePattern} \\(`)
+    })
+    await expect(itemButton).toHaveAttribute(
+      "aria-pressed",
+      isKept ? "true" : "false"
+    )
+    if (!isKept) {
+      await expect(itemButton).toHaveAttribute(
+        "aria-label",
+        /currently moves to Trash/
+      )
+    }
+  }
+
+  const newProviderCommands = await stub.evaluate(
+    (initialCount) =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.slice(initialCount) ?? [],
+    initialProviderCommands
+  )
+  expect(
+    newProviderCommands.map((entry) => entry.command).filter((command) =>
+      /trash|delete|remove/i.test(command)
+    )
+  ).toEqual([])
+
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
+test("uses a deterministic keeper and proposes non-keepers without dispatching Trash", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: null,
+        fileName: "key1.jpg"
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: null,
+        fileName: "key2.jpg"
+      }
+    },
+    2
+  )
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Best quality" }).click()
+
+  await expect(page.getByRole("status").filter({ hasText: "Best quality was applied" })).toContainText(
+    "0 sets changed"
+  )
+  await expect(page.getByRole("status")).toContainText(
+    "1 set resolved by deterministic tie-break"
+  )
+  await expect(page.getByRole("status").filter({ hasText: "Best quality was applied" })).toContainText(
+    "All sets are included for cleanup review"
+  )
+  await expect(page.getByTestId("keep-decision-g1")).toHaveText(
+    "Suggested keep: Best quality (deterministic tie-break)"
+  )
+  for (const [fileName, isKept] of [
+    ["key1.jpg", true],
+    ["key2.jpg", false]
+  ] as const) {
+    await expect(
+      page.getByRole("button", {
+        name: new RegExp(
+          isKept
+            ? `Keep ${fileName.replace(".", "\\.")} \\(currently kept; click to move to Trash\\)`
+            : `Keep ${fileName.replace(".", "\\.")} \\(click to keep\\)`
+        )
+      })
+    ).toHaveAttribute("aria-pressed", isKept ? "true" : "false")
+  }
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "1 set included · 1 media item proposed for Trash · 1 set left to review"
+  )
+
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | {
+            selectedGroupIds?: string[]
+            reviewedGroupIds?: string[]
+            keptOverrides?: Record<string, string[]>
+            keepDecisionProvenance?: Record<
+              string,
+              { source: string; strategy?: string }
+            >
+          }
+        | undefined
+    })
+    .toMatchObject({
+      selectedGroupIds: ["g1"],
+      reviewedGroupIds: [],
+      keptOverrides: { g1: ["key1"] },
+      keepDecisionProvenance: {
+        g1: { source: "automatic", strategy: "best_quality" }
+      }
+    })
+
+  await page.reload()
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "1 set included · 1 media item proposed for Trash · 1 set left to review"
+  )
+  const restoredSettings = await readLocalStorage(context, ["settings"])
+  expect(restoredSettings.settings).toMatchObject({
+    defaultKeepStrategy: "best_quality"
+  })
+  await expect(page.getByTestId("keep-decision-g1")).toHaveText(
+    "Suggested keep: Best quality (deterministic tie-break)"
+  )
+  for (const [fileName, isKept] of [
+    ["key1.jpg", true],
+    ["key2.jpg", false]
+  ] as const) {
+    await expect(
+      page.getByRole("button", {
+        name: new RegExp(
+          isKept
+            ? `Keep ${fileName.replace(".", "\\.")} \\(currently kept; click to move to Trash\\)`
+            : `Keep ${fileName.replace(".", "\\.")} \\(click to keep\\)`
+        )
+      })
+    ).toHaveAttribute("aria-pressed", isKept ? "true" : "false")
+  }
+  await expect(
+    page.getByRole("button", { name: /Review 1 more to continue/i })
+  ).toBeDisabled()
+
+  const commandsAfterStrategy = await stub.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog ?? []
+  )
+  expect(
+    commandsAfterStrategy.map((entry) => entry.command).filter((command) =>
+      /trash|delete|remove/i.test(command)
+    )
+  ).toEqual([])
+
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
+test("Auto Keep includes sets for review while Include all and Skip all remain explicit selection controls", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: true,
+        resWidth: 100,
+        resHeight: 100,
+        fileName: "key1.jpg"
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: false,
+        resWidth: 400,
+        resHeight: 400,
+        fileName: "key2.jpg"
+      }
+    },
+    2
+  )
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Largest resolution" }).click()
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByText("1 media item proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review 1 more to continue/i })
+  ).toBeDisabled()
+
+  await expect
+    .poll(() => readLocalStorage(context, ["settings", "selections"]))
+    .toMatchObject({
+      settings: { defaultKeepStrategy: "largest_resolution" },
+      selections: {
+        selectedGroupIds: ["g1"],
+        reviewedGroupIds: [],
+        keptOverrides: { g1: ["key2"] },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "largest_resolution" }
+        }
+      }
+    })
+
+  await page.getByRole("button", { name: /^Skip all$/i }).click()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /No media items proposed for Trash/i })
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: /^Include all$/i }).click()
+  await expect(
+    page.getByText("1 media item proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: /^Include all$/i }).click()
+  await expect(
+    page.getByText("1 media item proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+  ).toBeVisible()
+
+  await expect
+    .poll(async () => {
+      return readLocalStorage(context, ["settings", "selections"])
+    })
+    .toMatchObject({
+      settings: { defaultKeepStrategy: "largest_resolution" },
+      selections: {
+        selectedGroupIds: ["g1"],
+        reviewedGroupIds: ["g1"],
+        keptOverrides: { g1: ["key2"] },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "largest_resolution" }
+        }
+      }
+    })
+  await page.reload()
+  await expect(
+    page.getByText("1 media item proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "1 set included · 1 media item proposed for Trash"
+  )
+  await expect(
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+  ).toBeVisible()
+  await expect
+    .poll(() => readLocalStorage(context, ["settings", "selections"]))
+    .toMatchObject({
+      settings: { defaultKeepStrategy: "largest_resolution" },
+      selections: {
+        selectedGroupIds: ["g1"],
+        reviewedGroupIds: ["g1"],
+        keptOverrides: { g1: ["key2"] },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "largest_resolution" }
+        }
+      }
+    })
+  await expect(
+    page.getByRole("button", { name: /^Keep key2\.jpg\b/ })
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByRole("button", { name: /^Keep key1\.jpg\b/ })
+  ).toHaveAttribute("aria-pressed", "false")
+  await expect(
+    page.getByRole("button", {
+      name: /^Keep key1\.jpg \(currently moves to Trash/
+    })
+  ).toHaveAttribute("aria-pressed", "false")
+
+  await page.getByRole("button", { name: /^Skip all$/i }).click()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+  ).not.toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: /^Keep key2\.jpg\b/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await expect
+    .poll(async () => {
+      return readLocalStorage(context, ["settings", "selections"])
+    })
+    .toMatchObject({
+      settings: { defaultKeepStrategy: "largest_resolution" },
+      selections: {
+        selectedGroupIds: [],
+        reviewedGroupIds: ["g1"],
+        keptOverrides: { g1: ["key2"] },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "largest_resolution" }
+        }
+      }
+    })
+  await page.reload()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+  ).not.toBeVisible()
+  await expect
+    .poll(() => readLocalStorage(context, ["settings", "selections"]))
+    .toMatchObject({
+      settings: { defaultKeepStrategy: "largest_resolution" },
+      selections: {
+        selectedGroupIds: [],
+        reviewedGroupIds: ["g1"],
+        keptOverrides: { g1: ["key2"] },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "largest_resolution" }
+        }
+      }
+    })
+  await expect(
+    page.getByRole("button", {
+      name: /^Keep key2\.jpg\b/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  const trashCommands = await stub.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.filter((entry) => /trash|delete|remove/i.test(entry.command)) ?? []
+  )
+  expect(trashCommands).toEqual([])
+
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
+test("per-photo Keep and per-set Skip update the visible review state", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: true,
+        resWidth: 100,
+        resHeight: 100,
+        fileName: "key1.jpg"
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: false,
+        resWidth: 400,
+        resHeight: 400,
+        fileName: "key2.jpg"
+      }
+    },
+    2
+  )
+  await injectSelections(context, ["g1"])
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+  await page
+    .getByRole("button", {
+      name: /Keep key2\.jpg \(currently moves to Trash; favorite status unknown; click to keep\)/
+    })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently kept; click to move to Trash\)/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
   await expect(
     page.getByRole("button", {
       name: /Keep key2\.jpg \(currently kept; click to move to Trash\)/
     })
   ).toHaveAttribute("aria-pressed", "true")
 
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return (
+        stored.selections as {
+          keptOverrides?: Record<string, string[]>
+          selectedGroupIds?: string[]
+        } | undefined
+      )
+    })
+    .toMatchObject({
+      keptOverrides: { g1: ["key1", "key2"] },
+      selectedGroupIds: ["g1"]
+    })
+
+  await page.reload()
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+  for (const fileName of ["key1.jpg", "key2.jpg"]) {
+    await expect(
+      page.getByRole("button", {
+        name: new RegExp(
+          `Keep ${fileName.replace(".", "\\.")} \\(currently kept; click to move to Trash\\)`
+        )
+      })
+    ).toHaveAttribute("aria-pressed", "true")
+  }
+  await page
+    .getByRole("button", {
+      name: /Keep key1\.jpg \(currently kept; click to move to Trash\)/
+    })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently moves to Trash; favorite status unknown; click to keep\)/
+    })
+  ).toHaveAttribute("aria-pressed", "false")
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await page.getByRole("button", { name: "Skip this set" }).click()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+  ).not.toBeVisible()
+
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return (
+        stored.selections as {
+          keptOverrides?: Record<string, string[]>
+          selectedGroupIds?: string[]
+        } | undefined
+      )
+    })
+    .toMatchObject({
+      keptOverrides: { g1: ["key2"] },
+      selectedGroupIds: []
+    })
+  await page.reload()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently moves to Trash; favorite status unknown/
+    })
+  ).toHaveAttribute("aria-pressed", "false")
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
   await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
+test("bulk Auto Keep reopens a per-set skipped group for review without dispatching Trash", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: true,
+        resWidth: 100,
+        resHeight: 100,
+        fileName: "key1.jpg"
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: false,
+        resWidth: 400,
+        resHeight: 400,
+        fileName: "key2.jpg"
+      }
+    },
+    2
+  )
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+
+  await page.getByRole("button", { name: "Skip this set" }).click()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | { selectedGroupIds?: string[]; reviewedGroupIds?: string[] }
+        | undefined
+    })
+    .toMatchObject({ selectedGroupIds: [], reviewedGroupIds: ["g1"] })
+
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Best quality" }).click()
+
+  await expect(
+    page.getByRole("status").filter({
+      hasText: "Best quality was applied and saved as the default"
+    })
+  ).toContainText("All sets are included for cleanup review")
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "1 set included · 1 media item proposed for Trash · 1 set left to review"
+  )
+  await expect(
+    page.getByRole("button", { name: /Review 1 more to continue/i })
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", {
+      name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
+    })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | {
+            selectedGroupIds?: string[]
+            reviewedGroupIds?: string[]
+            keptOverrides?: Record<string, string[]>
+          }
+        | undefined
+    })
+    .toMatchObject({
+      selectedGroupIds: ["g1"],
+      reviewedGroupIds: [],
+      keptOverrides: { g1: ["key1"] }
+    })
+
+  await page.reload()
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "1 set included · 1 media item proposed for Trash · 1 set left to review"
+  )
+  await expect(
+    page.getByRole("button", { name: /Review 1 more to continue/i })
+  ).toBeDisabled()
+
+  const trashCommands = await stub.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.filter((entry) => /trash|delete|remove/i.test(entry.command)) ?? []
+  )
+  expect(trashCommands).toEqual([])
+
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
+test("bulk Auto Keep replaces manual overrides and reopens their skipped sets", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "manual-keeper-group",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      },
+      {
+        id: "manual-trash-all-group",
+        mediaKeys: ["key3", "key4"],
+        originalMediaKey: "key3",
+        similarity: 0.99
+      }
+    ],
+    {
+      key1: {
+        ...BASE_MEDIA_ITEMS.key1,
+        isOriginalQuality: true,
+        resWidth: 400,
+        resHeight: 400
+      },
+      key2: {
+        ...BASE_MEDIA_ITEMS.key2,
+        isOriginalQuality: false,
+        resWidth: 100,
+        resHeight: 100
+      },
+      key3: BASE_MEDIA_ITEMS.key3,
+      key4: BASE_MEDIA_ITEMS.key4
+    },
+    4
+  )
+
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByTestId("keep-decision-manual-keeper-group")
+  ).toBeVisible({ timeout: 8_000 })
+  await expect(
+    page.getByTestId("keep-decision-manual-trash-all-group")
+  ).toBeVisible()
+
+  const manualKeeperSet = page
+    .getByTestId("keep-decision-manual-keeper-group")
+    .locator("xpath=ancestor::div[contains(@class,'MuiPaper-root')][1]")
+  const manualTrashAllSet = page
+    .getByTestId("keep-decision-manual-trash-all-group")
+    .locator("xpath=ancestor::div[contains(@class,'MuiPaper-root')][1]")
+  await manualKeeperSet
+    .getByRole("button", { name: /Keep photo2\.jpg/i })
+    .click()
+  await manualKeeperSet
+    .getByRole("button", { name: /Keep photo1\.jpg/i })
+    .click()
+  await manualTrashAllSet
+    .getByRole("button", { name: /Mark all copies for Trash/i })
+    .click()
+  const skipButton = manualKeeperSet.getByRole("button", {
+    name: "Skip this set"
+  })
+  await skipButton.scrollIntoViewIfNeeded()
+  await expect
+    .poll(() =>
+      skipButton.evaluate((button) => {
+        const bounds = button.getBoundingClientRect()
+        const row = button.closest('div[style*="top"]')
+        const rowBounds = row?.getBoundingClientRect()
+        const hit = document.elementFromPoint(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2
+        )
+        return Boolean(
+          rowBounds &&
+            bounds.bottom <= rowBounds.bottom + 1 &&
+            (hit === button || button.contains(hit))
+        )
+      })
+    )
+    .toBe(true)
+  await skipButton.click()
+  await manualTrashAllSet
+    .getByRole("button", { name: "Skip this set" })
+    .click()
+
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText("0 sets included · 0 media items proposed for Trash")
+  await page
+    .getByRole("button", { name: /^(Auto Keep|Selection)$/i })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Best quality" }).click()
+
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Best quality was applied and saved as the default" })
+  ).toContainText("2 manual choices replaced")
+
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "2 sets included · 2 media items proposed for Trash · 2 sets left to review"
+  )
+  await expect(
+    page.getByRole("button", { name: /Review 2 more to continue/i })
+  ).toBeDisabled()
+  await expect(
+    manualKeeperSet.getByRole("button", { name: /Keep photo1\.jpg \(currently kept/i })
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    manualKeeperSet.getByRole("button", { name: /Keep photo2\.jpg \(currently moves to Trash/i })
+  ).toHaveAttribute("aria-pressed", "false")
+  await expect(
+    manualTrashAllSet.getByRole("button", { name: /Keep photo3\.jpg \(currently kept/i })
+  ).toHaveAttribute("aria-pressed", "true")
+
+  await expect
+    .poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections as
+        | {
+            selectedGroupIds?: string[]
+      reviewedGroupIds?: string[]
+      keptOverrides?: Record<string, string[]>
+      keepDecisionProvenance?: Record<string, { source: string; strategy?: string }>
+          }
+        | undefined
+    })
+    .toMatchObject({
+      selectedGroupIds: ["manual-keeper-group", "manual-trash-all-group"],
+      reviewedGroupIds: [],
+      keptOverrides: {
+        "manual-keeper-group": ["key1"],
+        "manual-trash-all-group": ["key3"]
+      },
+      keepDecisionProvenance: {
+        "manual-keeper-group": { source: "automatic", strategy: "best_quality" },
+        "manual-trash-all-group": { source: "automatic", strategy: "best_quality" }
+      }
+    })
+
+  await page.reload()
+  await expect(
+    page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
+  ).toHaveText(
+    "2 sets included · 2 media items proposed for Trash · 2 sets left to review"
+  )
+  await expect(
+    page.getByRole("button", { name: /Review 2 more to continue/i })
+  ).toBeDisabled()
+
+  const trashCommands = await stub.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __gptkCommandLog?: Array<{ command: string }>
+        }
+      ).__gptkCommandLog?.filter((entry) => /trash|delete|remove/i.test(entry.command)) ?? []
+  )
+  expect(trashCommands).toEqual([])
+
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
   await clearStorage(context)
 })
 
@@ -1703,14 +3210,9 @@ test("persists trash-all copy choices through page reload", async () => {
   const sw = context.serviceWorkers()[0]
   await expect
     .poll(async () => {
-      const stored = await sw.evaluate(
-        () =>
-          new Promise<{
-            selections?: { keptOverrides?: Record<string, string[]> }
-          }>((resolve) => {
-            chrome.storage.local.get("selections", resolve)
-          })
-      )
+      const stored = await readLocalStorage(context, ["selections"]) as {
+        selections?: { keptOverrides?: Record<string, string[]> }
+      }
       return stored.selections?.keptOverrides?.g1
     })
     .toEqual([])
@@ -1765,7 +3267,7 @@ test("keeps all current copies when every saved keeper key is stale", async () =
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /No duplicates selected/i })
+    page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeVisible()
   await expect(page.locator(".MuiCard-root").nth(0)).not.toContainText(
     "Moves to Trash"
@@ -1777,14 +3279,9 @@ test("keeps all current copies when every saved keeper key is stale", async () =
   const sw = context.serviceWorkers()[0]
   await expect
     .poll(async () => {
-      const stored = await sw.evaluate(
-        () =>
-          new Promise<{
-            selections?: { keptOverrides?: Record<string, string[]> }
-          }>((resolve) => {
-            chrome.storage.local.get("selections", resolve)
-          })
-      )
+      const stored = await readLocalStorage(context, ["selections"]) as {
+        selections?: { keptOverrides?: Record<string, string[]> }
+      }
       return stored.selections?.keptOverrides?.g1 ?? []
     })
     .toEqual(["key1", "key2"])
@@ -1813,17 +3310,19 @@ test("shows the conservative keep-all decision in the compact scanner panel", as
   )
 
   const page = await context.newPage()
-  await page.goto(
-    `chrome-extension://${extensionId}/tabs/scanner-panel.html`
-  )
+  await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
   await expect(
     page.getByText("No confident recommendation — keeping all copies", {
       exact: true
     })
   ).toBeVisible({ timeout: 5000 })
-  await expect(page.getByText("Moves to Trash", { exact: true })).not.toBeVisible()
   await expect(
-    page.getByRole("button", { name: /currently kept; click to move to Trash/i })
+    page.getByText("Moves to Trash", { exact: true })
+  ).not.toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: /currently kept; click to move to Trash/i
+    })
   ).toHaveCount(2)
 
   await page.close()
@@ -1847,12 +3346,13 @@ test("ignores malformed saved selections without crashing on load", async () => 
   )
 
   const sw = context.serviceWorkers()[0]
+  const selectionStorageKey = providerReviewStorageKey("google", "selections")
   await sw.evaluate(
-    () =>
+    (selectionStorageKey) =>
       new Promise<void>((resolve) => {
         chrome.storage.local.set(
           {
-            selections: {
+            [selectionStorageKey]: {
               selectedGroupIds: "g1",
               keptOverrides: {
                 g1: "key2",
@@ -1862,7 +3362,8 @@ test("ignores malformed saved selections without crashing on load", async () => 
           },
           resolve
         )
-      })
+      }),
+    selectionStorageKey
   )
 
   const page = await openAppTab(context, extensionId)

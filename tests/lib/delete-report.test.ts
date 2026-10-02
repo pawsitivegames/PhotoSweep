@@ -3,14 +3,22 @@ import { describe, expect, it } from "vitest"
 import { buildDeleteReport } from "../../lib/delete-report"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
 
-function makeItem(mediaKey: string): GpdMediaItem {
+function makeItem(
+  mediaKey: string,
+  provider: GpdMediaItem["provider"] = "google",
+  productUrl = `https://photos.google.com/photo/${mediaKey}`
+): GpdMediaItem {
   return {
     mediaKey,
     dedupKey: `dk-${mediaKey}`,
     thumb: `https://example.com/${mediaKey}`,
-    productUrl: `https://photos.google.com/photo/${mediaKey}`,
+    productUrl,
+    provider,
     timestamp: 0,
+    timestampProvenance: "capture",
     creationTimestamp: Date.parse("2024-06-02T12:00:00.000Z"),
+    creationTimestampProvenance: "creation",
+    mediaKind: "photo",
     resWidth: 1920,
     resHeight: 1080,
     fileName: `${mediaKey}.jpg`,
@@ -35,7 +43,14 @@ describe("delete report", () => {
       groups: [group],
       mediaItems: {
         keep: makeItem("keep"),
-        trash: makeItem("trash")
+        trash: {
+          ...makeItem("trash"),
+          favoriteStatus: "unknown",
+          favoriteSource: "unavailable",
+          // This stale legacy negative must not overwrite the explicit
+          // unknown that the shared normalizer sends to reports.
+          isFavorite: false
+        }
       },
       selectedGroupIds: new Set(["group-1"]),
       getKept: () => new Set(["keep"]),
@@ -63,8 +78,46 @@ describe("delete report", () => {
     ).toMatchObject({
       action: "trash",
       reason: "Selected non-keep item for trash",
+      favoriteStatus: "unknown",
+      favoriteSource: "unavailable",
+      providerUrl: "https://photos.google.com/photo/trash",
       googlePhotosUrl: "https://photos.google.com/photo/trash"
     })
+  })
+
+  it("keeps provider item links in delete reports for iCloud and Amazon", () => {
+    const report = buildDeleteReport({
+      groups: [group],
+      mediaItems: {
+        keep: makeItem(
+          "keep",
+          "icloud",
+          "https://www.icloud.com/photos/#/photo/keep"
+        ),
+        trash: makeItem(
+          "trash",
+          "amazon",
+          "https://www.amazon.ca/photos/all/gallery/trash"
+        )
+      },
+      selectedGroupIds: new Set(["group-1"]),
+      getKept: () => new Set(["keep"]),
+      mediaKeysToTrash: ["trash"],
+      trashBatchSize: 25
+    })
+
+    expect(report.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mediaKey: "keep",
+          providerUrl: "https://www.icloud.com/photos/#/photo/keep"
+        }),
+        expect.objectContaining({
+          mediaKey: "trash",
+          providerUrl: "https://www.amazon.ca/photos/all/gallery/trash"
+        })
+      ])
+    )
   })
 
   it("ignores unselected groups and selected groups with no trash candidates", () => {

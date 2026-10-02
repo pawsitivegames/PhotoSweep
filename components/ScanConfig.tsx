@@ -27,7 +27,6 @@ import {
   getEffectivePlanId,
   getEstimatedScanCount,
   getScanGate,
-  isFreeIcloudPlan,
   PLAN_LABELS,
   scanSettingsForEntitlement,
   type Entitlement
@@ -36,7 +35,8 @@ import { FEEDBACK_EMAIL, FEEDBACK_MAILTO_URL } from "../lib/feedback"
 import {
   getProviderOperations,
   providerBatchLimit,
-  providerLabel
+  providerLabel,
+  providerLivePhotoPairNotice
 } from "../lib/provider-operations"
 import type { ScanCheckpoint } from "../lib/scan-checkpoint"
 import {
@@ -80,12 +80,12 @@ export function recommendedFirstScanDateRange(
 
 function providerHelpText(provider: ScanSettings["sourceProvider"]): string {
   if (provider === "icloud") {
-    return "Scan iCloud Photos through the signed-in web session. Free users can review scoped Smart scans; paid plans can use test batches before moving items to Recently Deleted."
+    return "Scan the iCloud Photos library, a personal album, or a date range. Album scans use the personal PrimarySync library; shared libraries are not queried. CloudKit scans cover photos and videos and fail closed when a complete provider session is unavailable. Trash moves selected library items to Recently Deleted."
   }
   if (provider === "amazon") {
-    return "Scan Amazon Photos through the signed-in web session. Free and paid limits match the Google Photos workflow."
+    return "Scan the Amazon Photos library, a personal album, or a date range. Shared albums and items owned by another account are excluded. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Amazon Photos Trash."
   }
-  return "Best for full duplicate cleanup. You can scan the whole timeline, an album, or a date range, then move duplicates to Google Photos trash."
+  return "Scan the Google Photos library, an album, or a date range. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Google Photos Trash."
 }
 
 function compactScopeLabel(provider: ScanSettings["sourceProvider"]): string {
@@ -95,9 +95,11 @@ function compactScopeLabel(provider: ScanSettings["sourceProvider"]): string {
 }
 
 function compactScopeHelp(provider: ScanSettings["sourceProvider"]): string {
-  if (provider === "icloud") return "Reads the connected iCloud Photos tab."
-  if (provider === "amazon") return "Reads the connected Amazon Photos tab."
-  return "Choose an album or scan the full timeline."
+  if (provider === "icloud")
+    return "Choose a personal album or scan the full library."
+  if (provider === "amazon")
+    return "Choose a personal album or scan the full library."
+  return "Select an album or timeline."
 }
 
 interface ScanConfigProps {
@@ -121,6 +123,7 @@ interface ScanConfigProps {
   onRefreshAlbums?: () => void
   entitlement?: Entitlement
   onUpgrade?: (detail?: string) => void
+  amazonProfileName?: string
   compact?: boolean
 }
 
@@ -145,18 +148,22 @@ export function ScanConfig({
   onRefreshAlbums,
   entitlement,
   onUpgrade,
+  amazonProfileName,
   compact = false
 }: ScanConfigProps) {
   const dateRangeInvalid = isDateRangeInvalid(settings)
-  const albumLabel = settings.albumScope?.title || settings.albumScope?.mediaKey
+  const personalAlbums = albums.filter((album) => album.isShared !== true)
+  const activeAlbumScope =
+    settings.albumScope?.isShared === true ? undefined : settings.albumScope
+  const albumLabel = activeAlbumScope?.title || activeAlbumScope?.mediaKey
   const sourceProvider = settings.sourceProvider ?? "google"
   const isIcloud = sourceProvider === "icloud"
   const isAmazon = sourceProvider === "amazon"
   const supportsAlbumScope =
-    getProviderOperations(sourceProvider).supportsAlbumScope
+    getProviderOperations(sourceProvider).capabilities.albumScope ===
+    "supported"
   const entitlementSettings = scanSettingsForEntitlement(settings, entitlement)
   const batchLimit = providerBatchLimit(entitlementSettings)
-  const freeIcloudPlan = isFreeIcloudPlan(settings, entitlement)
   const libraryAreaValueLabel = albumLabel || compactScopeLabel(sourceProvider)
   const hasScanScope = Boolean(
     settings.albumScope || settings.dateRange?.from || settings.dateRange?.to
@@ -206,6 +213,76 @@ export function ScanConfig({
     )
   }
 
+  const dateRangeSummary = settings.dateRange?.from || settings.dateRange?.to
+    ? `${settings.dateRange.from ?? "Any date"} → ${settings.dateRange.to ?? "Any date"}`
+    : "Optional"
+  const dateRangeControls = (
+    <>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: "block", mb: 1 }}>
+        {isIcloud
+          ? "iCloud date filters use provider asset dates. Capture provenance can be unknown, and dates may fall back to upload time."
+          : "Filter by date. Leave empty to scan all dates."}
+      </Typography>
+      <Stack
+        direction={compact ? "row" : { xs: "column", sm: "row" }}
+        spacing={1}>
+        <TextField
+          label="From"
+          type="date"
+          size="small"
+          fullWidth
+          value={settings.dateRange?.from ?? ""}
+          InputLabelProps={{ shrink: true }}
+          onChange={(event) =>
+            onSettingsChange({
+              dateRange: {
+                ...settings.dateRange,
+                from: event.target.value || undefined
+              }
+            })
+          }
+        />
+        <TextField
+          label="To"
+          type="date"
+          size="small"
+          fullWidth
+          value={settings.dateRange?.to ?? ""}
+          InputLabelProps={{ shrink: true }}
+          onChange={(event) =>
+            onSettingsChange({
+              dateRange: {
+                ...settings.dateRange,
+                to: event.target.value || undefined
+              }
+            })
+          }
+        />
+      </Stack>
+      {(settings.dateRange?.from || settings.dateRange?.to) && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0.5 }}>
+          <Button
+            size="small"
+            onClick={() => onSettingsChange({ dateRange: undefined })}>
+            Clear dates
+          </Button>
+        </Box>
+      )}
+        {isIcloud && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 0.75 }}>
+          Full-library checks can use saved iCloud change data; date-range and
+          album scans read their full scope.
+          </Typography>
+        )}
+    </>
+  )
+
   return (
     <Box
       sx={{
@@ -215,7 +292,7 @@ export function ScanConfig({
         boxSizing: "border-box",
         overflow: compact ? "hidden" : "visible",
         mx: "auto",
-        py: compact ? 0 : { xs: 2, md: 6 },
+        py: compact ? 0 : { xs: 1, md: 2.5 },
         ...(compact
           ? {
               "&, & *": {
@@ -227,18 +304,31 @@ export function ScanConfig({
       <Paper
         elevation={0}
         sx={{
-          p: compact ? 0 : { xs: 2.5, md: 4 },
+          p: compact ? 0 : { xs: 2, md: 3.5 },
           minWidth: 0,
           maxWidth: "100%",
           width: "100%",
           boxSizing: "border-box",
           border: "1px solid",
-          borderColor: compact ? "transparent" : "rgba(214,226,221,0.9)",
-          borderRadius: compact ? 2 : 3,
-          bgcolor: compact ? "transparent" : photoSweepColors.surfaceTint,
-          backdropFilter: compact ? "none" : "saturate(180%) blur(22px)",
-          boxShadow: compact ? "none" : `0 24px 70px ${photoSweepColors.shadow}`
+          borderColor: compact ? "transparent" : photoSweepColors.border,
+          borderRadius: compact ? 1.5 : 1.5,
+          bgcolor: compact ? "transparent" : photoSweepColors.surface,
+          boxShadow: "none"
         }}>
+        {compact && isAmazon && amazonProfileName && (
+          <Alert severity="info" sx={{ mb: 2, alignItems: "flex-start" }}>
+            <Typography component="div" variant="body2" fontWeight={700}>
+              Amazon Photos profile: {amazonProfileName}
+            </Typography>
+            <Typography
+              component="div"
+              variant="caption"
+              color="text.secondary">
+              Display label only. This scan is bound to the open Amazon Photos
+              session.
+            </Typography>
+          </Alert>
+        )}
         {!compact && (
           <Box
             sx={{
@@ -250,21 +340,22 @@ export function ScanConfig({
             }}>
             <Box
               sx={{
-                width: 56,
-                height: 56,
-                borderRadius: 3,
-                background: `linear-gradient(135deg, ${photoSweepColors.primarySoft} 0%, ${photoSweepColors.successSoft} 100%)`,
+                width: 48,
+                height: 48,
+                borderRadius: 1,
+                bgcolor: photoSweepColors.primarySoft,
                 color: "primary.main",
                 display: "grid",
                 placeItems: "center",
                 flexShrink: 0,
-                boxShadow: `inset 0 0 0 1px ${photoSweepColors.primaryShadow}`
+                border: "1px solid",
+                borderColor: photoSweepColors.primaryBorder
               }}>
               <PhotoLibraryRoundedIcon />
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="h5" fontWeight={800} gutterBottom>
-                Find duplicates from your photo library
+              <Typography variant="h5" fontWeight={700} gutterBottom>
+                Find copies across your photo library
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Pick the source, choose the part of the library to check, then
@@ -307,11 +398,13 @@ export function ScanConfig({
           <Paper
             variant="outlined"
             sx={{
-              p: 2,
+              p: 0,
               mb: 2,
-              borderRadius: 2,
-              borderColor: "rgba(214,226,221,0.86)",
-              bgcolor: photoSweepColors.surfaceSoft
+              border: 0,
+              borderBottom: compact ? 0 : "1px solid",
+              borderColor: photoSweepColors.border,
+              borderRadius: 0,
+              bgcolor: "transparent"
             }}>
             <Stack
               direction="column"
@@ -319,13 +412,19 @@ export function ScanConfig({
               alignItems={{ xs: "stretch", md: "center" }}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="overline" color="text.secondary">
-                  Step 1
+                  PHOTO SOURCE
                 </Typography>
                 <Typography variant="subtitle1" fontWeight={700}>
                   Choose your photo library
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {providerHelpText(sourceProvider)}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", mt: 0.5 }}>
+                  {providerLivePhotoPairNotice()}
                 </Typography>
               </Box>
               <Box sx={{ minWidth: 0, width: "100%" }}>
@@ -341,7 +440,7 @@ export function ScanConfig({
                       onSettingsChange({
                         sourceProvider: provider,
                         albumScope:
-                          provider === "google"
+                          provider === sourceProvider
                             ? settings.albumScope
                             : undefined
                       })
@@ -377,25 +476,68 @@ export function ScanConfig({
         <Paper
           variant="outlined"
           sx={{
-            p: compact ? 0 : 2,
-            mb: compact ? 0.75 : 2,
+            p: compact ? 0 : 0,
+            mb: compact ? 0.25 : 2,
             minWidth: 0,
             maxWidth: "100%",
             width: "100%",
             boxSizing: "border-box",
-            borderRadius: compact ? 1.5 : 2,
-            borderColor: compact ? "transparent" : "rgba(214,226,221,0.86)",
-            bgcolor: compact ? "transparent" : photoSweepColors.surfaceSoft
+            borderRadius: 0,
+            borderColor: "transparent",
+            bgcolor: "transparent"
           }}>
           {!compact && (
             <>
               <Typography variant="overline" color="text.secondary">
-                Step 2
+                SCAN SCOPE
               </Typography>
               <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                 Choose what to check
               </Typography>
             </>
+          )}
+          {!supportsAlbumScope && (
+            <Alert severity="info" sx={{ mb: compact ? 1 : 1.5 }}>
+              Album scans are not available for {providerLabel(sourceProvider)}{" "}
+              yet. Full-library and date-range scans are available.
+            </Alert>
+          )}
+          {compact && (
+            <Accordion
+              disableGutters
+              elevation={0}
+              sx={{
+                mb: 0.25,
+                bgcolor: "transparent",
+                "&:before": { display: "none" }
+              }}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  minHeight: 40,
+                  px: 0.5,
+                  "&.Mui-expanded": { minHeight: 40 },
+                  "& .MuiAccordionSummary-content": { my: 0.75 }
+                }}>
+                <Typography variant="caption" fontWeight={600}>
+                  Coverage details
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 0.5, pt: 0, pb: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ lineHeight: 1.5 }}>
+                  {providerHelpText(sourceProvider)}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", mt: 0.75, lineHeight: 1.5 }}>
+                  {providerLivePhotoPairNotice()}
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
           )}
           {compact ? (
             <>
@@ -453,7 +595,9 @@ export function ScanConfig({
                     onSettingsChange({ albumScope: undefined })
                     return
                   }
-                  const album = albums.find((a) => a.mediaKey === mediaKey)
+                  const album = personalAlbums.find(
+                    (a) => a.mediaKey === mediaKey
+                  )
                   onSettingsChange({
                     albumScope: {
                       mediaKey,
@@ -464,10 +608,12 @@ export function ScanConfig({
                   })
                 }}>
                 {supportsAlbumScope && (
-                  <MenuItem value="">Entire library timeline</MenuItem>
+                  <MenuItem value="">
+                    {compactScopeLabel(sourceProvider)}
+                  </MenuItem>
                 )}
                 {supportsAlbumScope &&
-                  albums.map((album) => (
+                  personalAlbums.map((album) => (
                     <MenuItem key={album.mediaKey} value={album.mediaKey}>
                       {album.title}
                       {album.itemCount !== undefined
@@ -534,14 +680,20 @@ export function ScanConfig({
                 SelectProps={{
                   displayEmpty: true,
                   renderValue: (value) =>
-                    value ? libraryAreaValueLabel : "Entire library timeline"
+                    value
+                      ? libraryAreaValueLabel
+                      : compactScopeLabel(sourceProvider)
                 }}
                 helperText={
                   compact
                     ? undefined
                     : albumLabel
                       ? `Only checking ${albumLabel}.`
-                      : "Check your full Google Photos timeline, or narrow this to one album."
+                      : sourceProvider === "amazon"
+                        ? "Check your Amazon Photos library, or narrow this to one personal album."
+                        : sourceProvider === "icloud"
+                          ? "Check your personal iCloud Photos library, or narrow this to one album."
+                          : "Check your full Google Photos timeline, or narrow this to one album."
                 }
                 sx={
                   compact
@@ -575,7 +727,9 @@ export function ScanConfig({
                     onSettingsChange({ albumScope: undefined })
                     return
                   }
-                  const album = albums.find((a) => a.mediaKey === mediaKey)
+                  const album = personalAlbums.find(
+                    (a) => a.mediaKey === mediaKey
+                  )
                   onSettingsChange({
                     albumScope: {
                       mediaKey,
@@ -585,8 +739,10 @@ export function ScanConfig({
                     }
                   })
                 }}>
-                <MenuItem value="">Entire library timeline</MenuItem>
-                {albums.map((album) => (
+                <MenuItem value="">
+                  {compactScopeLabel(sourceProvider)}
+                </MenuItem>
+                {personalAlbums.map((album) => (
                   <MenuItem key={album.mediaKey} value={album.mediaKey}>
                     {album.title}
                     {album.itemCount !== undefined
@@ -611,8 +767,8 @@ export function ScanConfig({
                       ? "Loading albums..."
                       : albumsError
                         ? albumsError
-                        : `${albums.length.toLocaleString()} album${
-                            albums.length !== 1 ? "s" : ""
+                        : `${personalAlbums.length.toLocaleString()} album${
+                            personalAlbums.length !== 1 ? "s" : ""
                           } available.`}
                   </Typography>
                 )}
@@ -658,73 +814,76 @@ export function ScanConfig({
           )}
         </Paper>
 
-        <Paper
-          variant="outlined"
-          sx={{
-            p: compact ? 1 : 2,
-            mb: compact ? 0.75 : 2,
-            borderRadius: compact ? 1.5 : 2,
-            borderColor: "rgba(214,226,221,0.86)",
-            bgcolor: compact
-              ? "rgba(255,255,255,0.82)"
-              : photoSweepColors.surfaceSoft
-          }}>
-          <Typography variant="body2" fontWeight={750} sx={{ mb: 0.35 }}>
-            When
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mb: 1 }}>
-            Add either date to focus the scan. Leave both blank to check every
-            taken date.
-          </Typography>
-          <Stack
-            direction={compact ? "row" : { xs: "column", sm: "row" }}
-            spacing={1}>
-            <TextField
-              label="From"
-              type="date"
-              size="small"
-              fullWidth
-              value={settings.dateRange?.from ?? ""}
-              InputLabelProps={{ shrink: true }}
-              onChange={(event) =>
-                onSettingsChange({
-                  dateRange: {
-                    ...settings.dateRange,
-                    from: event.target.value || undefined
-                  }
-                })
-              }
-            />
-            <TextField
-              label="To"
-              type="date"
-              size="small"
-              fullWidth
-              value={settings.dateRange?.to ?? ""}
-              InputLabelProps={{ shrink: true }}
-              onChange={(event) =>
-                onSettingsChange({
-                  dateRange: {
-                    ...settings.dateRange,
-                    to: event.target.value || undefined
-                  }
-                })
-              }
-            />
-          </Stack>
-          {(settings.dateRange?.from || settings.dateRange?.to) && (
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0.5 }}>
-              <Button
-                size="small"
-                onClick={() => onSettingsChange({ dateRange: undefined })}>
-                Clear dates
-              </Button>
-            </Box>
-          )}
-        </Paper>
+        {compact ? (
+          <Accordion
+            disableGutters
+            elevation={0}
+            defaultExpanded={Boolean(
+              settings.dateRange?.from || settings.dateRange?.to
+            )}
+            sx={{
+              mb: 0.75,
+              bgcolor: "transparent",
+              borderTop: "1px solid",
+              borderBottom: "1px solid",
+              borderRadius: 0,
+              "&:before": { display: "none" },
+              "&.Mui-expanded": { mb: 0.75 }
+            }}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{
+                minHeight: 42,
+                px: 0.5,
+                "&.Mui-expanded": { minHeight: 42 },
+                "& .MuiAccordionSummary-content": {
+                  my: 0.75,
+                  minWidth: 0,
+                  "&.Mui-expanded": { my: 0.75 }
+                }
+              }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 0.75,
+                  minWidth: 0
+                }}>
+                <Typography variant="body2" fontWeight={700} noWrap>
+                  Date range
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {dateRangeSummary}
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ px: 0.5, pt: 0, pb: 1 }}>
+              {dateRangeControls}
+            </AccordionDetails>
+          </Accordion>
+        ) : (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 0,
+              mb: 2,
+              border: 0,
+              borderTop: "1px solid",
+              borderColor: photoSweepColors.border,
+              borderRadius: 0,
+              bgcolor: "transparent",
+              pt: 1.5
+            }}>
+            <Typography variant="body2" fontWeight={750} sx={{ mb: 0.35 }}>
+              When
+            </Typography>
+            {dateRangeControls}
+          </Paper>
+        )}
 
         {showUnscopedFullScanWarning && !compact && (
           <Alert severity="warning" sx={{ mb: 2 }}>
@@ -746,9 +905,7 @@ export function ScanConfig({
           <Alert severity="info" sx={{ mb: 2 }}>
             {scanGate.reason === "full_scan_locked"
               ? "Full scan is a paid cleanup tool. Switch to Smart scan to try PhotoSweep for free."
-              : scanGate.reason === "unscoped_scan_locked" && freeIcloudPlan
-                ? "Free iCloud scans need a date range before scanning. Upgrade to use paid iCloud test batches."
-                : scanGate.reason === "unscoped_scan_locked"
+              : scanGate.reason === "unscoped_scan_locked"
                   ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
                   : `This scope is above the ${scanGate.limit?.toLocaleString()} photo scan limit for ${planName}.`}
           </Alert>
@@ -798,49 +955,71 @@ export function ScanConfig({
                 )}
               </Box>
             }>
-            Test batch is on. This scan will check only{" "}
-            {batchLimit.toLocaleString()} {providerLabel(sourceProvider)} item
-            {batchLimit === 1 ? "" : "s"}.{" "}
+            Test batch is on. This scan will visit up to{" "}
+            {batchLimit.toLocaleString()} provider record
+            {batchLimit === 1 ? "" : "s"}. Records outside the selected date
+            range also count toward this limit.{" "}
             {fullScanAllowed
               ? "Clear the test batch size to use your plan's normal scan scope."
               : "Purchase Full scan, then clear the test batch size to check the full library."}
           </Alert>
         )}
 
-        <Box
-          sx={{
-            mb: compact ? 0.75 : 1.5,
-            px: compact ? 1 : 1.5,
-            py: compact ? 0.9 : 1.25,
-            borderRadius: compact ? 1.5 : 2,
-            border: "1px solid",
-            borderColor:
-              settings.scanMode === "smart"
-                ? photoSweepColors.primaryBorder
-                : photoSweepColors.border,
-            bgcolor:
-              settings.scanMode === "smart"
-                ? photoSweepColors.primarySoft
-                : photoSweepColors.surfaceSoft
-          }}>
-          <Typography variant="body2" fontWeight={800}>
-            {useRecommendedFirstScope
-              ? "Recent 30 days · Recommended"
-              : settings.scanMode === "smart"
-                ? "Smart scan · Recommended"
-                : "Full scan"}
-          </Typography>
+        {compact ? (
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ display: "block", mt: 0.25, lineHeight: 1.35 }}>
+            sx={{ display: "block", mb: 0.25, fontWeight: 700 }}>
             {useRecommendedFirstScope
-              ? "Starts with a bounded first pass. Widen the dates or use the entire library after you see the first results."
+              ? "Recommended first scan"
               : settings.scanMode === "smart"
-                ? "Compares photos and videos saved close together. It is faster and works well for normal duplicates."
-                : `Compares every item in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks to find copies saved far apart.`}
+                ? "Smart scan"
+                : "Full scan"}
           </Typography>
-        </Box>
+        ) : (
+          <Box
+            sx={{
+              mb: 1.5,
+              px: 1.5,
+              py: 1.25,
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor:
+                settings.scanMode === "smart"
+                  ? photoSweepColors.primaryBorder
+                  : photoSweepColors.border,
+              bgcolor:
+                settings.scanMode === "smart"
+                  ? photoSweepColors.primarySoft
+                  : photoSweepColors.surfaceSoft
+            }}>
+            <Typography variant="body2" fontWeight={800}>
+              {useRecommendedFirstScope
+                ? "Recent 30 days · Recommended"
+                : settings.scanMode === "smart"
+                  ? "Smart scan · Recommended"
+                  : "Full scan"}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mt: 0.25, lineHeight: 1.35 }}>
+              {useRecommendedFirstScope
+                ? "Starts with a bounded first pass. Widen the dates or use the entire library after you see the first results."
+                : settings.scanMode === "smart"
+                  ? "Compares photos and videos saved close together. It is faster and works well for normal duplicates."
+                  : `Compares every item in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks to find copies saved far apart.`}
+            </Typography>
+          </Box>
+        )}
+        {compact && useRecommendedFirstScope && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 0.25, lineHeight: 1.3 }}>
+            Start with 30 days, then widen the date range if needed.
+          </Typography>
+        )}
 
         <Button
           variant="contained"
@@ -852,9 +1031,7 @@ export function ScanConfig({
               onUpgrade?.(
                 scanGate.reason === "full_scan_locked"
                   ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
-                  : scanGate.reason === "unscoped_scan_locked" && freeIcloudPlan
-                    ? "Free iCloud scans need a date range before scanning. Upgrade to use paid iCloud test batches."
-                    : scanGate.reason === "unscoped_scan_locked"
+                : scanGate.reason === "unscoped_scan_locked"
                       ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
                       : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
               )
@@ -869,7 +1046,7 @@ export function ScanConfig({
           }}
           disabled={dateRangeInvalid}
           sx={{
-            mb: compact ? 1 : 2,
+            mb: compact ? 0.75 : 2,
             minHeight: compact ? 42 : undefined,
             borderRadius: compact ? 1.5 : 2,
             fontSize: compact ? 14 : undefined,
@@ -885,7 +1062,7 @@ export function ScanConfig({
           {settings.albumScope && supportsAlbumScope
             ? "Check this album"
             : batchLimit
-              ? `Check ${batchLimit.toLocaleString()} item test batch`
+              ? `Check up to ${batchLimit.toLocaleString()} records`
               : settings.dateRange?.from || settings.dateRange?.to
                 ? "Check this date range"
                 : useRecommendedFirstScope
@@ -898,7 +1075,7 @@ export function ScanConfig({
             fullWidth
             size="small"
             onClick={() => onStartScan(settings)}
-            sx={{ mb: compact ? 1 : 2, fontWeight: 750 }}>
+            sx={{ mb: compact ? 0.5 : 2, fontWeight: 750 }}>
             Check entire library instead
           </Button>
         )}
@@ -933,10 +1110,10 @@ export function ScanConfig({
           elevation={0}
           sx={{
             border: "1px solid",
-            borderColor: "rgba(214,226,221,0.86)",
+            borderColor: photoSweepColors.border,
             borderRadius: compact ? 1.5 : 2,
             bgcolor: compact
-              ? "rgba(255,255,255,0.82)"
+              ? photoSweepColors.surface
               : photoSweepColors.surface,
             width: "100%",
             maxWidth: "100%",
@@ -1061,7 +1238,7 @@ export function ScanConfig({
               </Box>
             )}
 
-            {sourceProvider === "icloud" && !freeIcloudPlan && (
+            {sourceProvider === "icloud" && (
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
                   iCloud test batch size
@@ -1083,7 +1260,7 @@ export function ScanConfig({
                           : undefined
                     })
                   }}
-                  helperText="Use 200 to verify iCloud end-to-end before scanning the full library. Leave blank for the full library."
+                  helperText="Use 200 to verify iCloud end-to-end. Leave blank to use your plan's normal scan scope and limit."
                 />
               </Box>
             )}
@@ -1191,10 +1368,10 @@ export function ScanConfig({
           sx={{
             mt: 1,
             border: "1px solid",
-            borderColor: "rgba(214,226,221,0.86)",
+            borderColor: photoSweepColors.border,
             borderRadius: compact ? 1.5 : 2,
             bgcolor: compact
-              ? "rgba(255,255,255,0.82)"
+              ? photoSweepColors.surface
               : photoSweepColors.surface,
             width: "100%",
             maxWidth: "100%",

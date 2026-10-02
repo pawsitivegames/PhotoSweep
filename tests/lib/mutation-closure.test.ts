@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   DuplicateReviewSession,
@@ -44,7 +44,11 @@ function item(
     dedupKey: `dedup-${mediaKey}`,
     thumb: `thumb-${mediaKey}`,
     timestamp: 1_000,
+    timestampProvenance: "capture",
     creationTimestamp: 2_000,
+    creationTimestampProvenance: "creation",
+    favoriteStatus: "not-favorite",
+    favoriteSource: "provider-metadata",
     isOriginalQuality: null,
     resWidth: 1_000,
     resHeight: 1_000,
@@ -258,11 +262,69 @@ describe("mutation closure: keep strategy", () => {
     )
 
     expect(describeKeepRecommendation(recommended)).toBe(
-      "Suggested keep: Newest taken date"
+      "Suggested keep: Newest taken date (capture-date evidence)"
     )
     expect(describeKeepRecommendation(uncertain)).toBe(
       "No confident recommendation — keeping all copies"
     )
+  })
+
+  it.each([
+    {
+      name: "unknown newest-upload provenance",
+      strategy: "newest_upload",
+      mediaItems: {
+        a: item("a", {
+          creationTimestamp: 1,
+          creationTimestampProvenance: "capture"
+        }),
+        b: item("b", {
+          creationTimestamp: 2,
+          creationTimestampProvenance: "modified"
+        })
+      },
+      expected:
+        "No confident recommendation — creation-date provenance is unavailable; keeping all copies"
+    },
+    {
+      name: "oldest-taken recommendation",
+      strategy: "oldest_taken",
+      mediaItems: {
+        a: item("a", { timestamp: 1 }),
+        b: item("b", { timestamp: 2 })
+      },
+      expected: "Suggested keep: Oldest taken date (capture-date evidence)"
+    },
+    {
+      name: "newest-upload recommendation",
+      strategy: "newest_upload",
+      mediaItems: {
+        a: item("a", { creationTimestamp: 1 }),
+        b: item("b", { creationTimestamp: 2 })
+      },
+      expected: "Suggested keep: Newest upload date (creation-date evidence)"
+    },
+    {
+      name: "best-quality recommendation",
+      strategy: "best_quality",
+      mediaItems: {
+        a: item("a", { isOriginalQuality: true }),
+        b: item("b", { isOriginalQuality: false })
+      },
+      expected: "Suggested keep: Best quality"
+    }
+  ] as const)("describes the $name with the matching evidence label", ({
+    strategy,
+    mediaItems,
+    expected
+  }) => {
+    const recommendation = recommendKeepForGroup(
+      strategyGroup("a", "b"),
+      mediaItems,
+      strategy
+    )
+
+    expect(describeKeepRecommendation(recommendation)).toBe(expected)
   })
 
   it("returns an item only for a confident recommendation and preserves the item identity", () => {
@@ -400,6 +462,9 @@ describe("mutation closure: duplicate review session", () => {
     })
     expect(last.keptOverrides.g1).toEqual(new Set(["a"]))
     expect(last.keepDecisionProvenance?.g1).toEqual({ source: "manual" })
+    expect(session(last).serialize().keepDecisionProvenance).toEqual({
+      g1: { source: "manual" }
+    })
 
     expect(
       initial.update({ type: "trash_all_copies", groupId: "missing" })
@@ -415,6 +480,9 @@ describe("mutation closure: duplicate review session", () => {
       keptOverrides: { g1: new Set() },
       keepDecisionProvenance: { g1: { source: "manual" } }
     })
+    expect(session(trashAll).serialize().keepDecisionProvenance).toEqual({
+      g1: { source: "manual" }
+    })
 
     const emptyOverride = new DuplicateReviewSession({
       groups,
@@ -426,11 +494,11 @@ describe("mutation closure: duplicate review session", () => {
       }
     })
     expect(emptyOverride.serialize().keepDecisionProvenance).toEqual({
-      g1: { source: "manual" }
+      g1: { source: "legacy_preserved" }
     })
   })
 
-  it("skips manual and legacy decisions during bulk strategy application", () => {
+  it("preserves manual and recomputes legacy decisions during bulk strategy application", () => {
     const { groups, mediaItems, session } = reviewSessionFixture()
     const initial = session({
       selectedGroupIds: new Set(["g1", "g2"]),
@@ -449,7 +517,11 @@ describe("mutation closure: duplicate review session", () => {
       groupIds: ["g1", "g2", "missing"],
       strategy: "largest_resolution"
     })
-    expect(next.keptOverrides).toEqual({ g1: new Set(["a"]), g2: new Set(["d"]) })
+    expect(next.keptOverrides).toEqual({ g1: new Set(["a"]), g2: new Set(["e"]) })
+    expect(next.keepDecisionProvenance).toEqual({
+      g1: { source: "manual" },
+      g2: { source: "automatic", strategy: "largest_resolution" }
+    })
 
     const automatic = new DuplicateReviewSession({
       groups,
@@ -528,6 +600,47 @@ describe("mutation closure: duplicate review session", () => {
           ownerRecordName: "owner-1"
         }
       ]
+    })
+  })
+
+  it("blocks confirmed favorites and leaves unknown status explicit in the plan", () => {
+    const g = group("favorite-guard", "keep", "favorite", "unknown", "not-favorite")
+    const mediaItems = {
+      keep: item("keep", { isOriginalQuality: true, favoriteStatus: "not-favorite" as const }),
+      favorite: item("favorite", {
+        isOriginalQuality: false,
+        // Positive legacy evidence must still protect a row with contradictory status.
+        isFavorite: true,
+        favoriteStatus: "not-favorite" as const,
+        favoriteSource: "provider-metadata" as const
+      }),
+      unknown: item("unknown", {
+        isOriginalQuality: false,
+        favoriteStatus: "unknown" as const,
+        favoriteSource: "unavailable" as const
+      }),
+      "not-favorite": item("not-favorite", {
+        isOriginalQuality: false,
+        favoriteStatus: "not-favorite" as const,
+        favoriteSource: "provider-metadata" as const
+      })
+    }
+    const review = new DuplicateReviewSession({
+      groups: [g],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set([g.id]),
+        reviewedGroupIds: new Set([g.id]),
+        // This mirrors the bulk "Trash all copies" action.
+        keptOverrides: { [g.id]: new Set(["keep"]) }
+      }
+    })
+
+    expect(review.trashPlan()).toMatchObject({
+      dedupKeys: ["dedup-unknown", "dedup-not-favorite"],
+      mediaKeysToTrash: ["unknown", "not-favorite"],
+      blockedMediaKeys: ["favorite"],
+      blockedGroupIds: [g.id]
     })
   })
 
@@ -988,27 +1101,22 @@ describe("mutation closure: review preflight", () => {
     expect(fingerprints[8]).toContain('"exactOnly":true')
   })
 
-  it("keeps the weaker unavailable-identity policy limited to both identities absent", () => {
+  it("requires a matching provider-session identity when account email is absent", () => {
     const base = {
       scanProvider: "icloud" as const,
       currentProvider: "icloud" as const,
+      scanProviderSessionId: "session-a",
+      currentProviderSessionId: "session-a",
       selectedCount: 1,
       connectionValidated: true,
-      allowUnavailableAccountIdentity: true,
       requireFreshScan: false,
       requireKnownScope: false
     }
     expect(evaluateReviewPreflight(base)).toMatchObject({
       allowed: true,
-      accountStatus: "unavailable",
-      reasons: [
-        {
-          code: "account_unknown",
-          message:
-            "The scan and current provider session do not expose enough account identity to prove they match."
-        }
-      ],
-      summary: "icloud · 1 selected · account identity unavailable · scope unverified"
+      accountStatus: "session_bound",
+      reasons: [],
+      summary: "icloud · 1 selected · provider page session matched · scope unverified"
     })
     expect(
       evaluateReviewPreflight({ ...base, scanAccountEmail: "known@example.com" })
@@ -1129,12 +1237,14 @@ describe("mutation closure: review preflight", () => {
       evaluateRecoveryRestorePreflight({
         recordProvider: "icloud",
         currentProvider: "icloud",
+        recordProviderSessionId: "session-a",
+        currentProviderSessionId: "session-a",
         connectionValidated: true
       })
     ).toMatchObject({
       allowed: true,
-      accountStatus: "unavailable",
-      summary: "icloud recovery · account identity unavailable",
+      accountStatus: "session_bound",
+      summary: "icloud recovery · provider page session matched",
       reasons: []
     })
     expect(
@@ -1145,7 +1255,7 @@ describe("mutation closure: review preflight", () => {
         connectionValidated: true
       })
     ).toMatchObject({
-      allowed: true,
+      allowed: false,
       accountStatus: "unknown",
       reasons: [
         {
@@ -1164,15 +1274,20 @@ describe("mutation closure: review preflight", () => {
       })
     ).toEqual({
       allowed: false,
-      accountStatus: "unavailable",
+      accountStatus: "unknown",
       freshness: "unknown",
       scopeStatus: "unknown",
-      summary: "google recovery · account identity unavailable",
+      summary: "google recovery · account or session identity unverified",
       reasons: [
         {
           code: "connection_unverified",
           message:
             "The current photo-provider connection has not passed a fresh health check."
+        },
+        {
+          code: "account_unknown",
+          message:
+            "The provider account needed to verify this recovery record is unavailable."
         }
       ]
     })
@@ -1205,13 +1320,13 @@ describe("mutation closure: review preflight", () => {
       })
     ).toMatchObject({
       allowed: false,
-      accountStatus: "unavailable",
-      reasons: [
+      accountStatus: "unknown",
+      reasons: expect.arrayContaining([
         {
           code: "provider_mismatch",
           message: "The recovery record belongs to a different photo provider."
         }
-      ]
+      ])
     })
     expect(
       evaluateRecoveryRestorePreflight({
@@ -1219,8 +1334,9 @@ describe("mutation closure: review preflight", () => {
         connectionValidated: true
       })
     ).toMatchObject({
-      allowed: true,
-      reasons: []
+      allowed: false,
+      accountStatus: "unknown",
+      reasons: [{ code: "account_unknown" }]
     })
   })
 })
@@ -1246,7 +1362,7 @@ describe("mutation closure: dispatch guard", () => {
       captureTrashDispatchAuthorization({ generation: 1, plan, provider: "google" })
     ).not.toHaveProperty("accountEmail")
     expect(trashPlanFingerprint(plan)).toBe(
-      '{"provider":"google","dedupKeys":["d1"],"mediaKeysToTrash":["m1"],"icloudAssetRefs":null,"blockedMediaKeys":["blocked"],"blockedGroupIds":["g1"]}'
+      '{"provider":"google","dedupKeys":["d1"],"mediaKeysToTrash":["m1"],"icloudAssetRefs":null,"blockedMediaKeys":["blocked"],"blockedGroupIds":["g1"],"unknownFavoriteMediaKeys":[]}'
     )
   })
 
@@ -1408,6 +1524,10 @@ describe("mutation closure: trash lifecycle", () => {
   it("treats opaque provider identities literally, including the mutation sentinel", async () => {
     const fixture = auditFixture()
     const sentinel = "Stryker was here"
+    fixture.mediaItems[sentinel] = item(sentinel, {
+      provider: "google",
+      isOriginalQuality: false
+    })
     fixture.plan.dedupKeys = [sentinel]
     fixture.plan.mediaKeysToTrash = [sentinel]
     const lifecycle = new TrashLifecycle(fixture.adapter)
@@ -1415,12 +1535,13 @@ describe("mutation closure: trash lifecycle", () => {
     await beginTrash(lifecycle, fixture)
     await expect(
       lifecycle.reconcile({ success: true, data: undefined })
-    ).resolves.toEqual({
-      kind: "failed",
+    ).resolves.toMatchObject({
+      kind: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       movedCount: 0,
-      error: "Trash provider response did not confirm every requested item.",
+      unknownMediaKeys: [sentinel],
+      unknownDedupKeys: [sentinel],
       undo: null
     })
 
@@ -1635,19 +1756,27 @@ describe("mutation closure: trash lifecycle", () => {
     expect(command.operationId).toMatch(/^gpd-cleanup-/)
     expect(
       await lifecycle.reconcile({ success: false, error: "" })
-    ).toMatchObject({ kind: "failed", error: "Trash failed", undo: null })
+    ).toMatchObject({
+      kind: "unknown",
+      error: "Trash failed",
+      unknownMediaKeys: ["trash"],
+      unknownDedupKeys: ["dedup-trash"],
+      undo: null
+    })
 
     // The pre-trash guard is cleared after a successful begin, so a retry can
     // start once the first response has consumed its pending operation.
     await beginTrash(lifecycle, fixture)
     expect(
       await lifecycle.reconcile({ success: true, data: undefined })
-    ).toEqual({
-      kind: "failed",
+    ).toMatchObject({
+      kind: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       movedCount: 0,
       error: "Trash provider response did not confirm every requested item.",
+      unknownMediaKeys: ["trash"],
+      unknownDedupKeys: ["dedup-trash"],
       undo: null
     })
     await expect(lifecycle.reconcile({ success: true })).resolves.toEqual({
@@ -1671,8 +1800,70 @@ describe("mutation closure: trash lifecycle", () => {
       provider: "google",
       args: { dedupKeys: ["dedup-trash"] }
     })
-    expect(lifecycle.reconcileRestore({ requestId: "restore-1", success: true })).toBeNull()
+    expect(
+      lifecycle.reconcileRestore({
+        requestId: "restore-1",
+        success: true,
+        restoredDedupKeys: ["dedup-trash"]
+      })
+    ).toEqual({
+      kind: "complete",
+      restoredDedupKeys: ["dedup-trash"],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        {
+          operation: "restore",
+          targetKey: "dedup-trash",
+          status: "confirmed"
+        }
+      ]
+    })
     expect(lifecycle.reconcileRestore({ requestId: "restore-1", success: false })).toBeUndefined()
+
+    const googleUndoWithPageSession = {
+      ...undo,
+      providerSessionId: "google-page-session"
+    }
+    expect(
+      lifecycle.beginRestore(googleUndoWithPageSession, "restore-google-session")
+        .args
+    ).toEqual({
+      dedupKeys: ["dedup-trash"],
+      providerSessionId: "google-page-session"
+    })
+    expect(
+      lifecycle.reconcileRestore({
+        requestId: "restore-google-session",
+        success: true,
+        restoredDedupKeys: ["dedup-trash"]
+      })
+    ).toEqual({
+      kind: "complete",
+      restoredDedupKeys: ["dedup-trash"],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        {
+          operation: "restore",
+          targetKey: "dedup-trash",
+          status: "confirmed"
+        }
+      ]
+    })
+
+    lifecycle.beginRestore(undo, "restore-unconfirmed")
+    expect(
+      lifecycle.reconcileRestore({
+        requestId: "restore-unconfirmed",
+        success: true,
+        restoredDedupKeys: []
+      })
+    ).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["dedup-trash"],
+      error: "The provider did not confirm that every requested item was restored."
+    })
+
     const icloudUndo: TrashUndoData = {
       ...undo,
       provider: "icloud",
@@ -1692,7 +1883,24 @@ describe("mutation closure: trash lifecycle", () => {
         icloudAssetRefs: icloudUndo.icloudAssetRefs
       }
     })
-    expect(lifecycle.reconcileRestore({ requestId: "restore-icloud", success: true })).toBeNull()
+    expect(
+      lifecycle.reconcileRestore({
+        requestId: "restore-icloud",
+        success: true,
+        restoredDedupKeys: ["dedup-trash"]
+      })
+    ).toEqual({
+      kind: "complete",
+      restoredDedupKeys: ["dedup-trash"],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        {
+          operation: "restore",
+          targetKey: "dedup-trash",
+          status: "confirmed"
+        }
+      ]
+    })
     lifecycle.reset()
     expect(
       await lifecycle.reconcile({
@@ -1713,6 +1921,7 @@ type FakeWindow = {
 }
 
 type CommandHost = {
+  providerSessionId: string
   postResult: (command: string, requestId: string, data: unknown) => void
   postError: (command: string, requestId: string, error: unknown, data?: unknown) => void
   postProgress: (
@@ -1729,8 +1938,10 @@ type CommandHost = {
 }
 
 let createCommandHost: ((targetWindow: FakeWindow) => CommandHost) | undefined
+let commandHostTestHook: EventListener | undefined
 
-beforeAll(async () => {
+beforeEach(async () => {
+  vi.resetModules()
   const testGlobals = globalThis as typeof globalThis & {
     __GPD_COMMAND_HOST_TEST_MODE__?: boolean
     __GPD_COMMAND_HOST_TEST_FACTORY__?: (
@@ -1739,9 +1950,21 @@ beforeAll(async () => {
   }
   testGlobals.__GPD_COMMAND_HOST_TEST_MODE__ = true
   delete testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
-  // @ts-expect-error Vite resolves the test-only module query.
-  await import("../../scripts/photo-provider-command-host.js?mutation-closure")
-  globalThis.dispatchEvent(new Event("gpd-command-host-test"))
+  const addEventListenerSpy = vi.spyOn(globalThis, "addEventListener")
+  // Import the production source for each test so mutation runs exercise the
+  // current host implementation instead of a cached module instance.
+  // @ts-expect-error Vite resolves this JavaScript module in the test bundle.
+  await import("../../scripts/photo-provider-command-host.js")
+  const hook = addEventListenerSpy.mock.calls
+    .filter(([type]) => type === "gpd-command-host-test")
+    .at(-1)?.[1]
+  addEventListenerSpy.mockRestore()
+  if (typeof hook !== "function") {
+    throw new Error("Command-host test hook was not registered")
+  }
+  commandHostTestHook = hook as EventListener
+  globalThis.removeEventListener("gpd-command-host-test", commandHostTestHook)
+  commandHostTestHook(new Event("gpd-command-host-test"))
   createCommandHost = testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
   expect(createCommandHost).toBeTypeOf("function")
 })
@@ -1788,6 +2011,7 @@ describe("mutation closure: command host", () => {
         command: "scan",
         requestId: "request-1",
         success: true,
+        providerSessionId: fixture.host.providerSessionId,
         data: { count: 2 }
       },
       {
@@ -1796,6 +2020,7 @@ describe("mutation closure: command host", () => {
         command: "scan",
         requestId: "request-2",
         success: false,
+        providerSessionId: fixture.host.providerSessionId,
         error: "failed",
         data: { retryable: true }
       },
@@ -1805,6 +2030,7 @@ describe("mutation closure: command host", () => {
         command: "scan",
         requestId: "request-3",
         success: false,
+        providerSessionId: fixture.host.providerSessionId,
         error: "plain failure"
       },
       {
@@ -1827,6 +2053,12 @@ describe("mutation closure: command host", () => {
     expect(fixture.posted[2]).not.toHaveProperty("data")
     expect(fixture.posted[4]).not.toHaveProperty("command")
     expect(fixture.posted[4]).not.toHaveProperty("data")
+    expect(Object.hasOwn(fixture.posted[0] as object, "scanCoverage")).toBe(false)
+    expect(Object.hasOwn(fixture.posted[2] as object, "data")).toBe(false)
+    expect(Object.hasOwn(fixture.posted[2] as object, "errorCode")).toBe(false)
+    expect(Object.hasOwn(fixture.posted[2] as object, "scanCoverage")).toBe(false)
+    expect(Object.hasOwn(fixture.posted[4] as object, "command")).toBe(false)
+    expect(Object.hasOwn(fixture.posted[4] as object, "data")).toBe(false)
     expect(fixture.targetOrigins).toEqual(["*", "*", "*", "*", "*"])
   })
 
@@ -1867,6 +2099,7 @@ describe("mutation closure: command host", () => {
         command: "missing",
         requestId: "missing-1",
         success: false,
+        providerSessionId: fixture.host.providerSessionId,
         error: "Unsupported command: missing"
       },
       {
@@ -1875,6 +2108,7 @@ describe("mutation closure: command host", () => {
         command: "explode",
         requestId: "explode-1",
         success: false,
+        providerSessionId: fixture.host.providerSessionId,
         error: "handler exploded"
       }
     ])
@@ -1926,6 +2160,7 @@ describe("mutation closure: command host", () => {
       command: "inherited",
       requestId: "inherited-1",
       success: false,
+      providerSessionId: fixture.host.providerSessionId,
       error: "Unsupported command: inherited"
     })
 
@@ -1951,6 +2186,7 @@ describe("mutation closure: command host", () => {
       command: "notCallable",
       requestId: "not-callable",
       success: false,
+      providerSessionId: nonCallableFixture.host.providerSessionId,
       error: "Unsupported command: notCallable"
     })
 
@@ -1998,6 +2234,7 @@ describe("mutation closure: command host", () => {
         command: "toString",
         requestId: "null-handlers",
         success: false,
+        providerSessionId: nullFixture.host.providerSessionId,
         error: "Unsupported command: toString"
       }
     ])
@@ -2034,52 +2271,51 @@ describe("mutation closure: command host", () => {
         targetWindow: FakeWindow
       ) => CommandHost
     }
+    const browserWindow = globalThis.window as unknown as FakeWindow
     const previousFactory = testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
     const previousMode = testGlobals.__GPD_COMMAND_HOST_TEST_MODE__
     const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window")
     if (!windowDescriptor?.configurable) {
       throw new Error("The test environment must expose a configurable window global.")
     }
-    const browserWindow = globalThis.window as unknown as FakeWindow
-    const previousHost = browserWindow.__GPD_COMMAND_HOST__
+    const addEventListenerSpy = vi.spyOn(globalThis, "addEventListener")
 
     try {
-      testGlobals.__GPD_COMMAND_HOST_TEST_MODE__ = false
-      delete testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
-      Reflect.deleteProperty(globalThis, "window")
-      await expect(
-        // @ts-expect-error Vite resolves the test-only module query.
-        import("../../scripts/photo-provider-command-host.js?mutation-closure-no-window")
-      ).resolves.toBeDefined()
-      expect(testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__).toBeUndefined()
-
-      Object.defineProperty(globalThis, "window", windowDescriptor)
-      delete browserWindow.__GPD_COMMAND_HOST__
-      delete testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
-      await expect(
-        // @ts-expect-error Vite resolves the test-only module query.
-        import("../../scripts/photo-provider-command-host.js?mutation-closure-browser")
-      ).resolves.toBeDefined()
       expect(browserWindow.__GPD_COMMAND_HOST__).toMatchObject({
         postResult: expect.any(Function),
         postError: expect.any(Function),
         postProgress: expect.any(Function),
         register: expect.any(Function)
       })
+      if (!commandHostTestHook) {
+        throw new Error("Command-host test hook was not registered")
+      }
+      testGlobals.__GPD_COMMAND_HOST_TEST_MODE__ = false
+      delete testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
+      Reflect.deleteProperty(globalThis, "window")
+      vi.resetModules()
+      // @ts-expect-error Vite resolves this JavaScript module in the test bundle.
+      await import("../../scripts/photo-provider-command-host.js")
+      const disabledHook = addEventListenerSpy.mock.calls
+        .filter(([type]) => type === "gpd-command-host-test")
+        .at(-1)?.[1]
+      expect(disabledHook).toBeTypeOf("function")
+      if (typeof disabledHook !== "function") {
+        throw new Error("The no-window test hook was not registered")
+      }
+      globalThis.removeEventListener("gpd-command-host-test", disabledHook)
+      disabledHook(new Event("gpd-command-host-test"))
       expect(testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__).toBeUndefined()
 
+      Object.defineProperty(globalThis, "window", windowDescriptor)
+      delete testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
       testGlobals.__GPD_COMMAND_HOST_TEST_MODE__ = true
-      await expect(
-        // @ts-expect-error Vite resolves the test-only module query.
-        import("../../scripts/photo-provider-command-host.js?mutation-closure-restore")
-      ).resolves.toBeDefined()
-      globalThis.dispatchEvent(new Event("gpd-command-host-test"))
+      commandHostTestHook(new Event("gpd-command-host-test"))
       expect(testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__).toBeTypeOf("function")
       createCommandHost = testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__
     } finally {
+      addEventListenerSpy.mockRestore()
       Object.defineProperty(globalThis, "window", windowDescriptor)
-      if (previousHost === undefined) delete browserWindow.__GPD_COMMAND_HOST__
-      else browserWindow.__GPD_COMMAND_HOST__ = previousHost
       testGlobals.__GPD_COMMAND_HOST_TEST_MODE__ = previousMode
       if (previousFactory) {
         testGlobals.__GPD_COMMAND_HOST_TEST_FACTORY__ = previousFactory

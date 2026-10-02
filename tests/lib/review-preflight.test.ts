@@ -106,13 +106,14 @@ describe("review preflight", () => {
     )
   })
 
-  it("allows provider-session-only checks when a provider cannot expose account identity", () => {
+  it("allows provider-session-only checks when the active page session matches", () => {
     const result = evaluateReviewPreflight({
       scanProvider: "icloud",
       currentProvider: "icloud",
+      scanProviderSessionId: "session-a",
+      currentProviderSessionId: "session-a",
       selectedCount: 1,
       connectionValidated: true,
-      allowUnavailableAccountIdentity: true,
       requireFreshScan: true,
       requireKnownScope: true,
       scanDate: 100,
@@ -122,21 +123,95 @@ describe("review preflight", () => {
     })
 
     expect(result.allowed).toBe(true)
-    expect(result.accountStatus).toBe("unavailable")
-    expect(result.reasons[0]?.code).toBe("account_unknown")
+    expect(result.accountStatus).toBe("session_bound")
+    expect(result.reasons).toEqual([])
+  })
+
+  it("blocks a changed iCloud page session as an account mismatch", () => {
+    const result = evaluateReviewPreflight({
+      scanProvider: "icloud",
+      currentProvider: "icloud",
+      scanProviderSessionId: "old-page-session",
+      currentProviderSessionId: "new-page-session",
+      selectedCount: 1,
+      connectionValidated: true,
+      requireFreshScan: false,
+      requireKnownScope: false
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.accountStatus).toBe("mismatch")
+    expect(result.reasons).toContainEqual({
+      code: "account_mismatch",
+      message: "The signed-in photo-provider account changed since this scan."
+    })
+  })
+
+  it.each([
+    ["scan session is missing", { currentProviderSessionId: "current-session" }],
+    ["current session is missing", { scanProviderSessionId: "scan-session" }]
+  ])("keeps a one-sided iCloud session identity unknown when %s", (_label, sessions) => {
+    const result = evaluateReviewPreflight({
+      scanProvider: "icloud",
+      currentProvider: "icloud",
+      ...sessions,
+      selectedCount: 1,
+      connectionValidated: true,
+      requireFreshScan: false,
+      requireKnownScope: false
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.accountStatus).toBe("unknown")
+    expect(result.reasons).toContainEqual({
+      code: "account_unknown",
+      message:
+        "The scan and current provider session do not expose enough account identity to prove they match."
+    })
+  })
+
+  it("does not use provider-page sessions as a Google account identity", () => {
+    const result = evaluateReviewPreflight({
+      scanProvider: "google",
+      currentProvider: "google",
+      scanProviderSessionId: "old-page-session",
+      currentProviderSessionId: "new-page-session",
+      selectedCount: 1,
+      connectionValidated: true,
+      requireFreshScan: false,
+      requireKnownScope: false
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.accountStatus).toBe("unknown")
+    expect(result.reasons.map((item) => item.code)).toContain("account_unknown")
+  })
+
+  it("uses the scan provider when the current provider value is absent", () => {
+    const result = evaluateReviewPreflight({
+      scanProvider: "icloud",
+      scanProviderSessionId: "scan-session",
+      currentProviderSessionId: "different-session",
+      selectedCount: 1,
+      connectionValidated: true,
+      requireFreshScan: false,
+      requireKnownScope: false
+    })
+
+    expect(result.accountStatus).toBe("mismatch")
+    expect(result.reasons.map((item) => item.code)).toContain("account_mismatch")
   })
 
   it.each([
     ["scan identity only", { scanAccountEmail: "buyer@example.com" }],
     ["current identity only", { currentAccountEmail: "buyer@example.com" }]
-  ])("does not treat %s as an unavailable identity", (_label, identity) => {
+  ])("does not treat %s as a matched provider session", (_label, identity) => {
     const result = evaluateReviewPreflight({
       scanProvider: "icloud",
       currentProvider: "icloud",
       ...identity,
       selectedCount: 1,
       connectionValidated: true,
-      allowUnavailableAccountIdentity: true,
       requireFreshScan: false,
       requireKnownScope: false
     })
@@ -220,7 +295,9 @@ describe("review preflight", () => {
 
     expect(result.allowed).toBe(false)
     expect(result.freshness).toBe("unknown")
-    expect(result.reasons.map((item) => item.code)).toContain("scan_date_unknown")
+    expect(result.reasons.map((item) => item.code)).toContain(
+      "scan_date_unknown"
+    )
   })
 
   it("partitions account recovery by a non-reversible fingerprint", () => {
@@ -241,7 +318,19 @@ describe("review preflight", () => {
     })
 
     expect(result.allowed).toBe(false)
-    expect(result.reasons.map((item) => item.code)).toContain("account_unknown")
+    expect(result.accountStatus).toBe("unknown")
+    expect(result.freshness).toBe("unknown")
+    expect(result.scopeStatus).toBe("unknown")
+    expect(result.summary).toBe(
+      "google recovery · account or session identity unverified"
+    )
+    expect(result.reasons).toContainEqual(
+      expect.objectContaining({
+        code: "account_unknown",
+        message:
+          "The provider has not exposed the account needed to verify this recovery record."
+      })
+    )
   })
 
   it("blocks recovery when the record provider differs from the current provider", () => {
@@ -254,7 +343,12 @@ describe("review preflight", () => {
     })
 
     expect(result.allowed).toBe(false)
-    expect(result.reasons.map((item) => item.code)).toContain("provider_mismatch")
+    expect(result.reasons).toContainEqual(
+      expect.objectContaining({
+        code: "provider_mismatch",
+        message: "The recovery record belongs to a different photo provider."
+      })
+    )
   })
 
   it("blocks an account mismatch even when an iCloud provider has no stable identity", () => {
@@ -268,6 +362,159 @@ describe("review preflight", () => {
 
     expect(result.allowed).toBe(false)
     expect(result.accountStatus).toBe("mismatch")
-    expect(result.reasons.map((item) => item.code)).toContain("account_mismatch")
+    expect(result.reasons).toContainEqual(
+      expect.objectContaining({
+        code: "account_mismatch",
+        message: "This recovery record belongs to a different provider account."
+      })
+    )
+  })
+
+  it.each([
+    ["no recorded session", undefined, "current-session"],
+    ["no current session", "recorded-session", undefined],
+    ["empty recorded session", "", "current-session"],
+    ["empty current session", "recorded-session", ""]
+  ])(
+    "blocks iCloud recovery when %s is missing",
+    (_label, recordProviderSessionId, currentProviderSessionId) => {
+      const result = evaluateRecoveryRestorePreflight({
+        recordProvider: "icloud",
+        currentProvider: "icloud",
+        recordProviderSessionId,
+        currentProviderSessionId,
+        connectionValidated: true
+      })
+
+      expect(result.allowed).toBe(false)
+      expect(result.accountStatus).toBe("unknown")
+      expect(result.summary).toBe(
+        "icloud recovery · account or session identity unverified"
+      )
+      expect(result.reasons).toContainEqual(
+        expect.objectContaining({
+          code: "account_unknown",
+          message:
+            "The provider session needed to verify this recovery record is unavailable. Reconnect and create a fresh cleanup record in this session."
+        })
+      )
+    }
+  )
+
+  it.each(["icloud", "amazon"] as const)(
+    "allows a %s recovery only within the matching provider page session",
+    (provider) => {
+      const matching = evaluateRecoveryRestorePreflight({
+        recordProvider: provider,
+        currentProvider: provider,
+        recordProviderSessionId: "provider-session-a",
+        currentProviderSessionId: "provider-session-a",
+        connectionValidated: true
+      })
+      const mismatched = evaluateRecoveryRestorePreflight({
+        recordProvider: provider,
+        currentProvider: provider,
+        recordProviderSessionId: "provider-session-a",
+        currentProviderSessionId: "provider-session-b",
+        connectionValidated: true
+      })
+
+      expect(matching).toMatchObject({
+        allowed: true,
+        accountStatus: "session_bound",
+        summary: `${provider} recovery · provider page session matched`,
+        reasons: []
+      })
+      expect(mismatched.allowed).toBe(false)
+      expect(mismatched.accountStatus).toBe("mismatch")
+      expect(mismatched.summary).toBe(
+        `${provider} recovery · provider session mismatch`
+      )
+      expect(mismatched.reasons).toContainEqual(
+        expect.objectContaining({
+          code: "account_mismatch",
+          message:
+            "This recovery record belongs to a different provider page session."
+        })
+      )
+    }
+  )
+
+  it("verifies Google recovery with the matching account fingerprint", () => {
+    const fingerprint = accountFingerprint("buyer@example.com")
+    const result = evaluateRecoveryRestorePreflight({
+      recordProvider: "google",
+      currentProvider: "google",
+      recordAccountFingerprint: fingerprint,
+      currentAccountEmail: "Buyer@example.com",
+      connectionValidated: true
+    })
+
+    expect(result).toMatchObject({
+      allowed: true,
+      accountStatus: "verified",
+      summary: "google recovery · account verified",
+      reasons: []
+    })
+  })
+
+  it("keeps Google recovery unknown when neither identity is available", () => {
+    const result = evaluateRecoveryRestorePreflight({
+      recordProvider: "google",
+      currentProvider: "google",
+      connectionValidated: true
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.accountStatus).toBe("unknown")
+    expect(result.freshness).toBe("unknown")
+    expect(result.scopeStatus).toBe("unknown")
+    expect(result.summary).toBe(
+      "google recovery · account or session identity unverified"
+    )
+    expect(result.reasons).toContainEqual(
+      expect.objectContaining({
+        code: "account_unknown",
+        message:
+          "The provider account needed to verify this recovery record is unavailable."
+      })
+    )
+  })
+
+  it("requires a verified connection even when the provider session matches", () => {
+    const result = evaluateRecoveryRestorePreflight({
+      recordProvider: "amazon",
+      currentProvider: "amazon",
+      recordProviderSessionId: "provider-session-a",
+      currentProviderSessionId: "provider-session-a",
+      connectionValidated: false
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.accountStatus).toBe("session_bound")
+    expect(result.reasons).toContainEqual(
+      expect.objectContaining({
+        code: "connection_unverified",
+        message:
+          "The current photo-provider connection has not passed a fresh health check."
+      })
+    )
+  })
+
+  it("uses Google as the default current provider for matching-account recovery", () => {
+    const fingerprint = accountFingerprint("buyer@example.com")
+    const result = evaluateRecoveryRestorePreflight({
+      recordProvider: "google",
+      recordAccountFingerprint: fingerprint,
+      currentAccountEmail: "buyer@example.com",
+      connectionValidated: true
+    })
+
+    expect(result).toMatchObject({
+      allowed: true,
+      accountStatus: "verified",
+      summary: "google recovery · account verified",
+      reasons: []
+    })
   })
 })

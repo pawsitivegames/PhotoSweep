@@ -4,7 +4,9 @@ import type { DeleteReport } from "../../lib/delete-report"
 import { DuplicateReviewSession } from "../../lib/duplicate-review-session"
 import {
   TrashLifecycle,
+  type IcloudAssetRef,
   type TrashAuditAdapter,
+  type TrashAuditContext,
   type TrashUndoData
 } from "../../lib/trash-lifecycle"
 import type { TrashResultReport } from "../../lib/trash-result-report"
@@ -18,7 +20,9 @@ function fixture() {
       thumb: "keep",
       timestamp: 1,
       creationTimestamp: 1,
-      provider: "google"
+      provider: "google",
+      favoriteStatus: "not-favorite",
+      favoriteSource: "provider-metadata"
     },
     trash: {
       mediaKey: "trash",
@@ -26,7 +30,9 @@ function fixture() {
       thumb: "trash",
       timestamp: 1,
       creationTimestamp: 2,
-      provider: "google"
+      provider: "google",
+      favoriteStatus: "not-favorite",
+      favoriteSource: "provider-metadata"
     }
   }
   const groups: DuplicateGroup[] = [
@@ -51,16 +57,26 @@ function fixture() {
 
 function inMemoryAudit() {
   const deleteReports: DeleteReport[] = []
+  const deleteContexts: Array<TrashAuditContext | undefined> = []
   const resultReports: TrashResultReport[] = []
+  const resultContexts: Array<TrashAuditContext | undefined> = []
   const adapter: TrashAuditAdapter = {
-    async savePreTrashReport(report) {
+    async savePreTrashReport(report, context) {
       deleteReports.push(report)
+      deleteContexts.push(context)
     },
-    async saveTrashResultReport(report) {
+    async saveTrashResultReport(report, context) {
       resultReports.push(report)
+      resultContexts.push(context)
     }
   }
-  return { adapter, deleteReports, resultReports }
+  return {
+    adapter,
+    deleteReports,
+    deleteContexts,
+    resultReports,
+    resultContexts
+  }
 }
 
 async function begin(lifecycle: TrashLifecycle) {
@@ -81,7 +97,233 @@ async function begin(lifecycle: TrashLifecycle) {
   return { command, plan }
 }
 
+function icloudFixture() {
+  const audit = inMemoryAudit()
+  const lifecycle = new TrashLifecycle(audit.adapter)
+  const assetRef = (recordName: string, changeTag: string): IcloudAssetRef => ({
+    recordName,
+    changeTag,
+    zoneName: "PrimarySync",
+    ownerRecordName: "owner"
+  })
+  const mediaItems: Record<string, GpdMediaItem> = {
+    keep: {
+      ...fixture().mediaItems.keep,
+      provider: "icloud",
+      icloudAsset: assetRef("asset-keep", "old-keep")
+    },
+    trash: {
+      ...fixture().mediaItems.trash,
+      provider: "icloud",
+      icloudAsset: assetRef("asset-trash", "old-trash")
+    }
+  }
+  const groups: DuplicateGroup[] = [
+    {
+      id: "icloud-group",
+      mediaKeys: ["keep", "trash"],
+      originalMediaKey: "keep",
+      similarity: 1
+    }
+  ]
+  const reviewSession = new DuplicateReviewSession({
+    groups,
+    mediaItems,
+    selections: {
+      selectedGroupIds: new Set(["icloud-group"]),
+      reviewedGroupIds: new Set(["icloud-group"]),
+      keptOverrides: { "icloud-group": new Set(["keep"]) }
+    }
+  })
+  return {
+    audit,
+    lifecycle,
+    groups,
+    mediaItems,
+    reviewSession,
+    plan: reviewSession.trashPlan(groups),
+    assetRef
+  }
+}
+
 describe("TrashLifecycle", () => {
+  it("requires a current unknown-favorite acknowledgement at dispatch", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+    mediaItems.trash!.favoriteStatus = "unknown"
+    mediaItems.trash!.favoriteSource = "unavailable"
+    const plan = reviewSession.trashPlan(groups)
+    const params = {
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 1_000,
+        retryCount: 2,
+        retryBackoffMs: 1_000
+      }
+    }
+
+    await expect(lifecycle.begin(params)).rejects.toThrow(
+      /explicit acknowledgement is required/
+    )
+    expect(audit.deleteReports).toHaveLength(0)
+
+    const command = await lifecycle.begin({
+      ...params,
+      unknownFavoriteAcknowledged: true
+    })
+    expect(command.args.mediaKeysToTrash).toEqual(["trash"])
+    expect(command.args.acknowledgedUnknownFavoriteDedupKeys).toEqual([
+      "dedup-trash"
+    ])
+    expect(audit.deleteReports).toHaveLength(1)
+  })
+
+  it("rejects malformed Trash identities before dispatching an unknown-favorite target", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+    mediaItems.trash!.favoriteStatus = "unknown"
+    mediaItems.trash!.favoriteSource = "unavailable"
+    const plan = {
+      ...reviewSession.trashPlan(groups),
+      dedupKeys: [""]
+    }
+
+    await expect(
+      lifecycle.begin({
+        plan,
+        reviewSession,
+        groups,
+        snapshot: { mediaItems, groups, totalItems: 2 },
+        batchPolicy: {
+          batchSize: 25,
+          batchPauseMs: 0,
+          retryCount: 0,
+          retryBackoffMs: 0
+        },
+        unknownFavoriteAcknowledged: true
+      })
+    ).rejects.toThrow(/Trash plan identities are inconsistent/)
+    expect(audit.deleteReports).toHaveLength(0)
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
+  it.each([
+    ["unequal identity list lengths", ["dedup-trash"], ["trash", "trash-second"]],
+    ["empty dedup identity", ["", "dedup-second"], ["trash", "trash-second"]],
+    ["empty media identity", ["dedup-trash", "dedup-second"], ["trash", ""]],
+    [
+      "duplicate dedup identity",
+      ["dedup-trash", "dedup-trash"],
+      ["trash", "trash-second"]
+    ],
+    [
+      "duplicate media identity",
+      ["dedup-trash", "dedup-second"],
+      ["trash", "trash"]
+    ],
+    ["non-string dedup identity", [123, "dedup-second"], ["trash", "trash-second"]],
+    ["non-string media identity", ["dedup-trash", "dedup-second"], ["trash", 123]]
+  ] as const)("rejects %s before dispatch", async (_, dedupKeys, mediaKeysToTrash) => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+    const second = { ...mediaItems.trash!, mediaKey: "trash-second", dedupKey: "dedup-second" }
+    const empty = { ...mediaItems.trash!, mediaKey: "" }
+    const snapshotMediaItems = {
+      ...mediaItems,
+      "trash-second": second,
+      "": empty
+    }
+    const plan = {
+      ...reviewSession.trashPlan(groups),
+      dedupKeys: dedupKeys as unknown as string[],
+      mediaKeysToTrash: mediaKeysToTrash as unknown as string[],
+      unknownFavoriteMediaKeys: []
+    }
+
+    await expect(
+      lifecycle.begin({
+        plan,
+        reviewSession,
+        groups,
+        snapshot: {
+          mediaItems: snapshotMediaItems,
+          groups,
+          totalItems: Object.keys(snapshotMediaItems).length
+        },
+        batchPolicy: {
+          batchSize: 25,
+          batchPauseMs: 0,
+          retryCount: 0,
+          retryBackoffMs: 0
+        }
+      })
+    ).rejects.toThrow(/Trash plan identities are inconsistent/)
+    expect(audit.deleteReports).toHaveLength(0)
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
+  it("accepts valid multi-target plans with distinct provider identities", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const base = fixture()
+    const mediaItems = {
+      ...base.mediaItems,
+      "trash-second": {
+        ...base.mediaItems.trash!,
+        mediaKey: "trash-second",
+        dedupKey: "dedup-trash-second",
+        thumb: "trash-second",
+        timestamp: 2,
+        creationTimestamp: 2
+      }
+    }
+    const groups: DuplicateGroup[] = [
+      {
+        ...base.groups[0]!,
+        mediaKeys: ["keep", "trash", "trash-second"]
+      }
+    ]
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(["group"]),
+        reviewedGroupIds: new Set(["group"]),
+        keptOverrides: { group: new Set(["keep"]) }
+      }
+    })
+    const plan = reviewSession.trashPlan(groups)
+
+    expect(plan.mediaKeysToTrash).toEqual(["trash", "trash-second"])
+    expect(plan.dedupKeys).toEqual(["dedup-trash", "dedup-trash-second"])
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 3 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+
+    expect(command.totalToTrash).toBe(2)
+    expect(command.args.mediaKeysToTrash).toEqual(["trash", "trash-second"])
+    expect(command.args.dedupKeys).toEqual([
+      "dedup-trash",
+      "dedup-trash-second"
+    ])
+  })
+
   it("persists the pre-trash audit before exposing the provider command", async () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
@@ -154,7 +396,7 @@ describe("TrashLifecycle", () => {
     })
   })
 
-  it("fails without creating undo when nothing moved", async () => {
+  it("keeps an identity-free negative mutation result ambiguous", async () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
     await begin(lifecycle)
@@ -164,17 +406,19 @@ describe("TrashLifecycle", () => {
       error: "nothing moved"
     })
 
-    expect(outcome).toEqual({
-      kind: "failed",
+    expect(outcome).toMatchObject({
+      kind: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       movedCount: 0,
       error: "nothing moved",
-      undo: null
+      undo: null,
+      unknownMediaKeys: ["trash"],
+      unknownDedupKeys: ["dedup-trash"]
     })
   })
 
-  it("returns failed restore data only for the current request", () => {
+  it("[PARITY-04] requires provider-confirmed identities for a complete restore", () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
     const undo = {
@@ -202,7 +446,1030 @@ describe("TrashLifecycle", () => {
         requestId: "restore-current",
         success: false
       })
-    ).toBe(undo)
+    ).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      error: expect.stringMatching(/valid identity/i)
+    })
+  })
+
+  it.each([
+    ["a non-array identity response", undefined],
+    ["a non-string item identity", ["dedup-a", 17]],
+    ["an unrequested identity mixed with a requested one", ["dedup-a", "foreign"]],
+    ["a duplicate identity", ["dedup-a", "dedup-a"]]
+  ])("rejects %s without acknowledging a restored item", (_label, identities) => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["dedup-a", "dedup-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 }
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "restore-invalid-identities")
+
+    const outcome = lifecycle.reconcileRestore({
+      requestId: "restore-invalid-identities",
+      success: true,
+      restoredDedupKeys: identities
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      error: expect.stringMatching(/valid identity/i)
+    })
+  })
+
+  it("[PARITY-04] keeps only provider-unrestored keys and aligned iCloud refs for retry", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "icloud",
+      dedupKeys: ["master-a", "master-b", "master-c"],
+      count: 3,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 3 },
+      icloudAssetRefs: [
+        {
+          recordName: "asset-a",
+          changeTag: "tag-a",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        },
+        {
+          recordName: "asset-b",
+          changeTag: "tag-b",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        },
+        {
+          recordName: "asset-c",
+          changeTag: "tag-c",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        }
+      ]
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "restore-partial")
+
+    const outcome = lifecycle.reconcileRestore({
+      requestId: "restore-partial",
+      success: false,
+      restoredDedupKeys: ["master-a", "master-b"],
+      outcomes: [
+        { operation: "restore", targetKey: "master-a", status: "confirmed" },
+        { operation: "restore", targetKey: "master-b", status: "confirmed" },
+        { operation: "restore", targetKey: "master-c", status: "failed" }
+      ],
+      error: "third item conflicted"
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["master-a", "master-b"],
+      undo: {
+        dedupKeys: ["master-c"],
+        count: 1,
+        icloudAssetRefs: [
+          {
+            recordName: "asset-c",
+            changeTag: "tag-c"
+          }
+        ]
+      },
+      error: "third item conflicted"
+    })
+  })
+
+  it("does not attach iCloud refs to remaining keys when the original ref list is misaligned", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "icloud",
+      dedupKeys: ["master-a", "master-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 },
+      providerSessionId: "icloud-page-session-a",
+      icloudAssetRefs: [
+        {
+          recordName: "asset-a",
+          changeTag: "tag-a",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        }
+      ]
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "restore-misaligned-refs")
+
+    const outcome = lifecycle.reconcileRestore({
+      requestId: "restore-misaligned-refs",
+      success: false,
+      restoredDedupKeys: ["master-a"],
+      outcomes: [
+        { operation: "restore", targetKey: "master-a", status: "confirmed" },
+        { operation: "restore", targetKey: "master-b", status: "failed" }
+      ],
+      error: "partial provider restore"
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["master-a"],
+      undo: {
+        dedupKeys: ["master-b"],
+        count: 1,
+        providerSessionId: "icloud-page-session-a"
+      },
+      error: "partial provider restore"
+    })
+    if (outcome?.kind !== "partial") {
+      throw new Error("expected a partial provider restore")
+    }
+    expect(outcome.undo.icloudAssetRefs).toBeUndefined()
+  })
+
+  it("keeps a partial Google restore usable without iCloud refs", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["google-a", "google-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 }
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "google-partial-restore")
+
+    const outcome = lifecycle.reconcileRestore({
+      requestId: "google-partial-restore",
+      success: true,
+      restoredDedupKeys: ["google-a"],
+      outcomes: [
+        { operation: "restore", targetKey: "google-a", status: "confirmed" },
+        { operation: "restore", targetKey: "google-b", status: "failed" }
+      ]
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["google-a"],
+      undo: { provider: "google", dedupKeys: ["google-b"], count: 1 }
+    })
+    if (outcome?.kind !== "partial") {
+      throw new Error("expected a partial Google restore")
+    }
+    expect(outcome.undo.icloudAssetRefs).toBeUndefined()
+    expect(
+      lifecycle.beginRestore(outcome.undo, "google-partial-retry").args
+    ).toEqual({ dedupKeys: ["google-b"] })
+  })
+
+  it("rejects a non-string restore identity before mutation dispatch", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: [17],
+      count: 1,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 1 }
+    } as unknown as TrashUndoData
+    expect(() => lifecycle.beginRestore(undo, "malformed-undo-identity")).toThrow(
+      /invalid or duplicated/i
+    )
+  })
+
+  it("does not let a malformed restore response collide with an opaque request identity", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["Stryker was here"],
+      count: 1,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 1 }
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "opaque-restore-identity")
+
+    expect(
+      lifecycle.reconcileRestore({
+        requestId: "opaque-restore-identity",
+        success: true,
+        restoredDedupKeys: undefined
+      })
+    ).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      error: expect.stringMatching(/valid identity/i)
+    })
+  })
+
+  it("[PARITY-04] carries provider-refreshed iCloud tags into Undo and recovery audit", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const icloudAsset = (recordName: string, changeTag: string) => ({
+      recordName,
+      changeTag,
+      zoneName: "PrimarySync",
+      ownerRecordName: "owner"
+    })
+    const mediaItems: Record<string, GpdMediaItem> = {
+      keep: {
+        mediaKey: "keep",
+        dedupKey: "master-keep",
+        thumb: "keep",
+        timestamp: 1,
+        creationTimestamp: 1,
+        provider: "icloud",
+        favoriteStatus: "not-favorite",
+        favoriteSource: "provider-metadata",
+        icloudAsset: icloudAsset("asset-keep", "old-keep")
+      },
+      trash: {
+        mediaKey: "trash",
+        dedupKey: "master-trash",
+        thumb: "trash",
+        timestamp: 1,
+        creationTimestamp: 2,
+        provider: "icloud",
+        favoriteStatus: "not-favorite",
+        favoriteSource: "provider-metadata",
+        icloudAsset: icloudAsset("asset-trash", "old-trash")
+      }
+    }
+    const groups: DuplicateGroup[] = [
+      {
+        id: "icloud-group",
+        mediaKeys: ["keep", "trash"],
+        originalMediaKey: "keep",
+        similarity: 1
+      }
+    ]
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(["icloud-group"]),
+        reviewedGroupIds: new Set(["icloud-group"]),
+        keptOverrides: { "icloud-group": new Set(["keep"]) }
+      }
+    })
+    const plan = reviewSession.trashPlan(groups)
+    await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 1000,
+        retryCount: 2,
+        retryBackoffMs: 1000
+      }
+    })
+
+    const freshRef = icloudAsset("asset-trash", "fresh-after-trash")
+    const outcome = await lifecycle.reconcile({
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["master-trash"],
+        icloudAssetRefs: [freshRef]
+      }
+    })
+
+    expect(outcome.kind).toBe("complete")
+    expect(outcome.undo?.icloudAssetRefs).toEqual([freshRef])
+    expect(audit.resultContexts[0]?.icloudAssetRefs).toEqual([
+      icloudAsset("asset-trash", "old-trash")
+    ])
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toEqual([
+      freshRef
+    ])
+  })
+
+  it("preserves confirmed iCloud progress refs through a lost terminal response", async () => {
+    const {
+      audit,
+      lifecycle,
+      groups: initialGroups,
+      mediaItems: initialItems,
+      assetRef
+    } = icloudFixture()
+    const mediaItems = {
+      ...initialItems,
+      "trash-second": {
+        ...initialItems.trash!,
+        mediaKey: "trash-second",
+        dedupKey: "dedup-trash-second",
+        icloudAsset: assetRef("asset-trash-second", "old-trash-second")
+      }
+    }
+    const groups: DuplicateGroup[] = [
+      {
+        ...initialGroups[0]!,
+        mediaKeys: ["keep", "trash", "trash-second"]
+      }
+    ]
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(["icloud-group"]),
+        reviewedGroupIds: new Set(["icloud-group"]),
+        keptOverrides: { "icloud-group": new Set(["keep"]) }
+      }
+    })
+    const plan = reviewSession.trashPlan(groups)
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 3 },
+      requestId: "icloud-progress-timeout",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+    const freshTrashRef = assetRef("asset-trash", "fresh-trash")
+    const freshSecondTrashRef = assetRef(
+      "asset-trash-second",
+      "fresh-trash-second"
+    )
+
+    expect(
+      lifecycle.recordProgress({
+        requestId: command.requestId,
+        data: {
+          // The provider reports both identity and ref pairs in reverse plan order.
+          trashedKeys: ["trash-second", "trash"],
+          trashedDedupKeys: ["dedup-trash-second", "dedup-trash"],
+          icloudAssetRefs: [freshSecondTrashRef, freshTrashRef],
+          outcomes: [
+            {
+              operation: "trash",
+              targetKey: "dedup-trash-second",
+              status: "confirmed"
+            },
+            {
+              operation: "trash",
+              targetKey: "dedup-trash",
+              status: "confirmed"
+            }
+          ]
+        }
+      })
+    ).toBe(true)
+
+    const outcome = await lifecycle.timeout({
+      requestId: command.requestId,
+      error: "provider terminal response lost"
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "partial",
+      movedDedupKeys: ["dedup-trash", "dedup-trash-second"],
+      movedMediaKeys: ["trash", "trash-second"],
+      unknownDedupKeys: [],
+      undo: {
+        provider: "icloud",
+        dedupKeys: ["dedup-trash", "dedup-trash-second"],
+        icloudAssetRefs: [freshTrashRef, freshSecondTrashRef]
+      }
+    })
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toEqual([
+      freshTrashRef,
+      freshSecondTrashRef
+    ])
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "partial",
+      movedMediaKeys: ["trash", "trash-second"],
+      movedDedupKeys: ["dedup-trash", "dedup-trash-second"],
+      error: "provider terminal response lost"
+    })
+  })
+
+  it("rejects incomplete fresh iCloud refs when multiple Trash targets are confirmed", async () => {
+    const {
+      audit,
+      lifecycle,
+      groups: initialGroups,
+      mediaItems: initialItems,
+      assetRef
+    } = icloudFixture()
+    const mediaItems = {
+      ...initialItems,
+      "trash-second": {
+        ...initialItems.trash!,
+        mediaKey: "trash-second",
+        dedupKey: "dedup-trash-second",
+        icloudAsset: assetRef("asset-trash-second", "old-trash-second")
+      }
+    }
+    const groups: DuplicateGroup[] = [
+      { ...initialGroups[0]!, mediaKeys: ["keep", "trash", "trash-second"] }
+    ]
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(["icloud-group"]),
+        reviewedGroupIds: new Set(["icloud-group"]),
+        keptOverrides: { "icloud-group": new Set(["keep"]) }
+      }
+    })
+    const command = await lifecycle.begin({
+      plan: reviewSession.trashPlan(groups),
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 3 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+    const freshRef = assetRef("asset-trash", "fresh-trash")
+    const outcome = await lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: {
+        outcomes: [
+          { operation: "trash", targetKey: "dedup-trash", status: "confirmed" },
+          { operation: "trash", targetKey: "dedup-trash-second", status: "confirmed" }
+        ],
+        trashedDedupKeys: ["dedup-trash"],
+        icloudAssetRefs: [freshRef]
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "complete",
+      undo: {
+        dedupKeys: ["dedup-trash", "dedup-trash-second"]
+      }
+    })
+    if (outcome.kind !== "complete") throw new Error("expected complete Trash")
+    expect(outcome.undo.icloudAssetRefs).toBeUndefined()
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+  })
+
+  it("[PARITY-02] carries the iCloud page session through Trash, Undo, and restore", async () => {
+    const { audit, lifecycle, groups, mediaItems, reviewSession, plan, assetRef } =
+      icloudFixture()
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      accountEmail: "owner@example.com",
+      providerSessionId: "icloud-page-session-a",
+      scopeFingerprint: "scope-a",
+      scopeLabel: "Personal album: Summer",
+      requestId: "icloud-trash-request",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+
+    expect(command.args.providerSessionId).toBe("icloud-page-session-a")
+    expect(command.args.accountEmail).toBe("owner@example.com")
+    expect(command.args.icloudAssetRefs).toEqual([
+      assetRef("asset-trash", "old-trash")
+    ])
+    expect(audit.deleteContexts[0]).toMatchObject({
+      provider: "icloud",
+      accountEmail: "owner@example.com",
+      providerSessionId: "icloud-page-session-a",
+      scopeFingerprint: "scope-a",
+      scopeLabel: "Personal album: Summer"
+    })
+
+    const freshRef = assetRef("asset-trash", "fresh-after-trash")
+    const outcome = await lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash"],
+        icloudAssetRefs: [freshRef]
+      }
+    })
+    if (outcome.kind !== "complete") {
+      throw new Error("expected a complete iCloud trash outcome")
+    }
+    expect(outcome.undo).toMatchObject({
+      provider: "icloud",
+      accountEmail: "owner@example.com",
+      providerSessionId: "icloud-page-session-a",
+      scopeFingerprint: "scope-a",
+      scopeLabel: "Personal album: Summer",
+      icloudAssetRefs: [freshRef]
+    })
+
+    const restore = lifecycle.beginRestore(outcome.undo, "icloud-restore")
+    expect(restore.args).toMatchObject({
+      dedupKeys: ["dedup-trash"],
+      accountEmail: "owner@example.com",
+      providerSessionId: "icloud-page-session-a",
+      icloudAssetRefs: [freshRef]
+    })
+
+    const google = fixture()
+    const googleAudit = inMemoryAudit()
+    const googleLifecycle = new TrashLifecycle(googleAudit.adapter)
+    const googleCommand = await googleLifecycle.begin({
+      plan: google.reviewSession.trashPlan(google.groups),
+      reviewSession: google.reviewSession,
+      groups: google.groups,
+      snapshot: {
+        mediaItems: google.mediaItems,
+        groups: google.groups,
+        totalItems: 2
+      },
+      providerSessionId: "must-not-bind-google",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+    expect(googleCommand.args.providerSessionId).toBe("must-not-bind-google")
+    expect(googleAudit.deleteContexts[0]?.providerSessionId).toBe(
+      "must-not-bind-google"
+    )
+  })
+
+  it.each([
+    ["no iCloud references", undefined],
+    ["an incomplete reference list", []],
+    [
+      "a null reference",
+      [null as unknown as IcloudAssetRef]
+    ],
+    [
+      "a reference without a record name",
+      [
+        {
+          recordName: undefined,
+          changeTag: "fresh",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        } as unknown as IcloudAssetRef
+      ]
+    ],
+    [
+      "a reference without a change tag",
+      [
+        {
+          recordName: "asset-trash",
+          changeTag: undefined,
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        } as unknown as IcloudAssetRef
+      ]
+    ],
+    [
+      "a reference without a zone name",
+      [
+        {
+          recordName: "asset-trash",
+          changeTag: "fresh",
+          zoneName: undefined,
+          ownerRecordName: "owner"
+        } as unknown as IcloudAssetRef
+      ]
+    ],
+    [
+      "a reference without an owner record name",
+      [
+        {
+          recordName: "asset-trash",
+          changeTag: "fresh",
+          zoneName: "PrimarySync",
+          ownerRecordName: undefined
+        } as unknown as IcloudAssetRef
+      ]
+    ],
+    [
+      "an extra reference",
+      [
+        {
+          recordName: "asset-trash",
+          changeTag: "fresh",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        },
+        {
+          recordName: "asset-extra",
+          changeTag: "fresh-extra",
+          zoneName: "PrimarySync",
+          ownerRecordName: "owner"
+        }
+      ]
+    ]
+  ])("does not attach %s to an iCloud Undo record", async (_label, refs) => {
+    const { audit, lifecycle, groups, mediaItems, reviewSession, plan } =
+      icloudFixture()
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      requestId: "icloud-invalid-ref-trash",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+    const outcome = await lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash"],
+        ...(refs === undefined
+          ? {}
+          : { icloudAssetRefs: refs as IcloudAssetRef[] })
+      }
+    })
+
+    expect(outcome.kind).toBe("complete")
+    if (outcome.kind !== "complete") {
+      throw new Error("expected confirmed Trash with incomplete restore refs")
+    }
+    expect(outcome.undo?.icloudAssetRefs).toBeUndefined()
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+  })
+
+  it("rejects duplicate iCloud result identities when binding fresh restore refs", async () => {
+    const { audit, lifecycle, groups, mediaItems, reviewSession, plan, assetRef } =
+      icloudFixture()
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      requestId: "icloud-duplicate-ref-trash",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+    const freshRef = assetRef("asset-trash", "fresh-after-trash")
+    const outcome = await lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: {
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["dedup-trash", "dedup-trash"],
+        icloudAssetRefs: [freshRef, freshRef]
+      }
+    })
+
+    expect(outcome.kind).toBe("complete")
+    if (outcome.kind !== "complete") {
+      throw new Error("expected the confirmed Trash identity to remain complete")
+    }
+    expect(outcome.undo?.dedupKeys).toEqual(["dedup-trash"])
+    expect(outcome.undo?.icloudAssetRefs).toBeUndefined()
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+  })
+
+  it("does not attach iCloud refs when no requested identity was confirmed", async () => {
+    const { audit, lifecycle, groups, mediaItems, reviewSession, plan, assetRef } =
+      icloudFixture()
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      requestId: "icloud-no-confirmed-trash",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+
+    const outcome = await lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: {
+        trashedKeys: ["foreign-media"],
+        trashedDedupKeys: ["dedup-trash"],
+        icloudAssetRefs: [assetRef("asset-trash", "fresh-after-trash")]
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "unknown",
+      movedCount: 0,
+      undo: null,
+      unknownDedupKeys: ["dedup-trash"]
+    })
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+    expect(
+      Object.hasOwn(audit.resultContexts[0] ?? {}, "confirmedIcloudAssetRefs")
+    ).toBe(false)
+  })
+
+  it("does not bind iCloud refs when the confirmed media identity has no returned dedup identity", async () => {
+    const { audit, lifecycle, groups, mediaItems, reviewSession, plan } =
+      icloudFixture()
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      requestId: "icloud-media-only-trash",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+
+    const outcome = await lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: { trashedKeys: ["trash"], icloudAssetRefs: [] }
+    })
+
+    expect(outcome.kind).toBe("complete")
+    if (outcome.kind !== "complete") {
+      throw new Error("expected the provider-confirmed media identity")
+    }
+    expect(outcome.undo?.icloudAssetRefs).toBeUndefined()
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+  })
+
+  it("[PARITY-04] completes restore only when the confirmed identity set is exact", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["dedup-a", "dedup-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 }
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "restore-complete")
+
+    expect(
+      lifecycle.reconcileRestore({
+        requestId: "restore-complete",
+        success: true,
+        restoredDedupKeys: ["dedup-b", "dedup-a"]
+      })
+    ).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: ["dedup-a", "dedup-b"]
+    })
+  })
+
+  it("keeps confirmed and failed restore progress, but classifies an absent remainder as unknown on timeout", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["restore-a", "restore-b", "restore-c"],
+      count: 3,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 3 }
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "restore-progress-timeout")
+
+    expect(
+      lifecycle.recordRestoreProgress({
+        requestId: "restore-progress-timeout",
+        outcomes: [
+          { operation: "restore", targetKey: "restore-a", status: "confirmed" },
+          { operation: "restore", targetKey: "restore-b", status: "failed" }
+        ]
+      })
+    ).toBe(true)
+    const timeout = lifecycle.timeoutRestore({
+      requestId: "restore-progress-timeout"
+    })
+
+    expect(timeout).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      undo: { dedupKeys: ["restore-b"], count: 1 },
+      failedDedupKeys: ["restore-b"],
+      unknownDedupKeys: ["restore-c"],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        { targetKey: "restore-a", status: "confirmed" },
+        { targetKey: "restore-b", status: "failed" },
+        { targetKey: "restore-c", status: "unknown" }
+      ]
+    })
+    expect(lifecycle.isPending("restore-progress-timeout")).toBe(true)
+  })
+
+  it("lets an exact same-request terminal resolve provisional unknown restore progress", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["restore-a", "restore-b", "restore-c"],
+      count: 3,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 3 }
+    } satisfies TrashUndoData
+    const requestId = "restore-late-terminal"
+    lifecycle.beginRestore(undo, requestId)
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { operation: "restore", targetKey: "restore-a", status: "confirmed" },
+        { operation: "restore", targetKey: "restore-b", status: "unknown" }
+      ]
+    })
+
+    expect(lifecycle.timeoutRestore({ requestId })).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      unknownDedupKeys: ["restore-b", "restore-c"]
+    })
+    expect(lifecycle.isPending(requestId)).toBe(true)
+
+    const lateTerminal = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      outcomes: undo.dedupKeys.map((targetKey) => ({
+        operation: "restore" as const,
+        targetKey,
+        status: "confirmed" as const
+      }))
+    })
+
+    expect(lateTerminal).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: undo.dedupKeys,
+      outcomes: undo.dedupKeys.map((targetKey) => ({
+        operation: "restore",
+        targetKey,
+        status: "confirmed"
+      }))
+    })
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
+  it("resolves legacy progress unknowns only when the same terminal lists every requested target", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["restore-a", "restore-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 }
+    } satisfies TrashUndoData
+    const requestId = "restore-legacy-complete-result"
+    lifecycle.beginRestore(undo, requestId)
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { operation: "restore", targetKey: "restore-a", status: "unknown" }
+      ]
+    })
+
+    expect(
+      lifecycle.reconcileRestore({
+        requestId,
+        success: true,
+        restoredDedupKeys: undo.dedupKeys
+      })
+    ).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: undo.dedupKeys,
+      outcomes: undo.dedupKeys.map((targetKey) => ({
+        operation: "restore",
+        targetKey,
+        status: "confirmed"
+      }))
+    })
+  })
+
+  it("keeps provisional unknown restore progress when a legacy terminal confirms only a subset", () => {
+    const lifecycle = new TrashLifecycle(inMemoryAudit().adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["restore-a", "restore-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 }
+    } satisfies TrashUndoData
+    const requestId = "restore-legacy-partial-result"
+    lifecycle.beginRestore(undo, requestId)
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { operation: "restore", targetKey: "restore-a", status: "unknown" }
+      ]
+    })
+
+    expect(
+      lifecycle.reconcileRestore({
+        requestId,
+        success: true,
+        restoredDedupKeys: ["restore-a"]
+      })
+    ).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["restore-a", "restore-b"],
+      outcomes: [
+        { targetKey: "restore-a", status: "unknown" },
+        { targetKey: "restore-b", status: "unknown" }
+      ]
+    })
+  })
+
+  it("preserves confirmed restore progress against a contradictory same-request terminal", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "google",
+      dedupKeys: ["restore-a", "restore-b"],
+      count: 2,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 2 }
+    } satisfies TrashUndoData
+    const requestId = "restore-confirmed-progress"
+    lifecycle.beginRestore(undo, requestId)
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { operation: "restore", targetKey: "restore-a", status: "confirmed" }
+      ]
+    })
+
+    const terminal = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      outcomes: [
+        { operation: "restore", targetKey: "restore-a", status: "failed" },
+        { operation: "restore", targetKey: "restore-b", status: "confirmed" }
+      ]
+    })
+
+    expect(terminal).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: ["restore-a", "restore-b"],
+      outcomes: [
+        { targetKey: "restore-a", status: "confirmed" },
+        { targetKey: "restore-b", status: "confirmed" }
+      ]
+    })
+  })
+
+  it("does not acknowledge terminal confirmations when the not-dispatched subset is malformed", () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const undo = {
+      provider: "icloud",
+      dedupKeys: ["restore-a", "restore-b", "restore-c"],
+      count: 3,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 3 }
+    } satisfies TrashUndoData
+    lifecycle.beginRestore(undo, "restore-malformed-subset")
+
+    const outcome = lifecycle.reconcileRestore({
+      requestId: "restore-malformed-subset",
+      success: false,
+      outcomes: [
+        { operation: "restore", targetKey: "restore-a", status: "confirmed" },
+        { operation: "restore", targetKey: "restore-b", status: "failed" },
+        { operation: "restore", targetKey: "restore-c", status: "failed" }
+      ],
+      notDispatchedDedupKeys: ["restore-c", "foreign"]
+    })
+
+    expect(outcome).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      notDispatchedDedupKeys: [],
+      unknownDedupKeys: ["restore-a", "restore-b", "restore-c"],
+      outcomes: [
+        { targetKey: "restore-a", status: "unknown" },
+        { targetKey: "restore-b", status: "unknown" },
+        { targetKey: "restore-c", status: "unknown" }
+      ]
+    })
   })
 
   it("does not infer that every requested item moved when a success omits identities", async () => {
@@ -213,16 +1480,16 @@ describe("TrashLifecycle", () => {
     const outcome = await lifecycle.reconcile({ success: true, data: {} })
 
     expect(outcome).toMatchObject({
-      kind: "failed",
+      kind: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       movedCount: 0,
       undo: null
     })
-    if (outcome.kind !== "failed") throw new Error("expected failed outcome")
+    if (outcome.kind !== "unknown") throw new Error("expected unknown outcome")
     expect(outcome.error).toContain("did not confirm")
     expect(audit.resultReports[0]).toMatchObject({
-      status: "failed",
+      status: "unknown",
       attemptedMediaKeys: ["trash"],
       movedMediaKeys: []
     })
@@ -356,7 +1623,7 @@ describe("TrashLifecycle", () => {
       data: { trashedKeys: ["trashA"], trashedDedupKeys: ["dedup-trash-b"] }
     })
 
-    expect(outcome.kind).toBe("failed")
+    expect(outcome.kind).toBe("unknown")
     expect(outcome.movedMediaKeys).toEqual([])
     expect(outcome.movedDedupKeys).toEqual([])
     expect(outcome.undo).toBeNull()
@@ -466,12 +1733,12 @@ describe("TrashLifecycle", () => {
     await expect(
       lifecycle.timeout({ requestId: command.requestId, error: "provider timeout" })
     ).resolves.toMatchObject({
-      kind: "failed",
+      kind: "unknown",
       error: "provider timeout"
     })
     expect(lifecycle.isPending(command.requestId)).toBe(true)
     expect(audit.resultReports[0]).toMatchObject({
-      status: "failed",
+      status: "unknown",
       error: "provider timeout",
       movedMediaKeys: []
     })
@@ -532,18 +1799,19 @@ describe("TrashLifecycle", () => {
     })
     expect(audit.resultReports).toHaveLength(0)
 
-    await expect(lifecycle.timeout({ requestId: command.requestId })).resolves.toEqual({
-      kind: "failed",
+    await expect(lifecycle.timeout({ requestId: command.requestId })).resolves.toMatchObject({
+      kind: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       movedCount: 0,
       error:
         "Trash provider did not respond before the safety timeout. Do not retry until the result is reconciled.",
-      undo: null
+      undo: null,
+      unknownDedupKeys: ["dedup-trash"]
     })
     expect(lifecycle.isPending(command.requestId)).toBe(true)
     expect(audit.resultReports[0]).toMatchObject({
-      status: "failed",
+      status: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       error:
@@ -552,15 +1820,58 @@ describe("TrashLifecycle", () => {
 
     await expect(
       lifecycle.timeout({ requestId: command.requestId })
-    ).resolves.toEqual({
-      kind: "failed",
+    ).resolves.toMatchObject({
+      kind: "unknown",
       movedMediaKeys: [],
       movedDedupKeys: [],
       movedCount: 0,
       error: "Trash request is already awaiting provider reconciliation.",
-      undo: null
+      undo: null,
+      unknownDedupKeys: ["dedup-trash"]
     })
     expect(audit.resultReports).toHaveLength(1)
+  })
+
+  it("does not treat timeout fixture text as moved media identities", async () => {
+    const sentinel = "Stryker was here"
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems } = fixture()
+    const trashItem = mediaItems.trash!
+    delete mediaItems.trash
+    mediaItems[sentinel] = {
+      ...trashItem,
+      mediaKey: sentinel,
+      dedupKey: sentinel
+    }
+    groups[0]!.mediaKeys[1] = sentinel
+    const reviewSession = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set([groups[0]!.id]),
+        reviewedGroupIds: new Set([groups[0]!.id]),
+        keptOverrides: { [groups[0]!.id]: new Set(["keep"]) }
+      }
+    })
+    const command = await lifecycle.begin({
+      plan: reviewSession.trashPlan(groups),
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+
+    await lifecycle.timeout({ requestId: command.requestId })
+
+    expect(audit.resultReports[0]?.movedMediaKeys).toEqual([])
+    expect(audit.resultReports[0]?.movedDedupKeys).toEqual([])
+    expect(audit.resultReports[0]?.movedCount).toBe(0)
   })
 
   it("cancels only the matching pending request", async () => {
@@ -608,5 +1919,837 @@ describe("TrashLifecycle", () => {
     expect(duplicate).toMatchObject({ kind: "failed", movedCount: 0 })
     releaseResultAudit?.()
     expect(await first).toMatchObject({ kind: "complete", movedCount: 1 })
+  })
+})
+
+// Recovery tests exercise provider messages at the public lifecycle boundary.
+// Missing and contradictory target facts must never turn into retry permission.
+describe("TrashLifecycle — target outcomes and durable recovery", () => {
+  async function setupTrash(keys = ["a", "b", "c", "d"]) {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const mediaItems = { keep: fixture().mediaItems.keep! } as Record<string, GpdMediaItem>
+    for (const key of keys) {
+      mediaItems[key] = { ...fixture().mediaItems.trash!, mediaKey: key, dedupKey: `d-${key}` }
+    }
+    const groups: DuplicateGroup[] = [{
+      id: "recovery", mediaKeys: ["keep", ...keys], originalMediaKey: "keep", similarity: 1
+    }]
+    const reviewSession = new DuplicateReviewSession({
+      mediaItems, groups, selections: {
+        selectedGroupIds: new Set(["recovery"]), reviewedGroupIds: new Set(["recovery"]),
+        keptOverrides: { recovery: new Set(["keep"]) }
+      }
+    })
+    const command = await lifecycle.begin({
+      plan: reviewSession.trashPlan(groups), reviewSession, groups,
+      snapshot: { mediaItems, groups, totalItems: keys.length + 1 },
+      batchPolicy: { batchSize: 25, batchPauseMs: 1000, retryCount: 2, retryBackoffMs: 1000 }
+    })
+    return { lifecycle, audit, requestId: command.requestId }
+  }
+
+  function setupRestore(keys = ["d-a", "d-b", "d-c"]) {
+    const lifecycle = new TrashLifecycle(inMemoryAudit().adapter)
+    const undo: TrashUndoData = {
+      provider: "google", dedupKeys: keys, count: keys.length,
+      snapshot: { mediaItems: {}, groups: [], totalItems: keys.length }
+    }
+    lifecycle.beginRestore(undo, "restore-boundary")
+    return { lifecycle, undo, requestId: "restore-boundary" }
+  }
+
+  const fact = (operation: "trash" | "restore", targetKey: string, status: "confirmed" | "failed" | "unknown") =>
+    ({ operation, targetKey, status })
+
+  it("partitions an out-of-order terminal into moved, failed, unknown and never-dispatched identities", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash()
+    const result = await lifecycle.reconcile({ requestId, success: false, error: "interrupted", data: {
+      outcomes: [fact("trash", "d-d", "failed"), fact("trash", "d-c", "unknown"),
+        fact("trash", "d-b", "failed"), fact("trash", "d-a", "confirmed")],
+      notDispatchedDedupKeys: ["d-d"], retryAttempts: 2
+    } })
+    expect(result).toMatchObject({ kind: "partial", movedMediaKeys: ["a"], movedDedupKeys: ["d-a"],
+      failedMediaKeys: ["b"], failedDedupKeys: ["d-b"], unknownMediaKeys: ["c"], unknownDedupKeys: ["d-c"],
+      notDispatchedMediaKeys: ["d"], notDispatchedDedupKeys: ["d-d"], undo: { dedupKeys: ["d-a"], count: 1 } })
+    expect(audit.resultReports[0]).toMatchObject({ movedCount: 1, failedCount: 1, unknownCount: 1,
+      notDispatchedCount: 1, retryAttempts: 2, attemptedDedupKeys: ["d-a", "d-b", "d-c", "d-d"] })
+  })
+
+  it.each(["confirmed", "failed", "unknown"] as const)("records a single explicit %s target without inventing any other disposition", async (status) => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+    const result = await lifecycle.reconcile({ requestId, success: status === "confirmed", data: {
+      outcomes: [{ ...fact("trash", "d-a", status), reason: "provider detail" }]
+    } })
+    expect(result.kind).toBe(status === "confirmed" ? "complete" : status)
+    expect(result.movedDedupKeys).toEqual(status === "confirmed" ? ["d-a"] : [])
+    expect(audit.resultReports[0]?.outcomes).toEqual([{ ...fact("trash", "d-a", status), reason: "provider detail" }])
+    expect(result.undo?.dedupKeys ?? []).toEqual(status === "confirmed" ? ["d-a"] : [])
+  })
+
+  it.each([null, "bad", {}, { operation: "restore", targetKey: "d-a", status: "confirmed" },
+    { operation: "trash", targetKey: 1, status: "confirmed" },
+    { operation: "trash", targetKey: "foreign", status: "confirmed" },
+    { operation: "trash", targetKey: "d-a", status: "done" }])("never confirms a malformed terminal target %#", async (candidate) => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    const result = await lifecycle.reconcile({ requestId, success: true, data: { outcomes: [candidate] } })
+    expect(result).toMatchObject({ kind: "unknown", movedDedupKeys: [], unknownDedupKeys: ["d-a"],
+      notDispatchedDedupKeys: [], undo: null })
+  })
+
+  it.each([
+    null,
+    fact("restore", "d-a", "confirmed"),
+    fact("trash", "foreign", "confirmed")
+  ])("does not fully confirm a valid trash fact alongside malformed or foreign data: %#", async (extraFact) => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: { outcomes: [fact("trash", "d-a", "confirmed"), extraFact] }
+    })
+
+    expect(result).toMatchObject({
+      kind: "partial",
+      movedDedupKeys: ["d-a"],
+      undo: { dedupKeys: ["d-a"] }
+    })
+  })
+
+  it.each([undefined, null, "bad", {}])("does not fall back to legacy success when an outcomes field is malformed: %#", async (outcomes) => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    const result = await lifecycle.reconcile({ requestId, success: true, data: {
+      outcomes, trashedKeys: ["a"], trashedDedupKeys: ["d-a"]
+    } })
+    expect(result).toMatchObject({ kind: "unknown", movedDedupKeys: [], unknownDedupKeys: ["d-a"], undo: null })
+  })
+
+  it.each(["confirmed", "failed", "unknown"] as const)("quarantines duplicate terminal facts even when both say %s", async (status) => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    const result = await lifecycle.reconcile({ requestId, success: true, data: {
+      outcomes: [fact("trash", "d-a", status), fact("trash", "d-a", status)], notDispatchedDedupKeys: ["d-a"]
+    } })
+    expect(result).toMatchObject({ kind: "unknown", movedDedupKeys: [], unknownDedupKeys: ["d-a"],
+      notDispatchedDedupKeys: [], undo: null })
+  })
+
+  it("quarantines one trash target reported as both confirmed and not dispatched", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+
+    expect(await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: {
+        outcomes: [fact("trash", "d-a", "confirmed")],
+        notDispatchedDedupKeys: ["d-a"]
+      }
+    })).toMatchObject({
+      kind: "unknown",
+      movedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: null
+    })
+  })
+
+  it("keeps a proven pre-dispatch rejection distinct from a dispatched failure", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a", "b"])
+    const result = await lifecycle.reconcile({ requestId, success: false, data: {
+      outcomes: [fact("trash", "d-a", "failed"), fact("trash", "d-b", "failed")], notDispatchedDedupKeys: ["d-b"]
+    } })
+    expect(result).toMatchObject({ kind: "failed", failedMediaKeys: ["a"], failedDedupKeys: ["d-a"],
+      notDispatchedMediaKeys: ["b"], notDispatchedDedupKeys: ["d-b"], undo: null })
+    expect(audit.resultReports[0]).toMatchObject({ failedCount: 1, notDispatchedCount: 1, unknownCount: 0 })
+  })
+
+  it("recognizes legacy explicit not-dispatched targets without assuming the rest moved", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a", "b"])
+    expect(await lifecycle.reconcile({ requestId, success: false, data: { notDispatchedDedupKeys: ["d-b"] } }))
+      .toMatchObject({ kind: "unknown", unknownMediaKeys: ["a"], unknownDedupKeys: ["d-a"],
+        notDispatchedMediaKeys: ["b"], notDispatchedDedupKeys: ["d-b"], failedDedupKeys: [], undo: null })
+  })
+
+  it.each(["bad", null, ["foreign"], ["d-a", "d-a"], ["d-a", 1]])("flags malformed not-dispatched metadata without silently accepting complete success: %#", async (notDispatchedDedupKeys) => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    expect((await lifecycle.reconcile({ requestId, success: true, data: {
+      outcomes: [fact("trash", "d-a", "confirmed")], notDispatchedDedupKeys
+    } })).kind).not.toBe("complete")
+  })
+
+  it("accepts an empty not-dispatched list when every requested target is confirmed", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a", "b"])
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: {
+        outcomes: [fact("trash", "d-a", "confirmed"), fact("trash", "d-b", "confirmed")],
+        notDispatchedDedupKeys: []
+      }
+    })
+
+    expect(result).toMatchObject({
+      kind: "complete",
+      movedMediaKeys: ["a", "b"],
+      movedDedupKeys: ["d-a", "d-b"],
+      movedCount: 2,
+      notDispatchedMediaKeys: [],
+      notDispatchedDedupKeys: []
+    })
+  })
+
+  it("preserves confirmed progress but rejects a non-string not-dispatched entry", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: {
+        outcomes: [fact("trash", "d-a", "confirmed")],
+        notDispatchedDedupKeys: [1]
+      }
+    })
+
+    expect(result).toMatchObject({
+      kind: "partial",
+      movedMediaKeys: ["a"],
+      movedDedupKeys: ["d-a"],
+      movedCount: 1,
+      notDispatchedMediaKeys: [],
+      notDispatchedDedupKeys: []
+    })
+    if (result.kind !== "partial") throw new Error("Expected partial trash result")
+    expect(result.message).toContain("identities outside the confirmed request")
+  })
+
+  it("retains confirmed and failed progress across a later unknown update and a lost terminal response", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a", "b", "c"])
+    expect(lifecycle.recordProgress({ requestId, data: { outcomes: [
+      fact("trash", "d-a", "confirmed"), fact("trash", "d-b", "failed")
+    ] } })).toBe(true)
+    lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "unknown"), fact("trash", "d-b", "unknown")] } })
+    const result = await lifecycle.timeout({ requestId, error: "network lost" })
+    expect(result).toMatchObject({ kind: "partial", movedDedupKeys: ["d-a"], failedDedupKeys: ["d-b"],
+      unknownDedupKeys: ["d-c"], undo: { dedupKeys: ["d-a"], count: 1 }, message: "network lost" })
+    expect(audit.resultReports).toHaveLength(1)
+    expect(audit.resultReports[0]?.outcomes?.map(({ targetKey, status }) => ({ targetKey, status }))).toEqual([
+      { targetKey: "d-a", status: "confirmed" }, { targetKey: "d-b", status: "failed" }, { targetKey: "d-c", status: "unknown" }
+    ])
+    expect(await lifecycle.timeout({ requestId })).toMatchObject({ kind: "unknown", unknownDedupKeys: ["d-c"], failedDedupKeys: ["d-b"] })
+    expect(audit.resultReports).toHaveLength(1)
+    expect(lifecycle.isPending(requestId)).toBe(true)
+    await expect(begin(lifecycle)).rejects.toThrow(/pending/)
+  })
+
+  it("uses retained progress when a same-request terminal omits outcomes", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a", "b"])
+    lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "confirmed")] } })
+    expect(await lifecycle.reconcile({ requestId, success: false })).toMatchObject({ kind: "partial", movedDedupKeys: ["d-a"],
+      unknownDedupKeys: ["d-b"], undo: { dedupKeys: ["d-a"] } })
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
+  it("uses an explicit complete terminal over retained provisional trash progress", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a", "b"])
+    lifecycle.recordProgress({
+      requestId,
+      data: { outcomes: [fact("trash", "d-a", "unknown")] }
+    })
+
+    const terminal = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: {
+        outcomes: [
+          fact("trash", "d-a", "confirmed"),
+          fact("trash", "d-b", "confirmed")
+        ]
+      }
+    })
+
+    expect(terminal).toMatchObject({
+      kind: "complete",
+      movedMediaKeys: ["a", "b"],
+      movedDedupKeys: ["d-a", "d-b"],
+      undo: { dedupKeys: ["d-a", "d-b"], count: 2 }
+    })
+  })
+
+  it("accepts a later confirmed progress fact for a provisional unknown target", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "unknown")] } })
+    lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "confirmed")] } })
+    expect(await lifecycle.reconcile({ requestId, success: true })).toMatchObject({ kind: "complete", movedDedupKeys: ["d-a"] })
+  })
+
+  it("preserves the provider reason on a first unknown progress fact", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+    lifecycle.recordProgress({
+      requestId,
+      data: {
+        outcomes: [
+          { ...fact("trash", "d-a", "unknown"), reason: "provider still processing" }
+        ]
+      }
+    })
+
+    await lifecycle.timeout({ requestId })
+
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      { ...fact("trash", "d-a", "unknown"), reason: "provider still processing" }
+    ])
+  })
+
+  it("keeps the latest reason when unknown progress is refreshed", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+    lifecycle.recordProgress({
+      requestId,
+      data: {
+        outcomes: [
+          { ...fact("trash", "d-a", "unknown"), reason: "earlier provider detail" }
+        ]
+      }
+    })
+    lifecycle.recordProgress({
+      requestId,
+      data: {
+        outcomes: [
+          { ...fact("trash", "d-a", "unknown"), reason: "latest provider detail" }
+        ]
+      }
+    })
+
+    await lifecycle.timeout({ requestId })
+
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      { ...fact("trash", "d-a", "unknown"), reason: "latest provider detail" }
+    ])
+  })
+
+  it("rejects stale/absent progress and ignores invalid target facts", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    expect(lifecycle.recordProgress({ requestId: "foreign", data: { outcomes: [fact("trash", "d-a", "confirmed")] } })).toBe(false)
+    expect(lifecycle.recordProgress({ requestId })).toBe(false)
+    expect(lifecycle.recordProgress({ requestId, data: { outcomes: "bad" } })).toBe(false)
+    expect(lifecycle.recordProgress({ requestId, data: { outcomes: [null, 1, {}, fact("restore", "d-a", "confirmed"),
+      fact("trash", "foreign", "confirmed"), { ...fact("trash", "d-a", "confirmed"), targetKey: 1 },
+      { ...fact("trash", "d-a", "confirmed"), status: "done" }] } })).toBe(true)
+    expect(await lifecycle.timeout({ requestId })).toMatchObject({ kind: "unknown", movedDedupKeys: [], unknownDedupKeys: ["d-a"] })
+    lifecycle.reset()
+    expect(lifecycle.recordProgress({ requestId, data: { outcomes: [] } })).toBe(false)
+  })
+
+  it("keeps an isolated wrong-operation confirmation unknown when trash times out", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    expect(lifecycle.recordProgress({
+      requestId,
+      data: { outcomes: [fact("restore", "d-a", "confirmed")] }
+    })).toBe(true)
+
+    expect(await lifecycle.timeout({ requestId })).toMatchObject({
+      kind: "unknown",
+      movedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      undo: null
+    })
+  })
+
+  it("bounds persisted provider reason text and ignores non-text reasons", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a", "b"])
+    lifecycle.recordProgress({ requestId, data: { outcomes: [
+      { ...fact("trash", "d-a", "failed"), reason: "x".repeat(400) },
+      { ...fact("trash", "d-b", "failed"), reason: { private: "not text" } }
+    ] } })
+    await lifecycle.reconcile({ requestId, success: false })
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      { ...fact("trash", "d-a", "failed"), reason: "x".repeat(300) }, fact("trash", "d-b", "failed")
+    ])
+  })
+
+  it("snapshots every restore intent before dispatch and changes only evaluated target facts", () => {
+    const { lifecycle, requestId } = setupRestore()
+    expect(lifecycle.restoreProgressSnapshot("foreign")).toBeUndefined()
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toEqual(["d-a", "d-b", "d-c"].map((key) => ({
+      ...fact("restore", key, "unknown"), reason: "durable-pre-dispatch-intent"
+    })))
+    expect(lifecycle.recordRestoreProgress({ requestId, outcomes: [{ ...fact("restore", "d-a", "failed"), reason: "x".repeat(400) }] })).toBe(true)
+    expect(lifecycle.restoreProgressSnapshot(requestId)?.[0]).toEqual({ ...fact("restore", "d-a", "failed"), reason: "x".repeat(300) })
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toHaveLength(3)
+    expect(lifecycle.cancelRestore("foreign")).toBe(false)
+    expect(lifecycle.isPending(requestId)).toBe(true)
+    expect(lifecycle.cancelRestore(requestId)).toBe(true)
+    expect(lifecycle.isPending()).toBe(false)
+    expect(lifecycle.cancelRestore(requestId)).toBe(false)
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toBeUndefined()
+    expect(lifecycle.timeoutRestore({ requestId })).toBeUndefined()
+  })
+
+  it("ignores a late restore terminal response after cancellation", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+    expect(lifecycle.cancelRestore(requestId)).toBe(true)
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: ["d-a"]
+    })).toBeUndefined()
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
+  it("classifies an all-failed restore as failed rather than unknown", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [fact("restore", "d-a", "failed"), fact("restore", "d-b", "failed")]
+    })).toMatchObject({
+      kind: "failed",
+      restoredDedupKeys: [],
+      failedDedupKeys: ["d-a", "d-b"],
+      unknownDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: ["d-a", "d-b"], count: 2 },
+      outcomes: [fact("restore", "d-a", "failed"), fact("restore", "d-b", "failed")]
+    })
+  })
+
+  it("combines prior confirmed restore progress with a legacy terminal remainder", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })).toBe(true)
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: ["restore-b"]
+    })).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: ["restore-a", "restore-b"],
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "confirmed")
+      ]
+    })
+  })
+
+  it.each([false, true])(
+    "accepts legacy terminal identities when outcomes is omitted or undefined (explicit undefined: %s)",
+    (includeUndefinedOutcomes) => {
+      const { lifecycle, requestId } = setupRestore(["d-a"])
+      const result = lifecycle.reconcileRestore({
+        requestId,
+        success: true,
+        restoredDedupKeys: ["d-a"],
+        ...(includeUndefinedOutcomes ? { outcomes: undefined } : {})
+      })
+
+      expect(result).toMatchObject({
+        kind: "complete",
+        restoredDedupKeys: ["d-a"],
+        outcomes: [fact("restore", "d-a", "confirmed")]
+      })
+    }
+  )
+
+  it.each([null, 1, {}, fact("trash", "d-b", "confirmed"), fact("restore", "foreign", "confirmed"),
+    { ...fact("restore", "d-b", "confirmed"), targetKey: 1 },
+    { ...fact("restore", "d-b", "confirmed"), status: "done" }])("rejects the entire malformed restore-progress chunk atomically: %#", (badFact) => {
+    const { lifecycle, requestId } = setupRestore()
+    const before = lifecycle.restoreProgressSnapshot(requestId)
+    expect(lifecycle.recordRestoreProgress({ requestId, outcomes: [fact("restore", "d-a", "confirmed"), badFact] })).toBe(false)
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toEqual(before)
+  })
+
+  it("rejects duplicated, missing, or stale restore progress without granting retry permission", () => {
+    const { lifecycle, requestId } = setupRestore()
+    const before = lifecycle.restoreProgressSnapshot(requestId)
+    expect(lifecycle.recordRestoreProgress({ requestId, outcomes: [fact("restore", "d-a", "confirmed"), fact("restore", "d-a", "confirmed")] })).toBe(false)
+    expect(lifecycle.recordRestoreProgress({ requestId })).toBe(false)
+    expect(lifecycle.recordRestoreProgress({ requestId: "foreign", outcomes: [] })).toBe(false)
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toEqual(before)
+  })
+
+  it.each([null, "bad", ["d-b", 1], ["d-b", "d-b"], ["foreign"]])("quarantines malformed restore not-dispatched metadata: %#", (notDispatchedDedupKeys) => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    expect(lifecycle.reconcileRestore({ requestId, success: true,
+      outcomes: [fact("restore", "d-a", "confirmed"), fact("restore", "d-b", "failed")], notDispatchedDedupKeys }))
+      .toMatchObject({ kind: "unknown", restoredDedupKeys: [], unknownDedupKeys: ["d-a", "d-b"],
+        notDispatchedDedupKeys: [], undo: { dedupKeys: [], count: 0 } })
+  })
+
+  it("quarantines a terminal target reported as both confirmed and not dispatched", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "failed")
+      ],
+      notDispatchedDedupKeys: ["restore-a"]
+    })).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["restore-a", "restore-b"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "unknown"),
+        fact("restore", "restore-b", "unknown")
+      ]
+    })
+  })
+
+  it("quarantines contradictory legacy restore identities and preserves prior confirmations", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: ["restore-a", "restore-b"],
+      notDispatchedDedupKeys: ["restore-a"]
+    })).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["restore-a", "restore-b"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "unknown"),
+        fact("restore", "restore-b", "unknown")
+      ]
+    })
+
+    const withProgress = setupRestore(["restore-a", "restore-b"])
+    expect(withProgress.lifecycle.recordRestoreProgress({
+      requestId: withProgress.requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })).toBe(true)
+    expect(withProgress.lifecycle.reconcileRestore({
+      requestId: withProgress.requestId,
+      success: true,
+      restoredDedupKeys: ["restore-a", "restore-b"],
+      notDispatchedDedupKeys: ["restore-a"]
+    })).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      unknownDedupKeys: ["restore-b"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "unknown")
+      ]
+    })
+  })
+
+  it("does not retry a not-dispatched target when another terminal outcome is missing", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [fact("restore", "restore-a", "confirmed")],
+      notDispatchedDedupKeys: ["restore-b"]
+    })).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["restore-a", "restore-b"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "unknown"),
+        fact("restore", "restore-b", "unknown")
+      ]
+    })
+  })
+
+  it("preserves prior confirmed restore progress when a later terminal response is malformed", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b", "restore-c"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })).toBe(true)
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        fact("restore", "restore-a", "failed"),
+        fact("restore", "restore-b", "confirmed"),
+        fact("restore", "restore-c", "failed")
+      ],
+      notDispatchedDedupKeys: ["restore-c", "foreign"]
+    })).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      unknownDedupKeys: ["restore-b", "restore-c"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "unknown"),
+        fact("restore", "restore-c", "unknown")
+      ]
+    })
+  })
+
+  it.each([
+    ["null candidate", null],
+    ["primitive candidate", 17],
+    ["invalid status", { ...fact("restore", "restore-b", "confirmed"), status: "done" }],
+    ["foreign target", fact("restore", "foreign", "confirmed")],
+    ["duplicate target", fact("restore", "restore-b", "confirmed")]
+  ])("quarantines a complete restore terminal with an appended %s", (_label, extraOutcome) => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b", "restore-c"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })).toBe(true)
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      outcomes: [
+        fact("restore", "restore-a", "failed"),
+        fact("restore", "restore-b", "confirmed"),
+        fact("restore", "restore-c", "confirmed"),
+        extraOutcome
+      ]
+    })).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      unknownDedupKeys: ["restore-b", "restore-c"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "unknown"),
+        fact("restore", "restore-c", "unknown")
+      ],
+      error: expect.stringMatching(/valid identity/i)
+    })
+  })
+
+  it("bounds reason text on terminal restore outcomes", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        { ...fact("restore", "restore-a", "failed"), reason: "x".repeat(400) },
+        { ...fact("restore", "restore-b", "failed"), reason: { private: "not text" } }
+      ]
+    })).toMatchObject({
+      kind: "failed",
+      outcomes: [
+        { ...fact("restore", "restore-a", "failed"), reason: "x".repeat(300) },
+        fact("restore", "restore-b", "failed")
+      ]
+    })
+  })
+
+  it.each([null, "bad", {}, [fact("restore", "d-a", "confirmed")],
+    [fact("restore", "d-a", "confirmed"), fact("restore", "d-a", "failed"), fact("restore", "d-b", "failed")],
+    [fact("trash", "d-a", "confirmed"), fact("restore", "d-b", "failed")],
+    [fact("restore", "foreign", "confirmed"), fact("restore", "d-b", "failed")],
+    [null, fact("restore", "d-b", "failed")],
+    [{ ...fact("restore", "d-a", "confirmed"), status: "done" }, fact("restore", "d-b", "failed")]
+  ])("keeps malformed restore terminal targets out of the retry set: %#", (outcomes) => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    expect(lifecycle.reconcileRestore({ requestId, success: true, outcomes })).toMatchObject({ kind: "unknown",
+      restoredDedupKeys: [], unknownDedupKeys: ["d-a", "d-b"], undo: { dedupKeys: [], count: 0 } })
+  })
+
+  it.each([true, false])("retries only proven failed restores with an exact not-dispatched subset (legacy=%s)", (legacy) => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    const result = lifecycle.reconcileRestore({ requestId, success: false, error: "stopped before second target",
+      ...(legacy ? { restoredDedupKeys: ["d-a"] } : { outcomes: [fact("restore", "d-a", "confirmed"), fact("restore", "d-b", "failed")] }),
+      notDispatchedDedupKeys: ["d-b"]
+    })
+    expect(result).toMatchObject({ kind: "partial", restoredDedupKeys: ["d-a"], failedDedupKeys: ["d-b"],
+      unknownDedupKeys: [], notDispatchedDedupKeys: ["d-b"], undo: { dedupKeys: ["d-b"], count: 1 }, error: "stopped before second target" })
+    if (result?.kind !== "partial") throw new Error("Expected partial restore")
+    expect(lifecycle.beginRestore(result.undo, "retry-only-failed").args.dedupKeys).toEqual(["d-b"])
+    expect(lifecycle.reconcileRestore({ requestId: "retry-only-failed", success: true, restoredDedupKeys: ["d-b"] }))
+      .toMatchObject({ kind: "complete", restoredDedupKeys: ["d-b"] })
+  })
+
+  it.each([null, [], [""], ["d-a", "d-a"], ["valid", 1]])(
+    "rejects invalid restore target identity lists before pending state: %#",
+    (dedupKeys) => {
+      const lifecycle = new TrashLifecycle(inMemoryAudit().adapter)
+      const requestId = "invalid-restore-targets"
+      const undo = {
+        provider: "google",
+        dedupKeys,
+        count: 1,
+        snapshot: { mediaItems: {}, groups: [], totalItems: 1 }
+      } as unknown as TrashUndoData
+
+      expect(() => lifecycle.beginRestore(undo, requestId)).toThrow(
+        /invalid or duplicated/i
+      )
+      expect(lifecycle.isPending(requestId)).toBe(false)
+    }
+  )
+
+  it.each([
+    ["unknown", "failed", "unknown", "unknown"],
+    ["confirmed", "failed", "confirmed", "complete"]
+  ] as const)(
+    "does not turn restore progress %s -> %s into a retryable failure",
+    (priorStatus, nextStatus, retainedStatus, expectedKind) => {
+      const { lifecycle, requestId } = setupRestore(["d-a"])
+      expect(lifecycle.recordRestoreProgress({
+        requestId,
+        outcomes: [fact("restore", "d-a", priorStatus)]
+      })).toBe(true)
+      expect(lifecycle.recordRestoreProgress({
+        requestId,
+        outcomes: [fact("restore", "d-a", nextStatus)]
+      })).toBe(true)
+
+      const result = lifecycle.timeoutRestore({ requestId })
+      expect(result?.kind).toBe(expectedKind)
+      expect(result?.outcomes).toEqual([fact("restore", "d-a", retainedStatus)])
+      if (result?.kind === "unknown") {
+        expect(result).toMatchObject({
+          unknownDedupKeys: ["d-a"],
+          failedDedupKeys: [],
+          undo: { dedupKeys: [], count: 0 }
+        })
+      } else {
+        expect(result?.restoredDedupKeys).toEqual(["d-a"])
+      }
+    }
+  )
+
+  it("quarantines contradictory same-request restore progress as unknown", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "d-a", "failed")]
+    })).toBe(true)
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "d-a", "confirmed")]
+    })).toBe(true)
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "d-a", "confirmed")]
+    })).toBe(true)
+
+    expect(lifecycle.timeoutRestore({ requestId })).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [fact("restore", "d-a", "unknown")]
+    })
+  })
+
+  it.each([
+    ["confirmed", "failed"],
+    ["failed", "confirmed"]
+  ] as const)(
+    "quarantines contradictory Trash progress %s -> %s instead of changing a terminal fact",
+    async (priorStatus, nextStatus) => {
+      const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: { outcomes: [fact("trash", "d-a", priorStatus)] }
+      })).toBe(true)
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: { outcomes: [fact("trash", "d-a", nextStatus)] }
+      })).toBe(true)
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: { outcomes: [fact("trash", "d-a", priorStatus)] }
+      })).toBe(true)
+
+      const result = await lifecycle.timeout({ requestId })
+      expect(result).toMatchObject({
+        kind: "unknown",
+        movedDedupKeys: [],
+        unknownDedupKeys: ["d-a"],
+        failedDedupKeys: [],
+        notDispatchedDedupKeys: [],
+        undo: null
+      })
+      expect(audit.resultReports[0]).toMatchObject({
+        status: "unknown",
+        movedDedupKeys: [],
+        unknownDedupKeys: ["d-a"],
+        failedDedupKeys: [],
+        notDispatchedDedupKeys: [],
+        outcomes: [fact("trash", "d-a", "unknown")]
+      })
+    }
+  )
+
+  it.each([
+    ["confirmed", "failed"],
+    ["failed", "confirmed"],
+    ["confirmed", "confirmed"],
+    ["failed", "failed"]
+  ] as const)(
+    "quarantines duplicate same-payload Trash outcomes %s then %s as unknown",
+    async (firstStatus, secondStatus) => {
+      const { lifecycle, audit, requestId } = await setupTrash(["a"])
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: {
+          outcomes: [
+            fact("trash", "d-a", firstStatus),
+            fact("trash", "d-a", secondStatus)
+          ]
+        }
+      })).toBe(true)
+
+      expect(await lifecycle.timeout({ requestId })).toMatchObject({
+        kind: "unknown",
+        movedDedupKeys: [],
+        unknownDedupKeys: ["d-a"],
+        failedDedupKeys: [],
+        notDispatchedDedupKeys: [],
+        undo: null
+      })
+      expect(audit.resultReports[0]).toMatchObject({
+        status: "unknown",
+        movedDedupKeys: [],
+        unknownDedupKeys: ["d-a"],
+        failedDedupKeys: [],
+        notDispatchedDedupKeys: [],
+        outcomes: [fact("trash", "d-a", "unknown")]
+      })
+    }
+  )
+
+  it("ignores restore progress after cancellation", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+
+    expect(lifecycle.cancelRestore(requestId)).toBe(true)
+    expect(
+      lifecycle.recordRestoreProgress({
+        requestId,
+        outcomes: [fact("restore", "d-a", "confirmed")]
+      })
+    ).toBe(false)
+    expect(lifecycle.isPending(requestId)).toBe(false)
   })
 })

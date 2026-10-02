@@ -13,15 +13,15 @@ import {
 
 import type { PlanId } from "../../../lib/entitlement"
 import { buildScanScopeFingerprint } from "../../../lib/review-preflight"
+import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../../../lib/privacy-disclosure"
 import type { ScanCheckpoint } from "../../../lib/scan-checkpoint"
 import type { DuplicateGroup, GpdMediaItem } from "../../../lib/types"
 import { DEFAULT_SETTINGS } from "../../../lib/types"
 
-export const extensionPath = path.resolve(
-  __dirname,
-  "../../../build/chrome-mv3-dev"
-)
+export const extensionPath = process.env.PHOTOSWEEP_E2E_EXTENSION_PATH
+  ? path.resolve(process.env.PHOTOSWEEP_E2E_EXTENSION_PATH)
+  : path.resolve(__dirname, "../../../build/chrome-mv3-dev")
 
 const extensionIds = new WeakMap<BrowserContext, string>()
 
@@ -260,13 +260,14 @@ export async function injectScanResults(
   accountEmail: string | null = "test@example.com"
 ): Promise<void> {
   const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
+  const storageKey = providerReviewStorageKey("google", "scanResults")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint }) =>
+      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
             {
-              scanResults: {
+              [storageKey]: {
                 groups,
                 mediaItems,
                 totalItems,
@@ -279,7 +280,7 @@ export async function injectScanResults(
             resolve
           )
         }),
-      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint }
+      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey }
     )
   )
 }
@@ -287,18 +288,20 @@ export async function injectScanResults(
 export async function injectSelections(
   context: BrowserContext,
   selectedGroupIds: string[],
-  keptOverrides: Record<string, string[]> = {}
+  keptOverrides: Record<string, string[]> = {},
+  provider: "google" | "icloud" | "amazon" = "google"
 ): Promise<void> {
+  const storageKey = providerReviewStorageKey(provider, "selections")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ selectedGroupIds, keptOverrides }) =>
+      ({ selectedGroupIds, keptOverrides, storageKey }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
-            { selections: { selectedGroupIds, keptOverrides } },
+            { [storageKey]: { selectedGroupIds, keptOverrides } },
             resolve
           )
         }),
-      { selectedGroupIds, keptOverrides }
+      { selectedGroupIds, keptOverrides, storageKey }
     )
   )
 }
@@ -307,13 +310,15 @@ export async function injectScanCheckpoint(
   context: BrowserContext,
   scanCheckpoint: ScanCheckpoint
 ): Promise<void> {
+  const provider = scanCheckpoint.settings.sourceProvider ?? "google"
+  const storageKey = providerReviewStorageKey(provider, "scanCheckpoint")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      (scanCheckpoint) =>
+      ({ scanCheckpoint, storageKey }) =>
         new Promise<void>((resolve) => {
-          chrome.storage.local.set({ scanCheckpoint }, resolve)
+          chrome.storage.local.set({ [storageKey]: scanCheckpoint }, resolve)
         }),
-      scanCheckpoint
+      { scanCheckpoint, storageKey }
     )
   )
 }
@@ -350,7 +355,37 @@ export async function readLocalStorage(
     page.evaluate(
       (keys) =>
         new Promise<Record<string, unknown>>((resolve) => {
-          chrome.storage.local.get(keys, resolve)
+          if (keys === undefined) {
+            chrome.storage.local.get(resolve)
+            return
+          }
+          const requested = Array.isArray(keys) ? keys : [keys]
+          chrome.storage.local.get("settings", (settingsResult) => {
+            const configuredProvider = settingsResult.settings?.sourceProvider
+            const provider =
+              configuredProvider === "icloud" || configuredProvider === "amazon"
+                ? configuredProvider
+                : "google"
+            const reviewKeys = new Set([
+              "scanResults",
+              "selections",
+              "scanCheckpoint"
+            ])
+            const physical = requested.map((key) =>
+              reviewKeys.has(key)
+                ? `providerReview.v1.${provider}.${key}`
+                : key
+            )
+            chrome.storage.local.get(physical, (stored) => {
+              const logical: Record<string, unknown> = {}
+              requested.forEach((key, index) => {
+                if (Object.prototype.hasOwnProperty.call(stored, physical[index])) {
+                  logical[key] = stored[physical[index]]
+                }
+              })
+              resolve(logical)
+            })
+          })
         }),
       keys
     )
@@ -404,6 +439,9 @@ export interface GptkOverride {
   error?: string
   data?: unknown
   delayMs?: number
+  holdResponse?: boolean
+  progressData?: unknown
+  progressItemsProcessed?: number
   sequence?: GptkOverride[]
 }
 

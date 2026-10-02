@@ -369,7 +369,9 @@ function makeItem(
     dedupKey: mediaKey,
     thumb: `https://example.com/${mediaKey}`,
     timestamp,
+    timestampProvenance: "capture",
     creationTimestamp,
+    creationTimestampProvenance: "creation",
     ...extra
   }
 }
@@ -454,6 +456,7 @@ describe("video metadata duplicate detection", () => {
   it("groups exact matches by provider content hash without changing provider node ids", () => {
     const groups = findExactContentDuplicateGroups([
       makeItem("amazon-a", 1000, 100, {
+        provider: "amazon",
         dedupKey: "node-a",
         exactContentHash: "amazon-md5-same",
         contentHash: {
@@ -465,6 +468,7 @@ describe("video metadata duplicate detection", () => {
         fileName: "clip-a.mp4"
       }),
       makeItem("amazon-b", 2000, 200, {
+        provider: "amazon",
         dedupKey: "node-b",
         exactContentHash: "amazon-md5-same",
         contentHash: {
@@ -727,22 +731,24 @@ describe("video metadata duplicate detection", () => {
       [
         makeItem("old-upload", Date.parse("2021-01-01"), 100, {
           dedupKey: "node-a",
-          exactContentHash: "amazon-md5-same",
+          provider: "google",
           contentHash: {
-            value: "a".repeat(32),
-            algorithm: "md5",
-            provenance: "original-content"
+            value: "a".repeat(64),
+            algorithm: "sha256",
+            provenance: "original-content",
+            verificationSource: "local-original-bytes"
           },
           duration: 12_345,
           fileName: "clip-a.mp4"
         }),
         makeItem("new-upload", Date.parse("2024-01-01"), 200, {
           dedupKey: "node-b",
-          exactContentHash: "amazon-md5-same",
+          provider: "google",
           contentHash: {
-            value: "a".repeat(32),
-            algorithm: "md5",
-            provenance: "original-content"
+            value: "a".repeat(64),
+            algorithm: "sha256",
+            provenance: "original-content",
+            verificationSource: "local-original-bytes"
           },
           duration: 12_345,
           fileName: "clip-b.mp4"
@@ -803,6 +809,19 @@ describe("groupByTimestamp", () => {
     const b = makeItem("b", 2000)
     const result = groupByTimestamp([a, b])
     expect(result).toHaveLength(0)
+  })
+
+  it("does not use creation or modified fallbacks as capture-time buckets", () => {
+    const result = groupByTimestamp([
+      makeItem("creation", 1000, 1000, {
+        timestampProvenance: "creation"
+      }),
+      makeItem("modified", 1000, 1000, {
+        timestampProvenance: "modified"
+      })
+    ])
+
+    expect(result).toEqual([])
   })
 
   it("returns empty when all timestamps are unique", () => {

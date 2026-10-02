@@ -20,6 +20,10 @@ _Avoid_: Scan state, scan job
 A supported photo-library product whose signed-in web session PhotoSweep can inspect and operate.
 _Avoid_: Source, platform
 
+**Original Media Retrieval**:
+A request for original media or its playback resource from the active Photo Provider session and current scan scope. The result supports exact-content verification or playback during review.
+_Avoid_: Original download, direct URL
+
 **Photo Provider Connection**:
 The current association between a PhotoSweep app context and the reachable signed-in Photo Provider tab that receives its commands.
 _Avoid_: Tab map, bridge state

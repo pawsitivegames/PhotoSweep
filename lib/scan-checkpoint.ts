@@ -1,5 +1,10 @@
 import { areScanResultsValid } from "./scan-results"
-import type { GpdMediaItem, ScanPhase, ScanSettings } from "./types"
+import type {
+  GpdMediaItem,
+  ScanCoverage,
+  ScanPhase,
+  ScanSettings
+} from "./types"
 
 export const SCAN_CHECKPOINT_KEY = "scanCheckpoint"
 export const MAX_CHECKPOINT_MEDIA_ITEMS = 5000
@@ -17,18 +22,21 @@ export interface ScanCheckpoint {
   updatedAt: number
   settings: ScanSettings
   accountEmail?: string
+  providerSessionId?: string
   phase: ScanPhase
   itemsProcessed: number
   totalEstimate: number
   message: string
   error?: string
   mediaItems?: GpdMediaItem[]
+  scanCoverage?: ScanCoverage
 }
 
 export function createScanCheckpoint(params: {
   id: string
   settings: ScanSettings
   accountEmail?: string
+  providerSessionId?: string
   now?: number
 }): ScanCheckpoint {
   const now = params.now ?? Date.now()
@@ -39,6 +47,7 @@ export function createScanCheckpoint(params: {
     updatedAt: now,
     settings: params.settings,
     accountEmail: params.accountEmail,
+    providerSessionId: params.providerSessionId,
     phase: "fetching",
     itemsProcessed: 0,
     totalEstimate: 0,
@@ -58,6 +67,7 @@ export function updateScanCheckpoint(
       | "message"
       | "error"
       | "mediaItems"
+      | "scanCoverage"
     >
   >,
   now = Date.now()
@@ -111,16 +121,19 @@ export function canResumeScanCheckpoint(
   context: {
     accountEmail?: string
     sourceProvider?: ScanSettings["sourceProvider"]
+    providerSessionId?: string
   }
 ): boolean {
   return areScanResultsValid(
     {
       accountEmail: checkpoint.accountEmail,
-      sourceProvider: checkpoint.settings.sourceProvider
+      sourceProvider: checkpoint.settings.sourceProvider,
+      providerSessionId: checkpoint.providerSessionId
     },
     {
       accountEmail: context.accountEmail,
-      sourceProvider: context.sourceProvider
+      sourceProvider: context.sourceProvider,
+      providerSessionId: context.providerSessionId
     }
   )
 }

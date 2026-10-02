@@ -65,11 +65,15 @@ function makeItem(mediaKey: string): GpdMediaItem {
     thumb: `https://example.com/${mediaKey}`,
     productUrl: `https://photos.google.com/photo/${mediaKey}`,
     timestamp: Date.parse("2023-09-24"),
+    timestampProvenance: "capture",
     creationTimestamp: Date.parse("2023-09-24"),
+    creationTimestampProvenance: "creation",
     resWidth: 1920,
     resHeight: 1080,
     fileName: `${mediaKey}.jpg`,
     isOwned: true,
+    favoriteStatus: "not-favorite",
+    favoriteSource: "provider-metadata",
     isOriginalQuality: mediaKey === "img1"
   }
 }
@@ -136,7 +140,7 @@ describe("DuplicateGroups — chip rendering", () => {
     expect(screen.queryByText("Keep this copy")).not.toBeInTheDocument()
     expect(
       screen.getByRole("button", {
-        name: /Keep img1\.jpg \(currently kept; click to move to Trash\)/
+        name: /Keep img1\.jpg \(currently kept; this is the last kept copy/
       })
     ).toHaveAttribute("aria-pressed", "true")
   })
@@ -146,6 +150,63 @@ describe("DuplicateGroups — chip rendering", () => {
     // img2 and img3 are not kept and group is selected
     const trashChips = screen.getAllByText("Moves to Trash")
     expect(trashChips).toHaveLength(2)
+  })
+
+  it("shows favorite protection and prevents toggling a confirmed favorite", () => {
+    const onToggleKept = vi.fn()
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        onToggleKept={onToggleKept}
+        mediaItems={{
+          ...mediaItems,
+          img2: {
+            ...mediaItems.img2,
+            favoriteStatus: "favorite",
+            favoriteSource: "provider-metadata"
+          }
+        }}
+      />
+    )
+
+    expect(screen.getByText("Favorite protected")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", {
+        name: "img2.jpg is a favorite and is protected from Trash"
+      })
+    ).toHaveAttribute("aria-pressed", "true")
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "img2.jpg is a favorite and is protected from Trash"
+      })
+    )
+    expect(onToggleKept).not.toHaveBeenCalled()
+  })
+
+  it("labels unknown favorites instead of implying protection", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        mediaItems={{
+          ...mediaItems,
+          img2: {
+            ...mediaItems.img2,
+            favoriteStatus: "unknown",
+            favoriteSource: "unavailable"
+          }
+        }}
+      />
+    )
+
+    expect(screen.getByText("Favorite status unknown")).toBeInTheDocument()
+    expect(
+      screen.getByText("Moves to Trash · favorite unknown")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", {
+        name: /Keep img2\.jpg .*favorite status unknown/
+      })
+    ).toBeInTheDocument()
   })
 
   it("shows no Trash chips when group is deselected", () => {
@@ -216,25 +277,28 @@ describe("DuplicateGroups — chip rendering", () => {
           img1: {
             ...makeItem("img1"),
             contentHash: {
-              value: "a".repeat(32),
-              algorithm: "md5",
-              provenance: "original-content"
+              value: "a".repeat(64),
+              algorithm: "sha256",
+              provenance: "original-content",
+              verificationSource: "local-original-bytes"
             }
           },
           img2: {
             ...makeItem("img2"),
             contentHash: {
-              value: "a".repeat(32),
-              algorithm: "md5",
-              provenance: "original-content"
+              value: "a".repeat(64),
+              algorithm: "sha256",
+              provenance: "original-content",
+              verificationSource: "local-original-bytes"
             }
           },
           img3: {
             ...makeItem("img3"),
             contentHash: {
-              value: "a".repeat(32),
-              algorithm: "md5",
-              provenance: "original-content"
+              value: "a".repeat(64),
+              algorithm: "sha256",
+              provenance: "original-content",
+              verificationSource: "local-original-bytes"
             }
           }
         }}
@@ -369,7 +433,7 @@ describe("DuplicateGroups — keyboard review", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /Keep img1\.jpg \(currently kept; click to move to Trash\)/
+        name: /Keep img1\.jpg \(currently kept; this is the last kept copy/
       })
     ).toHaveAttribute("aria-pressed", "true")
     expect(

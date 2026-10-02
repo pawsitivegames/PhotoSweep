@@ -15,9 +15,16 @@ import DialogContent from "@mui/material/DialogContent"
 import IconButton from "@mui/material/IconButton"
 import Link from "@mui/material/Link"
 import Typography from "@mui/material/Typography"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { buildThumbUrl } from "../lib/photo-url"
+import { isTrustedContentHash } from "../lib/duplicate-classifier"
+import { isVideoForPlayback } from "../lib/provider-retrieval"
+import { photoSweepColors } from "../lib/theme"
+import type {
+  OriginalContentHashResult,
+  VideoPlaybackResult
+} from "../lib/provider-retrieval"
 import type { GpdMediaItem } from "../lib/types"
 import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 
@@ -37,7 +44,32 @@ interface MediaBlob {
 const EMPTY_MEDIA_ITEMS: GpdMediaItem[] = []
 
 function isVideoItem(item: GpdMediaItem): boolean {
-  return Number.isFinite(item.duration) && (item.duration ?? 0) > 0
+  return isVideoForPlayback(item)
+}
+
+function retainedOriginalHash(
+  item: GpdMediaItem
+): OriginalContentHashResult | undefined {
+  const hash = item.contentHash
+  if (
+    !isTrustedContentHash(hash) ||
+    hash.algorithm !== "sha256" ||
+    hash.verificationSource !== "local-original-bytes" ||
+    hash.provenance !== "original-content"
+  ) {
+    return undefined
+  }
+  return {
+    mediaKey: item.mediaKey,
+    scopeFingerprint: "",
+    contentHash: hash as OriginalContentHashResult["contentHash"],
+    byteLength:
+      Number.isSafeInteger(item.originalByteLength) &&
+      (item.originalByteLength ?? 0) > 0
+        ? item.originalByteLength!
+        : 0,
+    ...(item.originalMimeType ? { mimeType: item.originalMimeType } : {})
+  }
 }
 
 function getViewportSizedThumbUrl(thumb: string): string {
@@ -48,9 +80,7 @@ function getViewportSizedThumbUrl(thumb: string): string {
 
 function mediaFetchUrl(item: GpdMediaItem): string {
   if (item.provider && item.provider !== "google") return item.thumb
-  return isVideoItem(item)
-    ? `${item.thumb}=dv`
-    : getViewportSizedThumbUrl(item.thumb)
+  return getViewportSizedThumbUrl(item.thumb)
 }
 
 function providerLabel(item: GpdMediaItem): string {
@@ -61,8 +91,8 @@ function providerLabel(item: GpdMediaItem): string {
 
 function useGroupBlobUrls(
   items: GpdMediaItem[]
-): Record<string, MediaBlob | undefined> {
-  const [blobUrls, setBlobUrls] = useState<Record<string, MediaBlob>>({})
+): Record<string, MediaBlob | null | undefined> {
+  const [blobUrls, setBlobUrls] = useState<Record<string, MediaBlob | null>>({})
 
   const thumbKey = items.map((i) => mediaFetchUrl(i)).join("|")
 
@@ -83,16 +113,19 @@ function useGroupBlobUrls(
       })
         .then((r) => (r.ok ? r.blob() : null))
         .then((blob) => {
-          if (blob && !cancelled) {
-            const url = URL.createObjectURL(blob)
-            createdUrls.push(url)
-            setBlobUrls((prev) => ({
-              ...prev,
-              [item.mediaKey]: { url, type: blob.type }
-            }))
+          if (cancelled) return
+          const url = blob ? URL.createObjectURL(blob) : null
+          if (url) createdUrls.push(url)
+          setBlobUrls((prev) => ({
+            ...prev,
+            [item.mediaKey]: blob && url ? { url, type: blob.type } : null
+          }))
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setBlobUrls((prev) => ({ ...prev, [item.mediaKey]: null }))
           }
         })
-        .catch(() => {})
     })
 
     return () => {
@@ -126,13 +159,42 @@ function usePrefetchNextGroup(nextItems: GpdMediaItem[]) {
 
 interface FullResMediaProps {
   item: GpdMediaItem
-  blob: MediaBlob | undefined
+  blob: MediaBlob | null | undefined
+  playbackUrl?: string
+  onPlaybackError?: () => void
 }
 
-function FullResMedia({ item, blob }: FullResMediaProps) {
+function FullResMedia({ item, blob, playbackUrl, onPlaybackError }: FullResMediaProps) {
   const isVideo = isVideoItem(item)
-  const isPlayableVideo = isVideo && blob && !blob.type.startsWith("image/")
-
+  if (isVideo && playbackUrl) {
+    return (
+      <Box
+        component="video"
+        src={playbackUrl}
+        controls
+        autoPlay
+        playsInline
+        preload="metadata"
+        onError={onPlaybackError}
+        aria-label={item.fileName ? `Play ${item.fileName}` : "Play video"}
+        sx={{
+          maxWidth: "100%",
+          maxHeight: "100%",
+          objectFit: "contain",
+          display: "block",
+          mx: "auto",
+          bgcolor: "black"
+        }}
+      />
+    )
+  }
+  if (blob === null) {
+    return (
+      <Typography role="status" variant="body2" sx={{ color: "white" }}>
+        {isVideo ? "Video" : "Photo"} preview unavailable. Open this item in {providerLabel(item)}.
+      </Typography>
+    )
+  }
   if (!blob) {
     return (
       <Box
@@ -148,27 +210,6 @@ function FullResMedia({ item, blob }: FullResMediaProps) {
     )
   }
 
-  if (isPlayableVideo) {
-    return (
-      <Box
-        component="video"
-        src={blob.url}
-        controls
-        playsInline
-        preload="metadata"
-        aria-label={item.fileName ? `Play ${item.fileName}` : "Play video"}
-        sx={{
-          maxWidth: "100%",
-          maxHeight: "100%",
-          objectFit: "contain",
-          display: "block",
-          mx: "auto",
-          bgcolor: "black"
-        }}
-      />
-    )
-  }
-
   if (isVideo) {
     return (
       <Box
@@ -180,19 +221,25 @@ function FullResMedia({ item, blob }: FullResMediaProps) {
           width: "100%",
           height: "100%"
         }}>
-        <CardMedia
-          component="img"
-          image={blob.url}
-          alt={item.fileName || item.mediaKey}
-          sx={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
-            display: "block",
-            mx: "auto",
-            opacity: item.productUrl ? 0.72 : 1
-          }}
-        />
+        {blob.type.startsWith("image/") ? (
+          <CardMedia
+            component="img"
+            image={blob.url}
+            alt={item.fileName || item.mediaKey}
+            sx={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              display: "block",
+              mx: "auto",
+              opacity: item.productUrl ? 0.72 : 1
+            }}
+          />
+        ) : (
+          <Typography role="status" variant="body2" sx={{ color: "white" }}>
+            Video preview unavailable. Load the full video to play it.
+          </Typography>
+        )}
         {item.productUrl && (
           <Button
             component="a"
@@ -206,9 +253,9 @@ function FullResMedia({ item, blob }: FullResMediaProps) {
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
-              bgcolor: "rgba(255,255,255,0.94)",
-              color: "#111111",
-              boxShadow: "0 18px 44px rgba(0,0,0,0.35)",
+              bgcolor: photoSweepColors.surface,
+              color: photoSweepColors.ink,
+              boxShadow: `0 18px 44px ${photoSweepColors.shadowDeep}`,
               "&:hover": { bgcolor: "white" }
             }}>
             Play in {providerLabel(item)}
@@ -246,6 +293,14 @@ export interface PhotoViewerModalProps {
   onToggleGroup?: () => void
   onNextGroup?: () => void
   onPrevGroup?: () => void
+  onVerifyOriginal?: (
+    item: GpdMediaItem,
+    signal: AbortSignal
+  ) => Promise<OriginalContentHashResult>
+  onLoadVideo?: (
+    item: GpdMediaItem,
+    signal: AbortSignal
+  ) => Promise<VideoPlaybackResult>
 }
 
 const slideInFromRight = keyframes`
@@ -268,11 +323,26 @@ export function PhotoViewerModal({
   onToggleKept,
   onToggleGroup,
   onNextGroup,
-  onPrevGroup
+  onPrevGroup,
+  onVerifyOriginal,
+  onLoadVideo
 }: PhotoViewerModalProps) {
   const [index, setIndex] = useState(initialIndex)
   const [slideDir, setSlideDir] = useState<"forward" | "backward">("forward")
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [originalHashes, setOriginalHashes] = useState<
+    Record<string, OriginalContentHashResult | undefined>
+  >({})
+  const [hashPendingMediaKey, setHashPendingMediaKey] = useState<string | null>(
+    null
+  )
+  const [videoPlayback, setVideoPlayback] = useState<VideoPlaybackResult | null>(
+    null
+  )
+  const [retrievalPending, setRetrievalPending] = useState(false)
+  const [originalHashError, setOriginalHashError] = useState<string | null>(null)
+  const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null)
+  const retrievalControllersRef = useRef(new Set<AbortController>())
   const prefersReducedMotion = usePrefersReducedMotion()
 
   // Preload all images in the group up front
@@ -282,11 +352,40 @@ export function PhotoViewerModal({
   // Reset index when the modal opens, the initial photo changes, or the items change
   useEffect(() => {
     setIndex(initialIndex)
+    for (const controller of retrievalControllersRef.current) {
+      controller.abort()
+    }
+    retrievalControllersRef.current.clear()
+    setOriginalHashes({})
+    setHashPendingMediaKey(null)
+    setVideoPlayback(null)
+    setRetrievalPending(false)
+    setOriginalHashError(null)
+    setVideoPlaybackError(null)
   }, [open, initialIndex, items])
+
+  useEffect(
+    () => () => {
+      for (const controller of retrievalControllersRef.current) {
+        controller.abort()
+      }
+      retrievalControllersRef.current.clear()
+    },
+    []
+  )
 
   const navigate = useCallback((newIndex: number) => {
     setIndex((prev) => {
       if (newIndex === prev) return prev
+      for (const controller of retrievalControllersRef.current) {
+        controller.abort()
+      }
+      retrievalControllersRef.current.clear()
+      setHashPendingMediaKey(null)
+      setVideoPlayback(null)
+      setRetrievalPending(false)
+      setOriginalHashError(null)
+      setVideoPlaybackError(null)
       setSlideDir(newIndex > prev ? "forward" : "backward")
       return newIndex
     })
@@ -357,7 +456,7 @@ export function PhotoViewerModal({
   const isFirst = safeIndex === 0
   const isLast = safeIndex === items.length - 1
 
-  const takenDate = item.timestamp
+  const takenDate = item.timestampProvenance === "capture" && item.timestamp
     ? new Date(item.timestamp).toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
@@ -365,7 +464,10 @@ export function PhotoViewerModal({
       })
     : null
 
-  const uploadedDate = item.creationTimestamp
+  const uploadedDate =
+    (item.creationTimestampProvenance === "creation" ||
+      item.creationTimestampProvenance === "modified") &&
+    item.creationTimestamp
     ? new Date(item.creationTimestamp).toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
@@ -373,17 +475,128 @@ export function PhotoViewerModal({
       })
     : null
 
+  const handleVerifyOriginal = async () => {
+    if (!onVerifyOriginal || originalHashes[item.mediaKey] || retrievalPending) {
+      return
+    }
+    const controller = new AbortController()
+    retrievalControllersRef.current.add(controller)
+    setHashPendingMediaKey(item.mediaKey)
+    setRetrievalPending(true)
+    setOriginalHashError(null)
+    try {
+      const result = await onVerifyOriginal(item, controller.signal)
+      if (controller.signal.aborted || result.mediaKey !== item.mediaKey) return
+      setOriginalHashes((current) => ({ ...current, [item.mediaKey]: result }))
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setOriginalHashError(
+          error instanceof Error
+            ? error.message
+            : "Original bytes could not be verified. The item remains unverified."
+        )
+      }
+    } finally {
+      retrievalControllersRef.current.delete(controller)
+      if (!controller.signal.aborted) {
+        setHashPendingMediaKey(null)
+        setRetrievalPending(false)
+      }
+    }
+  }
+
+  const handleLoadVideo = async () => {
+    if (
+      !onLoadVideo ||
+      !isVideoItem(item) ||
+      item.videoPlaybackCapability === "unavailable" ||
+      videoPlayback?.mediaKey === item.mediaKey ||
+      retrievalPending
+    ) {
+      return
+    }
+    const controller = new AbortController()
+    retrievalControllersRef.current.add(controller)
+    setRetrievalPending(true)
+    setVideoPlaybackError(null)
+    try {
+      const result = await onLoadVideo(item, controller.signal)
+      if (controller.signal.aborted || result.mediaKey !== item.mediaKey) return
+      setVideoPlayback(result)
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setVideoPlaybackError(
+          error instanceof Error
+            ? `PhotoSweep could not load this video: ${error.message}`
+            : "PhotoSweep could not load this video. Retry or open it in the provider."
+        )
+      }
+    } finally {
+      retrievalControllersRef.current.delete(controller)
+      if (!controller.signal.aborted) setRetrievalPending(false)
+    }
+  }
+
+  const handleVideoPlaybackError = () => {
+    setVideoPlayback(null)
+    setVideoPlaybackError(
+      `PhotoSweep could not play this video. Retry or open it in ${providerLabel(item)}.`
+    )
+  }
+
+  const handleClose = () => {
+    for (const controller of retrievalControllersRef.current) {
+      controller.abort()
+    }
+    retrievalControllersRef.current.clear()
+    setOriginalHashes({})
+    setVideoPlayback(null)
+    setHashPendingMediaKey(null)
+    setRetrievalPending(false)
+    setOriginalHashError(null)
+    setVideoPlaybackError(null)
+    onClose()
+  }
+
+  const currentHash = originalHashes[item.mediaKey] ?? retainedOriginalHash(item)
+  const matchingHashCount = currentHash
+    ? items.filter(
+        (candidate) => {
+          const candidateHash =
+            originalHashes[candidate.mediaKey] ?? retainedOriginalHash(candidate)
+          return (
+            candidateHash !== undefined &&
+            candidateHash.contentHash.algorithm === currentHash.contentHash.algorithm &&
+            candidateHash.contentHash.verificationSource === "local-original-bytes" &&
+            candidateHash.contentHash.value === currentHash.contentHash.value
+          )
+        }
+      ).length
+    : 0
+  const matchingSetIncludesLivePhoto = currentHash
+    ? items.some(
+        (candidate) => {
+          const candidateHash =
+            originalHashes[candidate.mediaKey] ?? retainedOriginalHash(candidate)
+          return (
+            candidate.mediaKind === "live-photo" &&
+            candidateHash?.contentHash.value === currentHash.contentHash.value
+          )
+        }
+      )
+    : false
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       fullWidth
       maxWidth="lg"
       aria-label="Photo viewer"
       slotProps={{
         backdrop: {
           sx: {
-            bgcolor: "rgba(0,0,0,0.48)",
+            bgcolor: photoSweepColors.overlay,
             backdropFilter: "blur(4px)"
           }
         },
@@ -392,14 +605,14 @@ export function PhotoViewerModal({
             width: { xs: "calc(100vw - 16px)", sm: "auto" },
             maxHeight: { xs: "calc(100vh - 16px)", sm: "calc(100% - 64px)" },
             m: { xs: 1, sm: 4 },
-            bgcolor: "#111111",
-            backgroundColor: "#111111",
+            bgcolor: photoSweepColors.viewerSurface,
+            backgroundColor: photoSweepColors.viewerSurface,
             color: "white",
             position: "relative",
             overflow: "hidden",
             borderRadius: { xs: 2, sm: 3 },
             backdropFilter: "saturate(180%) blur(24px)",
-            boxShadow: "0 28px 90px rgba(0,0,0,0.42)"
+            boxShadow: `0 28px 90px ${photoSweepColors.shadowDeep}`
           }
         }
       }}>
@@ -411,13 +624,13 @@ export function PhotoViewerModal({
           alignItems: "center",
           px: 1,
           py: 0.75,
-          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          borderBottom: `1px solid ${photoSweepColors.viewerBorder}`,
           bgcolor: "rgba(255,255,255,0.06)"
         }}>
         <Typography
           variant="caption"
           noWrap
-          sx={{ color: "rgba(255,255,255,0.45)", pl: 1 }}>
+          sx={{ color: photoSweepColors.viewerMuted, pl: 1 }}>
           {item.fileName || ""}
         </Typography>
 
@@ -441,7 +654,7 @@ export function PhotoViewerModal({
 
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
           <IconButton
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close photo viewer"
             size="small"
             sx={{ color: "white", minWidth: 44, minHeight: 44 }}>
@@ -491,7 +704,16 @@ export function PhotoViewerModal({
             width: "100%",
             height: "100%"
           }}>
-          <FullResMedia item={item} blob={blobUrls[item.mediaKey]} />
+          <FullResMedia
+            item={item}
+            blob={blobUrls[item.mediaKey]}
+            playbackUrl={
+              videoPlayback?.mediaKey === item.mediaKey
+                ? videoPlayback.playbackUrl
+                : undefined
+            }
+            onPlaybackError={handleVideoPlaybackError}
+          />
         </Box>
 
         {/* Next */}
@@ -524,7 +746,7 @@ export function PhotoViewerModal({
           gap: 1.5,
           px: 2,
           py: 1.5,
-          borderTop: "1px solid rgba(255,255,255,0.12)",
+          borderTop: `1px solid ${photoSweepColors.viewerBorder}`,
           bgcolor: "rgba(255,255,255,0.06)",
           backdropFilter: "blur(18px)"
         }}>
@@ -533,14 +755,14 @@ export function PhotoViewerModal({
           {item.resWidth && item.resHeight && (
             <Typography
               variant="caption"
-              sx={{ color: "rgba(255,255,255,0.6)", fontFamily: "monospace" }}>
+              sx={{ color: photoSweepColors.viewerMuted, fontFamily: "monospace" }}>
               {item.resWidth}×{item.resHeight}
             </Typography>
           )}
           {takenDate && (
             <Typography
               variant="caption"
-              sx={{ color: "rgba(255,255,255,0.6)" }}>
+              sx={{ color: photoSweepColors.viewerMuted }}>
               <span style={{ opacity: 0.6 }}>Taken </span>
               {takenDate}
             </Typography>
@@ -548,12 +770,132 @@ export function PhotoViewerModal({
           {uploadedDate && (
             <Typography
               variant="caption"
-              sx={{ color: "rgba(255,255,255,0.6)" }}>
-              <span style={{ opacity: 0.6 }}>Uploaded </span>
+              sx={{ color: photoSweepColors.viewerMuted }}>
+              <span style={{ opacity: 0.6 }}>
+                {item.creationTimestampProvenance === "modified"
+                  ? "Modified "
+                  : "Uploaded "}
+              </span>
               {uploadedDate}
             </Typography>
           )}
         </Box>
+
+        {isVideoItem(item) && (!onLoadVideo || item.videoPlaybackCapability === "unavailable") && (
+          <Typography role="status" variant="body2" sx={{ color: photoSweepColors.viewerMuted }}>
+            Full video playback is unavailable for this item. Open it in {providerLabel(item)} to play it.
+          </Typography>
+        )}
+
+        {(onVerifyOriginal || (onLoadVideo && isVideoItem(item))) && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 1,
+              width: "100%",
+              pt: 1,
+              borderTop: `1px solid ${photoSweepColors.viewerBorder}`
+            }}>
+            {onVerifyOriginal && (
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => void handleVerifyOriginal()}
+                disabled={Boolean(currentHash) || retrievalPending}
+                startIcon={
+                  hashPendingMediaKey === item.mediaKey ? (
+                    <CircularProgress size={14} color="inherit" />
+                  ) : undefined
+                }
+                aria-label={
+                  currentHash ? "Original bytes verified" : "Verify original bytes"
+                }>
+                {currentHash ? "Original verified" : "Verify original bytes"}
+              </Button>
+            )}
+            {onLoadVideo && isVideoItem(item) && item.videoPlaybackCapability !== "unavailable" && (
+              videoPlayback?.mediaKey === item.mediaKey ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setVideoPlayback(null)
+                    setVideoPlaybackError(null)
+                  }}
+                  aria-label="Stop full video playback">
+                  Stop full video
+                </Button>
+              ) : (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => void handleLoadVideo()}
+                  disabled={retrievalPending}
+                  startIcon={
+                    retrievalPending ? (
+                      <CircularProgress size={14} color="inherit" />
+                    ) : (
+                      <PlayCircleFilledWhiteIcon />
+                    )
+                  }
+                  aria-label="Load full video">
+                  Load full video
+                </Button>
+              )
+            )}
+            <Typography
+              variant="caption"
+              sx={{ color: photoSweepColors.viewerMuted, flex: 1, minWidth: 220 }}>
+              Original checks read only this item (up to 25 MiB per item,
+              100 MiB per review). The SHA-256 evidence is retained with this
+              review; original bytes and temporary URLs are discarded.
+            </Typography>
+            {currentHash && (
+              <Box sx={{ width: "100%" }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(255,255,255,0.9)",
+                    fontFamily: "monospace",
+                    display: "block",
+                    overflowWrap: "anywhere"
+                  }}>
+                  SHA-256 {currentHash.contentHash.value}
+                  {currentHash.byteLength > 0
+                    ? ` · ${currentHash.byteLength.toLocaleString()} bytes`
+                    : ""}
+                </Typography>
+                {matchingHashCount > 1 && (
+                  <Typography
+                    variant="caption"
+                    sx={{ color: photoSweepColors.viewerSuccess }}>
+                    {matchingSetIncludesLivePhoto
+                      ? `Still-image bytes match across ${matchingHashCount} candidate items; Live Photo motion pairing remains unknown.`
+                      : `Original bytes match across ${matchingHashCount} candidate items.`}
+                  </Typography>
+                )}
+              </Box>
+            )}
+            {originalHashError && (
+              <Typography
+                role="status"
+                variant="caption"
+                sx={{ color: photoSweepColors.viewerError, width: "100%" }}>
+                {originalHashError} The item remains an unverified candidate.
+              </Typography>
+            )}
+            {videoPlaybackError && (
+              <Typography
+                role="status"
+                variant="caption"
+                sx={{ color: photoSweepColors.viewerError, width: "100%" }}>
+                {videoPlaybackError}
+              </Typography>
+            )}
+          </Box>
+        )}
 
         {/* Keep/Trash chip */}
         {isKept ? (
@@ -565,8 +907,8 @@ export function PhotoViewerModal({
             sx={{
               height: 20,
               fontSize: 11,
-              borderColor: "rgba(10,132,255,0.85)",
-              color: "rgba(100,210,255,1)"
+              borderColor: photoSweepColors.viewerPrimary,
+              color: photoSweepColors.viewerPrimary
             }}
           />
         ) : isGroupSelected ? (
@@ -578,8 +920,8 @@ export function PhotoViewerModal({
             sx={{
               height: 20,
               fontSize: 11,
-              borderColor: "rgba(255,69,58,0.85)",
-              color: "rgba(255,105,97,1)"
+              borderColor: photoSweepColors.viewerError,
+              color: photoSweepColors.viewerError
             }}
           />
         ) : null}
@@ -626,7 +968,7 @@ export function PhotoViewerModal({
         aria-label="Keyboard shortcuts"
         PaperProps={{
           sx: {
-            bgcolor: "rgba(28,28,30,0.96)",
+            bgcolor: photoSweepColors.viewerSurface,
             color: "white",
             borderRadius: 3,
             backdropFilter: "saturate(180%) blur(24px)"
@@ -638,7 +980,7 @@ export function PhotoViewerModal({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "1px solid rgba(255,255,255,0.1)"
+            borderBottom: `1px solid ${photoSweepColors.viewerBorder}`
           }}>
           <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
             Keyboard Shortcuts
@@ -656,7 +998,7 @@ export function PhotoViewerModal({
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.7)" }}>
+                sx={{ color: photoSweepColors.viewerMuted }}>
                 Previous / Next photo
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
@@ -666,7 +1008,7 @@ export function PhotoViewerModal({
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.7)" }}>
+                sx={{ color: photoSweepColors.viewerMuted }}>
                 Keep photo
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
@@ -676,7 +1018,7 @@ export function PhotoViewerModal({
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.7)" }}>
+                sx={{ color: photoSweepColors.viewerMuted }}>
                 Trash photo
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
@@ -686,7 +1028,7 @@ export function PhotoViewerModal({
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.7)" }}>
+                sx={{ color: photoSweepColors.viewerMuted }}>
                 Previous / Next group
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
@@ -696,7 +1038,7 @@ export function PhotoViewerModal({
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.7)" }}>
+                sx={{ color: photoSweepColors.viewerMuted }}>
                 Confirm group's choices & Next
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
@@ -706,7 +1048,7 @@ export function PhotoViewerModal({
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.7)" }}>
+                sx={{ color: photoSweepColors.viewerMuted }}>
                 Unconfirm group
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>

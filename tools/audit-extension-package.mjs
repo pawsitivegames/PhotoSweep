@@ -1,16 +1,30 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 
-import { assertChromeVersion } from "./cws-artifact.mjs"
+import { computeSourceFingerprint } from "../verification/source-fingerprint.mjs"
+import {
+  assertChromeVersion,
+  cwsArtifactFileName,
+  cwsArtifactMetadataFileName,
+  isCwsBuildId,
+  validateCwsArtifactMetadata
+} from "./cws-artifact.mjs"
 
-const buildDir = process.env.PHOTOSWEEP_EXTENSION_BUILD_DIR ?? "build/chrome-mv3-prod"
-const expectedApiBase = process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL
-const expectedHostPermission = process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION
-const expectedPublicKey = process.env.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY
+const buildDir =
+  process.env.PHOTOSWEEP_EXTENSION_BUILD_DIR ?? "build/chrome-mv3-prod"
+const expectedApiBase =
+  process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL
+const expectedHostPermission =
+  process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION
+const expectedPublicKey =
+  process.env.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY
 const packageJson = readJson(path.resolve("package.json"))
 const expectedManifestVersion =
-  packageJson.chromeVersion ?? packageJson.manifest?.version ?? packageJson.version
+  packageJson.chromeVersion ??
+  packageJson.manifest?.version ??
+  packageJson.version
 assertChromeVersion(expectedManifestVersion, packageJson.version)
 
 const AMAZON_MARKETPLACE_HOSTS = [
@@ -72,11 +86,16 @@ function walk(dir) {
   return out
 }
 
-if (!expectedApiBase) fail("PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL is required")
-if (!expectedHostPermission) fail("PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION is required")
-if (!expectedPublicKey) fail("PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY is required")
+if (!expectedApiBase)
+  fail("PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL is required")
+if (!expectedHostPermission)
+  fail("PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION is required")
+if (!expectedPublicKey)
+  fail("PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY is required")
 if (process.env.PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT !== "0") {
-  fail("PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT must be 0 for release packages")
+  fail(
+    "PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT must be 0 for release packages"
+  )
 }
 
 const manifestPath = path.join(buildDir, "manifest.json")
@@ -85,20 +104,25 @@ const manifest = fs.existsSync(manifestPath) ? readJson(manifestPath) : {}
 
 if (manifest.manifest_version !== 3) fail("manifest_version must be 3")
 if (manifest.name !== packageJson.displayName) {
-  fail(`manifest.name must match package.json displayName: ${packageJson.displayName}`)
+  fail(
+    `manifest.name must match package.json displayName: ${packageJson.displayName}`
+  )
 }
 if (manifest.description !== packageJson.description) {
   fail("manifest.description must match package.json description")
 }
 if (manifest.version !== expectedManifestVersion) {
-  fail(`manifest.version must match package.json manifest.version: ${expectedManifestVersion}`)
+  fail(
+    `manifest.version must match package.json manifest.version: ${expectedManifestVersion}`
+  )
 }
 if (manifest.side_panel?.default_path !== "tabs/scanner-panel.html") {
   fail("side_panel.default_path must be tabs/scanner-panel.html")
 }
 
 const hostPermissions = manifest.host_permissions ?? []
-if (!Array.isArray(hostPermissions)) fail("manifest.host_permissions must be an array")
+if (!Array.isArray(hostPermissions))
+  fail("manifest.host_permissions must be an array")
 if (!hostPermissions.includes(expectedHostPermission)) {
   fail(`missing expected backend host permission: ${expectedHostPermission}`)
 }
@@ -134,7 +158,9 @@ if (
   hostPermissions.includes("https://www.amazon.be/*") ||
   hostPermissions.includes("https://amazon.be/*")
 ) {
-  fail("obsolete Belgium Amazon host permission must be replaced by amazon.com.be")
+  fail(
+    "obsolete Belgium Amazon host permission must be replaced by amazon.com.be"
+  )
 }
 for (const host of hostPermissions) {
   if (host.includes("localhost") || host.includes("127.0.0.1")) {
@@ -148,6 +174,8 @@ for (const host of hostPermissions) {
 const files = fs.existsSync(buildDir) ? walk(buildDir) : []
 const jsFiles = files.filter((file) => file.endsWith(".js"))
 const jsText = jsFiles.map((file) => fs.readFileSync(file, "utf8")).join("\n")
+const expectedBuildId = process.env.PHOTOSWEEP_PACKAGE_BUILD_ID
+let auditedBuildId = expectedBuildId
 
 const amazonContentScriptMatches = (manifest.content_scripts ?? [])
   .flatMap((script) => script.matches ?? [])
@@ -155,11 +183,21 @@ const amazonContentScriptMatches = (manifest.content_scripts ?? [])
 const amazonWebAccessibleMatches = (manifest.web_accessible_resources ?? [])
   .flatMap((entry) => entry.matches ?? [])
   .filter((match) => match.includes("amazon."))
-if (amazonContentScriptMatches.some((match) => !/^https:\/\/(?:www\.)?amazon\.[^/]+\/photos\*$/.test(match))) {
+if (
+  amazonContentScriptMatches.some(
+    (match) => !/^https:\/\/(?:www\.)?amazon\.[^/]+\/photos\*$/.test(match)
+  )
+) {
   fail("Amazon content scripts must be limited to /photos routes")
 }
-if (amazonWebAccessibleMatches.some((match) => !/^https:\/\/(?:www\.)?amazon\.[^/]+\/\*$/.test(match))) {
-  fail("Amazon web-accessible resources must use origin-scoped /* match patterns")
+if (
+  amazonWebAccessibleMatches.some(
+    (match) => !/^https:\/\/(?:www\.)?amazon\.[^/]+\/\*$/.test(match)
+  )
+) {
+  fail(
+    "Amazon web-accessible resources must use origin-scoped /* match patterns"
+  )
 }
 for (const requiredMatch of AMAZON_CONTENT_MATCHES) {
   if (!amazonContentScriptMatches.includes(requiredMatch)) {
@@ -197,23 +235,114 @@ for (const requiredMatch of ICLOUD_WAR_MATCHES) {
   }
 }
 
-const googleContentMatches = (manifest.content_scripts ?? [])
-  .flatMap((script) => script.matches ?? [])
+const googleContentMatches = (manifest.content_scripts ?? []).flatMap(
+  (script) => script.matches ?? []
+)
 if (!googleContentMatches.includes("https://photos.google.com/*")) {
   fail("missing canonical Google Photos content-script match")
 }
 
 if (expectedApiBase && !jsText.includes(expectedApiBase)) {
-  fail(`built JavaScript does not contain expected API base URL: ${expectedApiBase}`)
+  fail(
+    `built JavaScript does not contain expected API base URL: ${expectedApiBase}`
+  )
 }
-if (jsText.includes("http://127.0.0.1") || jsText.includes("http://localhost")) {
+if (
+  jsText.includes("http://127.0.0.1") ||
+  jsText.includes("http://localhost")
+) {
   fail("built JavaScript contains localhost API URL")
 }
 if (jsText.includes("PLASMO_PUBLIC_PHOTOSWEEP")) {
   fail("built JavaScript contains unresolved PLASMO_PUBLIC env variable")
 }
-if (jsText.includes("photoSweepDevEntitlement") && process.env.PHOTOSWEEP_AUDIT_STRICT_DEV_KEY_ABSENCE === "1") {
-  fail("built JavaScript contains photoSweepDevEntitlement while strict absence is required")
+if (expectedBuildId !== undefined) {
+  if (!isCwsBuildId(expectedBuildId)) {
+    fail("PHOTOSWEEP_PACKAGE_BUILD_ID must be a canonical UUID v4")
+  } else if (!jsText.includes(expectedBuildId)) {
+    fail("built JavaScript does not contain the expected package build ID")
+  }
+} else {
+  const packageZipPath = path.resolve("build/chrome-mv3-prod.zip")
+  if (!fs.existsSync(packageZipPath)) {
+    fail("package build ID is required and the packaged ZIP is missing")
+  } else {
+    const artifactSha256 = createHash("sha256")
+      .update(fs.readFileSync(packageZipPath))
+      .digest("hex")
+    let artifactFileName
+    try {
+      artifactFileName = cwsArtifactFileName(manifest.version, artifactSha256)
+    } catch (error) {
+      fail(error instanceof Error ? error.message : String(error))
+    }
+    if (artifactFileName) {
+      const metadataPath = path.resolve(
+        "build",
+        cwsArtifactMetadataFileName(artifactFileName)
+      )
+      const metadata = fs.existsSync(metadataPath)
+        ? readJson(metadataPath)
+        : null
+      if (!metadata) {
+        fail("package build ID sidecar is missing for the current ZIP")
+      } else {
+        const requirements = readJson(
+          path.resolve("verification/requirements.json")
+        )
+        const sourceFingerprint = Array.isArray(requirements.sourceRoots)
+          ? computeSourceFingerprint(process.cwd(), requirements.sourceRoots)
+          : null
+        if (!sourceFingerprint) {
+          fail("verification source roots are missing for package provenance")
+        } else {
+          const provenanceProblems = validateCwsArtifactMetadata(metadata, {
+            chromeVersion: manifest.version,
+            artifactSha256,
+            sourceFingerprint: sourceFingerprint.digest
+          })
+          if (metadata.artifactFile !== path.join("build", artifactFileName)) {
+            provenanceProblems.push(
+              "package metadata artifact path does not match its hash-derived filename"
+            )
+          }
+          if (metadata.sourceFileCount !== sourceFingerprint.fileCount) {
+            provenanceProblems.push(
+              "package metadata source file count does not match the current source"
+            )
+          }
+          const manifestSha256 = createHash("sha256")
+            .update(fs.readFileSync(manifestPath))
+            .digest("hex")
+          if (metadata.manifestSha256 !== manifestSha256) {
+            provenanceProblems.push(
+              "package metadata manifest SHA-256 does not match the built manifest"
+            )
+          }
+          if (provenanceProblems.length > 0) {
+            fail(
+              `invalid package provenance sidecar: ${provenanceProblems.join("; ")}`
+            )
+          } else {
+            auditedBuildId = metadata.buildId
+          }
+        }
+      }
+    }
+  }
+  if (auditedBuildId && !jsText.includes(auditedBuildId)) {
+    fail(
+      "built JavaScript does not contain the build ID from its package sidecar"
+    )
+  }
+}
+if (
+  jsText.includes("photoSweepDevEntitlement") &&
+  process.env.PHOTOSWEEP_AUDIT_STRICT_DEV_KEY_ABSENCE === "1"
+) {
+  fail(
+    "built JavaScript contains photoSweepDevEntitlement while strict absence is required"
+  )
 }
 for (const [label, pattern] of [
   ["literal remote script", /<script[^>]+src\s*=\s*[\"']https?:/i],
@@ -226,16 +355,23 @@ for (const [label, pattern] of [
 }
 
 if (process.exitCode) process.exit(process.exitCode)
-console.log(JSON.stringify({
-  ok: true,
-  buildDir,
-  manifestVersion: manifest.manifest_version,
-  name: manifest.name,
-  description: manifest.description,
-  appVersion: packageJson.version,
-  chromeVersion: manifest.version,
-  sidePanel: manifest.side_panel?.default_path,
-  backendHostPermission: expectedHostPermission,
-  hostPermissionCount: hostPermissions.length,
-  jsFileCount: jsFiles.length
-}, null, 2))
+console.log(
+  JSON.stringify(
+    {
+      ok: true,
+      buildDir,
+      manifestVersion: manifest.manifest_version,
+      name: manifest.name,
+      description: manifest.description,
+      appVersion: packageJson.version,
+      chromeVersion: manifest.version,
+      sidePanel: manifest.side_panel?.default_path,
+      backendHostPermission: expectedHostPermission,
+      hostPermissionCount: hostPermissions.length,
+      jsFileCount: jsFiles.length,
+      ...(auditedBuildId ? { buildId: auditedBuildId } : {})
+    },
+    null,
+    2
+  )
+)

@@ -170,12 +170,22 @@ describe("scan checkpoint", () => {
         sourceProvider: "icloud",
         scanMode: "full",
         similarityThreshold: 0.95
-      }
+      },
+      providerSessionId: "icloud-session-a"
     })
 
     expect(
-      canResumeScanCheckpoint(checkpoint, { sourceProvider: "icloud" })
+      canResumeScanCheckpoint(checkpoint, {
+        sourceProvider: "icloud",
+        providerSessionId: "icloud-session-a"
+      })
     ).toBe(true)
+    expect(
+      canResumeScanCheckpoint(checkpoint, {
+        sourceProvider: "icloud",
+        providerSessionId: "icloud-session-b"
+      })
+    ).toBe(false)
     expect(
       canResumeScanCheckpoint(checkpoint, { sourceProvider: "google" })
     ).toBe(false)

@@ -5,11 +5,30 @@ import {
 } from "./provider-sites"
 import type { PhotoProvider, ScanSettings } from "./types"
 
+export type ProviderCapabilityLevel = "supported" | "partial" | "unsupported"
+export type IncrementalScanStrategy =
+  | "provider_delta"
+  | "full_refresh"
+  | "unsupported"
+
+export interface ProviderCapabilities {
+  readonly libraryScan: ProviderCapabilityLevel
+  readonly albumScope: ProviderCapabilityLevel
+  readonly dateRange: ProviderCapabilityLevel
+  readonly incrementalScan: IncrementalScanStrategy
+  readonly photos: ProviderCapabilityLevel
+  readonly videos: ProviderCapabilityLevel
+  readonly livePhotoPairing: ProviderCapabilityLevel
+  readonly accountIdentity: "email_when_available" | "session_only"
+  readonly trash: ProviderCapabilityLevel
+  readonly restore: ProviderCapabilityLevel
+}
+
 export interface ProviderOperations {
   readonly id: PhotoProvider
   readonly label: string
   readonly origins: readonly string[]
-  readonly supportsAlbumScope: boolean
+  readonly capabilities: ProviderCapabilities
   readonly injectBridgeIntoAllFrames: boolean
   openUrl(preferredOrigin?: string): string
   matchesUrl(url: string | undefined, requirePhotosPage?: boolean): boolean
@@ -36,7 +55,18 @@ const googleOperations: ProviderOperations = {
   id: "google",
   label: "Google Photos",
   origins: GOOGLE_PHOTOS_ORIGINS,
-  supportsAlbumScope: true,
+  capabilities: {
+    libraryScan: "supported",
+    albumScope: "supported",
+    dateRange: "supported",
+    incrementalScan: "full_refresh",
+    photos: "supported",
+    videos: "supported",
+    livePhotoPairing: "unsupported",
+    accountIdentity: "email_when_available",
+    trash: "supported",
+    restore: "supported"
+  },
   injectBridgeIntoAllFrames: false,
   openUrl: () => "https://photos.google.com/",
   matchesUrl: (value) => parsedUrl(value)?.hostname === "photos.google.com",
@@ -50,7 +80,18 @@ const icloudOperations: ProviderOperations = {
   id: "icloud",
   label: "iCloud Photos",
   origins: ICLOUD_ORIGINS,
-  supportsAlbumScope: false,
+  capabilities: {
+    libraryScan: "supported",
+    albumScope: "supported",
+    dateRange: "supported",
+    incrementalScan: "provider_delta",
+    photos: "supported",
+    videos: "supported",
+    livePhotoPairing: "unsupported",
+    accountIdentity: "email_when_available",
+    trash: "supported",
+    restore: "supported"
+  },
   injectBridgeIntoAllFrames: true,
   openUrl: () => "https://www.icloud.com/photos",
   matchesUrl(value, requirePhotosPage = false) {
@@ -71,7 +112,18 @@ const amazonOperations: ProviderOperations = {
   id: "amazon",
   label: "Amazon Photos",
   origins: AMAZON_ORIGINS,
-  supportsAlbumScope: false,
+  capabilities: {
+    libraryScan: "supported",
+    albumScope: "supported",
+    dateRange: "supported",
+    incrementalScan: "full_refresh",
+    photos: "supported",
+    videos: "supported",
+    livePhotoPairing: "unsupported",
+    accountIdentity: "session_only",
+    trash: "supported",
+    restore: "supported"
+  },
   injectBridgeIntoAllFrames: false,
   openUrl(preferredOrigin) {
     const origin =
@@ -108,6 +160,45 @@ export function getProviderOperations(
 
 export function providerLabel(provider: PhotoProvider | undefined): string {
   return getProviderOperations(provider).label
+}
+
+export function providerTrashDestination(
+  provider: PhotoProvider | undefined
+): string {
+  if (provider === "icloud") return "iCloud Photos Recently Deleted"
+  return `${providerLabel(provider)} Trash`
+}
+
+export function providerRecoveryWindowNotice(
+  provider: PhotoProvider | undefined
+): string {
+  if (provider === "icloud") {
+    return "iCloud Photos keeps deleted items in Recently Deleted for up to 30 days."
+  }
+  if (provider === "amazon") {
+    return "Amazon Photos keeps deleted items in Trash. Check your account's Amazon Photos Help for the retention period."
+  }
+  return "Google Photos keeps deleted items in Trash for up to 30 days."
+}
+
+export function providerHealthUnavailableMessage(
+  provider: PhotoProvider | undefined
+): string {
+  if (provider === "icloud") {
+    return "iCloud Photos is not ready. Open icloud.com/photos, sign in, wait for your library to load, then click Retry."
+  }
+  if (provider === "amazon") {
+    return "Amazon Photos is not ready. Open Amazon Photos on your country site, sign in again if needed, wait for your library to load, then click Retry."
+  }
+  return "Google Photos is not ready. Open photos.google.com, sign in, wait for your library to load, then click Retry."
+}
+
+export function providerAlbumTrashNotice(): string {
+  return "Album scope only limits what the scan checks. Moving an item to Trash removes it from the provider library and can remove it from every album that contains it; this does not just remove it from the selected album."
+}
+
+export function providerLivePhotoPairNotice(): string {
+  return "PhotoSweep does not group a Live Photo's still and motion components as one item; components exposed separately may be scanned separately."
 }
 
 export function providerOpenUrl(

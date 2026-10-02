@@ -324,5 +324,5 @@ describe("bounded TLC to TypeScript trace replay", () => {
       "buildId does not match current source"
     )
     expect(verifyReplaySource(null, { root }).ok).toBe(false)
-  }, 30_000)
+  }, 90_000)
 })

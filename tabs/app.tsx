@@ -2,7 +2,6 @@ import "@fontsource/dm-sans/400.css"
 import "@fontsource/dm-sans/500.css"
 import "@fontsource/dm-sans/700.css"
 
-import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded"
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded"
 import CloseIcon from "@mui/icons-material/Close"
 import CollectionsRoundedIcon from "@mui/icons-material/CollectionsRounded"
@@ -12,13 +11,13 @@ import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded"
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined"
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded"
 import PhotoLibraryRoundedIcon from "@mui/icons-material/PhotoLibraryRounded"
-import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded"
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
 import Alert from "@mui/material/Alert"
 import AppBar from "@mui/material/AppBar"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
+import Checkbox from "@mui/material/Checkbox"
 import CircularProgress from "@mui/material/CircularProgress"
 import CssBaseline from "@mui/material/CssBaseline"
 import Dialog from "@mui/material/Dialog"
@@ -26,6 +25,7 @@ import DialogActions from "@mui/material/DialogActions"
 import DialogContent from "@mui/material/DialogContent"
 import DialogContentText from "@mui/material/DialogContentText"
 import DialogTitle from "@mui/material/DialogTitle"
+import FormControlLabel from "@mui/material/FormControlLabel"
 import GlobalStyles from "@mui/material/GlobalStyles"
 import IconButton from "@mui/material/IconButton"
 import LinearProgress from "@mui/material/LinearProgress"
@@ -34,7 +34,6 @@ import Snackbar from "@mui/material/Snackbar"
 import { ThemeProvider } from "@mui/material/styles"
 import TextField from "@mui/material/TextField"
 import Toolbar from "@mui/material/Toolbar"
-import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
 import confetti from "canvas-confetti"
 import {
@@ -52,30 +51,37 @@ import {
 import { ActionBar, CleanupBar } from "../components/ActionBar"
 import type { ReviewFilter } from "../components/ActionBar"
 import { DuplicateGroups } from "../components/DuplicateGroups"
-import { RecoveryHistoryDialog } from "../components/RecoveryHistoryDialog"
+import { KeepStrategyFeedbackSnackbar } from "../components/KeepStrategyFeedbackSnackbar"
 import { RatingPromptDialog } from "../components/RatingPromptDialog"
+import { RecoveryHistoryDialog } from "../components/RecoveryHistoryDialog"
 import { ScanConfig } from "../components/ScanConfig"
+import { ScanCoverageNotice } from "../components/ScanCoverageNotice"
+import { ScanEmptyState } from "../components/ScanEmptyState"
 import { ScanProgress } from "../components/ScanProgress"
 import { UpgradeDialog, type UpgradeReason } from "../components/UpgradeDialog"
 import { appReducer } from "../lib/app-reducer"
 import type { AppAction, AppState } from "../lib/app-reducer"
 import { debug } from "../lib/debug"
+import {
+  applyRememberedDecisions,
+  captureManualDecisionRecords,
+  DECISION_MEMORY_STORAGE_KEY,
+  DecisionMemoryStore
+} from "../lib/decision-memory"
 import type { DeleteReport } from "../lib/delete-report"
 import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
 import { DuplicateDetectionEngine } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
 import {
+  applyDefaultKeepStrategyToSelections,
   DuplicateReviewSession,
   type DuplicateReviewAction,
   type DuplicateReviewSelections,
   type DuplicateTrashPlan
 } from "../lib/duplicate-review-session"
 import { EmbeddingCache } from "../lib/embedding-cache"
-import { FEEDBACK_MAILTO_URL, PHOTOSWEEP_SITE_URL } from "../lib/feedback"
-import { planHealthCheckRetry } from "../lib/health-check-retry"
 import {
   canExportFullReport,
-  canResumeCheckpoint,
   canTrashCount,
   getEffectivePlanId,
   getEstimatedScanCount,
@@ -83,14 +89,23 @@ import {
   getPlanLimits,
   getScanGate,
   getVisibleGroups,
-  isFreeIcloudPlan,
   limitScanItems,
   PLAN_LABELS,
   scanSettingsForEntitlement,
   type Entitlement,
   type PlanId
 } from "../lib/entitlement"
-import type { KeepStrategy } from "../lib/keep-strategy"
+import {
+  CHROME_WEB_STORE_REVIEWS_URL,
+  FEEDBACK_MAILTO_URL,
+  PHOTOSWEEP_SITE_URL
+} from "../lib/feedback"
+import { planHealthCheckRetry } from "../lib/health-check-retry"
+import {
+  KEEP_STRATEGY_LABELS,
+  type KeepStrategy
+} from "../lib/keep-strategy"
+import { handleKeepStrategySelection } from "../lib/keep-strategy-feedback"
 import {
   getEffectiveLicenseApiBaseUrl,
   LICENSE_API_BASE_STORAGE_KEY,
@@ -118,61 +133,73 @@ import {
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../lib/privacy-disclosure"
 import {
   providerBatchLimit as configuredProviderBatchLimit,
+  getProviderOperations,
+  providerAlbumTrashNotice,
   providerFromUrl,
-  providerLabel
+  providerLabel,
+  providerRecoveryWindowNotice,
+  providerTrashDestination
 } from "../lib/provider-operations"
+import { providerScanCancellationTarget } from "../lib/provider-scan-cancellation"
+import {
+  MAX_ORIGINAL_BYTES_PER_ITEM,
+  MAX_ORIGINAL_BYTES_PER_REVIEW,
+  isProviderRetrievalResponseBound,
+  isProviderRetrievalBindingCurrent,
+  isVideoForPlayback,
+  safeProviderRetrievalError,
+  validateOriginalContentHashResult,
+  validateVideoPlaybackResult
+} from "../lib/provider-retrieval"
+import type {
+  OriginalContentHashResult,
+  VideoPlaybackResult
+} from "../lib/provider-retrieval"
 import {
   completeRatingPrompt,
   deferRatingPrompt,
   recordSuccessfulCleanup
 } from "../lib/rating-prompt"
-import { reviewReportToCsv } from "../lib/review-report"
 import {
-  canResumeScanCheckpoint,
+  isRecoveryRestorable,
+  sanitizeRecoveryHistory,
+  type RecoveryHistoryRecord,
+  type RecoveryRestoreStatusUpdate
+} from "../lib/recovery-history"
+import {
+  accountFingerprint,
+  buildScanScopeFingerprint,
+  evaluateRecoveryRestorePreflight,
+  type ReviewPreflightResult
+} from "../lib/review-preflight"
+import { reviewReportToCsv } from "../lib/review-report"
+import { readRuntimeBuildIdentity } from "../lib/runtime-build-identity"
+import {
   MAX_CHECKPOINT_MEDIA_ITEMS,
-  SCAN_CHECKPOINT_KEY,
-  shouldOfferResume,
   summarizeScanCheckpoint,
   type ScanCheckpoint
 } from "../lib/scan-checkpoint"
+import { favoriteStatusForItem } from "../lib/favorite-status"
+import { ProviderScopedReviewStorage } from "../lib/provider-review-storage"
 import { ScanLifecycle } from "../lib/scan-lifecycle"
 import { ScanLogger } from "../lib/scan-log"
-import { areScanResultsValid } from "../lib/scan-results"
 import {
-  applyRememberedDecisions,
-  captureManualDecisionRecords,
-  DECISION_MEMORY_STORAGE_KEY,
-  DecisionMemoryStore
-} from "../lib/decision-memory"
-import {
-  buildScanScopeFingerprint,
-  evaluateRecoveryRestorePreflight,
-  evaluateReviewPreflight,
-  type ReviewPreflightResult
-} from "../lib/review-preflight"
-import {
-  createPendingRecoveryRecord,
-  isRecoveryRestorable,
-  markRecoveryRestore,
-  RECOVERY_HISTORY_STORAGE_KEY,
-  sanitizeRecoveryHistory,
-  updateRecoveryRecordFromTrash,
-  type RecoveryHistoryContext,
-  type RecoveryHistoryRecord
-} from "../lib/recovery-history"
+  areScanResultsValid,
+  isValidICloudSyncToken
+} from "../lib/scan-results"
 import { StoredReviewScope } from "../lib/stored-review-scope"
 import { buildSupportDiagnosticsReport } from "../lib/support-diagnostics"
 import theme, { photoSweepColors } from "../lib/theme"
+import {
+  captureTrashDispatchAuthorization,
+  isTrashDispatchAuthorizationCurrent
+} from "../lib/trash-dispatch-guard"
 import {
   TrashLifecycle,
   type TrashAuditContext,
   type TrashProviderResultData,
   type TrashUndoData
 } from "../lib/trash-lifecycle"
-import {
-  captureTrashDispatchAuthorization,
-  isTrashDispatchAuthorizationCurrent
-} from "../lib/trash-dispatch-guard"
 import type { TrashResultReport } from "../lib/trash-result-report"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
 import type {
@@ -184,9 +211,12 @@ import type {
   GptkResultMessage,
   HealthCheckResultMessage,
   LaunchProviderResult,
+  MutationOutcome,
   PhotoProvider,
-  ScanSettings,
-  StoredState
+  RecoveryHistoryTransaction,
+  RecoveryHistoryTransactionResponse,
+  ScanCoverage,
+  ScanSettings
 } from "../lib/types"
 import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 
@@ -207,6 +237,40 @@ const DELETE_REPORTS_KEY = "deleteReports"
 const TRASH_RESULT_REPORTS_KEY = "trashResultReports"
 const duplicateDetectionEngine = new DuplicateDetectionEngine()
 const APP_CLIENT_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+const PROVIDER_RETRIEVAL_TIMEOUT_MS = 60_000
+
+function googleAlbumIdentityKey(
+  accountEmail?: string,
+  providerSessionId?: string
+): string {
+  return JSON.stringify([
+    typeof accountEmail === "string"
+      ? accountEmail.trim().toLowerCase() || "__unknown__"
+      : "__unknown__",
+    typeof providerSessionId === "string" && providerSessionId.length > 0
+      ? providerSessionId
+      : "__unknown__"
+  ])
+}
+
+type ProviderRetrievalCommand =
+  | "getOriginalContentHash"
+  | "getVideoPlaybackUrl"
+
+interface PendingProviderRetrieval {
+  command: ProviderRetrievalCommand
+  provider: PhotoProvider
+  providerSessionId: string
+  accountEmail?: string
+  scanScopeFingerprint: string
+  mediaKey: string
+  dedupKey: string
+  signal: AbortSignal
+  abortListener: () => void
+  timeoutId: number
+  resolve: (value: OriginalContentHashResult | VideoPlaybackResult) => void
+  reject: (error: Error) => void
+}
 
 function WorkflowRail({
   stage,
@@ -238,7 +302,7 @@ function WorkflowRail({
   }[stage]
   const headline =
     stage === "setup"
-      ? "Choose what to check"
+      ? "Your workflow"
       : stage === "scan"
         ? "Finding duplicates"
         : stage === "trash"
@@ -247,15 +311,13 @@ function WorkflowRail({
             ? "Nothing to clean up"
             : "Choose what stays"
   const helper =
-    stage === "setup"
-      ? "Pick the library area and match sensitivity, then start the scan."
-      : stage === "scan"
-        ? "The extension is checking photos and videos and building review sets."
-        : stage === "trash"
-          ? "Included duplicates are moved in batches. Undo remains available after completion."
-          : stage === "done"
-            ? "No duplicate sets are waiting. Try different settings if needed."
-            : "Pick the copy to keep in each set, then trash the rest safely."
+    stage === "scan"
+      ? "The extension is checking photos and videos and building review sets."
+      : stage === "trash"
+        ? "Included duplicates are moved in batches. Undo remains available after completion."
+        : stage === "done"
+          ? "No duplicate sets are waiting. Try different settings if needed."
+          : "Pick the copy to keep in each set, then trash the rest safely."
   const steps = [
     {
       icon: <PhotoLibraryRoundedIcon fontSize="small" />,
@@ -289,7 +351,9 @@ function WorkflowRail({
         stage === "trash"
           ? `${duplicateCount.toLocaleString()} moving`
           : stage === "review"
-            ? `${duplicateCount.toLocaleString()} selected`
+            ? `${duplicateCount.toLocaleString()} media item${
+                duplicateCount === 1 ? "" : "s"
+              } proposed for Trash`
             : stage === "done"
               ? "Done"
               : "Final"
@@ -305,23 +369,32 @@ function WorkflowRail({
         alignSelf: "flex-start",
         width: compact ? "100%" : { xs: "100%", md: 272 },
         flexShrink: 0,
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: compact ? 2 : 3,
-        bgcolor: compact ? photoSweepColors.surface : "rgba(255,255,255,0.72)",
-        backdropFilter: compact ? "none" : "saturate(180%) blur(22px)",
-        overflow: "hidden",
-        boxShadow: compact ? "none" : `0 20px 56px ${photoSweepColors.shadow}`
+        borderRight: { md: `1px solid ${photoSweepColors.border}` },
+        borderBottom: { xs: `1px solid ${photoSweepColors.border}`, md: 0 },
+        borderRadius: 0,
+        bgcolor: "transparent",
+        overflow: "visible",
+        pr: { xs: 0, md: 2.25 },
+        pb: { xs: 1, md: 0 }
       }}>
       <Box
         sx={{
-          p: compact ? 1.25 : 2.25,
+          p: compact ? 1.25 : 0,
+          pb: compact ? 1.25 : 2,
           borderBottom: "1px solid",
           borderColor: "divider"
         }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            mb: stage === "setup" ? 0 : 1.25
+          }}>
           {stage === "scan" ? (
             <CircularProgress size={16} thickness={5} />
+          ) : stage === "setup" ? (
+            <PhotoLibraryRoundedIcon color="primary" fontSize="small" />
           ) : (
             <DoneAllRoundedIcon color="success" fontSize="small" />
           )}
@@ -329,13 +402,16 @@ function WorkflowRail({
             {headline}
           </Typography>
         </Box>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mb: 2 }}>
-          {helper}
-        </Typography>
-        <Box
+        {stage !== "setup" && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 1.5 }}>
+            {helper}
+          </Typography>
+        )}
+        {stage !== "setup" && (
+          <Box
           sx={{
             display: "grid",
             gridTemplateColumns: compact
@@ -375,15 +451,16 @@ function WorkflowRail({
               similar
             </Typography>
           </Box>
-        </Box>
-        {!compact && (
+          </Box>
+        )}
+        {!compact && stage !== "setup" && (
           <Button
-            fullWidth
-            variant="contained"
-            startIcon={<PlayArrowRoundedIcon />}
+            size="small"
+            variant="outlined"
+            startIcon={<RefreshRoundedIcon />}
             onClick={onRescan}
-            sx={{ mt: 2, borderRadius: 999 }}>
-            Start over
+            sx={{ mt: 1.5 }}>
+            New scan
           </Button>
         )}
       </Box>
@@ -391,10 +468,10 @@ function WorkflowRail({
       <Box
         sx={{
           p: compact ? 0.75 : 1,
-          display: compact ? "grid" : "block",
+          display: compact ? "grid" : { xs: "grid", md: "block" },
           gridTemplateColumns: compact
             ? "repeat(4, minmax(0, 1fr))"
-            : undefined,
+            : { xs: "repeat(4, minmax(0, 1fr))", md: "none" },
           gap: compact ? 0.5 : undefined
         }}>
         {steps.map((item, index) => (
@@ -402,11 +479,11 @@ function WorkflowRail({
             key={item.label}
             sx={{
               display: "flex",
-              flexDirection: compact ? "column" : "row",
+              flexDirection: compact ? "column" : { xs: "column", md: "row" },
               alignItems: "center",
               justifyContent: compact ? "center" : undefined,
               textAlign: compact ? "center" : "left",
-              gap: compact ? 0.35 : 1.25,
+              gap: compact ? 0.35 : { xs: 0.4, md: 1.25 },
               px: compact ? 0.5 : 1.25,
               py: compact ? 0.75 : 1.1,
               borderRadius: 2,
@@ -427,7 +504,7 @@ function WorkflowRail({
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ display: compact ? "none" : "block" }}>
+              sx={{ display: compact ? "none" : { xs: "none", md: "block" } }}>
               {item.value}
             </Typography>
           </Box>
@@ -449,6 +526,60 @@ function sendToServiceWorker<T = unknown>(
   ) as Promise<T | undefined>
 }
 
+async function requestRecoveryHistoryTransaction(
+  transaction: RecoveryHistoryTransaction
+): Promise<RecoveryHistoryRecord[]> {
+  const transactionId = generateRequestId()
+  const response = await sendToServiceWorker<RecoveryHistoryTransactionResponse>({
+    app: APP_ID,
+    action: "recoveryHistory.transaction",
+    transactionId,
+    transaction
+  })
+  if (
+    !response ||
+    response.action !== "recoveryHistory.transaction.result" ||
+    response.transactionId !== transactionId ||
+    response.success !== true ||
+    !Array.isArray(response.records)
+  ) {
+    throw new Error(
+      response?.error ||
+        "The background worker did not confirm the recovery history transaction."
+    )
+  }
+  if (
+    (transaction.kind === "beginRestore" ||
+      transaction.kind === "updateRestore") &&
+    (response.operationId !== transaction.operationId ||
+      response.requestId !== transaction.requestId)
+  ) {
+    throw new Error("Recovery history response did not match this restore request.")
+  }
+  if (
+    transaction.kind === "beginRestore" &&
+    JSON.stringify(response.targetDedupKeys) !==
+      JSON.stringify(transaction.targetDedupKeys)
+  ) {
+    throw new Error("Recovery history response did not match the exact restore targets.")
+  }
+  return sanitizeRecoveryHistory(response.records)
+}
+
+function cancelProviderScanRequest(
+  targetRequestId: string,
+  provider: PhotoProvider
+): void {
+  void sendToServiceWorker({
+    app: APP_ID,
+    action: "gptkCommand",
+    command: "cancelScan",
+    requestId: generateRequestId(),
+    provider,
+    args: { targetRequestId }
+  }).catch(() => {})
+}
+
 function activeDateRange(
   dateRange: ScanSettings["dateRange"]
 ): ScanSettings["dateRange"] | undefined {
@@ -462,11 +593,22 @@ function activeAlbumScope(
   return albumScope?.mediaKey ? albumScope : undefined
 }
 
+function albumScopeForProvider(
+  provider: PhotoProvider,
+  albumScope: ScanSettings["albumScope"]
+): ScanSettings["albumScope"] | undefined {
+  return getProviderOperations(provider).capabilities.albumScope === "supported"
+    ? activeAlbumScope(albumScope)
+    : undefined
+}
+
 function fullScanSettingsPatch(
   scanSettings: ScanSettings
 ): Partial<ScanSettings> {
   return {
     sourceProvider: scanSettings.sourceProvider ?? "google",
+    defaultKeepStrategy:
+      scanSettings.defaultKeepStrategy ?? DEFAULT_SETTINGS.defaultKeepStrategy,
     similarityThreshold: scanSettings.similarityThreshold,
     scanMode: scanSettings.scanMode,
     smartWindowSec: scanSettings.smartWindowSec,
@@ -658,10 +800,7 @@ type TimelineStepStatus = "complete" | "active" | "locked"
 type SidePanelStepItem = {
   index: number
   title: string
-  description: string
   status: TimelineStepStatus
-  icon: ReactNode
-  summary?: string
 }
 
 function SidePanelTimelineProgress({ steps }: { steps: SidePanelStepItem[] }) {
@@ -672,16 +811,10 @@ function SidePanelTimelineProgress({ steps }: { steps: SidePanelStepItem[] }) {
       sx={{
         listStyle: "none",
         m: 0,
-        p: 0.8,
+        p: 0.25,
         display: "grid",
-        gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-        gap: 0.35,
-        border: "1px solid",
-        borderColor: photoSweepColors.border,
-        borderRadius: 2,
-        bgcolor: photoSweepColors.surface,
-        boxShadow: `0 4px 14px ${photoSweepColors.shadow}`,
-        overflow: "hidden"
+        gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+        gap: 0.25
       }}>
       {steps.map((step, position) => {
         const isActive = step.status === "active"
@@ -692,94 +825,84 @@ function SidePanelTimelineProgress({ steps }: { steps: SidePanelStepItem[] }) {
             ? photoSweepColors.primary
             : photoSweepColors.muted
         const statusLabel = isComplete
-          ? "Done"
+          ? "Complete"
           : isActive
-            ? "Current"
-            : "Locked"
-        const tooltip = `${step.title}: ${statusLabel}${
-          step.summary ? `, ${step.summary}` : ""
-        }`
+            ? "Current step"
+            : "Upcoming"
 
         return (
-          <Tooltip key={step.title} title={tooltip} arrow>
+          <Box
+            key={step.title}
+            component="li"
+            aria-current={isActive ? "step" : undefined}
+            aria-label={`${step.title}: ${statusLabel}`}
+            sx={{
+              minWidth: 0,
+              position: "relative",
+              display: "grid",
+              justifyItems: "center",
+              gap: 0.35,
+              color: markerColor,
+              opacity: step.status === "locked" ? 0.72 : 1,
+              "&::before":
+                position === 0
+                  ? undefined
+                  : {
+                      content: '""',
+                      position: "absolute",
+                      top: 9,
+                      right: "50%",
+                      width: "100%",
+                      height: 2,
+                      bgcolor:
+                        steps[position - 1]?.status === "complete"
+                          ? photoSweepColors.success
+                          : photoSweepColors.border,
+                      zIndex: 0
+                    }
+            }}>
             <Box
-              component="li"
-              aria-current={isActive ? "step" : undefined}
-              aria-label={tooltip}
               sx={{
-                minWidth: 0,
-                position: "relative",
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
                 display: "grid",
-                justifyItems: "center",
-                alignContent: "start",
-                gap: 0.45,
-                px: 0.2,
-                py: 0.2,
+                placeItems: "center",
+                border: "1.5px solid",
+                borderColor: markerColor,
+                bgcolor: isComplete
+                  ? photoSweepColors.successSoft
+                  : isActive
+                    ? photoSweepColors.primarySoft
+                    : photoSweepColors.surfaceSoft,
                 color: markerColor,
-                opacity: step.status === "locked" ? 0.62 : 1,
-                "&::before":
-                  position === 0
-                    ? undefined
-                    : {
-                        content: '""',
-                        position: "absolute",
-                        top: 15,
-                        right: "50%",
-                        width: "100%",
-                        height: 2,
-                        bgcolor:
-                          steps[position - 1]?.status === "complete"
-                            ? photoSweepColors.success
-                            : photoSweepColors.border,
-                        zIndex: 0
-                      }
+                fontSize: 10,
+                lineHeight: 1,
+                fontWeight: 800,
+                zIndex: 1,
+                "& svg": { fontSize: 12 }
               }}>
-              <Box
-                sx={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  display: "grid",
-                  placeItems: "center",
-                  border: "2px solid",
-                  borderColor: markerColor,
-                  bgcolor: isComplete
-                    ? photoSweepColors.successSoft
-                    : isActive
-                      ? photoSweepColors.primarySoft
-                      : photoSweepColors.surfaceSoft,
-                  boxShadow: isActive
-                    ? `0 0 0 3px ${photoSweepColors.primaryShadow}`
-                    : "none",
-                  zIndex: 1,
-                  "& svg": {
-                    fontSize: 15
-                  }
-                }}>
-                {isComplete ? (
-                  <CheckCircleRoundedIcon sx={{ fontSize: 15 }} />
-                ) : isActive ? (
-                  step.index
-                ) : (
-                  step.icon
-                )}
-              </Box>
-              <Typography
-                variant="caption"
-                noWrap
-                sx={{
-                  maxWidth: "100%",
-                  fontSize: 10.75,
-                  lineHeight: 1.1,
-                  fontWeight: isActive ? 850 : 750,
-                  color: isActive ? photoSweepColors.ink : markerColor,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis"
-                }}>
-                {step.title}
-              </Typography>
+              {isComplete ? (
+                <CheckCircleRoundedIcon />
+              ) : (
+                step.index
+              )}
             </Box>
-          </Tooltip>
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                maxWidth: "100%",
+                fontSize: 10.5,
+                lineHeight: 1.1,
+                fontWeight: isActive ? 800 : 650,
+                color: isActive ? photoSweepColors.ink : markerColor,
+                overflow: "hidden",
+                textOverflow: "ellipsis"
+              }}>
+              {step.title}
+            </Typography>
+          </Box>
         )
       })}
     </Box>
@@ -787,67 +910,33 @@ function SidePanelTimelineProgress({ steps }: { steps: SidePanelStepItem[] }) {
 }
 
 function SidePanelTimelineStep({
-  title,
-  description,
   status,
-  summary,
   children
-}: SidePanelStepItem & {
+}: Pick<SidePanelStepItem, "status"> & {
   children?: ReactNode
 }) {
-  const isActive = status === "active"
-  if (!isActive || !children) return null
+  if (status !== "active" || !children) return null
 
   return (
     <Box
       sx={{
         minWidth: 0,
+        width: "100%",
+        display: "grid",
+        gap: 0.75,
+        p: 1,
         border: "1px solid",
-        borderColor: photoSweepColors.primaryBorder,
-        borderRadius: 2.25,
+        borderColor: photoSweepColors.border,
+        borderRadius: 1.5,
         bgcolor: photoSweepColors.surface,
-        boxShadow: `0 14px 36px ${photoSweepColors.shadow}`,
-        overflow: "hidden"
+        boxShadow: "none",
+        "& > *": {
+          minWidth: 0,
+          maxWidth: "100%",
+          boxSizing: "border-box"
+        }
       }}>
-      <Box
-        sx={{
-          px: 1.15,
-          pt: 1,
-          pb: 0.85,
-          minWidth: 0,
-          borderBottom: "1px solid",
-          borderColor: photoSweepColors.border
-        }}>
-        <Typography
-          variant="subtitle2"
-          fontWeight={850}
-          sx={{ lineHeight: 1.15, fontSize: 14, letterSpacing: 0 }}>
-          {title}
-        </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mt: 0.2, lineHeight: 1.3 }}>
-          {summary || description}
-        </Typography>
-      </Box>
-      <Box
-        sx={{
-          px: 0.95,
-          pt: 0.95,
-          pb: 0.95,
-          display: "grid",
-          gap: 0.85,
-          minWidth: 0,
-          overflow: "hidden",
-          "& > *": {
-            minWidth: 0,
-            maxWidth: "100%",
-            boxSizing: "border-box"
-          }
-        }}>
-        {children}
-      </Box>
+      {children}
     </Box>
   )
 }
@@ -875,8 +964,8 @@ function SidePanelSourceBar({
         borderColor: photoSweepColors.border,
         borderRadius: 2,
         bgcolor: photoSweepColors.surface,
-        boxShadow: `0 4px 14px ${photoSweepColors.shadow}`,
-        p: 0.6
+        boxShadow: "none",
+        p: 0.5
       }}>
       <TextField
         select
@@ -887,15 +976,15 @@ function SidePanelSourceBar({
         sx={{
           minWidth: 0,
           "& .MuiInputBase-root": {
-            height: 42,
-            borderRadius: 1.5,
+            height: 44,
+            borderRadius: 1,
             bgcolor: photoSweepColors.surface
           },
           "& .MuiSelect-select": {
             py: 1,
             pr: "32px !important",
             fontSize: 15,
-            fontWeight: 750,
+            fontWeight: 650,
             lineHeight: 1.2
           },
           "& .MuiOutlinedInput-notchedOutline": {
@@ -924,7 +1013,7 @@ function SidePanelSourceBar({
             : photoSweepColors.surfaceSoft,
           border: "1px solid",
           borderColor: connected
-            ? "rgba(36, 138, 75, 0.18)"
+            ? photoSweepColors.successSoft
             : photoSweepColors.border,
           color: connected ? photoSweepColors.success : photoSweepColors.muted,
           fontWeight: 850,
@@ -961,16 +1050,16 @@ function SidePanelBrandHeader() {
       }}>
       <Box
         sx={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
+        width: 34,
+        height: 34,
+        borderRadius: 1,
           display: "grid",
           placeItems: "center",
           color: photoSweepColors.surface,
           bgcolor: photoSweepColors.primary,
-          boxShadow: `0 8px 18px ${photoSweepColors.primaryShadow}`
-        }}>
-        <AutoAwesomeRoundedIcon sx={{ fontSize: 16 }} />
+        boxShadow: "none"
+      }}>
+        <PhotoLibraryRoundedIcon sx={{ fontSize: 19 }} />
       </Box>
       <Typography
         variant="subtitle1"
@@ -986,40 +1075,35 @@ function SidePanelSafetyFooter() {
   return (
     <Box
       sx={{
-        mt: 0,
-        px: 1.2,
-        py: 1.1,
-        border: "1px solid",
+        mt: 0.25,
+        px: 0.5,
+        py: 0.75,
+        borderTop: "1px solid",
         borderColor: photoSweepColors.border,
-        borderRadius: 1.75,
-        bgcolor: photoSweepColors.surfaceSoft,
+        bgcolor: "transparent",
         display: "grid",
-        gridTemplateColumns: "28px minmax(0, 1fr)",
-        gap: 1,
+        gridTemplateColumns: "20px minmax(0, 1fr)",
+        gap: 0.75,
         alignItems: "center"
       }}>
       <Box
         sx={{
-          width: 28,
-          height: 28,
-          borderRadius: 1.25,
-          bgcolor: photoSweepColors.successSoft,
-          color: photoSweepColors.success,
+          width: 20,
+          height: 20,
+          borderRadius: 0.75,
+          bgcolor: "transparent",
+          color: photoSweepColors.muted,
           display: "grid",
           placeItems: "center"
         }}>
-        <LockOutlinedIcon sx={{ fontSize: 17 }} />
+        <LockOutlinedIcon sx={{ fontSize: 15 }} />
       </Box>
       <Box>
-        <Typography variant="body2" fontWeight={850} sx={{ lineHeight: 1.2 }}>
-          Your photos stay safe
-        </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ display: "block", lineHeight: 1.35, mt: 0.2 }}>
-          The extension reads metadata for matching. Nothing moves to trash
-          until you review and confirm.
+          sx={{ display: "block", lineHeight: 1.4, fontSize: 12 }}>
+          Nothing moves to Trash before you review and confirm.
         </Typography>
       </Box>
     </Box>
@@ -1098,27 +1182,59 @@ async function persistTrashResultReport(
   }
 }
 
-async function loadRecoveryHistoryFromStorage(): Promise<RecoveryHistoryRecord[]> {
-  const stored = await chrome.storage.local.get(RECOVERY_HISTORY_STORAGE_KEY)
-  return sanitizeRecoveryHistory(stored[RECOVERY_HISTORY_STORAGE_KEY])
-}
-
-async function persistRecoveryHistoryToStorage(
-  records: RecoveryHistoryRecord[]
-): Promise<void> {
-  await chrome.storage.local.set({
-    [RECOVERY_HISTORY_STORAGE_KEY]: sanitizeRecoveryHistory(records)
-  })
-}
-
-async function persistRecoveryRestoreStatus(
+function hasDurableRestoreIntent(
+  records: RecoveryHistoryRecord[],
   operationId: string,
-  params: { success: boolean; error?: string }
-): Promise<RecoveryHistoryRecord[]> {
-  const records = await loadRecoveryHistoryFromStorage()
-  const next = markRecoveryRestore(records, operationId, params)
-  await persistRecoveryHistoryToStorage(next)
-  return next
+  requestId: string,
+  requestedDedupKeys: string[]
+): boolean {
+  const record = records.find((entry) => entry.operationId === operationId)
+  const matches =
+    record?.restoreOutcomeHistory?.filter(
+      (attempt) => attempt.requestId === requestId
+    ) ?? []
+  if (matches.length !== 1) return false
+  const attempt = matches[0]!
+  const requested = new Set(requestedDedupKeys)
+  return (
+    attempt.terminal === false &&
+    attempt.outcomes.length === requestedDedupKeys.length &&
+    attempt.outcomes.every(
+      (outcome) => requested.has(outcome.targetKey) && outcome.status === "unknown"
+    ) &&
+    new Set(attempt.outcomes.map((outcome) => outcome.targetKey)).size ===
+      requested.size &&
+    requestedDedupKeys.every(
+      (key) => !record?.restorableDedupKeys.includes(key)
+    ) &&
+    requestedDedupKeys.every(
+      (key) =>
+        record?.restoreOutcomes?.find((outcome) => outcome.targetKey === key)
+          ?.status === "unknown"
+    )
+  )
+}
+
+function notDispatchedRestoreStatus(
+  requestId: string,
+  dedupKeys: string[],
+  reason: string
+): RecoveryRestoreStatusUpdate {
+  return {
+    outcome: "failed",
+    requestId,
+    terminal: true,
+    restoredDedupKeys: [],
+    unknownDedupKeys: [],
+    outcomes: dedupKeys.map((targetKey) => ({
+      operation: "restore",
+      targetKey,
+      status: "failed",
+      reason
+    })),
+    notDispatchedDedupKeys: [...dedupKeys],
+    error: reason
+  }
 }
 
 function chromeDecisionMemoryStorage() {
@@ -1160,23 +1276,11 @@ function downloadTextFile(params: {
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
-async function persistScanCheckpoint(
-  checkpoint: ScanCheckpoint
-): Promise<void> {
-  await chrome.storage.local
-    .set({ [SCAN_CHECKPOINT_KEY]: checkpoint })
-    .catch(() => {})
-}
-
-async function clearScanCheckpoint(): Promise<void> {
-  await chrome.storage.local.remove(SCAN_CHECKPOINT_KEY).catch(() => {})
-}
-
 function isFavoriteProtected(
   item: GpdMediaItem | undefined,
-  settings: ScanSettings
+  _settings: ScanSettings
 ): boolean {
-  return settings.protectFavorites !== false && item?.isFavorite === true
+  return favoriteStatusForItem(item) === "favorite"
 }
 
 function protectedKeepKeysForGroup(
@@ -1283,24 +1387,45 @@ export default function App() {
     useState<DuplicateTrashPlan | null>(null)
   const trashConfirmRef = useRef<DuplicateTrashPlan | null>(null)
   const [trashConfirmCount, setTrashConfirmCount] = useState("")
+  const [unknownFavoriteTrashAcknowledged, setUnknownFavoriteTrashAcknowledged] =
+    useState(false)
   const [trashPreflight, setTrashPreflight] =
     useState<ReviewPreflightResult | null>(null)
   const [trashWarning, setTrashWarningState] = useState<string | null>(null)
   const trashWarningRef = useRef<string | null>(null)
+  const [keepStrategyFeedback, setKeepStrategyFeedback] = useState<string | null>(
+    null
+  )
   const [trashMovesThisSession, setTrashMovesThisSession] = useState(0)
   const [reportError, setReportError] = useState<string | null>(null)
-  const [recoveryHistory, setRecoveryHistoryState] = useState<RecoveryHistoryRecord[]>([])
+  const [recoveryHistory, setRecoveryHistoryState] = useState<
+    RecoveryHistoryRecord[]
+  >([])
   const recoveryHistoryRef = useRef<RecoveryHistoryRecord[]>([])
+  const [recoveryHistoryReadError, setRecoveryHistoryReadError] = useState(false)
   const [recoveryHistoryOpen, setRecoveryHistoryOpen] = useState(false)
-  const [recoveryHistoryBusyId, setRecoveryHistoryBusyId] = useState<string | null>(null)
+  const [recoveryHistoryBusyId, setRecoveryHistoryBusyId] = useState<
+    string | null
+  >(null)
   const decisionMemoryStoreRef = useRef<DecisionMemoryStore | null>(null)
   if (!decisionMemoryStoreRef.current) {
     decisionMemoryStoreRef.current = chromeDecisionMemoryStorage()
   }
   const decisionMemoryStore = decisionMemoryStoreRef.current
   const restoreRequestByIdRef = useRef(
-    new Map<string, { operationId: string; generation: number; history: boolean }>()
+    new Map<
+      string,
+      {
+        operationId?: string
+        generation: number
+        history: boolean
+        provider: PhotoProvider
+        accountEmail?: string
+        providerSessionId: string
+      }
+    >()
   )
+  const restoreCommitInFlightRef = useRef(false)
   const resetReviewRef = useRef<() => void>(() => {})
   const [cacheEntryCount, setCacheEntryCount] = useState<number | null>(null)
   const [cacheStatus, setCacheStatus] = useState<string | undefined>()
@@ -1313,6 +1438,10 @@ export default function App() {
   const [albumsError, setAlbumsError] = useState<string | null>(null)
   const [accountValidationComplete, setAccountValidationComplete] =
     useState(false)
+  const [amazonProfile, setAmazonProfile] = useState<{
+    displayName: string
+    providerSessionId: string
+  } | null>(null)
   const [entitlement, setEntitlement] = useState<Entitlement>({
     planId: "free",
     active: true,
@@ -1343,6 +1472,10 @@ export default function App() {
   const restoreGenerationRef = useRef<number | null>(null)
   const trashGenerationByRequestRef = useRef(new Map<string, number>())
   const trashTimeoutByRequestRef = useRef(new Map<string, number>())
+  const restoreTimeoutByRequestRef = useRef(new Map<string, number>())
+  const pendingProviderRetrievalsRef = useRef(
+    new Map<string, PendingProviderRetrieval>()
+  )
   const [undoData, setUndoDataState] = useState<TrashUndoData | null>(null)
   const undoDataRef = useRef<TrashUndoData | null>(null)
 
@@ -1384,6 +1517,108 @@ export default function App() {
     []
   )
 
+  const isRestoreRequestCurrent = useCallback(
+    (request: {
+      generation: number
+      provider: PhotoProvider
+      accountEmail?: string
+      providerSessionId: string
+    }) => {
+      const currentProvider = settingsRef.current.sourceProvider ?? "google"
+      const sameIdentityProvider =
+        currentIdentityProviderRef.current === request.provider
+      const currentSessionId = sameIdentityProvider
+        ? currentProviderSessionIdRef.current
+        : undefined
+      const currentEmail = sameIdentityProvider
+        ? currentAccountEmailRef.current
+        : undefined
+      const expectedEmail = request.accountEmail?.trim().toLowerCase()
+      return (
+        request.generation === paidConversionGenerationRef.current &&
+        restoreGenerationRef.current === request.generation &&
+        request.provider === currentProvider &&
+        sameIdentityProvider &&
+        accountValidationCompleteRef.current &&
+        currentHasGptkRef.current &&
+        Boolean(request.providerSessionId) &&
+        currentSessionId === request.providerSessionId &&
+        (request.provider !== "google" ||
+          (Boolean(expectedEmail) &&
+            currentEmail?.trim().toLowerCase() === expectedEmail))
+      )
+    },
+    []
+  )
+
+  const persistRestoreStatusSafely = useCallback(
+    async (
+      operationId: string,
+      params: RecoveryRestoreStatusUpdate
+    ) => {
+      const requestId = params.requestId
+      const restoreRequest = requestId
+        ? restoreRequestByIdRef.current.get(requestId)
+        : undefined
+      if (
+        !requestId ||
+        !restoreRequest ||
+        restoreRequest.operationId !== operationId ||
+        !restoreRequest.providerSessionId
+      ) {
+        throw new Error("Restore update has no matching live request binding.")
+      }
+      const records = await requestRecoveryHistoryTransaction({
+        kind: "updateRestore",
+        operationId,
+        requestId,
+        provider: restoreRequest.provider,
+        providerSessionId: restoreRequest.providerSessionId,
+        ...(restoreRequest.accountEmail
+          ? { accountEmail: restoreRequest.accountEmail }
+          : {}),
+        params
+      })
+      setRecoveryHistorySafely(records)
+      return records
+    },
+    [setRecoveryHistorySafely]
+  )
+
+  const persistRestoreDispatchIntentSafely = useCallback(
+    async (operationId: string, requestId: string, dedupKeys: string[]) => {
+      const restoreRequest = restoreRequestByIdRef.current.get(requestId)
+      if (
+        !restoreRequest ||
+        restoreRequest.operationId !== operationId ||
+        !restoreRequest.providerSessionId
+      ) {
+        throw new Error("Restore intent has no matching provider request binding.")
+      }
+      const records = await requestRecoveryHistoryTransaction({
+        kind: "beginRestore",
+        requestId,
+        operationId,
+        provider: restoreRequest.provider,
+        providerSessionId: restoreRequest.providerSessionId,
+        ...(restoreRequest.accountEmail
+          ? { accountEmail: restoreRequest.accountEmail }
+          : {}),
+        targetDedupKeys: dedupKeys
+      })
+      setRecoveryHistorySafely(records)
+      if (
+        !hasDurableRestoreIntent(records, operationId, requestId, dedupKeys)
+      ) {
+        throw new Error(
+          "The exact per-target restore guard could not be verified in recovery storage."
+        )
+      }
+      return records
+    },
+    [setRecoveryHistorySafely]
+  )
+
   const setUpgradePromptSafely = useCallback(
     (next: UpgradePromptState | null) => {
       upgradePromptRef.current = next
@@ -1408,7 +1643,7 @@ export default function App() {
       trashConfirmRef.current ||
       trashWarningRef.current ||
       undoDataRef.current ||
-      restoreInFlightRef.current
+      restoreInFlightRef.current || restoreCommitInFlightRef.current
     ) {
       return
     }
@@ -1450,12 +1685,17 @@ export default function App() {
     checkoutReconcileAttemptsRef.current = 0
     checkoutStartInFlightRef.current = false
     checkoutReconcileInFlightRef.current = false
-    restoreInFlightRef.current = false
+    restoreInFlightRef.current = restoreCommitInFlightRef.current
     restoreGenerationRef.current = null
     for (const timeoutId of trashTimeoutByRequestRef.current.values()) {
       window.clearTimeout(timeoutId)
     }
     trashTimeoutByRequestRef.current.clear()
+    for (const timeoutId of restoreTimeoutByRequestRef.current.values()) {
+      window.clearTimeout(timeoutId)
+    }
+    restoreTimeoutByRequestRef.current.clear()
+    restoreRequestByIdRef.current.clear()
     trashGenerationByRequestRef.current.clear()
     deferredUpgradeRef.current = null
     upgradePromptRef.current = null
@@ -1473,9 +1713,7 @@ export default function App() {
   const [licenseApiBaseUrl, setLicenseApiBaseUrl] = useState<
     string | undefined
   >()
-  const [photoDataConsent, setPhotoDataConsent] = useState<boolean | null>(
-    null
-  )
+  const [photoDataConsent, setPhotoDataConsent] = useState<boolean | null>(null)
   const [analyticsConsent, setAnalyticsConsent] = useState<boolean | null>(null)
   const appOpenedTrackedRef = useRef(false)
   const paidAccessLifecycleRef = useRef<PaidAccessLifecycle | null>(null)
@@ -1498,19 +1736,35 @@ export default function App() {
     })
   }
   const paidAccessLifecycle = paidAccessLifecycleRef.current
+  const providerReviewStorageRef = useRef<ProviderScopedReviewStorage | null>(
+    null
+  )
+  if (!providerReviewStorageRef.current) {
+    providerReviewStorageRef.current = new ProviderScopedReviewStorage(
+      {
+        async get(keys) {
+          return chrome.storage.local.get(keys)
+        },
+        async set(values) {
+          await chrome.storage.local.set(values)
+        },
+        async remove(keys) {
+          await chrome.storage.local.remove(keys)
+        }
+      },
+      {
+        getHostProvider: () => sidePanelHostProviderRef.current,
+        getActiveProvider: () =>
+          settingsRef.current.sourceProvider ?? "google"
+      }
+    )
+  }
+  const providerReviewStorage = providerReviewStorageRef.current
   const storedReviewScopeRef = useRef<StoredReviewScope | null>(null)
   if (!storedReviewScopeRef.current) {
-    storedReviewScopeRef.current = new StoredReviewScope({
-      async get(keys) {
-        return chrome.storage.local.get(keys) as Promise<Partial<StoredState>>
-      },
-      async set(values) {
-        await chrome.storage.local.set(values)
-      },
-      async remove(keys) {
-        await chrome.storage.local.remove(keys)
-      }
-    })
+    storedReviewScopeRef.current = new StoredReviewScope(
+      providerReviewStorage
+    )
   }
   const storedReviewScope = storedReviewScopeRef.current
 
@@ -1964,8 +2218,20 @@ export default function App() {
 
   const scanLifecycleRef = useRef(
     new ScanLifecycle({
-      persist: persistScanCheckpoint,
-      clear: clearScanCheckpoint
+      persist: (checkpoint) =>
+        providerReviewStorage
+          .set(
+            { scanCheckpoint: checkpoint },
+            checkpoint.settings.sourceProvider ?? "google"
+          )
+          .catch(() => {}),
+      clear: (provider) =>
+        providerReviewStorage
+          .remove(
+            ["scanCheckpoint"],
+            provider ?? settingsRef.current.sourceProvider ?? "google"
+          )
+          .catch(() => {})
     })
   )
   const scanLifecycle = scanLifecycleRef.current
@@ -1976,16 +2242,12 @@ export default function App() {
         await persistDeleteReport(report)
         downloadDeleteReport(report)
         if (!context) return
-        const records = await loadRecoveryHistoryFromStorage()
-        const next = [
-          createPendingRecoveryRecord(report, context as RecoveryHistoryContext),
-          ...records.filter(
-            (record) => record.operationId !== context.operationId
-          )
-        ]
-        const bounded = sanitizeRecoveryHistory(next)
-        await persistRecoveryHistoryToStorage(bounded)
-        setRecoveryHistorySafely(bounded)
+        const records = await requestRecoveryHistoryTransaction({
+          kind: "createPendingTrash",
+          report,
+          context
+        })
+        setRecoveryHistorySafely(records)
       },
       async saveTrashResultReport(report, context) {
         try {
@@ -2004,16 +2266,15 @@ export default function App() {
         }
         if (context) {
           try {
-            const records = await loadRecoveryHistoryFromStorage()
-            const next = updateRecoveryRecordFromTrash(
-              records,
+            const records = await requestRecoveryHistoryTransaction({
+              kind: "recordTrashResult",
               report,
-              context as RecoveryHistoryContext
-            )
-            await persistRecoveryHistoryToStorage(next)
-            setRecoveryHistorySafely(next)
+              context
+            })
+            setRecoveryHistorySafely(records)
           } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message =
+              error instanceof Error ? error.message : String(error)
             setReportError(`Could not update recovery history: ${message}`)
           }
         }
@@ -2033,8 +2294,20 @@ export default function App() {
   const healthCheckAttemptsRef = useRef(0)
   const healthCheckRetryTimeoutRef = useRef<number | null>(null)
   const healthCheckRequestIdRef = useRef<string | null>(null)
+  const healthCheckGenerationRef = useRef(0)
   const albumsRequestedForAccountRef = useRef<string | null>(null)
+  const albumsRequestRef = useRef<{
+    requestId: string
+    provider: PhotoProvider
+    identity: string
+    accountEmail?: string
+    providerSessionId?: string
+  } | null>(null)
   const currentAccountEmailRef = useRef<string | undefined>(undefined)
+  const currentProviderSessionIdRef = useRef<string | undefined>(undefined)
+  const currentIdentityProviderRef = useRef<PhotoProvider | undefined>(
+    undefined
+  )
   const currentHasGptkRef = useRef(false)
   const sidePanelHostProviderRef = useRef<PhotoProvider | null>(null)
   const sidePanelHostTabIdRef = useRef<number | null>(null)
@@ -2052,6 +2325,7 @@ export default function App() {
   const sendHealthCheckAttempt = useCallback(
     (provider: PhotoProvider, attempt: number) => {
       const requestId = generateRequestId()
+      healthCheckGenerationRef.current += 1
       healthCheckRequestIdRef.current = requestId
       healthCheckAttemptsRef.current = attempt
       sendToServiceWorker({
@@ -2103,27 +2377,73 @@ export default function App() {
     }
   }, [])
 
-  const requestAlbums = useCallback((accountEmail?: string) => {
-    if (photoDataConsent !== true) return
-    if ((settingsRef.current.sourceProvider ?? "google") !== "google") {
-      setAlbums([])
-      setAlbumsLoading(false)
+  const requestAlbums = useCallback(
+    (accountEmail?: string) => {
+      if (photoDataConsent !== true) return
+      const provider = settingsRef.current.sourceProvider ?? "google"
+      if (
+        getProviderOperations(provider).capabilities.albumScope !== "supported"
+      ) {
+        setAlbums([])
+        setAlbumsLoading(false)
+        setAlbumsError(null)
+        albumsRequestedForAccountRef.current = null
+        albumsRequestRef.current = null
+        return
+      }
+      const providerSessionId = currentProviderSessionIdRef.current
+      const googleAccountEmail =
+        provider === "google"
+          ? (accountEmail || currentAccountEmailRef.current || "").trim()
+          : undefined
+      if (
+        provider === "google" &&
+        (!googleAccountEmail ||
+          !currentAccountEmailRef.current ||
+          googleAccountEmail.toLowerCase() !==
+            currentAccountEmailRef.current.trim().toLowerCase() ||
+          !providerSessionId)
+      ) {
+        albumsRequestRef.current = null
+        albumsRequestedForAccountRef.current = null
+        setAlbums([])
+        setAlbumsLoading(false)
+        setAlbumsError(
+          "The Google Photos account and page session could not be verified. Reconnect and refresh the album list."
+        )
+        return
+      }
+      const identity =
+        provider === "google"
+          ? googleAlbumIdentityKey(googleAccountEmail, providerSessionId)
+          : providerSessionId || "__unknown__"
+      const key = `${provider}:${identity}`
+      albumsRequestedForAccountRef.current = key
+      setAlbumsLoading(true)
       setAlbumsError(null)
-      albumsRequestedForAccountRef.current = null
-      return
-    }
-    const key = accountEmail || "__unknown__"
-    albumsRequestedForAccountRef.current = key
-    setAlbumsLoading(true)
-    setAlbumsError(null)
-    sendToServiceWorker({
-      app: APP_ID,
-      action: "gptkCommand",
-      command: "listAlbums",
-      requestId: generateRequestId(),
-      provider: "google"
-    })
-  }, [photoDataConsent])
+      const requestId = generateRequestId()
+      albumsRequestRef.current = {
+        requestId,
+        provider,
+        identity,
+        ...(googleAccountEmail ? { accountEmail: googleAccountEmail } : {}),
+        ...(providerSessionId ? { providerSessionId } : {})
+      }
+      sendToServiceWorker({
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "listAlbums",
+        requestId,
+        provider,
+        ...(provider === "google"
+          ? { args: { accountEmail: googleAccountEmail, providerSessionId } }
+          : providerSessionId
+            ? { args: { providerSessionId } }
+            : {})
+      })
+    },
+    [photoDataConsent]
+  )
 
   const handleTrashProviderResult = useCallback(
     (result: GptkResultMessage) => {
@@ -2163,6 +2483,13 @@ export default function App() {
           if (outcome.kind === "failed") {
             trackEvent({ name: "error", errorCategory: "trash" })
             dispatch({ type: "TRASH_ERROR", error: outcome.error })
+            return
+          }
+          if (outcome.kind === "unknown") {
+            trackEvent({ name: "error", errorCategory: "trash" })
+            const message = `${outcome.error} Confirmed failures: ${outcome.failedDedupKeys.length.toLocaleString()}; not dispatched: ${outcome.notDispatchedDedupKeys.length.toLocaleString()}.`
+            dispatch({ type: "TRASH_ERROR", error: message })
+            setTrashWarningSafely(message)
             return
           }
 
@@ -2211,52 +2538,339 @@ export default function App() {
   )
 
   const handleRestoreProviderResult = useCallback(
-    (result: GptkResultMessage) => {
+    async (result: GptkResultMessage) => {
+      const restoreRequest = restoreRequestByIdRef.current.get(result.requestId)
       if (
-        restoreGenerationRef.current === null ||
-        restoreGenerationRef.current !== paidConversionGenerationRef.current
+        !restoreRequest ||
+        result.command !== "restoreItems" ||
+        result.provider !== restoreRequest.provider ||
+        result.providerSessionId !== restoreRequest.providerSessionId ||
+        !isRestoreRequestCurrent(restoreRequest)
       ) {
         return
       }
-      const failedUndo = trashLifecycle.reconcileRestore({
+      const timeoutId = restoreTimeoutByRequestRef.current.get(result.requestId)
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId)
+        restoreTimeoutByRequestRef.current.delete(result.requestId)
+      }
+      const restoreData = (result.data ?? {}) as {
+        restoredDedupKeys?: unknown
+        outcomes?: unknown
+        notDispatchedDedupKeys?: unknown
+      }
+      const restoreOutcome = trashLifecycle.reconcileRestore({
         requestId: result.requestId,
-        success: result.success
+        success: result.success,
+        restoredDedupKeys: restoreData.restoredDedupKeys,
+        outcomes: restoreData.outcomes,
+        notDispatchedDedupKeys: restoreData.notDispatchedDedupKeys,
+        error: result.error
       })
-      if (failedUndo === undefined) return
-      const restoreRequest = restoreRequestByIdRef.current.get(
-        result.requestId
-      )
-      restoreRequestByIdRef.current.delete(result.requestId)
-      setRecoveryHistoryBusyId(null)
-      restoreGenerationRef.current = null
-      restoreInFlightRef.current = false
-      if (restoreRequest) {
-        void persistRecoveryRestoreStatus(restoreRequest.operationId, {
-          success: result.success,
-          ...(result.error ? { error: result.error } : {})
+      if (restoreOutcome === undefined) return
+      if (!restoreRequest.operationId) {
+        restoreCommitInFlightRef.current = true
+        setReportError(
+          "The provider returned a restore result without a durable recovery record. Keep this tab open and verify the provider Trash state before another restore."
+        )
+        return
+      }
+      restoreCommitInFlightRef.current = true
+      try {
+        const records = await persistRestoreStatusSafely(
+          restoreRequest.operationId,
+          {
+          outcome: restoreOutcome.kind,
+          requestId: result.requestId,
+          terminal: true,
+          restoredDedupKeys: restoreOutcome.restoredDedupKeys,
+          outcomes: restoreOutcome.outcomes,
+          notDispatchedDedupKeys: restoreOutcome.notDispatchedDedupKeys,
+          ...(restoreOutcome.kind !== "complete"
+            ? { unknownDedupKeys: restoreOutcome.unknownDedupKeys }
+            : {}),
+          ...(restoreOutcome.kind !== "complete"
+            ? { error: restoreOutcome.error }
+            : {})
+          }
+        )
+        const savedRecord = records.find(
+          (record) => record.operationId === restoreRequest.operationId
+        )
+        restoreRequestByIdRef.current.delete(result.requestId)
+        setRecoveryHistoryBusyId(null)
+        restoreGenerationRef.current = null
+        restoreInFlightRef.current = false
+        restoreCommitInFlightRef.current = false
+        if (
+          restoreOutcome.kind === "complete" &&
+          savedRecord?.status === "restored" &&
+          restoreRequest.history
+        ) {
+          resetReviewRef.current()
+          setTrashWarningSafely(
+            "Provider restore completed. Run a new scoped scan to verify the library state."
+          )
+        } else if (
+          restoreOutcome.kind === "complete" &&
+          savedRecord?.status === "restore_unknown"
+        ) {
+          setTrashWarningSafely(
+            `This restore response confirmed its requested targets, but ${savedRecord.restoreUnknownCount ?? 0} earlier ambiguous target(s) remain unresolved in recovery history.`
+          )
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        restoreRequestByIdRef.current.delete(result.requestId)
+        setReportError(`Could not update recovery history: ${message}`)
+        setTrashWarningSafely(
+          "The provider returned a terminal restore result, but its final outcome could not be saved. The durable pre-dispatch guard remains in recovery history, so these targets will stay protected as ambiguous after reload. This tab is keeping restore actions locked until you reload and review that guard."
+        )
+        // The previously saved provisional intent is the durable no-replay
+        // marker. Keep the current app locked because the terminal write failed.
+        restoreInFlightRef.current = true
+        restoreCommitInFlightRef.current = true
+        return
+      }
+      if (restoreOutcome.kind !== "complete") {
+        console.error("GPD: Restore incomplete:", restoreOutcome.error)
+        setUndoDataSafely(
+          restoreOutcome.undo.count > 0 ? restoreOutcome.undo : null
+        )
+        setTrashWarningSafely(
+          restoreOutcome.kind === "partial"
+            ? `Restore partially completed: ${restoreOutcome.error}${restoreOutcome.unknownDedupKeys.length > 0 ? ` ${restoreOutcome.unknownDedupKeys.length.toLocaleString()} ambiguous target${restoreOutcome.unknownDedupKeys.length === 1 ? " was" : "s were"} removed from retry.` : ""}`
+            : restoreOutcome.kind === "unknown"
+              ? `Restore outcome is unknown for ${restoreOutcome.unknownDedupKeys.length.toLocaleString()} target${restoreOutcome.unknownDedupKeys.length === 1 ? "" : "s"}; those targets will not be retried. Verify their state with the provider. ${restoreOutcome.error}`
+              : `Restore failed: ${restoreOutcome.error}`
+        )
+      }
+    },
+    [
+      isRestoreRequestCurrent,
+      persistRestoreStatusSafely,
+      setTrashWarningSafely,
+      setUndoDataSafely,
+      trashLifecycle
+    ]
+  )
+
+  const handleRestoreTimeout = useCallback(
+    (requestId: string, generation: number) => {
+      if (generation !== paidConversionGenerationRef.current) return
+      const outcome = trashLifecycle.timeoutRestore({ requestId })
+      if (!outcome) return
+      const restoreRequest = restoreRequestByIdRef.current.get(requestId)
+      if (
+        restoreRequest?.operationId &&
+        isRestoreRequestCurrent(restoreRequest)
+      ) {
+        void persistRestoreStatusSafely(restoreRequest.operationId, {
+          outcome: outcome.kind,
+          requestId,
+          terminal: false,
+          restoredDedupKeys: outcome.restoredDedupKeys,
+          outcomes: outcome.outcomes,
+          notDispatchedDedupKeys: outcome.notDispatchedDedupKeys,
+          ...(outcome.kind !== "complete"
+            ? { unknownDedupKeys: outcome.unknownDedupKeys }
+            : {}),
+          ...(outcome.kind !== "complete" ? { error: outcome.error } : {})
         })
-          .then((records) => {
-            setRecoveryHistorySafely(records)
-            if (result.success && !failedUndo && restoreRequest.history) {
-              resetReviewRef.current()
-              setTrashWarningSafely(
-                "Provider restore completed. Run a new scoped scan to verify the library state."
-              )
-            }
+          .then(() => {
+            const unknownCount =
+              outcome.kind === "complete" ? 0 : outcome.unknownDedupKeys.length
+            setTrashWarningSafely(
+              `The provider has not returned a terminal restore result. ${outcome.restoredDedupKeys.length.toLocaleString()} target(s) are confirmed restored; ${unknownCount.toLocaleString()} remain ambiguous and will not be retried. Keep this PhotoSweep tab open for a late result. If none arrives, reconnect and verify the provider Trash state before taking another action; reloading preserves the unknown targets without replaying them.`
+            )
           })
           .catch((error) => {
             const message = error instanceof Error ? error.message : String(error)
-            setReportError(`Could not update recovery history: ${message}`)
+            setReportError(`Could not save the restore timeout: ${message}`)
+            setTrashWarningSafely(
+              "The provider has not returned a terminal restore result, and the latest progress could not be saved. The durable pre-dispatch guard remains in recovery history, so every requested target will still be protected as ambiguous after reload. Keep this tab open for a late result; do not retry these targets."
+            )
           })
+      } else {
+        setTrashWarningSafely(
+          "The provider has not returned a terminal restore result. The durable pre-dispatch guard protects its requested targets from automatic retry; reconnect and verify their provider state before taking another action."
+        )
       }
-      if (failedUndo === null) return
-      console.error("GPD: Restore failed:", result.error)
-      setUndoDataSafely(failedUndo)
-      setTrashWarningSafely(
-        `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
-      )
     },
-    [setRecoveryHistorySafely, trashLifecycle]
+    [
+      isRestoreRequestCurrent,
+      persistRestoreStatusSafely,
+      setTrashWarningSafely,
+      trashLifecycle
+    ]
+  )
+
+  const scheduleRestoreTimeout = useCallback(
+    (requestId: string, generation: number) => {
+      const timeoutId = window.setTimeout(() => {
+        restoreTimeoutByRequestRef.current.delete(requestId)
+        handleRestoreTimeout(requestId, generation)
+      }, TRASH_REQUEST_TIMEOUT_MS)
+      restoreTimeoutByRequestRef.current.set(requestId, timeoutId)
+    },
+    [handleRestoreTimeout]
+  )
+
+  const clearProviderRetrieval = useCallback(
+    (requestId: string, pending: PendingProviderRetrieval) => {
+      window.clearTimeout(pending.timeoutId)
+      pending.signal.removeEventListener("abort", pending.abortListener)
+      if (pendingProviderRetrievalsRef.current.get(requestId) === pending) {
+        pendingProviderRetrievalsRef.current.delete(requestId)
+      }
+    },
+    []
+  )
+
+  const cancelProviderRetrieval = useCallback(
+    (
+      requestId: string,
+      pending: PendingProviderRetrieval,
+      error: Error
+    ) => {
+      clearProviderRetrieval(requestId, pending)
+      void sendToServiceWorker({
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "cancelProviderRequest",
+        requestId: generateRequestId(),
+        provider: pending.provider,
+        args: {
+          targetRequestId: requestId,
+          providerSessionId: pending.providerSessionId,
+          scanScopeFingerprint: pending.scanScopeFingerprint
+        }
+      }).catch(() => {})
+      pending.reject(error)
+    },
+    [clearProviderRetrieval, dispatch]
+  )
+
+  const handleProviderRetrievalResult = useCallback(
+    (result: GptkResultMessage) => {
+      const pending = pendingProviderRetrievalsRef.current.get(result.requestId)
+      if (!pending) return
+      clearProviderRetrieval(result.requestId, pending)
+
+      if (
+        !isProviderRetrievalResponseBound(result, {
+          command: pending.command,
+          provider: pending.provider
+        })
+      ) {
+        pending.reject(
+          new Error(
+            "The provider response did not match the requested item operation. The item remains unverified."
+          )
+        )
+        return
+      }
+
+      const current = stateRef.current
+      const currentResults = current.status === "results" ? current : null
+      const currentProvider = settingsRef.current.sourceProvider ?? "google"
+      const currentProviderSessionId =
+        currentIdentityProviderRef.current === currentProvider
+          ? currentProviderSessionIdRef.current
+          : undefined
+      const currentAccountEmail =
+        currentIdentityProviderRef.current === currentProvider
+          ? currentAccountEmailRef.current
+          : undefined
+      const contextIsCurrent =
+        currentResults !== null &&
+        !pending.signal.aborted &&
+        currentResults.sourceProvider === pending.provider &&
+        (pending.provider !== "google" ||
+          pending.accountEmail === currentResults.accountEmail) &&
+        isProviderRetrievalBindingCurrent({
+          status: current.status,
+          provider: pending.provider,
+          currentProvider,
+          scannedProviderSessionId: currentResults?.providerSessionId,
+          currentProviderSessionId,
+          scannedAccountEmail: currentResults?.accountEmail,
+          currentAccountEmail,
+          scannedScopeFingerprint: pending.scanScopeFingerprint,
+          currentScopeFingerprint: currentResults?.scopeFingerprint,
+          item: {
+            mediaKey: pending.mediaKey,
+            dedupKey: pending.dedupKey,
+            provider: pending.provider
+          },
+          scannedMediaItems:
+            currentResults ? Object.values(currentResults.mediaItems) : []
+        })
+
+      if (!contextIsCurrent) {
+        pending.reject(
+          new Error(
+            "The provider account, page session, or review scope changed during retrieval. The item remains unverified."
+          )
+        )
+        return
+      }
+      if (result.providerSessionId !== pending.providerSessionId) {
+        pending.reject(
+          new Error(
+            "The provider returned a result from a different page session. The item remains unverified."
+          )
+        )
+        return
+      }
+      if (!result.success) {
+        pending.reject(new Error(safeProviderRetrievalError(result.error)))
+        return
+      }
+
+      try {
+        const expected = {
+          mediaKey: pending.mediaKey,
+          scopeFingerprint: pending.scanScopeFingerprint,
+          ...(current.status === "results" &&
+          (current.mediaItems[pending.mediaKey]?.mediaKind === "photo" ||
+            current.mediaItems[pending.mediaKey]?.mediaKind === "video" ||
+            current.mediaItems[pending.mediaKey]?.mediaKind === "live-photo")
+            ? { mediaKind: current.mediaItems[pending.mediaKey]!.mediaKind }
+            : {})
+        }
+        if (pending.command === "getOriginalContentHash") {
+          const verified = validateOriginalContentHashResult(
+            result.data,
+            expected
+          )
+          dispatch({
+            type: "ORIGINAL_HASH_VERIFIED",
+            provider: pending.provider,
+            providerSessionId: pending.providerSessionId,
+            ...(pending.accountEmail
+              ? { accountEmail: pending.accountEmail }
+              : currentResults?.accountEmail
+                ? { accountEmail: currentResults.accountEmail }
+                : {}),
+            scopeFingerprint: pending.scanScopeFingerprint,
+            mediaKey: pending.mediaKey,
+            dedupKey: pending.dedupKey,
+            contentHash: verified.contentHash,
+            byteLength: verified.byteLength,
+            ...(verified.mimeType ? { mimeType: verified.mimeType } : {})
+          })
+          pending.resolve(verified)
+        } else {
+          pending.resolve(
+            validateVideoPlaybackResult(pending.provider, result.data, expected)
+          )
+        }
+      } catch (error) {
+        pending.reject(new Error(safeProviderRetrievalError(error)))
+      }
+    },
+    [clearProviderRetrieval, dispatch]
   )
 
   const patchScanCheckpoint = useCallback(
@@ -2266,16 +2880,54 @@ export default function App() {
     [scanLifecycle]
   )
 
+  const resultIdentityData =
+    state.status === "results" || state.status === "trashing"
+      ? {
+          accountEmail: state.accountEmail,
+          sourceProvider: state.sourceProvider,
+          providerSessionId: state.providerSessionId
+        }
+      : null
+  const resultProvider =
+    resultIdentityData?.sourceProvider ??
+    settings.sourceProvider ??
+    "google"
+  const resultIdentityProviderMatches =
+    currentIdentityProviderRef.current === resultProvider
+  const resultIdentityAccountEmail = resultIdentityProviderMatches
+    ? currentAccountEmailRef.current
+    : undefined
+  const resultIdentitySessionId = resultIdentityProviderMatches
+    ? currentProviderSessionIdRef.current
+    : undefined
+  const hasCurrentResultIdentity =
+    resultIdentityProviderMatches &&
+    (resultProvider === "google"
+      ? Boolean(resultIdentityAccountEmail?.trim())
+      : Boolean(resultIdentitySessionId?.trim()))
+  const stateIdentityValidated = Boolean(
+    accountValidationComplete &&
+      resultIdentityData &&
+      hasCurrentResultIdentity &&
+      areScanResultsValid(resultIdentityData, {
+        accountEmail: resultIdentityAccountEmail,
+        sourceProvider: resultProvider,
+        providerSessionId: resultIdentitySessionId
+      })
+  )
+
   // Sync selectedGroupIds when groups change (e.g. after scan or trash)
   const stateGroups =
-    state.status === "results" || state.status === "trashing"
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
       ? state.groups
       : state.status === "scanning"
         ? state.partialGroups ?? null
         : null
   const groups = useMemo(() => stateGroups ?? [], [stateGroups])
   const displayMediaItems =
-    state.status === "results" || state.status === "trashing"
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
       ? state.mediaItems
       : state.status === "scanning"
         ? state.partialMediaItems ?? {}
@@ -2307,6 +2959,8 @@ export default function App() {
           if (
             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
           ) {
+            reviewHydrationClosedRef.current = true
+            scanReviewGenerationRef.current += 1
             invalidatePaidConversionContext()
             scanLifecycle.reset()
             cachedMediaItemsRef.current = null
@@ -2323,7 +2977,7 @@ export default function App() {
               ...settingsRef.current,
               sourceProvider: hostProvider,
               albumScope:
-                hostProvider === "google"
+                settingsRef.current.sourceProvider === hostProvider
                   ? settingsRef.current.albumScope
                   : undefined
             }
@@ -2332,11 +2986,10 @@ export default function App() {
               sourceProvider: hostProvider,
               albumScope: nextSettings.albumScope
             })
-            void storedReviewScope.invalidateReview()
             void storedReviewScope.write({
               settings: nextSettings,
               checkpoint: null
-            })
+            }, undefined, hostProvider)
           }
           if (photoDataConsent === true) {
             requestHealthCheck(hostProvider)
@@ -2368,54 +3021,82 @@ export default function App() {
   ])
 
   useEffect(() => {
+    if (state.status !== "results" || !stateIdentityValidated) return
+
+    let selections = reviewSelectionsRef.current
     if (pendingSelectionsRef.current) {
-      const saved = pendingSelectionsRef.current
+      selections = pendingSelectionsRef.current
       pendingSelectionsRef.current = null
-      const restoredSession = new DuplicateReviewSession({
-        groups,
-        mediaItems: displayMediaItems,
-        selections: saved
-      })
-      setReviewSelections(restoredSession.selections)
-      const canWriteSanitizedSelections =
-        state.status === "results" && !state.accountEmail
-      if (canWriteSanitizedSelections) {
-        void storedReviewScope.write({
-          selections: restoredSession.serialize()
-        })
-      }
     } else if (autoSelectNextResultsRef.current) {
       autoSelectNextResultsRef.current = false
-      setReviewSelections({
+      selections = {
         selectedGroupIds: new Set(),
         reviewedGroupIds: new Set(),
         keptOverrides: {}
-      })
-    } else {
-      setReviewSelections(
-        (selections) =>
-          new DuplicateReviewSession({
-            groups,
-            mediaItems: displayMediaItems,
-            selections
-          }).selections
-      )
+      }
     }
-  }, [groups, storedReviewScope])
+
+    const strategy = settings.defaultKeepStrategy ?? "best_quality"
+    const applied = applyDefaultKeepStrategyToSelections({
+      groups,
+      mediaItems: displayMediaItems,
+      selections,
+      strategy
+    })
+    reviewSelectionsRef.current = applied
+    setReviewSelections(applied)
+
+    void storedReviewScope.write(
+      {
+        selections: new DuplicateReviewSession({
+          groups,
+          mediaItems: displayMediaItems,
+          selections: applied,
+          defaultStrategy: strategy
+        }).serialize()
+      },
+      undefined,
+      resultProvider
+    )
+  }, [
+    displayMediaItems,
+    groups,
+    settings.defaultKeepStrategy,
+    resultProvider,
+    settings.sourceProvider,
+    state.status,
+    stateIdentityValidated,
+    storedReviewScope
+  ])
 
   useEffect(() => {
     if (!accountValidationComplete || state.status !== "results") return
     const currentAccountEmail = currentAccountEmailRef.current
+    const currentProvider = settingsRef.current.sourceProvider ?? "google"
+    const identityMatchesProvider =
+      currentIdentityProviderRef.current === currentProvider
+    const providerAccountEmail = identityMatchesProvider
+      ? currentAccountEmail
+      : undefined
+    const currentProviderSessionId = identityMatchesProvider
+      ? currentProviderSessionIdRef.current
+      : undefined
+    const hasCurrentIdentity =
+      currentProvider === "google"
+        ? Boolean(providerAccountEmail)
+        : Boolean(currentProviderSessionId)
     if (
-      !currentAccountEmail ||
+      !hasCurrentIdentity ||
       areScanResultsValid(
         {
           accountEmail: state.accountEmail,
-          sourceProvider: settingsRef.current.sourceProvider
+          sourceProvider: state.sourceProvider ?? currentProvider,
+          providerSessionId: state.providerSessionId
         },
         {
-          accountEmail: currentAccountEmail,
-          sourceProvider: settingsRef.current.sourceProvider
+          accountEmail: providerAccountEmail,
+          sourceProvider: currentProvider,
+          providerSessionId: currentProviderSessionId
         }
       )
     ) {
@@ -2428,7 +3109,11 @@ export default function App() {
     setSelectedGroupIds(new Set())
     setReviewedGroupIds(new Set())
     setKeptOverrides({})
-    void storedReviewScope.invalidateReview()
+    void storedReviewScope.invalidateReview(
+      () => true,
+      undefined,
+      currentProvider
+    )
     dispatch({
       type: "HEALTH_CHECK_RESULT",
       payload: {
@@ -2436,7 +3121,9 @@ export default function App() {
         action: "healthCheck.result",
         success: true,
         hasGptk: currentHasGptkRef.current,
-        accountEmail: currentAccountEmail
+        accountEmail: providerAccountEmail,
+        provider: currentProvider,
+        providerSessionId: currentProviderSessionId
       }
     })
   }, [
@@ -2448,11 +3135,14 @@ export default function App() {
 
   const handleToggleGroup = useCallback(
     (groupId: string) => {
+      reviewHydrationClosedRef.current = true
+      scanReviewGenerationRef.current += 1
       setReviewSelections((current) => {
         const currentSession = new DuplicateReviewSession({
           groups,
           mediaItems: displayMediaItems,
-          selections: current
+          selections: current,
+          defaultStrategy: settingsRef.current.defaultKeepStrategy
         })
         return currentSession.update({
           type: currentSession.selectedGroupIds.has(groupId)
@@ -2482,7 +3172,7 @@ export default function App() {
 
       switch (message.action) {
         case "healthCheck.result": {
-          const msg = message as HealthCheckResultMessage
+          let msg = message as HealthCheckResultMessage
           if (
             msg.requestId !== undefined &&
             msg.requestId !== healthCheckRequestIdRef.current
@@ -2492,20 +3182,45 @@ export default function App() {
             // reconnect the app or schedule a retry for the new tab.
             break
           }
+          const acceptedHealthGeneration = healthCheckGenerationRef.current
+          const acceptedHealthRequestId =
+            msg.requestId ?? healthCheckRequestIdRef.current
+          const healthCheckProvider =
+            msg.provider ?? settingsRef.current.sourceProvider ?? "google"
+          if (
+            msg.success &&
+            healthCheckProvider !== "google" &&
+            !msg.providerSessionId
+          ) {
+            msg = {
+              ...msg,
+              success: false,
+              hasGptk: false,
+              error:
+                "The provider page did not establish a session identity. Reload its tab and reconnect before scanning or changing items."
+            }
+          }
           const currentState = stateRef.current
           const previousAccountEmail =
             currentAccountEmailRef.current ??
             ("accountEmail" in currentState
               ? currentState.accountEmail
               : undefined)
+          const previousProviderSessionId =
+            currentProviderSessionIdRef.current ??
+            ("providerSessionId" in currentState
+              ? currentState.providerSessionId
+              : undefined)
           const accountIdentityChanged = Boolean(
             msg.success &&
-              previousAccountEmail &&
-              msg.accountEmail &&
-              previousAccountEmail !== msg.accountEmail
+              ((previousAccountEmail &&
+                msg.accountEmail &&
+                previousAccountEmail !== msg.accountEmail) ||
+                (healthCheckProvider !== "google" &&
+                  previousProviderSessionId &&
+                  msg.providerSessionId &&
+                  previousProviderSessionId !== msg.providerSessionId))
           )
-          const healthCheckProvider =
-            msg.provider ?? settingsRef.current.sourceProvider ?? "google"
           const retryPlan = !msg.success
             ? planHealthCheckRetry(
                 healthCheckProvider,
@@ -2531,32 +3246,62 @@ export default function App() {
               invalidatePaidConversionContext()
             }
             currentAccountEmailRef.current = msg.accountEmail
+            currentProviderSessionIdRef.current = msg.providerSessionId
+            currentIdentityProviderRef.current = healthCheckProvider
             currentHasGptkRef.current = msg.hasGptk
+            const healthResultLeaseIsCurrent = () =>
+              acceptedHealthGeneration === healthCheckGenerationRef.current &&
+              (healthCheckRequestIdRef.current === null ||
+                healthCheckRequestIdRef.current === acceptedHealthRequestId) &&
+              currentIdentityProviderRef.current === healthCheckProvider &&
+              currentAccountEmailRef.current === msg.accountEmail &&
+              currentProviderSessionIdRef.current === msg.providerSessionId
+            const amazonDisplayName =
+              healthCheckProvider === "amazon" &&
+              typeof msg.accountDisplayName === "string"
+                ? msg.accountDisplayName.replace(/\s+/g, " ").trim()
+                : ""
+            setAmazonProfile(
+              amazonDisplayName &&
+                amazonDisplayName.length <= 100 &&
+                msg.providerSessionId
+                ? {
+                    displayName: amazonDisplayName,
+                    providerSessionId: msg.providerSessionId
+                  }
+                : null
+            )
+            const hasIdentity =
+              healthCheckProvider === "google"
+                ? Boolean(msg.accountEmail)
+                : Boolean(msg.providerSessionId)
             // Health and restore may resolve in either order. Check the
             // persisted review directly so legacy account-less results cannot
             // remain available once Google identifies the signed-in account.
-            if (
-              msg.accountEmail &&
-              (settingsRef.current.sourceProvider ?? "google") === "google"
-            ) {
-              void chrome.storage.local.get("scanResults").then((stored) => {
-                const scanResults = stored.scanResults as
-                  | { accountEmail?: string; sourceProvider?: string }
-                  | undefined
-                if (
-                  scanResults &&
-                  !areScanResultsValid(scanResults, {
-                    accountEmail: msg.accountEmail,
-                    sourceProvider:
-                      settingsRef.current.sourceProvider ?? "google"
-                  })
-                ) {
-                  return storedReviewScope.invalidateReview()
-                }
-              })
+            if (hasIdentity) {
+              void storedReviewScope
+                .invalidateReview(healthResultLeaseIsCurrent, (stored) => {
+                  const scanResults = stored.scanResults
+                  return Boolean(
+                    scanResults &&
+                      !areScanResultsValid(scanResults, {
+                        accountEmail: msg.accountEmail,
+                        sourceProvider: healthCheckProvider,
+                        providerSessionId: msg.providerSessionId
+                      })
+                  )
+                }, healthCheckProvider)
+                .catch((error) => {
+                  const detail =
+                    error instanceof Error ? error.message : String(error)
+                  setReportError(
+                    `Could not validate saved review for the provider session: ${detail}`
+                  )
+                })
             }
           } else {
             cancelHealthCheckRetry()
+            setAmazonProfile(null)
           }
           const checkpoint = scanLifecycle.checkpoint
           if (
@@ -2565,11 +3310,13 @@ export default function App() {
             !areScanResultsValid(
               {
                 accountEmail: checkpoint.accountEmail,
-                sourceProvider: settingsRef.current.sourceProvider
+                sourceProvider: checkpoint.settings.sourceProvider,
+                providerSessionId: checkpoint.providerSessionId
               },
               {
                 accountEmail: msg.accountEmail,
-                sourceProvider: settingsRef.current.sourceProvider
+                sourceProvider: healthCheckProvider,
+                providerSessionId: msg.providerSessionId
               }
             )
           ) {
@@ -2582,11 +3329,13 @@ export default function App() {
             !areScanResultsValid(
               {
                 accountEmail: currentState.accountEmail,
-                sourceProvider: settingsRef.current.sourceProvider
+                sourceProvider: currentState.sourceProvider,
+                providerSessionId: currentState.providerSessionId
               },
               {
                 accountEmail: msg.accountEmail,
-                sourceProvider: settingsRef.current.sourceProvider
+                sourceProvider: healthCheckProvider,
+                providerSessionId: msg.providerSessionId
               }
             )
           ) {
@@ -2594,7 +3343,11 @@ export default function App() {
             setSelectedGroupIds(new Set())
             setReviewedGroupIds(new Set())
             setKeptOverrides({})
-            void storedReviewScope.invalidateReview()
+            void storedReviewScope.invalidateReview(
+              () => true,
+              undefined,
+              currentState.sourceProvider ?? healthCheckProvider
+            )
           }
           setAccountValidationComplete(true)
           dispatch({
@@ -2604,9 +3357,19 @@ export default function App() {
           if (
             msg.success &&
             msg.hasGptk &&
-            (settingsRef.current.sourceProvider ?? "google") === "google"
+            healthCheckProvider ===
+              (settingsRef.current.sourceProvider ?? "google") &&
+            getProviderOperations(healthCheckProvider).capabilities
+              .albumScope === "supported"
           ) {
-            const key = msg.accountEmail || "__unknown__"
+            const identity =
+              healthCheckProvider === "google"
+                ? googleAlbumIdentityKey(
+                    msg.accountEmail,
+                    msg.providerSessionId
+                  )
+                : msg.providerSessionId || "__unknown__"
+            const key = `${healthCheckProvider}:${identity}`
             if (albumsRequestedForAccountRef.current !== key) {
               requestAlbums(msg.accountEmail)
             }
@@ -2615,12 +3378,57 @@ export default function App() {
         }
         case "gptkResult": {
           const result = message as GptkResultMessage
-          if (result.command === "listAlbums") {
+          if (
+            result.command === "getOriginalContentHash" ||
+            result.command === "getVideoPlaybackUrl"
+          ) {
+            handleProviderRetrievalResult(result)
+            break
+          } else if (result.command === "listAlbums") {
+            const pendingAlbumRequest = albumsRequestRef.current
+            const currentProvider =
+              settingsRef.current.sourceProvider ?? "google"
+            const currentIdentity =
+              currentProvider === "google"
+                ? googleAlbumIdentityKey(
+                    currentAccountEmailRef.current,
+                    currentProviderSessionIdRef.current
+                  )
+                : currentProviderSessionIdRef.current || "__unknown__"
+            if (
+              !pendingAlbumRequest ||
+              pendingAlbumRequest.requestId !== result.requestId ||
+              pendingAlbumRequest.provider !== currentProvider ||
+              pendingAlbumRequest.identity !== currentIdentity
+            ) {
+              break
+            }
+            albumsRequestRef.current = null
             setAlbumsLoading(false)
-            if (result.success) {
-              const nextAlbums = (result.data as GpdAlbum[]).filter(
-                (album) => album.mediaKey
+            if (
+              result.providerSessionId !==
+              (pendingAlbumRequest.provider === "google"
+                ? pendingAlbumRequest.providerSessionId
+                : pendingAlbumRequest.identity)
+            ) {
+              setAlbumsError(
+                "The provider page session changed while albums were loading. Reconnect and refresh the album list."
               )
+              break
+            }
+            const hasValidAlbumList =
+              Array.isArray(result.data) &&
+              result.data.every((album) => {
+                if (!album || typeof album !== "object") return false
+                const candidate = album as Partial<GpdAlbum>
+                return (
+                  typeof candidate.mediaKey === "string" &&
+                  candidate.mediaKey.length > 0 &&
+                  typeof candidate.title === "string"
+                )
+              })
+            if (result.success && hasValidAlbumList) {
+              const nextAlbums = result.data as GpdAlbum[]
               setAlbums(nextAlbums)
               setAlbumsError(null)
               const activeAlbum = activeAlbumScope(
@@ -2635,7 +3443,9 @@ export default function App() {
                 setSettings({ albumScope: undefined })
               }
             } else {
-              setAlbumsError(result.error || "Could not load albums.")
+              setAlbumsError(
+                result.error || "Could not load a complete album list."
+              )
             }
           } else if (result.command === "getAllMediaItems") {
             // Drop stale results from scans that were killed/cancelled — their
@@ -2646,52 +3456,62 @@ export default function App() {
               )
               break
             }
+            const scanProvider =
+              scanLifecycle.checkpoint?.settings.sourceProvider ??
+              settingsRef.current.sourceProvider ??
+              "google"
+            if (
+              !result.providerSessionId ||
+              result.providerSessionId !==
+                scanLifecycle.checkpoint?.providerSessionId ||
+              result.providerSessionId !== currentProviderSessionIdRef.current
+            ) {
+              const error =
+                "The provider page session changed during the scan. Its results were discarded; reconnect and run a fresh scan."
+              scanLifecycle.reset()
+              setResumeCheckpoint(null)
+              deferredUpgradeRef.current = null
+              setDeferredUpgrade(null)
+              dispatch({ type: "SCAN_ERROR", error })
+              trackEvent({ name: "error", errorCategory: "scan" })
+              break
+            }
             if (result.success) {
-              let items = result.data as GpdMediaItem[]
               const cached = cachedMediaItemsRef.current
-              if (cached && Object.keys(cached).length > 0) {
-                // Merge: new items take precedence over cached (handles field updates)
-                const newItemKeys = new Set(items.map((i) => i.mediaKey))
-                const cachedOnly = Object.values(cached).filter(
-                  (i) => !newItemKeys.has(i.mediaKey)
-                )
-                items = [...items, ...cachedOnly]
-                console.log(
-                  `[GPD] media items: ${(result.data as GpdMediaItem[]).length} new + ${cachedOnly.length} cached = ${items.length} total`
-                )
-                cachedMediaItemsRef.current = null
+              const preparedResult = scanLifecycle.prepareProviderResult(
+                result.data,
+                result.scanCoverage,
+                cached ?? undefined
+              )
+              if (!preparedResult) {
+                const error =
+                  "The provider did not return a valid scan coverage report. Reload its tab and scan again."
+                patchScanCheckpoint({ status: "error", error, message: error })
+                deferredUpgradeRef.current = null
+                setDeferredUpgrade(null)
+                setResumeCheckpoint(scanLifecycle.checkpoint)
+                dispatch({ type: "SCAN_ERROR", error })
+                trackEvent({ name: "error", errorCategory: "scan" })
+                break
               }
+              const scanCoverage = preparedResult.scanCoverage
+              let items = preparedResult.mediaItems
+              if (cached && Object.keys(cached).length > 0) {
+                const fetchedCount = (result.data as unknown[]).length
+                console.log(
+                  `[GPD] media items: ${fetchedCount} fetched + ${items.length - fetchedCount} cached = ${items.length} total (${scanCoverage.stopReason})`
+                )
+              }
+              // A result has consumed the cache for this scan attempt even
+              // when the provider returned a complete full refresh. Keeping
+              // it around would allow a later asynchronous result to merge
+              // stale records into a different scan.
+              cachedMediaItemsRef.current = null
               if (activeDateRange(settingsRef.current.dateRange)) {
                 items = filterMediaItemsByDateRange(
                   items,
                   settingsRef.current.dateRange
                 )
-              }
-              if (
-                items.length === 0 &&
-                (settingsRef.current.sourceProvider ?? "google") !== "google"
-              ) {
-                const sourceProvider =
-                  settingsRef.current.sourceProvider ?? "google"
-                const providerName = providerLabel(sourceProvider)
-                const error =
-                  sourceProvider === "amazon"
-                    ? `No ${providerName} items were found. Open Amazon Photos on your Amazon country site, sign in, leave the tab open, then scan again.`
-                    : `No loaded ${providerName} items were found. Open ${providerName}, wait for thumbnails to appear, scroll the library to load photos, then scan again.`
-                patchScanCheckpoint({
-                  status: "error",
-                  error,
-                  message: error
-                })
-                deferredUpgradeRef.current = null
-                setDeferredUpgrade(null)
-                setResumeCheckpoint(scanLifecycle.checkpoint)
-                dispatch({
-                  type: "SCAN_ERROR",
-                  error
-                })
-                trackEvent({ name: "error", errorCategory: "scan" })
-                break
               }
               const limited = limitScanItems(items, entitlement)
               if (limited.lockedItemCount > 0) {
@@ -2717,13 +3537,29 @@ export default function App() {
                 itemsProcessed: 0,
                 totalEstimate: items.length,
                 message: `Found ${items.length} photos and videos. Loading previews...`,
+                scanCoverage,
                 mediaItems:
                   items.length <= MAX_CHECKPOINT_MEDIA_ITEMS ? items : undefined
               })
               runDuplicateDetection(
                 items,
                 scanLifecycle.signal ?? new AbortController().signal,
-                result.requestId
+                result.requestId,
+                scanCoverage,
+                scanProvider === "icloud" &&
+                  isValidICloudSyncToken(result.providerSyncToken) &&
+                  scanCoverage.status === "complete" &&
+                  (scanCoverage.stopReason === "exhausted" ||
+                    scanCoverage.stopReason === "watermark_reached" ||
+                    scanCoverage.stopReason === "changes_caught_up") &&
+                  !activeDateRange(settingsRef.current.dateRange) &&
+                  !albumScopeForProvider(
+                    scanProvider,
+                    settingsRef.current.albumScope
+                  ) &&
+                  limited.lockedItemCount === 0
+                  ? result.providerSyncToken
+                  : undefined
               )
             } else {
               deferredUpgradeRef.current = null
@@ -2737,13 +3573,16 @@ export default function App() {
               setResumeCheckpoint(scanLifecycle.checkpoint)
               dispatch({
                 type: "SCAN_ERROR",
-                error: result.error || "Scan failed"
+                error: result.error || "Scan failed",
+                ...(scanLifecycle.isCoverage(result.scanCoverage)
+                  ? { scanCoverage: result.scanCoverage }
+                  : {})
               })
             }
           } else if (result.command === "trashItems") {
             handleTrashProviderResult(result)
           } else if (result.command === "restoreItems") {
-            handleRestoreProviderResult(result)
+            void handleRestoreProviderResult(result)
           }
           break
         }
@@ -2762,16 +3601,63 @@ export default function App() {
               | {
                   trashedKeys?: string[]
                   trashedDedupKeys?: string[]
+                  outcomes?: unknown
+                  icloudAssetRefs?: TrashProviderResultData["icloudAssetRefs"]
                 }
               | undefined
             console.log(`[GPD] trash progress: ${progress.itemsProcessed}`)
+            trashLifecycle.recordProgress({
+              requestId: progress.requestId,
+              data
+            })
             dispatch({
               type: "TRASH_PROGRESS",
               trashedSoFar: progress.itemsProcessed,
               trashedKeys: data?.trashedKeys
             })
           } else if (progress.command === "restoreItems") {
+            const restoreRequest = restoreRequestByIdRef.current.get(
+              progress.requestId
+            )
+            if (
+              !restoreRequest ||
+              !isRestoreRequestCurrent(restoreRequest)
+            ) {
+              break
+            }
             console.log(`[GPD] restore progress: ${progress.itemsProcessed}`)
+            const data = progress.data as
+              | { outcomes?: unknown }
+              | undefined
+            const acceptedProgress = trashLifecycle.recordRestoreProgress({
+              requestId: progress.requestId,
+              outcomes: data?.outcomes
+            })
+            if (!acceptedProgress) break
+            const outcomes = trashLifecycle.restoreProgressSnapshot(
+              progress.requestId
+            )
+            if (restoreRequest.operationId && outcomes) {
+              void persistRestoreStatusSafely(restoreRequest.operationId, {
+                outcome: "unknown",
+                requestId: progress.requestId,
+                terminal: false,
+                restoredDedupKeys: outcomes
+                  .filter((outcome) => outcome.status === "confirmed")
+                  .map((outcome) => outcome.targetKey),
+                unknownDedupKeys: outcomes
+                  .filter((outcome) => outcome.status === "unknown")
+                  .map((outcome) => outcome.targetKey),
+                outcomes
+              }).catch((error) => {
+                const message =
+                  error instanceof Error ? error.message : String(error)
+                setReportError(`Could not save restore progress: ${message}`)
+                setTrashWarningSafely(
+                  "Restore progress could not be saved. The durable pre-dispatch guard still protects every requested target; keep this tab open for a terminal provider result."
+                )
+              })
+            }
           } else {
             patchScanCheckpoint({
               phase: "fetching",
@@ -2789,14 +3675,20 @@ export default function App() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [
     entitlement,
+    handleProviderRetrievalResult,
     handleRestoreProviderResult,
+    isRestoreRequestCurrent,
     handleTrashProviderResult,
+    persistRestoreStatusSafely,
     invalidatePaidConversionContext,
     openUpgradePrompt,
     patchScanCheckpoint,
     cancelHealthCheckRetry,
     scheduleHealthCheckRetry,
-    storedReviewScope
+    storedReviewScope,
+    setReportError,
+    setTrashWarningSafely,
+    trashLifecycle
   ])
 
   // Keep refs so async callbacks always see latest values
@@ -2804,6 +3696,8 @@ export default function App() {
   settingsRef.current = settings
   const stateRef = useRef(state)
   stateRef.current = state
+  const scanReviewGenerationRef = useRef(0)
+  const reviewHydrationClosedRef = useRef(false)
   const reviewSelectionsRef = useRef(reviewSelections)
   reviewSelectionsRef.current = reviewSelections
   const reviewFilterRef = useRef(reviewFilter)
@@ -2812,6 +3706,208 @@ export default function App() {
   entitlementRef.current = entitlement
   const accountValidationCompleteRef = useRef(accountValidationComplete)
   accountValidationCompleteRef.current = accountValidationComplete
+
+  const requestProviderRetrieval = useCallback(
+    (
+      command: ProviderRetrievalCommand,
+      item: GpdMediaItem,
+      signal: AbortSignal
+    ): Promise<OriginalContentHashResult | VideoPlaybackResult> => {
+      const current = stateRef.current
+      const provider = settingsRef.current.sourceProvider ?? "google"
+      const providerSessionId =
+        currentIdentityProviderRef.current === provider
+          ? currentProviderSessionIdRef.current
+          : undefined
+      const accountEmail =
+        currentIdentityProviderRef.current === provider
+          ? currentAccountEmailRef.current
+          : undefined
+      if (
+        signal.aborted ||
+        !providerSessionId ||
+        current.status !== "results" ||
+        current.sourceProvider !== provider ||
+        !isProviderRetrievalBindingCurrent({
+          status: current.status,
+          provider,
+          currentProvider: provider,
+          scannedProviderSessionId: current.providerSessionId,
+          currentProviderSessionId: providerSessionId,
+          scannedAccountEmail: current.status === "results" ? current.accountEmail : undefined,
+          currentAccountEmail: accountEmail,
+          scannedScopeFingerprint: current.scopeFingerprint,
+          currentScopeFingerprint: current.scopeFingerprint,
+          item,
+          scannedMediaItems:
+            current.status === "results" ? Object.values(current.mediaItems) : []
+        })
+      ) {
+        return Promise.reject(
+          new Error(
+            "Original media is available only for an item in the current, session-bound review. Scan the current account again."
+          )
+        )
+      }
+      if (
+        command === "getVideoPlaybackUrl" &&
+        !isVideoForPlayback(item)
+      ) {
+        return Promise.reject(
+          new Error("The selected item is not a verified video.")
+        )
+      }
+
+      const requestId = generateRequestId()
+      return new Promise((resolve, reject) => {
+        const pending = {
+          command,
+          provider,
+          providerSessionId,
+          ...(provider === "google" && accountEmail ? { accountEmail } : {}),
+          scanScopeFingerprint: current.scopeFingerprint!,
+          mediaKey: item.mediaKey,
+          dedupKey: item.dedupKey,
+          signal,
+          abortListener: () => {},
+          timeoutId: 0,
+          resolve,
+          reject
+        } satisfies PendingProviderRetrieval
+        pending.abortListener = () =>
+          cancelProviderRetrieval(
+            requestId,
+            pending,
+            new DOMException("Original media retrieval was cancelled.", "AbortError")
+          )
+        pending.timeoutId = window.setTimeout(() => {
+          cancelProviderRetrieval(
+            requestId,
+            pending,
+            new Error(
+              "The provider media request timed out. The item remains unverified."
+            )
+          )
+        }, PROVIDER_RETRIEVAL_TIMEOUT_MS)
+        pendingProviderRetrievalsRef.current.set(requestId, pending)
+        signal.addEventListener("abort", pending.abortListener, { once: true })
+        if (signal.aborted) {
+          pending.abortListener()
+          return
+        }
+
+        const args = {
+          requestId,
+          mediaKey: item.mediaKey,
+          providerSessionId,
+          scanScopeFingerprint: current.scopeFingerprint,
+          userOptIn: true,
+          ...(provider === "google" && accountEmail ? { accountEmail } : {}),
+          ...(item.mediaKind ? { mediaKind: item.mediaKind } : {}),
+          ...(command === "getOriginalContentHash"
+            ? {
+                maxBytes: MAX_ORIGINAL_BYTES_PER_ITEM,
+                aggregateBudgetBytes: MAX_ORIGINAL_BYTES_PER_REVIEW
+              }
+            : {})
+        }
+        void sendToServiceWorker({
+          app: APP_ID,
+          action: "gptkCommand",
+          command,
+          requestId,
+          provider,
+          args
+        }).catch((error) => {
+          if (pendingProviderRetrievalsRef.current.get(requestId) !== pending) {
+            return
+          }
+          cancelProviderRetrieval(
+            requestId,
+            pending,
+            new Error(safeProviderRetrievalError(error))
+          )
+        })
+      })
+    },
+    [cancelProviderRetrieval]
+  )
+
+  const handleVerifyOriginal = useCallback(
+    (item: GpdMediaItem, signal: AbortSignal) =>
+      requestProviderRetrieval("getOriginalContentHash", item, signal) as Promise<OriginalContentHashResult>,
+    [requestProviderRetrieval]
+  )
+
+  const handleLoadVideo = useCallback(
+    (item: GpdMediaItem, signal: AbortSignal) =>
+      requestProviderRetrieval("getVideoPlaybackUrl", item, signal) as Promise<VideoPlaybackResult>,
+    [requestProviderRetrieval]
+  )
+
+  useEffect(() => {
+    for (const [requestId, pending] of pendingProviderRetrievalsRef.current) {
+      const currentProvider = settings.sourceProvider ?? "google"
+      const currentProviderSessionId =
+        currentIdentityProviderRef.current === currentProvider
+          ? currentProviderSessionIdRef.current
+          : undefined
+      const currentAccountEmail =
+        currentIdentityProviderRef.current === currentProvider
+          ? currentAccountEmailRef.current
+          : undefined
+      const currentResults = state.status === "results" ? state : null
+      const isCurrent =
+        currentResults !== null &&
+        currentResults.sourceProvider === pending.provider &&
+        (pending.provider !== "google" ||
+          pending.accountEmail === currentResults.accountEmail) &&
+        isProviderRetrievalBindingCurrent({
+          status: state.status,
+          provider: pending.provider,
+          currentProvider,
+          scannedProviderSessionId: currentResults?.providerSessionId,
+          currentProviderSessionId,
+          scannedAccountEmail: currentResults?.accountEmail,
+          currentAccountEmail,
+          scannedScopeFingerprint: pending.scanScopeFingerprint,
+          currentScopeFingerprint: currentResults?.scopeFingerprint,
+          item: {
+            mediaKey: pending.mediaKey,
+            dedupKey: pending.dedupKey,
+            provider: pending.provider
+          },
+          scannedMediaItems:
+            currentResults ? Object.values(currentResults.mediaItems) : []
+        })
+      if (!isCurrent) {
+        cancelProviderRetrieval(
+          requestId,
+          pending,
+          new Error(
+            "The provider account, page session, or review scope changed. The item remains unverified."
+          )
+        )
+      }
+    }
+  }, [
+    cancelProviderRetrieval,
+    settings.sourceProvider,
+    state
+  ])
+
+  useEffect(
+    () => () => {
+      for (const [requestId, pending] of pendingProviderRetrievalsRef.current) {
+        cancelProviderRetrieval(
+          requestId,
+          pending,
+          new DOMException("The PhotoSweep review was closed.", "AbortError")
+        )
+      }
+    },
+    [cancelProviderRetrieval]
+  )
 
   useEffect(() => {
     if (
@@ -2834,7 +3930,13 @@ export default function App() {
 
   // Run MediaPipe duplicate detection on fetched media items
   const runDuplicateDetection = useCallback(
-    async (items: GpdMediaItem[], signal: AbortSignal, requestId: string) => {
+    async (
+      items: GpdMediaItem[],
+      signal: AbortSignal,
+      requestId: string,
+      scanCoverage?: ScanCoverage,
+      providerSyncToken?: string
+    ) => {
       const logger = scanLoggerRef.current
       await logger.start(items.length)
       const patchCheckpointForRequest = (
@@ -2891,10 +3993,28 @@ export default function App() {
           onProgress: onProgressCallback,
           signal,
           logger,
-          onPartialGroups: onPartialGroupsCallback
+          onPartialGroups: onPartialGroupsCallback,
+          cacheNamespace: (() => {
+            const checkpoint = scanLifecycle.checkpoint
+            const provider =
+              checkpoint?.settings.sourceProvider ??
+              settingsRef.current.sourceProvider ??
+              "google"
+            const account = accountFingerprint(
+              checkpoint?.accountEmail ?? currentAccountEmailRef.current
+            )
+            const providerSessionId =
+              checkpoint?.providerSessionId ??
+              currentProviderSessionIdRef.current
+            return `${provider}:${account ?? providerSessionId ?? requestId}`
+          })()
         })
 
         await logger.finalize("complete", { groupsFound: groups.length })
+        if (!scanLifecycle.isCurrent(requestId)) return
+        // Invalidate any saved-review read before complete() clears the active
+        // request ID and yields while the checkpoint is removed.
+        scanReviewGenerationRef.current += 1
         if (!(await scanLifecycle.complete(requestId))) return
         setResumeCheckpoint(null)
 
@@ -2945,10 +4065,18 @@ export default function App() {
           type: "SCAN_COMPLETE",
           mediaItems: mediaItemMap,
           groups,
-          totalItems: items.length,
+          totalItems:
+            (settingsRef.current.sourceProvider ?? "google") === "icloud" &&
+            (scanCoverage?.stopReason === "watermark_reached" ||
+              scanCoverage?.stopReason === "changes_caught_up") &&
+            Number.isSafeInteger(scanCoverage.totalItems)
+              ? scanCoverage.totalItems!
+              : items.length,
+          scanCoverage,
           sourceProvider: settingsRef.current.sourceProvider ?? "google",
           scanDate,
-          scopeFingerprint: scanScopeFingerprint
+          scopeFingerprint: scanScopeFingerprint,
+          providerSyncToken
         })
         trackEvent({
           name: "scan_completed",
@@ -2966,6 +4094,7 @@ export default function App() {
           setDeferredUpgrade(null)
           const paused = scanLifecycle.pause(requestId)
           if (paused) {
+            scanReviewGenerationRef.current += 1
             setResumeCheckpoint(paused)
             dispatch({ type: "SCAN_CANCELLED" })
           }
@@ -2975,6 +4104,7 @@ export default function App() {
           setDeferredUpgrade(null)
           const failed = scanLifecycle.fail(requestId, error)
           if (!failed) return
+          scanReviewGenerationRef.current += 1
           setResumeCheckpoint(failed)
           trackEvent({ name: "error", errorCategory: "scan" })
           dispatch({
@@ -3005,64 +4135,137 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
-    void loadRecoveryHistoryFromStorage()
+    void requestRecoveryHistoryTransaction({ kind: "read" })
       .then((records) => {
-        if (!cancelled) setRecoveryHistorySafely(records)
+        if (!cancelled) {
+          setRecoveryHistorySafely(records)
+          setRecoveryHistoryReadError(false)
+        }
       })
       .catch(() => {
-        if (!cancelled) setRecoveryHistorySafely([])
+        if (!cancelled) {
+          setRecoveryHistoryReadError(true)
+        }
       })
     void decisionMemoryStore.load().catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [decisionMemoryStore, setRecoveryHistorySafely])
+  }, [decisionMemoryStore, setRecoveryHistorySafely, setTrashWarningSafely])
 
   // Load saved settings and results on mount
   useEffect(() => {
+    if (reviewHydrationClosedRef.current) {
+      setStorageChecked(true)
+      return
+    }
     let cancelled = false
+    const restoreIdentity = {
+      provider: currentIdentityProviderRef.current,
+      accountEmail: currentAccountEmailRef.current,
+      providerSessionId: currentProviderSessionIdRef.current,
+      scanReviewGeneration: scanReviewGenerationRef.current
+    }
+    const restoreLeaseIsCurrent = () =>
+      !cancelled &&
+      !reviewHydrationClosedRef.current &&
+      restoreIdentity.scanReviewGeneration ===
+        scanReviewGenerationRef.current &&
+      restoreIdentity.provider === currentIdentityProviderRef.current &&
+      restoreIdentity.accountEmail === currentAccountEmailRef.current &&
+      restoreIdentity.providerSessionId ===
+        currentProviderSessionIdRef.current
     void storedReviewScope
       .restore({
         fallbackSettings: settingsRef.current,
         hostProvider: isSidePanel ? sidePanelHostProviderRef.current : null,
-        accountEmail: currentAccountEmailRef.current
+        accountEmail: restoreIdentity.accountEmail,
+        providerSessionId: restoreIdentity.providerSessionId,
+        identityProvider: restoreIdentity.provider,
+        isCurrent: restoreLeaseIsCurrent
       })
       .then(async (restored) => {
-        if (cancelled) return
+        if (cancelled || restored.cancelled || !restoreLeaseIsCurrent()) return
         // The health check and storage read run concurrently. Re-check against
         // the account learned while storage was loading before showing or
         // retaining a legacy account-less review.
         const currentAccountEmail = currentAccountEmailRef.current
+        const identityMatchesProvider =
+          currentIdentityProviderRef.current ===
+          (restored.settings.sourceProvider ?? "google")
+        const providerAccountEmail = identityMatchesProvider
+          ? currentAccountEmail
+          : undefined
+        const providerSessionId = identityMatchesProvider
+          ? currentProviderSessionIdRef.current
+          : undefined
         if (
           restored.scanResults &&
-          currentAccountEmail &&
+          (providerAccountEmail || providerSessionId) &&
           !areScanResultsValid(restored.scanResults, {
-            accountEmail: currentAccountEmail,
-            sourceProvider: restored.settings.sourceProvider ?? "google"
+            accountEmail: providerAccountEmail,
+            sourceProvider: restored.settings.sourceProvider ?? "google",
+            providerSessionId
           })
         ) {
-          await storedReviewScope.invalidateReview()
+          await storedReviewScope.invalidateReview(
+            restoreLeaseIsCurrent,
+            (stored) =>
+              Boolean(
+                stored.scanResults &&
+                  !areScanResultsValid(stored.scanResults, {
+                    accountEmail: providerAccountEmail,
+                    sourceProvider: restored.settings.sourceProvider ?? "google",
+                    providerSessionId
+                  })
+              ),
+            restored.settings.sourceProvider ?? "google"
+          )
+          if (cancelled || !restoreLeaseIsCurrent()) return
           restored = {
             ...restored,
             scanResults: null,
             selections: null,
-            staleReviewRemoved: true
+            staleReviewRemoved: true,
+            identityPending: false
           }
         }
-        if (cancelled) return
+        if (cancelled || !restoreLeaseIsCurrent()) return
+        if (!restored.identityPending && !restored.staleReviewRemoved) {
+          await providerReviewStorage.commitLegacyReviewMigration(
+            restored.settings.sourceProvider ?? "google",
+            {
+              scanResults: Boolean(restored.scanResults),
+              checkpoint: Boolean(restored.checkpoint)
+            },
+            restoreLeaseIsCurrent
+          )
+        }
+        if (cancelled || !restoreLeaseIsCurrent()) return
+        // A health-triggered storage restore can finish after the user has
+        // already started a scan. Do not restore an old checkpoint over the
+        // live ScanLifecycle request or replace its pending/results state.
+        if (scanLifecycle.requestId) return
         settingsRef.current = restored.settings
         setSettings(restored.settings)
         const restoredCheckpoint = scanLifecycle.restore(restored.checkpoint)
         if (
-          shouldOfferResume(restoredCheckpoint) &&
-          canResumeScanCheckpoint(restoredCheckpoint, {
-            sourceProvider: restored.settings.sourceProvider
+          !restored.identityPending &&
+          scanLifecycle.canOfferResume(restoredCheckpoint, {
+            sourceProvider: restored.settings.sourceProvider,
+            accountEmail: providerAccountEmail,
+            providerSessionId
           })
         ) {
           setResumeCheckpoint(restoredCheckpoint)
+        } else {
+          setResumeCheckpoint(null)
         }
-        pendingSelectionsRef.current = restored.selections
+        pendingSelectionsRef.current = restored.identityPending
+          ? null
+          : restored.selections
         if (
+          !restored.identityPending &&
           restored.scanResults?.totalItems &&
           Array.isArray(restored.scanResults.groups)
         ) {
@@ -3071,7 +4274,14 @@ export default function App() {
             mediaItems: restored.scanResults.mediaItems,
             groups: restored.scanResults.groups,
             totalItems: restored.scanResults.totalItems,
+            scanCoverage: scanLifecycle.isCoverage(
+              restored.scanResults.scanCoverage
+            )
+              ? restored.scanResults.scanCoverage
+              : undefined,
             accountEmail: restored.scanResults.accountEmail,
+            providerSessionId: restored.scanResults.providerSessionId,
+            providerSyncToken: restored.scanResults.providerSyncToken,
             sourceProvider: restored.scanResults.sourceProvider,
             scanDate: restored.scanResults.scanDate,
             scopeFingerprint: restored.scanResults.scopeFingerprint
@@ -3085,19 +4295,34 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [isSidePanel, scanLifecycle, storedReviewScope])
+  }, [
+    accountValidationComplete,
+    isSidePanel,
+    scanLifecycle,
+    storedReviewScope
+  ])
 
   // Persist scan results when they change (after scan or trash)
   const mediaItems =
-    state.status === "results" || state.status === "trashing"
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
       ? state.mediaItems
       : null
+  const unknownFavoriteTrashCount =
+    trashConfirm && mediaItems
+      ? trashConfirm.mediaKeysToTrash.filter(
+          (key) => favoriteStatusForItem(mediaItems[key]) === "unknown"
+        ).length
+      : 0
 
   const groupClassificationById = useMemo(() => {
     const m = new Map<string, "exact" | "similar">()
     if (Object.keys(displayMediaItems).length === 0) return m
     for (const group of groups) {
-      m.set(group.id, classifyDuplicateGroup(group, displayMediaItems).duplicateKind)
+      m.set(
+        group.id,
+        classifyDuplicateGroup(group, displayMediaItems).duplicateKind
+      )
     }
     return m
   }, [groups, displayMediaItems])
@@ -3122,6 +4347,10 @@ export default function App() {
     () => getVisibleGroups(filteredGroups, entitlement),
     [filteredGroups, entitlement]
   )
+  const cleanupScopeGroups = useMemo(
+    () => getVisibleGroups(groups, entitlement),
+    [groups, entitlement]
+  )
   const lockedGroupCount = useMemo(
     () => getLockedGroupCount(filteredGroups, entitlement),
     [filteredGroups, entitlement]
@@ -3132,39 +4361,62 @@ export default function App() {
       new DuplicateReviewSession({
         groups,
         mediaItems: displayMediaItems,
-        selections: reviewSelections
+        selections: reviewSelections,
+        defaultStrategy: settings.defaultKeepStrategy
       }),
-    [displayMediaItems, groups, reviewSelections]
+    [displayMediaItems, groups, reviewSelections, settings.defaultKeepStrategy]
   )
   const updateReviewSelections = useCallback(
-    (action: DuplicateReviewAction) => {
-      const next = new DuplicateReviewSession({
-        groups,
-        mediaItems: displayMediaItems,
-        selections: reviewSelectionsRef.current
-      }).update(action)
+    (
+      action: DuplicateReviewAction,
+      nextSelectionsOverride?: DuplicateReviewSelections
+    ): DuplicateReviewSelections | null => {
+      if (
+        stateRef.current.status === "results" &&
+        !stateIdentityValidated
+      ) {
+        return null
+      }
+      const next =
+        nextSelectionsOverride ??
+        new DuplicateReviewSession({
+          groups,
+          mediaItems: displayMediaItems,
+          selections: reviewSelectionsRef.current,
+          defaultStrategy: settingsRef.current.defaultKeepStrategy
+        }).update(action)
       reviewSelectionsRef.current = next
       setReviewSelections(next)
-      if (stateRef.current.status === "results") {
+      if (
+        stateRef.current.status === "results" &&
+        stateIdentityValidated
+      ) {
+        reviewHydrationClosedRef.current = true
+        scanReviewGenerationRef.current += 1
         // Persist the user action immediately so a fast reload cannot race the
         // later reconciliation effect and lose a keep/skip decision.
         void storedReviewScope.write({
           selections: new DuplicateReviewSession({
-            groups,
-            mediaItems: displayMediaItems,
-            selections: next
-          }).serialize()
-        })
+          groups,
+          mediaItems: displayMediaItems,
+          selections: next,
+          defaultStrategy: settingsRef.current.defaultKeepStrategy
+        }).serialize()
+        }, undefined, stateRef.current.sourceProvider ?? settingsRef.current.sourceProvider ?? "google")
       }
+      return next
     },
-    [displayMediaItems, groups, storedReviewScope]
+    [displayMediaItems, groups, stateIdentityValidated, storedReviewScope]
   )
   const reviewedVisibleGroupCount = visibleGroups.filter((group) =>
     reviewSession.reviewedGroupIds.has(group.id)
   ).length
-  const allVisibleGroupsReviewed =
-    visibleGroups.length > 0 &&
-    reviewedVisibleGroupCount === visibleGroups.length
+  const reviewedCleanupScopeGroupCount = cleanupScopeGroups.filter((group) =>
+    reviewSession.reviewedGroupIds.has(group.id)
+  ).length
+  const allCleanupScopeGroupsReviewed =
+    cleanupScopeGroups.length > 0 &&
+    reviewedCleanupScopeGroupCount === cleanupScopeGroups.length
 
   const handleSelectAll = useCallback(() => {
     updateReviewSelections({
@@ -3197,9 +4449,14 @@ export default function App() {
 
   const buildCurrentReviewReport = useCallback(() => {
     const currentState = stateRef.current
-    if (currentState.status !== "results") return null
+    if (
+      currentState.status !== "results" ||
+      !stateIdentityValidated
+    ) {
+      return null
+    }
     return reviewSession.reviewReport(visibleGroups)
-  }, [reviewSession, visibleGroups])
+  }, [reviewSession, stateIdentityValidated, visibleGroups])
 
   const handleExportJson = useCallback(async () => {
     const report = buildCurrentReviewReport()
@@ -3302,36 +4559,105 @@ export default function App() {
 
   const handleApplyKeepStrategy = useCallback(
     (strategy: KeepStrategy) => {
-      if (!mediaItems) return
-      updateReviewSelections({
-        type: "apply_keep_strategy",
-        groupIds: visibleGroups.map((group) => group.id),
-        strategy
+      handleKeepStrategySelection({
+        groups,
+        cleanupEligibleGroupIds: cleanupScopeGroups.map((group) => group.id),
+        mediaItems: mediaItems ? displayMediaItems : undefined,
+        selections: reviewSelectionsRef.current,
+        strategy,
+        persistDefaultStrategy: (defaultKeepStrategy) =>
+          setSettings({ defaultKeepStrategy }),
+        updateReviewSelections,
+        setFeedback: setKeepStrategyFeedback
       })
     },
-    [mediaItems, updateReviewSelections, visibleGroups]
+    [
+      displayMediaItems,
+      cleanupScopeGroups,
+      groups,
+      mediaItems,
+      setSettings,
+      updateReviewSelections,
+    ]
   )
   const totalItems =
-    state.status === "results" || state.status === "trashing"
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
       ? state.totalItems
       : 0
   const accountEmailForStorage =
-    state.status === "results" || state.status === "trashing"
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
       ? state.accountEmail
       : undefined
+  const providerSessionIdForStorage =
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
+      ? state.providerSessionId
+      : undefined
   const resultScanMetadata =
-    state.status === "results" || state.status === "trashing" ? state : null
+    (state.status === "results" || state.status === "trashing") &&
+    stateIdentityValidated
+      ? state
+      : null
   useEffect(() => {
-    if (!accountValidationComplete) return
+    if (!stateIdentityValidated) return
     if (!mediaItems) return
-    if (groups.length > 0) {
+    const resultProvider =
+      resultScanMetadata?.sourceProvider ?? settings.sourceProvider ?? "google"
+    const resultDateRange = activeDateRange(settings.dateRange)
+    const resultAlbumScope = albumScopeForProvider(
+      resultProvider,
+      settings.albumScope
+    )
+    const resultHasCompleteCoverage =
+      resultScanMetadata?.scanCoverage?.status === "complete" &&
+      (resultScanMetadata.scanCoverage.stopReason === "exhausted" ||
+        resultScanMetadata.scanCoverage.stopReason === "watermark_reached" ||
+        resultScanMetadata.scanCoverage.stopReason === "changes_caught_up")
+    const resultHasReusableICloudToken =
+      resultProvider === "icloud" &&
+      isValidICloudSyncToken(resultScanMetadata?.providerSyncToken) &&
+      resultHasCompleteCoverage &&
+      !resultDateRange &&
+      !resultAlbumScope &&
+      !providerBatchLimitForEntitlement(settings, entitlement)
+    if (
+      groups.length > 0 ||
+      (resultHasReusableICloudToken && resultHasCompleteCoverage)
+    ) {
       const storedMediaItemCount = Object.keys(mediaItems).length
       const mediaItemsAreComplete =
         !providerBatchLimitForEntitlement(settings, entitlement) &&
-        storedMediaItemCount === totalItems
+        (storedMediaItemCount === totalItems ||
+          (resultProvider === "icloud" &&
+            resultHasCompleteCoverage &&
+            !resultDateRange &&
+            !resultAlbumScope))
       const newestCreationTimestamp = mediaItemsAreComplete
         ? Object.values(mediaItems).reduce(
-            (max, item) => Math.max(max, item.creationTimestamp ?? 0),
+            (max, item) =>
+              Number.isFinite(item.creationTimestamp)
+                ? Math.max(max, item.creationTimestamp)
+                : max,
+            0
+          )
+        : undefined
+      const scanWatermarkTimestamp = mediaItemsAreComplete
+        ? Object.values(mediaItems).reduce(
+            (max, item) =>
+              Math.max(
+                max,
+                (resultScanMetadata?.sourceProvider ??
+                  settings.sourceProvider ??
+                  "google") === "icloud"
+                  ? Number.isFinite(item.timestamp)
+                    ? item.timestamp
+                    : 0
+                  : Number.isFinite(item.creationTimestamp)
+                    ? item.creationTimestamp
+                    : 0
+              ),
             0
           )
         : undefined
@@ -3342,17 +4668,17 @@ export default function App() {
           scanDate: resultScanMetadata?.scanDate ?? Date.now(),
           totalItems,
           newestCreationTimestamp,
+          scanWatermarkTimestamp,
           mediaItemsAreComplete,
+          scanCoverage: resultScanMetadata?.scanCoverage,
           accountEmail: accountEmailForStorage,
-          sourceProvider:
-            resultScanMetadata?.sourceProvider ??
-            settings.sourceProvider ??
-            "google",
-          dateRange: activeDateRange(settings.dateRange),
-          albumScope:
-            (settings.sourceProvider ?? "google") === "google"
-              ? activeAlbumScope(settings.albumScope)
-              : undefined,
+          providerSessionId: providerSessionIdForStorage,
+          ...(resultHasReusableICloudToken
+            ? { providerSyncToken: resultScanMetadata?.providerSyncToken }
+            : {}),
+          sourceProvider: resultProvider,
+          dateRange: resultDateRange,
+          albumScope: resultAlbumScope,
           scanMode: settings.scanMode,
           similarityThreshold: settings.similarityThreshold,
           smartWindowSec: settings.smartWindowSec,
@@ -3360,10 +4686,14 @@ export default function App() {
             resultScanMetadata?.scopeFingerprint ??
             buildScanScopeFingerprint(settings)
         }
-      })
+      }, undefined, resultProvider)
     } else {
       // All duplicates removed — clear saved results so next open starts fresh
-      void storedReviewScope.write({ scanResults: null })
+      void storedReviewScope.write(
+        { scanResults: null },
+        undefined,
+        resultScanMetadata?.sourceProvider ?? settings.sourceProvider ?? "google"
+      )
     }
   }, [
     groups,
@@ -3371,28 +4701,35 @@ export default function App() {
     resultScanMetadata,
     totalItems,
     accountEmailForStorage,
-    accountValidationComplete,
+    providerSessionIdForStorage,
+    stateIdentityValidated,
     settings.scanMode,
     settings.similarityThreshold,
     settings.smartWindowSec,
     settings.dateRange,
     settings.albumScope,
     settings.sourceProvider,
+    entitlement,
     storedReviewScope
   ])
 
   // Persist selections when they change (only while results are showing)
   useEffect(() => {
-    const canPersistSelections =
-      accountValidationComplete ||
-      (!accountEmailForStorage && currentAccountEmailRef.current === undefined)
-    if (!canPersistSelections) return
+    if (!stateIdentityValidated) return
     if (state.status !== "results") return
     if (groups.length === 0) {
-      void storedReviewScope.write({ selections: null })
+      void storedReviewScope.write(
+        { selections: null },
+        undefined,
+        state.sourceProvider ?? settings.sourceProvider ?? "google"
+      )
       return
     }
-    void storedReviewScope.write({ selections: reviewSession.serialize() })
+    void storedReviewScope.write(
+      { selections: reviewSession.serialize() },
+      undefined,
+      state.sourceProvider ?? settings.sourceProvider ?? "google"
+    )
     const records = captureManualDecisionRecords({
       groups,
       mediaItems: displayMediaItems,
@@ -3410,24 +4747,32 @@ export default function App() {
     state.status,
     groups,
     accountEmailForStorage,
-    accountValidationComplete,
+    stateIdentityValidated,
     settings.sourceProvider,
     storedReviewScope
   ])
 
   // Save settings on change
   useEffect(() => {
+    if (!storageChecked) return
     void storedReviewScope.write({ settings })
-  }, [settings, storedReviewScope])
+  }, [settings, storageChecked, storedReviewScope])
 
   useEffect(() => {
     cancelHealthCheckRetry()
     healthCheckAttemptsRef.current = 0
+    currentAccountEmailRef.current = undefined
+    currentProviderSessionIdRef.current = undefined
+    currentIdentityProviderRef.current = undefined
+    currentHasGptkRef.current = false
+    setAmazonProfile(null)
+    setAccountValidationComplete(false)
     if (photoDataConsent !== true) return
     setAlbums([])
     setAlbumsError(null)
     setAlbumsLoading(false)
     albumsRequestedForAccountRef.current = null
+    albumsRequestRef.current = null
     requestHealthCheck(settings.sourceProvider ?? "google")
   }, [
     cancelHealthCheckRetry,
@@ -3442,10 +4787,30 @@ export default function App() {
       const requestedSettings = settingsOverride ?? settings
       const actionEntitlement = await refreshTimeLimitedEntitlementForAction()
       if (!actionEntitlement) return
-      const scanSettings = scanSettingsForEntitlement(
-        requestedSettings,
-        actionEntitlement
-      )
+      const scanSettings = {
+        ...scanSettingsForEntitlement(requestedSettings, actionEntitlement),
+        defaultKeepStrategy:
+          requestedSettings.defaultKeepStrategy ??
+          settingsRef.current.defaultKeepStrategy ??
+          "best_quality"
+      }
+      const sourceProvider = scanSettings.sourceProvider ?? "google"
+      const providerSessionId =
+        currentIdentityProviderRef.current === sourceProvider
+          ? currentProviderSessionIdRef.current
+          : undefined
+      if (
+        sourceProvider !== "google" &&
+        (!accountValidationCompleteRef.current ||
+          !currentHasGptkRef.current ||
+          !providerSessionId)
+      ) {
+        setTrashWarningSafely(
+          `Reconnect ${providerLabel(sourceProvider)} and wait for its page session to validate before scanning.`
+        )
+        requestHealthCheck(sourceProvider)
+        return
+      }
       const estimatedCount = getEstimatedScanCount(scanSettings)
       const scanGate = getScanGate(
         scanSettings,
@@ -3457,15 +4822,16 @@ export default function App() {
           "scan",
           scanGate.reason === "full_scan_locked"
             ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
-            : scanGate.reason === "unscoped_scan_locked" &&
-                isFreeIcloudPlan(scanSettings, actionEntitlement)
-              ? "Free iCloud scans need a date range before scanning. Upgrade to use paid iCloud test batches."
-              : scanGate.reason === "unscoped_scan_locked"
-                ? `Your ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]} plan needs an album, date range, or smaller test batch before scanning.`
-                : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]}.`
+            : scanGate.reason === "unscoped_scan_locked"
+              ? `Your ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]} plan needs an album, date range, or smaller test batch before scanning.`
+              : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]}.`
         )
         return
       }
+      // A scan request is newer than any saved-review hydration that began
+      // before the user committed this scan.
+      reviewHydrationClosedRef.current = true
+      scanReviewGenerationRef.current += 1
       invalidatePaidConversionContext()
       trackEvent({
         name: "scan_started",
@@ -3495,11 +4861,18 @@ export default function App() {
       scanLifecycle.begin({
         requestId,
         settings: scanSettings,
-        accountEmail
+        accountEmail,
+        providerSessionId
       })
       setResumeCheckpoint(null)
 
-      dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
+      dispatch({
+        type: "SCAN_STARTED",
+        requestId,
+        hasGptk,
+        accountEmail,
+        providerSessionId
+      })
 
       console.log(
         `[GPD] starting scan: mode=${scanSettings.scanMode}, threshold=${scanSettings.similarityThreshold}`
@@ -3509,18 +4882,37 @@ export default function App() {
       // incremental cache so a year/month result cannot poison a later full scan.
       cachedMediaItemsRef.current = null
       let sinceTimestamp: number | undefined
-      const sourceProvider = scanSettings.sourceProvider ?? "google"
+      let providerSyncToken: string | undefined
+      let cachedTotalItems: number | undefined
       const dateRange = activeDateRange(scanSettings.dateRange)
+      const scanScopeFingerprint = buildScanScopeFingerprint(scanSettings)
       const batchLimit = providerBatchLimitForEntitlement(scanSettings)
-      const albumScope =
-        sourceProvider === "google"
-          ? activeAlbumScope(scanSettings.albumScope)
-          : undefined
+      const albumScope = albumScopeForProvider(
+        sourceProvider,
+        scanSettings.albumScope
+      )
       try {
-        const stored = (await chrome.storage.local.get(
-          "scanResults"
-        )) as Partial<StoredState>
+        const stored = await providerReviewStorage.get(
+          ["scanResults"],
+          sourceProvider
+        )
         const prev = stored.scanResults
+        const reusableSyncToken = prev
+          ? scanLifecycle.reusableICloudSyncToken(prev, {
+              accountEmail,
+              sourceProvider,
+              providerSessionId
+            })
+          : undefined
+        const cachedSnapshotIsUsable =
+          sourceProvider === "icloud"
+            ? reusableSyncToken !== undefined
+            : Boolean(
+                prev?.mediaItems &&
+                  Object.keys(prev.mediaItems).length > 0 &&
+                  prev.mediaItemsAreComplete !== false &&
+                  Object.keys(prev.mediaItems).length === prev.totalItems
+              )
         if (
           !dateRange &&
           !albumScope &&
@@ -3529,21 +4921,37 @@ export default function App() {
           !prev?.dateRange &&
           !prev?.albumScope &&
           prev?.mediaItems &&
-          Object.keys(prev.mediaItems).length > 0 &&
-          prev.mediaItemsAreComplete !== false &&
-          Object.keys(prev.mediaItems).length === prev.totalItems &&
-          areScanResultsValid(prev, { accountEmail, sourceProvider })
+          cachedSnapshotIsUsable &&
+          areScanResultsValid(prev, {
+            accountEmail,
+            sourceProvider,
+            providerSessionId
+          })
         ) {
           cachedMediaItemsRef.current = prev.mediaItems
+          providerSyncToken = reusableSyncToken
+          cachedTotalItems = Number.isSafeInteger(prev.totalItems)
+            ? prev.totalItems
+            : undefined
           // Compute watermark if not stored (migration: first run after this deploy)
           sinceTimestamp =
-            prev.newestCreationTimestamp ??
-            Object.values(prev.mediaItems).reduce(
-              (max, item) => Math.max(max, item.creationTimestamp ?? 0),
-              0
-            )
+            sourceProvider === "icloud"
+              ? undefined
+              : prev.scanWatermarkTimestamp ??
+                prev.newestCreationTimestamp ??
+                Object.values(prev.mediaItems).reduce(
+                  (max, item) =>
+                    Number.isFinite(item.creationTimestamp)
+                      ? Math.max(max, item.creationTimestamp)
+                      : max,
+                  0
+                )
           console.log(
-            `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} items, fetching since ${new Date(sinceTimestamp).toISOString()}`
+            sourceProvider === "icloud"
+              ? `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} duplicate candidates, checking iCloud zone changes`
+              : sourceProvider === "amazon"
+                ? `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} cached items, validating the full Amazon Photos inventory and reconciling the cache`
+                : `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} items, fetching since ${new Date(sinceTimestamp).toISOString()}`
           )
         }
       } catch {
@@ -3560,7 +4968,11 @@ export default function App() {
           dateRange,
           albumScope,
           sinceTimestamp,
-          limit: batchLimit
+          ...(providerSyncToken ? { providerSyncToken, cachedTotalItems } : {}),
+          limit: batchLimit,
+          scanScopeFingerprint,
+          ...(accountEmail ? { accountEmail } : {}),
+          ...(providerSessionId ? { providerSessionId } : {})
         }
       })
     },
@@ -3571,7 +4983,9 @@ export default function App() {
       refreshTimeLimitedEntitlementForAction,
       openTrackedUpgradePrompt,
       storedReviewScope,
-      trackEvent
+      trackEvent,
+      requestHealthCheck,
+      setTrashWarningSafely
     ]
   )
 
@@ -3633,7 +5047,10 @@ export default function App() {
   const handleExportCacheDiagnostics = useCallback(async () => {
     setCacheStatus(undefined)
     const currentState = stateRef.current
-    const provider = settingsRef.current.sourceProvider ?? "google"
+    const provider =
+      scanLifecycle.checkpoint?.settings.sourceProvider ??
+      settingsRef.current.sourceProvider ??
+      "google"
     const photoCount =
       currentState.status === "results" || currentState.status === "trashing"
         ? currentState.totalItems
@@ -3648,6 +5065,7 @@ export default function App() {
           : undefined
     const report = buildSupportDiagnosticsReport({
       version: chrome.runtime.getManifest().version,
+      runtimeBuildIdentity: readRuntimeBuildIdentity(chrome.runtime),
       provider,
       scanMode: settingsRef.current.scanMode,
       entitlement,
@@ -3686,16 +5104,21 @@ export default function App() {
         : resumeCheckpoint.accountEmail
 
     if (
-      !canResumeScanCheckpoint(resumeCheckpoint, {
+      !scanLifecycle.canOfferResume(resumeCheckpoint, {
         accountEmail,
-        sourceProvider: settingsRef.current.sourceProvider
+        sourceProvider: settingsRef.current.sourceProvider,
+        providerSessionId:
+          currentIdentityProviderRef.current ===
+          (settingsRef.current.sourceProvider ?? "google")
+            ? currentProviderSessionIdRef.current
+            : undefined
       })
     ) {
       scanLifecycle.reset()
       setResumeCheckpoint(null)
       return
     }
-    if (!canResumeCheckpoint(resumeCheckpoint, entitlement)) {
+    if (!scanLifecycle.canResumeWithinEntitlement(resumeCheckpoint, entitlement)) {
       openTrackedUpgradePrompt(
         "resume",
         "This saved scan is above your current resume limit. Upgrade to resume large-library scans."
@@ -3703,10 +5126,18 @@ export default function App() {
       return
     }
 
+    reviewHydrationClosedRef.current = true
+    scanReviewGenerationRef.current += 1
     invalidatePaidConversionContext()
     const checkpointItems = resumeCheckpoint.mediaItems
     if (checkpointItems && checkpointItems.length > 0) {
-      const scanSettings = resumeCheckpoint.settings
+      const scanSettings = {
+        ...resumeCheckpoint.settings,
+        defaultKeepStrategy:
+          resumeCheckpoint.settings.defaultKeepStrategy ??
+          settingsRef.current.defaultKeepStrategy ??
+          "best_quality"
+      }
       settingsRef.current = scanSettings
       setSettings(fullScanSettingsPatch(scanSettings))
       void storedReviewScope.write({ settings: scanSettings })
@@ -3727,9 +5158,20 @@ export default function App() {
       })
       setResumeCheckpoint(null)
 
-      dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
+      dispatch({
+        type: "SCAN_STARTED",
+        requestId,
+        hasGptk,
+        accountEmail,
+        providerSessionId: resumeCheckpoint.providerSessionId
+      })
       dispatch({ type: "SCAN_MEDIA_FETCHED", mediaItems: checkpointItems })
-      runDuplicateDetection(checkpointItems, resumed.signal, requestId)
+      runDuplicateDetection(
+        checkpointItems,
+        resumed.signal,
+        requestId,
+        resumeCheckpoint.scanCoverage
+      )
       return
     }
     handleStartScan(resumeCheckpoint.settings)
@@ -3744,15 +5186,17 @@ export default function App() {
   ])
 
   const handleDismissResume = useCallback(() => {
+    reviewHydrationClosedRef.current = true
+    scanReviewGenerationRef.current += 1
     setResumeCheckpoint(null)
     scanLifecycle.reset()
   }, [scanLifecycle])
 
   const handleTrash = useCallback(async () => {
     if (state.status !== "results") return
-    if (!allVisibleGroupsReviewed) {
+    if (!allCleanupScopeGroupsReviewed) {
       setTrashWarningSafely(
-        `Review all ${visibleGroups.length.toLocaleString()} visible duplicate sets before moving anything to Trash.`
+        `Review all ${cleanupScopeGroups.length.toLocaleString()} eligible duplicate sets across the current results before moving anything to Trash.`
       )
       return
     }
@@ -3772,31 +5216,44 @@ export default function App() {
       return
     }
 
-    const plan = reviewSession.trashPlan(visibleGroups)
+    const plan = reviewSession.trashPlan(cleanupScopeGroups)
     const { dedupKeys, blockedMediaKeys } = plan
 
     if (blockedMediaKeys.length > 0) {
+      const protectedFavorites = blockedMediaKeys.filter(
+        (key) => favoriteStatusForItem(state.mediaItems[key]) === "favorite"
+      ).length
+      const otherBlocked = blockedMediaKeys.length - protectedFavorites
       setTrashWarningSafely(
-        `${blockedMediaKeys.length.toLocaleString()} selected item${
-          blockedMediaKeys.length === 1 ? "" : "s"
-        } stayed out of the Trash plan because the provider identity is repeated or the relationship is review-only. Confirm the remaining safe items after reviewing those sets.`
+        `${protectedFavorites.toLocaleString()} confirmed favorite${
+          protectedFavorites === 1 ? "" : "s"
+        } stayed protected. ${otherBlocked.toLocaleString()} other selected item${
+          otherBlocked === 1 ? "" : "s"
+        } stayed out because the provider identity is repeated or the relationship is review-only. Confirm only the remaining safe items after reviewing those sets.`
       )
     }
 
     if (dedupKeys.length === 0) return
     const currentProvider = settings.sourceProvider ?? "google"
-    const preflight = evaluateReviewPreflight({
+    const preflight = scanLifecycle.reviewPreflight({
       scanProvider: state.sourceProvider ?? currentProvider,
       currentProvider,
       scanAccountEmail: state.accountEmail,
-      currentAccountEmail: currentAccountEmailRef.current,
+      currentAccountEmail:
+        currentIdentityProviderRef.current === currentProvider
+          ? currentAccountEmailRef.current
+          : undefined,
+      scanProviderSessionId: state.providerSessionId,
+      currentProviderSessionId:
+        currentIdentityProviderRef.current === currentProvider
+          ? currentProviderSessionIdRef.current
+          : undefined,
       scanDate: state.scanDate,
       scanScopeFingerprint: state.scopeFingerprint,
       currentScopeFingerprint: buildScanScopeFingerprint(settings),
       selectedCount: dedupKeys.length,
       connectionValidated:
         accountValidationComplete && currentHasGptkRef.current,
-      allowUnavailableAccountIdentity: currentProvider !== "google",
       requireFreshScan: true,
       requireKnownScope: true
     })
@@ -3832,7 +5289,7 @@ export default function App() {
           scopeIsFullLibrary: scanScopeLabel(settings).fullLibrary,
           itemsChecked: state.totalItems,
           duplicateGroupCount: groups.length,
-          visibleGroupCount: visibleGroups.length,
+          visibleGroupCount: cleanupScopeGroups.length,
           selectedCleanupCount: dedupKeys.length,
           remainingTrashMoves: remainingCount
         }
@@ -3844,15 +5301,18 @@ export default function App() {
       photoCountBucket: countBucket(dedupKeys.length)
     })
     setTrashConfirmCount("")
+    setUnknownFavoriteTrashAcknowledged(false)
     setTrashConfirmSafely(plan)
   }, [
-    allVisibleGroupsReviewed,
+    allCleanupScopeGroupsReviewed,
     state,
     settings,
     groups,
     visibleGroups.length,
+    cleanupScopeGroups,
     reviewSession,
     visibleGroups,
+    mediaItems,
     refreshTimeLimitedEntitlementForAction,
     trashMovesThisSession,
     openTrackedUpgradePrompt,
@@ -3863,29 +5323,46 @@ export default function App() {
   const handleCloseTrashConfirm = useCallback(() => {
     setTrashConfirmSafely(null)
     setTrashConfirmCount("")
+    setUnknownFavoriteTrashAcknowledged(false)
     setTrashPreflight(null)
   }, [])
 
   const handleTrashConfirmed = useCallback(async () => {
     if (!trashConfirm || state.status !== "results") return
+    const unknownFavoriteCount = trashConfirm.mediaKeysToTrash.filter(
+      (key) => favoriteStatusForItem(state.mediaItems[key]) === "unknown"
+    ).length
+    if (unknownFavoriteCount > 0 && !unknownFavoriteTrashAcknowledged) {
+      setTrashWarningSafely(
+        `Favorite status is unknown for ${unknownFavoriteCount.toLocaleString()} selected item${unknownFavoriteCount === 1 ? "" : "s"}. Acknowledge the unknown status in the confirmation dialog before continuing.`
+      )
+      return
+    }
     setReportError(null)
     const confirmedPlan = trashConfirm
     const generation = paidConversionGenerationRef.current
     const requestId = generateRequestId()
 
     const currentProvider = settings.sourceProvider ?? "google"
-    const confirmationPreflight = evaluateReviewPreflight({
+    const confirmationPreflight = scanLifecycle.reviewPreflight({
       scanProvider: state.sourceProvider ?? currentProvider,
       currentProvider,
       scanAccountEmail: state.accountEmail,
-      currentAccountEmail: currentAccountEmailRef.current,
+      currentAccountEmail:
+        currentIdentityProviderRef.current === currentProvider
+          ? currentAccountEmailRef.current
+          : undefined,
+      scanProviderSessionId: state.providerSessionId,
+      currentProviderSessionId:
+        currentIdentityProviderRef.current === currentProvider
+          ? currentProviderSessionIdRef.current
+          : undefined,
       scanDate: state.scanDate,
       scanScopeFingerprint: state.scopeFingerprint,
       currentScopeFingerprint: buildScanScopeFingerprint(settings),
       selectedCount: trashConfirm.dedupKeys.length,
       connectionValidated:
         accountValidationComplete && currentHasGptkRef.current,
-      allowUnavailableAccountIdentity: currentProvider !== "google",
       requireFreshScan: true,
       requireKnownScope: true
     })
@@ -3903,7 +5380,14 @@ export default function App() {
       generation,
       plan: confirmedPlan,
       provider: currentProvider,
-      accountEmail: currentAccountEmailRef.current ?? state.accountEmail,
+      accountEmail:
+        (currentIdentityProviderRef.current === currentProvider
+          ? currentAccountEmailRef.current
+          : undefined) ?? state.accountEmail,
+      providerSessionId:
+        currentIdentityProviderRef.current === currentProvider
+          ? currentProviderSessionIdRef.current
+          : undefined,
       scopeFingerprint:
         state.scopeFingerprint ?? buildScanScopeFingerprint(settings)
     })
@@ -3914,7 +5398,7 @@ export default function App() {
         plan: confirmedPlan,
         requestId,
         reviewSession,
-        groups: visibleGroups,
+        groups: cleanupScopeGroups,
         snapshot: {
           mediaItems: state.mediaItems,
           groups: state.groups,
@@ -3926,10 +5410,18 @@ export default function App() {
           retryCount: TRASH_RETRY_COUNT,
           retryBackoffMs: TRASH_RETRY_BACKOFF_MS
         },
-        accountEmail: currentAccountEmailRef.current ?? state.accountEmail,
+        accountEmail:
+          (currentIdentityProviderRef.current === currentProvider
+            ? currentAccountEmailRef.current
+            : undefined) ?? state.accountEmail,
+        providerSessionId:
+          currentIdentityProviderRef.current === currentProvider
+            ? currentProviderSessionIdRef.current
+            : undefined,
         scopeFingerprint:
           state.scopeFingerprint ?? buildScanScopeFingerprint(settings),
-        scopeLabel: scanScopeLabel(settings).label
+        scopeLabel: scanScopeLabel(settings).label,
+        unknownFavoriteAcknowledged: unknownFavoriteTrashAcknowledged
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -3961,48 +5453,43 @@ export default function App() {
       latestState.scopeFingerprint ?? buildScanScopeFingerprint(latestSettings)
     const latestGroups = latestState.groups
     const latestMediaItems = latestState.mediaItems
-    const latestClassificationById = new Map<
-      string,
-      "exact" | "similar"
-    >()
-    for (const group of latestGroups) {
-      latestClassificationById.set(
-        group.id,
-        classifyDuplicateGroup(group, latestMediaItems).duplicateKind
-      )
-    }
-    const latestFilteredGroups =
-      reviewFilterRef.current === "all"
-        ? latestGroups
-        : latestGroups.filter(
-            (group) =>
-              latestClassificationById.get(group.id) === reviewFilterRef.current
-          )
-    const latestVisibleGroups = getVisibleGroups(
-      latestFilteredGroups,
+    const latestCleanupScopeGroups = getVisibleGroups(
+      latestGroups,
       entitlementRef.current
     )
     const latestReviewSession = new DuplicateReviewSession({
       groups: latestGroups,
       mediaItems: latestMediaItems,
-      selections: reviewSelectionsRef.current
+      selections: reviewSelectionsRef.current,
+      defaultStrategy: settingsRef.current.defaultKeepStrategy
     })
-    const latestPlan = latestReviewSession.trashPlan(latestVisibleGroups)
+    const latestAllCleanupGroupsReviewed =
+      latestCleanupScopeGroups.length > 0 &&
+      latestCleanupScopeGroups.every((group) =>
+        latestReviewSession.reviewedGroupIds.has(group.id)
+      )
+    const latestPlan = latestReviewSession.trashPlan(latestCleanupScopeGroups)
     const latestScanProvider = latestState.sourceProvider ?? latestProvider
     const latestAccountEmail =
-      currentAccountEmailRef.current ?? latestState.accountEmail
-    const latestPreflight = evaluateReviewPreflight({
+      (currentIdentityProviderRef.current === latestProvider
+        ? currentAccountEmailRef.current
+        : undefined) ?? latestState.accountEmail
+    const latestPreflight = scanLifecycle.reviewPreflight({
       scanProvider: latestScanProvider,
       currentProvider: latestProvider,
       scanAccountEmail: latestState.accountEmail,
       currentAccountEmail: latestAccountEmail,
+      scanProviderSessionId: latestState.providerSessionId,
+      currentProviderSessionId:
+        currentIdentityProviderRef.current === latestProvider
+          ? currentProviderSessionIdRef.current
+          : undefined,
       scanDate: latestState.scanDate,
       scanScopeFingerprint: latestState.scopeFingerprint,
       currentScopeFingerprint: buildScanScopeFingerprint(latestSettings),
       selectedCount: latestPlan.dedupKeys.length,
       connectionValidated:
         accountValidationCompleteRef.current && currentHasGptkRef.current,
-      allowUnavailableAccountIdentity: latestProvider !== "google",
       requireFreshScan: true,
       requireKnownScope: true
     })
@@ -4011,6 +5498,10 @@ export default function App() {
       plan: latestPlan,
       provider: latestProvider,
       accountEmail: latestAccountEmail,
+      providerSessionId:
+        currentIdentityProviderRef.current === latestProvider
+          ? currentProviderSessionIdRef.current
+          : undefined,
       scopeFingerprint: latestScopeFingerprint
     })
     const dispatchStillAuthorized =
@@ -4018,6 +5509,7 @@ export default function App() {
       latestScanProvider === latestProvider &&
       confirmedPlan.provider === currentProvider &&
       latestPlan.provider === latestProvider &&
+      latestAllCleanupGroupsReviewed &&
       latestPreflight.allowed &&
       isTrashDispatchAuthorizationCurrent(
         dispatchAuthorization,
@@ -4044,6 +5536,7 @@ export default function App() {
       groups: latestState.groups,
       totalItems: latestState.totalItems,
       sourceProvider: latestState.sourceProvider ?? latestProvider,
+      providerSessionId: latestState.providerSessionId,
       scanDate: latestState.scanDate,
       scopeFingerprint: latestState.scopeFingerprint ?? latestScopeFingerprint
     })
@@ -4058,21 +5551,34 @@ export default function App() {
     })
     const timeoutId = window.setTimeout(() => {
       trashTimeoutByRequestRef.current.delete(requestId)
-      if (
-        trashGenerationByRequestRef.current.get(requestId) !== generation
-      ) {
+      if (trashGenerationByRequestRef.current.get(requestId) !== generation) {
         return
       }
       void trashLifecycle
         .timeout({ requestId })
-        .then(() => {
+        .then((outcome) => {
           if (
             trashGenerationByRequestRef.current.get(requestId) !== generation
           ) {
             return
           }
+          if (outcome.kind === "partial") {
+            dispatch({
+              type: "TRASH_COMPLETE",
+              trashedKeys: outcome.movedMediaKeys
+            })
+            setTrashMovesThisSession((count) => count + outcome.movedCount)
+            setUndoDataSafely(outcome.undo)
+          } else if (outcome.kind === "unknown") {
+            dispatch({
+              type: "TRASH_ERROR",
+              error: outcome.error
+            })
+          }
           setTrashWarningSafely(
-            "The provider has not confirmed this Trash request yet. Do not retry; PhotoSweep will reconcile a late result if it arrives."
+            outcome.kind === "partial"
+              ? `${outcome.message ?? "Trash request timed out."} ${outcome.movedCount.toLocaleString()} confirmed move${outcome.movedCount === 1 ? "" : "s"} can be restored. Unresolved targets will not be retried. PhotoSweep will reconcile a late result if it arrives.`
+              : "The provider has not confirmed this Trash request yet. Do not retry; PhotoSweep will reconcile a late result if it arrives."
           )
         })
         .catch((error) => {
@@ -4083,19 +5589,28 @@ export default function App() {
     trashTimeoutByRequestRef.current.set(requestId, timeoutId)
   }, [
     trashConfirm,
+    unknownFavoriteTrashAcknowledged,
     state,
     settings,
     accountValidationComplete,
     reviewSession,
-    visibleGroups,
+    cleanupScopeGroups,
     handleCloseTrashConfirm,
     trashLifecycle,
+    setUndoDataSafely,
     setTrashWarningSafely
   ])
 
   const handlePauseScan = useCallback(() => {
     invalidatePaidConversionContext()
+    const cancelTarget = providerScanCancellationTarget(
+      scanLifecycle.checkpoint,
+      scanLifecycle.requestId
+    )
     const paused = scanLifecycle.pause()
+    if (paused && cancelTarget) {
+      cancelProviderScanRequest(cancelTarget.requestId, cancelTarget.provider)
+    }
     deferredUpgradeRef.current = null
     setDeferredUpgrade(null)
     if (paused) setResumeCheckpoint(paused)
@@ -4103,8 +5618,17 @@ export default function App() {
   }, [invalidatePaidConversionContext, scanLifecycle])
 
   const handleReset = useCallback(() => {
+    reviewHydrationClosedRef.current = true
+    scanReviewGenerationRef.current += 1
     invalidatePaidConversionContext()
     cancelHealthCheckRetry()
+    const cancelTarget = providerScanCancellationTarget(
+      scanLifecycle.checkpoint,
+      scanLifecycle.requestId
+    )
+    if (cancelTarget) {
+      cancelProviderScanRequest(cancelTarget.requestId, cancelTarget.provider)
+    }
     scanLifecycle.reset()
     trashLifecycle.reset()
     cachedMediaItemsRef.current = null
@@ -4123,8 +5647,18 @@ export default function App() {
     setTrashMovesThisSession(0)
     setReportError(null)
     setUndoDataSafely(null)
-    void storedReviewScope.invalidateReview()
-    void storedReviewScope.write({ checkpoint: null })
+    currentAccountEmailRef.current = undefined
+    currentProviderSessionIdRef.current = undefined
+    currentIdentityProviderRef.current = undefined
+    currentHasGptkRef.current = false
+    setAccountValidationComplete(false)
+    const resetProvider = settingsRef.current.sourceProvider ?? "google"
+    void storedReviewScope.invalidateReview(
+      () => true,
+      undefined,
+      resetProvider
+    )
+    void storedReviewScope.write({ checkpoint: null }, undefined, resetProvider)
     dispatch({ type: "RESET" })
     if (photoDataConsent === true) {
       requestHealthCheck(settingsRef.current.sourceProvider ?? "google")
@@ -4148,7 +5682,8 @@ export default function App() {
         return {
           success: false,
           provider,
-          error: "Accept the PhotoSweep data-use notice before opening a provider."
+          error:
+            "Accept the PhotoSweep data-use notice before opening a provider."
         }
       }
       let hostTabId = sidePanelHostTabIdRef.current
@@ -4200,6 +5735,8 @@ export default function App() {
   const handleOpenProvider = useCallback(
     (provider: PhotoProvider) => {
       if (photoDataConsent !== true) return
+      reviewHydrationClosedRef.current = true
+      scanReviewGenerationRef.current += 1
       invalidatePaidConversionContext()
       cancelHealthCheckRetry()
       setSidePanelSourceConfirmed(true)
@@ -4215,12 +5752,19 @@ export default function App() {
       setSettings({
         sourceProvider: provider,
         albumScope:
-          provider === "google" ? settingsRef.current.albumScope : undefined
+          settingsRef.current.sourceProvider === provider
+            ? settingsRef.current.albumScope
+            : undefined
       })
-      void storedReviewScope.invalidateReview()
-      void storedReviewScope.write({ checkpoint: null })
+      void storedReviewScope.write({ checkpoint: null }, undefined, provider)
       dispatch({ type: "RESET" })
       healthCheckAttemptsRef.current = 0
+      currentAccountEmailRef.current = undefined
+      currentProviderSessionIdRef.current = undefined
+      currentIdentityProviderRef.current = undefined
+      currentHasGptkRef.current = false
+      setAmazonProfile(null)
+      setAccountValidationComplete(false)
       void openProviderFromSidePanel(provider).then((result) => {
         if (!result.success) {
           dispatch({
@@ -4255,19 +5799,125 @@ export default function App() {
     ]
   )
 
-  const handleUndo = useCallback(() => {
-    if (!undoData) return
-    const requestId = generateRequestId()
-    const restore = trashLifecycle.beginRestore(undoData, requestId)
-    restoreInFlightRef.current = true
-    restoreGenerationRef.current = paidConversionGenerationRef.current
-    if (undoData.operationId) {
-      restoreRequestByIdRef.current.set(requestId, {
-        operationId: undoData.operationId,
-        generation: paidConversionGenerationRef.current,
-        history: false
-      })
+  const handleUndo = useCallback(async () => {
+    if (
+      !undoData ||
+      restoreInFlightRef.current ||
+      restoreCommitInFlightRef.current
+    ) {
+      return
     }
+    const currentProvider = settingsRef.current.sourceProvider ?? "google"
+    const identityIsCurrent =
+      currentIdentityProviderRef.current === currentProvider
+    const currentSessionId = identityIsCurrent
+      ? currentProviderSessionIdRef.current
+      : undefined
+    const currentEmail = identityIsCurrent
+      ? currentAccountEmailRef.current
+      : undefined
+    const preflight = scanLifecycle.reviewPreflight({
+      scanProvider: undoData.provider,
+      currentProvider,
+      scanAccountEmail: undoData.accountEmail,
+      currentAccountEmail: currentEmail,
+      scanProviderSessionId: undoData.providerSessionId,
+      currentProviderSessionId: currentSessionId,
+      selectedCount: undoData.dedupKeys.length,
+      connectionValidated:
+        accountValidationCompleteRef.current && currentHasGptkRef.current
+    })
+    if (!preflight.allowed) {
+      setTrashWarningSafely(
+        `Restore preflight blocked: ${preflight.reasons
+          .map((item) => item.message)
+          .join(" ")}`
+      )
+      return
+    }
+    if (!currentSessionId || (currentProvider === "google" && !currentEmail)) {
+      setTrashWarningSafely(
+        "Restore preflight blocked: reconnect and complete a fresh provider health check before restoring."
+      )
+      return
+    }
+    const sessionBoundUndo: TrashUndoData = {
+      ...undoData,
+      providerSessionId: currentSessionId,
+      ...(currentEmail ? { accountEmail: currentEmail } : {})
+    }
+    if (!sessionBoundUndo.operationId) {
+      setTrashWarningSafely(
+        "Restore was not sent because its durable recovery record is missing. Run a fresh scoped scan and verify the provider Trash state before trying again."
+      )
+      return
+    }
+    const requestId = generateRequestId()
+    const restore = trashLifecycle.beginRestore(sessionBoundUndo, requestId)
+    restoreInFlightRef.current = true
+    restoreCommitInFlightRef.current = true
+    restoreGenerationRef.current = paidConversionGenerationRef.current
+    const restoreRequest = {
+      operationId: sessionBoundUndo.operationId,
+      generation: paidConversionGenerationRef.current,
+      history: false,
+      provider: restore.provider,
+      ...(restore.args.accountEmail
+        ? { accountEmail: restore.args.accountEmail }
+        : {}),
+      providerSessionId: restore.args.providerSessionId!
+    }
+    restoreRequestByIdRef.current.set(requestId, restoreRequest)
+    setRecoveryHistoryBusyId(sessionBoundUndo.operationId)
+    try {
+      await persistRestoreDispatchIntentSafely(
+        sessionBoundUndo.operationId,
+        requestId,
+        restore.args.dedupKeys
+      )
+    } catch (error) {
+      trashLifecycle.cancelRestore(requestId)
+      restoreRequestByIdRef.current.delete(requestId)
+      restoreGenerationRef.current = null
+      restoreInFlightRef.current = false
+      restoreCommitInFlightRef.current = false
+      setRecoveryHistoryBusyId(null)
+      const message = error instanceof Error ? error.message : String(error)
+      setReportError(`Could not save the restore safety record: ${message}`)
+      setTrashWarningSafely(
+        "Restore was not sent because its per-target recovery guard could not be saved. No provider targets were dispatched."
+      )
+      return
+    }
+    if (!isRestoreRequestCurrent(restoreRequest)) {
+      trashLifecycle.cancelRestore(requestId)
+      try {
+        await persistRestoreStatusSafely(
+          sessionBoundUndo.operationId,
+          notDispatchedRestoreStatus(
+            requestId,
+            restore.args.dedupKeys,
+            "provider-session-changed-before-dispatch"
+          )
+        )
+        restoreRequestByIdRef.current.delete(requestId)
+        restoreGenerationRef.current = null
+        restoreInFlightRef.current = false
+        restoreCommitInFlightRef.current = false
+        setRecoveryHistoryBusyId(null)
+        setTrashWarningSafely(
+          "Restore was not sent because the provider session changed while its safety record was being saved. Reconnect and verify the provider before starting a new restore."
+        )
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setReportError(`Could not finalize the unsent restore guard: ${message}`)
+        setTrashWarningSafely(
+          "Restore was not sent. Its durable pre-dispatch guard remains ambiguous, so targets are locked from automatic retry until you reload and review recovery history."
+        )
+      }
+      return
+    }
+    restoreCommitInFlightRef.current = false
     ratingPromptDeferredRef.current = false
     autoSelectNextResultsRef.current = false
     pendingSelectionsRef.current = {
@@ -4278,9 +5928,9 @@ export default function App() {
     // Optimistically restore the UI to the pre-trash state
     dispatch({
       type: "RESTORE_SNAPSHOT",
-      mediaItems: undoData.snapshot.mediaItems,
-      groups: undoData.snapshot.groups,
-      totalItems: undoData.snapshot.totalItems
+      mediaItems: sessionBoundUndo.snapshot.mediaItems,
+      groups: sessionBoundUndo.snapshot.groups,
+      totalItems: sessionBoundUndo.snapshot.totalItems
     })
     // Call GPTK to restore from trash
     sendToServiceWorker({
@@ -4291,23 +5941,52 @@ export default function App() {
       provider: restore.provider,
       args: restore.args
     })
+    scheduleRestoreTimeout(requestId, paidConversionGenerationRef.current)
     setUndoDataSafely(null)
     setTrashWarningSafely(null)
-  }, [trashLifecycle, undoData])
+  }, [
+    isRestoreRequestCurrent,
+    persistRestoreDispatchIntentSafely,
+    persistRestoreStatusSafely,
+    scheduleRestoreTimeout,
+    setRecoveryHistoryBusyId,
+    setReportError,
+    setTrashWarningSafely,
+    setUndoDataSafely,
+    trashLifecycle,
+    undoData
+  ])
 
   const handleUndoClose = useCallback(() => {
     setUndoDataSafely(null)
   }, [])
 
   const handleRestoreHistory = useCallback(
-    (record: RecoveryHistoryRecord) => {
-      if (!isRecoveryRestorable(record) || recoveryHistoryBusyId) return
-      const currentProvider = settings.sourceProvider ?? "google"
+    async (record: RecoveryHistoryRecord) => {
+      if (
+        !isRecoveryRestorable(record) ||
+        recoveryHistoryBusyId ||
+        restoreInFlightRef.current ||
+        restoreCommitInFlightRef.current
+      ) {
+        return
+      }
+      const currentProvider = settingsRef.current.sourceProvider ?? "google"
+      const identityIsCurrent =
+        currentIdentityProviderRef.current === currentProvider
+      const currentSessionId = identityIsCurrent
+        ? currentProviderSessionIdRef.current
+        : undefined
+      const currentEmail = identityIsCurrent
+        ? currentAccountEmailRef.current
+        : undefined
       const preflight = evaluateRecoveryRestorePreflight({
         recordProvider: record.provider,
         currentProvider,
         recordAccountFingerprint: record.accountFingerprint,
-        currentAccountEmail: currentAccountEmailRef.current,
+        currentAccountEmail: currentEmail,
+        recordProviderSessionId: record.providerSessionId,
+        currentProviderSessionId: currentSessionId,
         connectionValidated:
           accountValidationComplete && currentHasGptkRef.current
       })
@@ -4319,6 +5998,12 @@ export default function App() {
         )
         return
       }
+      if (!currentSessionId || (record.provider === "google" && !currentEmail)) {
+        setTrashWarningSafely(
+          "Recovery preflight blocked: reconnect and complete a fresh provider health check before restoring."
+        )
+        return
+      }
       const requestId = generateRequestId()
       const undo: TrashUndoData = {
         operationId: record.operationId,
@@ -4326,21 +6011,79 @@ export default function App() {
         dedupKeys: record.restorableDedupKeys,
         count: record.restorableDedupKeys.length,
         snapshot: { mediaItems: {}, groups: [], totalItems: 0 },
+        providerSessionId: currentSessionId,
+        ...(currentEmail ? { accountEmail: currentEmail } : {}),
         ...(record.icloudAssetRefs
           ? { icloudAssetRefs: record.icloudAssetRefs }
           : {})
       }
       const restore = trashLifecycle.beginRestore(undo, requestId)
-      restoreRequestByIdRef.current.set(requestId, {
+      const restoreRequest = {
         operationId: record.operationId,
         generation: paidConversionGenerationRef.current,
-        history: true
-      })
+        history: true,
+        provider: restore.provider,
+        ...(restore.args.accountEmail
+          ? { accountEmail: restore.args.accountEmail }
+          : {}),
+        providerSessionId: restore.args.providerSessionId!
+      }
+      restoreRequestByIdRef.current.set(requestId, restoreRequest)
       restoreGenerationRef.current = paidConversionGenerationRef.current
       restoreInFlightRef.current = true
+      restoreCommitInFlightRef.current = true
       setRecoveryHistoryBusyId(record.operationId)
-      setRecoveryHistoryOpen(false)
       setTrashWarningSafely(null)
+      try {
+        await persistRestoreDispatchIntentSafely(
+          record.operationId,
+          requestId,
+          restore.args.dedupKeys
+        )
+      } catch (error) {
+        trashLifecycle.cancelRestore(requestId)
+        restoreRequestByIdRef.current.delete(requestId)
+        restoreGenerationRef.current = null
+        restoreInFlightRef.current = false
+        restoreCommitInFlightRef.current = false
+        setRecoveryHistoryBusyId(null)
+        const message = error instanceof Error ? error.message : String(error)
+        setReportError(`Could not save the restore safety record: ${message}`)
+        setTrashWarningSafely(
+          "Restore was not sent because its per-target recovery guard could not be saved. No provider targets were dispatched."
+        )
+        return
+      }
+      if (!isRestoreRequestCurrent(restoreRequest)) {
+        trashLifecycle.cancelRestore(requestId)
+        try {
+          await persistRestoreStatusSafely(
+            record.operationId,
+            notDispatchedRestoreStatus(
+              requestId,
+              restore.args.dedupKeys,
+              "provider-session-changed-before-dispatch"
+            )
+          )
+          restoreRequestByIdRef.current.delete(requestId)
+          restoreGenerationRef.current = null
+          restoreInFlightRef.current = false
+          restoreCommitInFlightRef.current = false
+          setRecoveryHistoryBusyId(null)
+          setTrashWarningSafely(
+            "Restore was not sent because the provider session changed while its safety record was being saved. Reconnect and verify the provider before starting a new restore."
+          )
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          setReportError(`Could not finalize the unsent restore guard: ${message}`)
+          setTrashWarningSafely(
+            "Restore was not sent. Its durable pre-dispatch guard remains ambiguous, so targets are locked from automatic retry until you reload and review recovery history."
+          )
+        }
+        return
+      }
+      restoreCommitInFlightRef.current = false
+      setRecoveryHistoryOpen(false)
       sendToServiceWorker({
         app: APP_ID,
         action: "gptkCommand",
@@ -4349,25 +6092,36 @@ export default function App() {
         provider: restore.provider,
         args: restore.args
       })
+      scheduleRestoreTimeout(requestId, paidConversionGenerationRef.current)
     },
     [
       accountValidationComplete,
+      isRestoreRequestCurrent,
+      persistRestoreDispatchIntentSafely,
+      persistRestoreStatusSafely,
       recoveryHistoryBusyId,
+      scheduleRestoreTimeout,
+      setRecoveryHistoryBusyId,
+      setReportError,
       setTrashWarningSafely,
-      settings.sourceProvider,
       trashLifecycle
     ]
   )
 
   const handleClearRecoveryHistory = useCallback(async () => {
     try {
-      await chrome.storage.local.remove(RECOVERY_HISTORY_STORAGE_KEY)
-      setRecoveryHistorySafely([])
+      const retained = await requestRecoveryHistoryTransaction({ kind: "clear" })
+      setRecoveryHistorySafely(retained)
+      if (retained.length > 0) {
+        setTrashWarningSafely(
+          "Completed recovery history was cleared. Pending or ambiguous provider operations remain protected until their exact outcome is verified."
+        )
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setReportError(`Could not clear recovery history: ${message}`)
     }
-  }, [setRecoveryHistorySafely])
+  }, [setRecoveryHistorySafely, setReportError, setTrashWarningSafely])
 
   const handleClearDecisionMemory = useCallback(() => {
     void decisionMemoryStore
@@ -4396,7 +6150,12 @@ export default function App() {
 
   // Compute duplicate count for ActionBar
   const duplicateCount =
-    state.status === "results" ? reviewSession.duplicateCount(visibleGroups) : 0
+    state.status === "results"
+      ? reviewSession.duplicateCount(cleanupScopeGroups)
+      : 0
+  const includedGroupCount = cleanupScopeGroups.filter((group) =>
+    reviewSession.selectedGroupIds.has(group.id)
+  ).length
   const workflowStage =
     state.status === "scanning"
       ? "scan"
@@ -4443,6 +6202,12 @@ export default function App() {
     state.status === "results" ||
     state.status === "trashing"
   const sourceProvider = settings.sourceProvider ?? "google"
+  const amazonProfileName =
+    sourceProvider === "amazon" &&
+    "providerSessionId" in state &&
+    amazonProfile?.providerSessionId === state.providerSessionId
+      ? amazonProfile.displayName
+      : undefined
   const sidePanelHasConnection =
     state.status === "connected" ||
     state.status === "scanning" ||
@@ -4455,111 +6220,149 @@ export default function App() {
     state.status === "trashing"
   const scanStepComplete =
     state.status === "results" || state.status === "trashing"
-  const sidePanelBatchLimit = providerBatchLimitForEntitlement(
-    settings,
-    entitlement
-  )
-  const sidePanelScopeSummary = settings.albumScope?.title
-    ? settings.albumScope.title
-    : settings.albumScope?.mediaKey
-      ? "Selected album"
-      : sidePanelBatchLimit
-        ? `${sidePanelBatchLimit.toLocaleString()} item test batch`
-        : "Entire library"
-  const sidePanelDuplicateSummary =
-    groups.length > 0
-      ? `${groups.length.toLocaleString()} duplicate set${
-          groups.length === 1 ? "" : "s"
-        }`
-      : state.status === "results"
-        ? "No duplicate sets"
-        : "Review unlocks after scan"
   const sidePanelSteps: SidePanelStepItem[] = [
     {
       index: 1,
       title: "Source",
-      description: "Confirm the selected library and open it in this window.",
-      status: sourceStepComplete ? "complete" : "active",
-      icon: <PhotoLibraryRoundedIcon sx={{ fontSize: 15 }} />,
-      summary: providerLabel(sourceProvider)
+      status: sourceStepComplete ? "complete" : "active"
     },
     {
       index: 2,
       title: "Sign in",
-      description:
-        "Open the provider tab, sign in, then verify the connection.",
       status: sidePanelHasConnection
         ? "complete"
         : sourceStepComplete
           ? "active"
-          : "locked",
-      icon: <LockOutlinedIcon sx={{ fontSize: 15 }} />,
-      summary: `Connected to ${providerLabel(sourceProvider)}`
+          : "locked"
     },
     {
       index: 3,
       title: "Scope",
-      description: "Choose exactly what the scan should inspect.",
       status: scopeStepComplete
         ? "complete"
         : state.status === "connected"
           ? "active"
-          : "locked",
-      icon: <CollectionsRoundedIcon sx={{ fontSize: 15 }} />,
-      summary: sidePanelScopeSummary
+          : "locked"
     },
     {
       index: 4,
       title: "Scan",
-      description: "Find possible duplicate photos and videos.",
       status: scanStepComplete
         ? "complete"
         : state.status === "scanning"
           ? "active"
-          : "locked",
-      icon: <SearchRoundedIcon sx={{ fontSize: 15 }} />,
-      summary:
-        state.status === "results"
-          ? `${state.totalItems.toLocaleString()} items checked`
-          : workflowScanDetail
+          : "locked"
     },
     {
       index: 5,
       title: "Review",
-      description: "Choose what stays before anything moves to trash.",
       status:
         state.status === "results" || state.status === "trashing"
           ? "active"
-          : "locked",
-      icon: <DoneAllRoundedIcon sx={{ fontSize: 15 }} />,
-      summary: sidePanelDuplicateSummary
+          : "locked"
     }
   ]
+
+  const analyticsConsentNotice = licenseApiBaseUrl ? (
+    analyticsConsent === null ? (
+      <Alert
+        severity="info"
+        sx={{ mb: isSidePanel ? 0 : 1.25, alignItems: "center" }}
+        action={
+          <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => saveAnalyticsConsent(false)}>
+              No thanks
+            </Button>
+            <Button
+              color="inherit"
+              size="small"
+              variant="outlined"
+              onClick={() => saveAnalyticsConsent(true)}>
+              Allow
+            </Button>
+          </Box>
+        }>
+        <Typography variant="body2" fontWeight={700}>
+          Optional private usage metrics
+        </Typography>
+        <Typography variant="caption">
+          PhotoSweep only shares event names, provider, plan, scan mode, count
+          ranges, and error category. Photo content, filenames, albums, URLs,
+          and reports are never included.
+        </Typography>
+      </Alert>
+    ) : (
+      <Box
+        sx={{
+          mb: isSidePanel ? 0 : 1.25,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          px: 1.25,
+          py: 0.5,
+          borderBottom: "1px solid",
+          borderColor: "divider"
+        }}>
+        <Typography variant="caption" color="text.secondary">
+          Usage metrics {analyticsConsent ? "on" : "off"} · no photo content
+        </Typography>
+        <Button size="small" onClick={resetAnalyticsConsent}>
+          Change
+        </Button>
+      </Box>
+    )
+  ) : null
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      {isSidePanel && (
-        <GlobalStyles
-          styles={{
-            body: {
-              background: `linear-gradient(180deg, ${photoSweepColors.canvasTop} 0%, ${photoSweepColors.canvasBottom} 100%)`,
-              overflowX: "hidden"
-            },
-            "#__plasmo": {
-              minWidth: 0
-            }
-          }}
-        />
-      )}
+      <GlobalStyles
+        styles={{
+          body: {
+            background: photoSweepColors.canvasTop,
+            overflowX: "hidden",
+            scrollbarGutter: "stable"
+          },
+          "#__plasmo": {
+            minWidth: 0,
+            minHeight: "100vh"
+          },
+          "*:focus-visible": {
+            outline: `3px solid ${photoSweepColors.primary}`,
+            outlineOffset: 2
+          }
+        }}
+      />
 
       {!isSidePanel && (
         <AppBar position="sticky" elevation={0}>
-          <Toolbar sx={{ gap: 1 }}>
-            <PhotoLibraryRoundedIcon color="primary" />
+          <Toolbar
+            sx={{
+              gap: 1.25,
+              maxWidth: 1520,
+              width: "100%",
+              mx: "auto",
+              px: { xs: 2, md: 3 }
+            }}>
+            <Box
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: 1,
+                display: "grid",
+                placeItems: "center",
+                bgcolor: "primary.main",
+                color: "primary.contrastText"
+              }}>
+              <PhotoLibraryRoundedIcon fontSize="small" />
+            </Box>
             <Typography
               variant="h6"
-              fontWeight={800}
+              fontWeight={700}
               noWrap
               sx={{
                 flexGrow: 1,
@@ -4567,17 +6370,38 @@ export default function App() {
               }}>
               PhotoSweep
             </Typography>
-            {"accountEmail" in state && state.accountEmail && (
-              <Typography variant="body2" color="text.secondary" noWrap>
-                Signed in as {state.accountEmail}
+            {"accountEmail" in state && state.accountEmail ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                title={`Signed in as ${state.accountEmail}`}
+                sx={{ maxWidth: "32vw", fontSize: 12 }}>
+                Signed in · {state.accountEmail}
               </Typography>
-            )}
+            ) : sourceProvider === "amazon" && amazonProfileName ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                title="The Amazon profile name is for display only; PhotoSweep binds this session using the current Photos page.">
+                Amazon Photos profile: {amazonProfileName} · session only
+              </Typography>
+            ) : null}
             {recoveryHistory.length > 0 && (
               <Button
                 size="small"
                 startIcon={<HistoryRoundedIcon />}
                 onClick={() => setRecoveryHistoryOpen(true)}>
-                Recovery ({recoveryHistory.length})
+                Recovery · {recoveryHistory.length}
+              </Button>
+            )}
+            {recoveryHistoryReadError && (
+              <Button
+                size="small"
+                color="warning"
+                onClick={() => setRecoveryHistoryOpen(true)}>
+                Recovery unavailable
               </Button>
             )}
           </Toolbar>
@@ -4587,91 +6411,54 @@ export default function App() {
       {/* Main content */}
       <Box
         component="main"
+        className={isSidePanel ? "photosweep-panel" : "photosweep-page"}
         sx={{
           maxWidth: isSidePanel
             ? "100%"
             : state.status === "results" && groups.length > 0
-              ? 1500
-              : 1200,
+              ? 1520
+              : 1360,
           mx: "auto",
-          px: isSidePanel ? 1 : { xs: 2, md: 3 },
-          py: isSidePanel ? 1 : { xs: 2, md: 3 },
+          px: isSidePanel ? { xs: 1.5, sm: 2 } : { xs: 2, md: 3 },
+        py: isSidePanel ? 1 : { xs: 2, md: 3 },
           minHeight: isSidePanel ? "100vh" : "calc(100vh - 64px)",
-          background: isSidePanel
-            ? "transparent"
-            : `linear-gradient(180deg, rgba(246,250,248,0), ${photoSweepColors.canvasBottom})`
+          background: "transparent",
+          "&.photosweep-panel": { width: "100%" },
+          "&.photosweep-page": { width: "100%" }
         }}>
-        {analyticsConsent === null && licenseApiBaseUrl && (
-          <Alert
-            severity="info"
-            sx={{ mb: 1.25 }}
-            action={
-              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-                <Button
-                  color="inherit"
-                  size="small"
-                  onClick={() => saveAnalyticsConsent(false)}>
-                  No thanks
-                </Button>
-                <Button
-                  color="inherit"
-                  size="small"
-                  variant="outlined"
-                  onClick={() => saveAnalyticsConsent(true)}>
-                  Allow
-                </Button>
-              </Box>
-            }>
-            <Typography variant="body2" fontWeight={700}>
-              Optional private usage metrics
-            </Typography>
-            <Typography variant="caption">
-              Help improve PhotoSweep by sharing event names, provider, plan,
-              scan mode, count ranges, and error category. Photo content,
-              filenames, albums, URLs, and reports are never included.
-            </Typography>
-          </Alert>
-        )}
-        {analyticsConsent !== null && licenseApiBaseUrl && (
-          <Box
-            sx={{
-              mb: 1.25,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 1,
-              px: 1.25,
-              py: 0.75,
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1.5
-            }}>
-            <Typography variant="caption" color="text.secondary">
-              Optional usage metrics: {analyticsConsent ? "allowed" : "off"}.
-              Photo content is never included.
-            </Typography>
-            <Button size="small" onClick={resetAnalyticsConsent}>
-              Change
-            </Button>
-          </Box>
-        )}
+        {!isSidePanel && analyticsConsentNotice}
         {isSidePanel ? (
           <Box
             sx={{
               display: "grid",
-              gap: 0.85,
+              gap: 0.75,
               pb: 1
             }}>
-            <SidePanelBrandHeader />
-            {recoveryHistory.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1
+              }}>
+              <SidePanelBrandHeader />
               <Button
                 size="small"
-                variant="outlined"
                 startIcon={<HistoryRoundedIcon />}
                 onClick={() => setRecoveryHistoryOpen(true)}
-                sx={{ fontWeight: 800 }}>
-                Recovery history ({recoveryHistory.length})
+                sx={{ minHeight: 36, fontWeight: 600 }}>
+                {recoveryHistoryReadError
+                  ? "Recovery"
+                  : recoveryHistory.length > 0
+                    ? `Recovery · ${recoveryHistory.length}`
+                    : "Recovery"}
               </Button>
+            </Box>
+            {analyticsConsentNotice}
+            {recoveryHistoryReadError && (
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                Recovery history is unavailable. Restore actions are paused.
+              </Alert>
             )}
 
             <SidePanelSourceBar
@@ -4683,12 +6470,7 @@ export default function App() {
             <SidePanelTimelineProgress steps={sidePanelSteps} />
 
             <SidePanelTimelineStep
-              index={1}
-              title="Source"
-              description="Confirm the selected library and open it in this window."
-              status={sourceStepComplete ? "complete" : "active"}
-              icon={<PhotoLibraryRoundedIcon sx={{ fontSize: 19 }} />}
-              summary={providerLabel(sourceProvider)}>
+              status={sourceStepComplete ? "complete" : "active"}>
               <Button
                 variant="contained"
                 fullWidth
@@ -4700,22 +6482,20 @@ export default function App() {
             </SidePanelTimelineStep>
 
             <SidePanelTimelineStep
-              index={2}
-              title="Sign in"
-              description="Open the provider tab, sign in, then verify the connection."
               status={
                 sidePanelHasConnection
                   ? "complete"
                   : sourceStepComplete
                     ? "active"
                     : "locked"
-              }
-              icon={<LockOutlinedIcon sx={{ fontSize: 19 }} />}
-              summary={`Connected to ${providerLabel(sourceProvider)}`}>
+              }>
               {state.status === "disconnected" && (
                 <Alert severity="warning" sx={{ py: 0.6 }}>
                   {state.error}
                 </Alert>
+              )}
+              {state.status === "disconnected" && state.scanCoverage && (
+                <ScanCoverageNotice coverage={state.scanCoverage} compact />
               )}
               {state.status === "connecting" && (
                 <Box
@@ -4757,15 +6537,9 @@ export default function App() {
                   </Button>
                 )}
               </Box>
-              <Typography variant="caption" color="text.secondary">
-                This step must pass before scan controls unlock.
-              </Typography>
             </SidePanelTimelineStep>
 
             <SidePanelTimelineStep
-              index={3}
-              title="Scope"
-              description="Choose exactly what the scan should inspect."
               status={
                 scopeStepComplete
                   ? "complete"
@@ -4773,8 +6547,7 @@ export default function App() {
                     ? "active"
                     : "locked"
               }
-              icon={<CollectionsRoundedIcon sx={{ fontSize: 19 }} />}
-              summary={sidePanelScopeSummary}>
+            >
               {state.status === "connected" && (
                 <ScanConfig
                   settings={settings}
@@ -4799,15 +6572,13 @@ export default function App() {
                   onUpgrade={(detail) =>
                     openTrackedUpgradePrompt("scan", detail)
                   }
+                  amazonProfileName={amazonProfileName}
                   compact
                 />
               )}
             </SidePanelTimelineStep>
 
             <SidePanelTimelineStep
-              index={4}
-              title="Scan"
-              description="Find possible duplicate photos and videos."
               status={
                 scanStepComplete
                   ? "complete"
@@ -4815,12 +6586,7 @@ export default function App() {
                     ? "active"
                     : "locked"
               }
-              icon={<SearchRoundedIcon sx={{ fontSize: 19 }} />}
-              summary={
-                state.status === "results"
-                  ? `${state.totalItems.toLocaleString()} items checked`
-                  : workflowScanDetail
-              }>
+              >
               {state.status === "scanning" && (
                 <>
                   <ScanProgress
@@ -4842,31 +6608,18 @@ export default function App() {
             </SidePanelTimelineStep>
 
             <SidePanelTimelineStep
-              index={5}
-              title="Review"
-              description="Choose what stays before anything moves to trash."
               status={
                 state.status === "results" || state.status === "trashing"
                   ? "active"
                   : "locked"
-              }
-              icon={<DoneAllRoundedIcon sx={{ fontSize: 19 }} />}
-              summary={sidePanelDuplicateSummary}>
+              }>
+              {state.status === "results" && (
+                <ScanCoverageNotice coverage={state.scanCoverage} compact />
+              )}
               {state.status === "results" &&
                 groups.length === 0 &&
                 storageChecked && (
-                  <Box sx={{ display: "grid", gap: 1 }}>
-                    <Typography variant="body2" fontWeight={800}>
-                      No duplicates found
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Try Full scan or a wider time window if you expect
-                      reuploads saved far apart.
-                    </Typography>
-                    <Button variant="outlined" onClick={handleReset}>
-                      Change scan settings
-                    </Button>
-                  </Box>
+                  <ScanEmptyState compact onChangeSettings={handleReset} />
                 )}
               {state.status === "results" && groups.length > 0 && (
                 <>
@@ -4919,12 +6672,15 @@ export default function App() {
                     keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
+                    onVerifyOriginal={handleVerifyOriginal}
+                    onLoadVideo={handleLoadVideo}
                     compact
                   />
                   <CleanupBar
+                    includedGroupCount={includedGroupCount}
                     duplicateCount={duplicateCount}
-                    reviewedGroupCount={reviewedVisibleGroupCount}
-                    totalGroupCount={visibleGroups.length}
+                    reviewedGroupCount={reviewedCleanupScopeGroupCount}
+                    totalGroupCount={cleanupScopeGroups.length}
                     onTrash={handleTrash}
                     compact
                   />
@@ -4983,12 +6739,17 @@ export default function App() {
               )}
 
               {state.status === "disconnected" && (
-                <SidePanelConnectionSetup
-                  selectedProvider={settings.sourceProvider ?? "google"}
-                  onOpenProvider={handleOpenProvider}
-                  onRetry={handleReset}
-                  error={state.error}
-                />
+                <>
+                  <SidePanelConnectionSetup
+                    selectedProvider={settings.sourceProvider ?? "google"}
+                    onOpenProvider={handleOpenProvider}
+                    onRetry={handleReset}
+                    error={state.error}
+                  />
+                  {state.scanCoverage && (
+                    <ScanCoverageNotice coverage={state.scanCoverage} />
+                  )}
+                </>
               )}
 
               {state.status === "connected" && (
@@ -5015,6 +6776,7 @@ export default function App() {
                   onUpgrade={(detail) =>
                     openTrackedUpgradePrompt("scan", detail)
                   }
+                  amazonProfileName={amazonProfileName}
                   compact={isSidePanel}
                 />
               )}
@@ -5043,7 +6805,9 @@ export default function App() {
                         onToggleGroup={() => {}}
                         onSkipGroup={() => {}}
                         keptByGroupId={keptByGroupId}
-                        keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
+                        keepDecisionByGroupId={
+                          reviewSession.keepDecisionByGroupId
+                        }
                         onToggleKept={() => {}}
                         onTrashAll={() => {}}
                         readOnly
@@ -5054,28 +6818,14 @@ export default function App() {
                 </>
               )}
 
+              {state.status === "results" && (
+                <ScanCoverageNotice coverage={state.scanCoverage} />
+              )}
+
               {state.status === "results" &&
                 groups.length === 0 &&
                 storageChecked && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      pt: 8,
-                      gap: 2
-                    }}>
-                    <Typography variant="h6" color="text.secondary">
-                      No duplicates found in your library.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      For reuploads or copies taken years apart, use Full scan
-                      and move match sensitivity toward More matches.
-                    </Typography>
-                    <Button variant="contained" onClick={handleReset}>
-                      Change scan settings
-                    </Button>
-                  </Box>
+                  <ScanEmptyState onChangeSettings={handleReset} />
                 )}
 
               {state.status === "results" && groups.length > 0 && (
@@ -5129,12 +6879,15 @@ export default function App() {
                     keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
+                    onVerifyOriginal={handleVerifyOriginal}
+                    onLoadVideo={handleLoadVideo}
                     compact={isSidePanel}
                   />
                   <CleanupBar
+                    includedGroupCount={includedGroupCount}
                     duplicateCount={duplicateCount}
-                    reviewedGroupCount={reviewedVisibleGroupCount}
-                    totalGroupCount={visibleGroups.length}
+                    reviewedGroupCount={reviewedCleanupScopeGroupCount}
+                    totalGroupCount={cleanupScopeGroups.length}
                     onTrash={handleTrash}
                     compact={isSidePanel}
                   />
@@ -5213,10 +6966,10 @@ export default function App() {
           <DialogContentText>
             PhotoSweep reads thumbnails, media metadata, and provider item
             identifiers from the signed-in photo tab to find duplicate photos
-            and videos. Matching, embeddings, and reports stay in this
-            browser. PhotoSweep only sends license information needed for paid
-            access, and optional usage metrics are separately opt-in. Nothing
-            moves to provider Trash until you review and confirm it.
+            and videos. Matching, embeddings, and reports stay in this browser.
+            PhotoSweep only sends license information needed for paid access,
+            and optional usage metrics are separately opt-in. Nothing moves to
+            provider Trash until you review and confirm it.
           </DialogContentText>
           <Button
             component="a"
@@ -5259,6 +7012,11 @@ export default function App() {
       <RecoveryHistoryDialog
         open={recoveryHistoryOpen}
         records={recoveryHistory}
+        loadError={
+          recoveryHistoryReadError
+            ? "Recovery history could not be read. Restore actions are paused until it loads."
+            : undefined
+        }
         onClose={() => setRecoveryHistoryOpen(false)}
         onRestore={handleRestoreHistory}
         onClear={handleClearRecoveryHistory}
@@ -5303,7 +7061,7 @@ export default function App() {
         slotProps={{
           backdrop: {
             sx: {
-              bgcolor: "rgba(23, 32, 28, 0.34)",
+              bgcolor: photoSweepColors.overlay,
               backdropFilter: "blur(3px)"
             }
           },
@@ -5315,7 +7073,7 @@ export default function App() {
               borderColor: photoSweepColors.border,
               bgcolor: photoSweepColors.surface,
               backgroundColor: photoSweepColors.surface,
-              boxShadow: `0 24px 70px rgba(23, 32, 28, 0.22)`
+              boxShadow: `0 24px 70px ${photoSweepColors.shadowDeep}`
             }
           }
         }}>
@@ -5335,9 +7093,7 @@ export default function App() {
                 {trashPreflight.summary}
                 {trashPreflight.reasons.length > 0
                   ? " · " +
-                    trashPreflight.reasons
-                      .map((item) => item.message)
-                      .join(" ")
+                    trashPreflight.reasons.map((item) => item.message).join(" ")
                   : ""}
               </Typography>
             </Alert>
@@ -5345,10 +7101,41 @@ export default function App() {
           <DialogContentText>
             Move {trashConfirm?.dedupKeys.length} duplicate
             {trashConfirm?.dedupKeys.length !== 1 ? "s" : ""} to trash? You can
-            restore them from the {providerLabel(settings.sourceProvider)}{" "}
-            trash. A JSON audit report will be saved before anything is moved.
-            Items are moved in batches of {TRASH_BATCH_SIZE}.
+            restore them from{" "}
+            {providerTrashDestination(settings.sourceProvider)}. A JSON audit
+            report will be saved before anything is moved. Items are moved in
+            batches of {TRASH_BATCH_SIZE}.
           </DialogContentText>
+          <Alert severity="info" sx={{ mt: 1.5 }}>
+            {providerRecoveryWindowNotice(settings.sourceProvider)} Restore
+            items before they are permanently deleted.
+          </Alert>
+          {settings.albumScope && (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              {providerAlbumTrashNotice()}
+            </Alert>
+          )}
+          {unknownFavoriteTrashCount > 0 && (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              Favorite status is unknown for {unknownFavoriteTrashCount.toLocaleString()} selected item
+              {unknownFavoriteTrashCount === 1 ? "" : "s"}. These items could
+              be favorites. They will move only after you acknowledge that
+              PhotoSweep could not verify their status.
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={unknownFavoriteTrashAcknowledged}
+                    onChange={(event) =>
+                      setUnknownFavoriteTrashAcknowledged(
+                        event.target.checked
+                      )
+                    }
+                  />
+                }
+                label="I understand these items may be favorites"
+              />
+            </Alert>
+          )}
           <TextField
             autoFocus
             fullWidth
@@ -5369,7 +7156,9 @@ export default function App() {
             variant="contained"
             color="error"
             disabled={
-              trashConfirmCount !== String(trashConfirm?.dedupKeys.length ?? "")
+              trashConfirmCount !== String(trashConfirm?.dedupKeys.length ?? "") ||
+              (unknownFavoriteTrashCount > 0 &&
+                !unknownFavoriteTrashAcknowledged)
             }>
             Move to Trash
           </Button>
@@ -5426,6 +7215,13 @@ export default function App() {
           </>
         }
       />
+
+      {!upgradePrompt && (
+        <KeepStrategyFeedbackSnackbar
+          message={keepStrategyFeedback}
+          onClose={() => setKeepStrategyFeedback(null)}
+        />
+      )}
     </ThemeProvider>
   )
 }

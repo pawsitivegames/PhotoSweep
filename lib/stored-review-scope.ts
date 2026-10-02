@@ -5,6 +5,7 @@ import {
   type StoredDuplicateReviewSelections
 } from "./duplicate-review-session"
 import { isKeepStrategy } from "./keep-strategy"
+import { getProviderOperations } from "./provider-operations"
 import { SCAN_CHECKPOINT_KEY, type ScanCheckpoint } from "./scan-checkpoint"
 import { areScanResultsValid } from "./scan-results"
 import {
@@ -13,11 +14,18 @@ import {
   type ScanSettings,
   type StoredState
 } from "./types"
+import { AsyncSerialQueue } from "./async-serial-queue"
 
 export interface StoredReviewScopeAdapter {
-  get(keys: string[]): Promise<Partial<StoredState>>
-  set(values: Record<string, unknown>): Promise<void>
-  remove(keys: string[]): Promise<void>
+  get(
+    keys: string[],
+    provider?: PhotoProvider
+  ): Promise<Partial<StoredState>>
+  set(
+    values: Record<string, unknown>,
+    provider?: PhotoProvider
+  ): Promise<void>
+  remove(keys: string[], provider?: PhotoProvider): Promise<void>
 }
 
 export interface StoredReviewScopePatch {
@@ -33,6 +41,8 @@ export interface RestoredReviewScope {
   scanResults: StoredState["scanResults"] | null
   selections: DuplicateReviewSelections | null
   staleReviewRemoved: boolean
+  identityPending: boolean
+  cancelled: boolean
 }
 
 function hasDateRange(settings: ScanSettings): boolean {
@@ -49,11 +59,22 @@ function normalizeStoredSettings(settings: ScanSettings): ScanSettings {
     settings.similarityThreshold === 0.99 &&
     (settings.smartWindowSec ?? 1) === 1 &&
     !hasDateRange(settings) &&
-    !hasAlbumScope(settings)
+    !hasAlbumScope(settings) &&
+    (settings.sourceProvider === undefined ||
+      settings.sourceProvider === "google") &&
+    settings.amazonBatchLimit === undefined &&
+    settings.icloudBatchLimit === undefined &&
+    settings.exactOnly === undefined &&
+    settings.protectFavorites === undefined &&
+    (settings.defaultKeepStrategy === undefined ||
+      settings.defaultKeepStrategy === DEFAULT_SETTINGS.defaultKeepStrategy)
   if (isOldUntouchedDefault) return DEFAULT_SETTINGS
   return {
     ...settings,
     sourceProvider: settings.sourceProvider ?? "google",
+    defaultKeepStrategy: isKeepStrategy(settings.defaultKeepStrategy)
+      ? settings.defaultKeepStrategy
+      : DEFAULT_SETTINGS.defaultKeepStrategy,
     exactOnly: settings.exactOnly ?? false,
     protectFavorites: settings.protectFavorites ?? true
   }
@@ -124,14 +145,42 @@ function deserializeSelections(
 
 export class StoredReviewScope {
   private reviewWritesSuppressed = false
+  private restoreSequence = 0
+  private restoreTail: Promise<void> = Promise.resolve()
+  private readonly storageQueue = new AsyncSerialQueue()
 
   constructor(private readonly adapter: StoredReviewScopeAdapter) {}
 
-  async restore(params: {
+  restore(params: {
     fallbackSettings: ScanSettings
     hostProvider?: PhotoProvider | null
     accountEmail?: string
+    providerSessionId?: string
+    identityProvider?: PhotoProvider
+    isCurrent?: () => boolean
   }): Promise<RestoredReviewScope> {
+    const sequence = ++this.restoreSequence
+    const pending = this.restoreTail.then(() =>
+      this.storageQueue.run(() => this.restoreForSequence(params, sequence))
+    )
+    this.restoreTail = pending.then(
+      () => undefined,
+      () => undefined
+    )
+    return pending
+  }
+
+  private async restoreForSequence(
+    params: {
+      fallbackSettings: ScanSettings
+      hostProvider?: PhotoProvider | null
+      accountEmail?: string
+      providerSessionId?: string
+      identityProvider?: PhotoProvider
+      isCurrent?: () => boolean
+    },
+    sequence: number
+  ): Promise<RestoredReviewScope> {
     const stored = await this.adapter.get([
       "settings",
       "scanResults",
@@ -146,52 +195,183 @@ export class StoredReviewScope {
           ...restoredSettings,
           sourceProvider: params.hostProvider,
           albumScope:
-            params.hostProvider === "google"
+            (restoredSettings.sourceProvider ?? "google") ===
+              params.hostProvider &&
+            getProviderOperations(params.hostProvider).capabilities
+              .albumScope === "supported"
               ? restoredSettings.albumScope
               : undefined
         }
       : restoredSettings
-    const scanResultsValid =
+    const sourceProvider = settings.sourceProvider ?? "google"
+    const isCurrent = () =>
+      sequence === this.restoreSequence && params.isCurrent?.() !== false
+    const cancelledResult = (): RestoredReviewScope => ({
+      settings,
+      checkpoint: null,
+      scanResults: null,
+      selections: null,
+      staleReviewRemoved: false,
+      identityPending: true,
+      cancelled: true
+    })
+    if (!isCurrent()) return cancelledResult()
+    const checkpoint = stored.scanCheckpoint ?? null
+    const scanResultsProviderMatches =
       !stored.scanResults ||
-      params.accountEmail === undefined ||
-      areScanResultsValid(stored.scanResults, {
-        accountEmail: params.accountEmail,
-        sourceProvider: settings.sourceProvider ?? "google"
-      })
+      (stored.scanResults.sourceProvider ?? "google") === sourceProvider
+    const checkpointProviderMatches =
+      !checkpoint ||
+      (checkpoint.settings.sourceProvider ?? "google") === sourceProvider
+    const hasStoredReviewState = Boolean(
+      stored.scanResults || stored.selections || checkpoint
+    )
+    const hasCurrentProviderStoredState = Boolean(
+      (stored.scanResults && scanResultsProviderMatches) ||
+        (checkpoint && checkpointProviderMatches) ||
+        (stored.selections && !stored.scanResults && !checkpoint)
+    )
+    const identityMatchesProvider =
+      params.identityProvider === sourceProvider ||
+      (params.identityProvider === undefined &&
+        (sourceProvider === "google"
+          ? Boolean(params.accountEmail?.trim())
+          : Boolean(params.providerSessionId?.trim())))
+    const identityAvailable =
+      identityMatchesProvider &&
+      (sourceProvider === "google"
+        ? Boolean(params.accountEmail?.trim())
+        : Boolean(params.providerSessionId?.trim()))
 
-    if (!scanResultsValid) {
-      await this.invalidateReview()
+    // Review data and checkpoints can contain private media metadata and
+    // account-scoped decisions. Keep them in storage while the selected
+    // provider identity is still loading, but do not hydrate them into app
+    // state or sanitize/write their selections until that identity is known.
+    if (
+      hasStoredReviewState &&
+      hasCurrentProviderStoredState &&
+      !identityAvailable
+    ) {
       return {
         settings,
-        checkpoint: stored.scanCheckpoint ?? null,
+        checkpoint: null,
         scanResults: null,
         selections: null,
-        staleReviewRemoved: true
+        staleReviewRemoved: false,
+        identityPending: true,
+        cancelled: false
       }
     }
 
-    const deserialized = deserializeSelections(stored.selections)
+    const scanResultsValid =
+      !stored.scanResults ||
+      (scanResultsProviderMatches &&
+        areScanResultsValid(stored.scanResults, {
+          accountEmail: params.accountEmail,
+          sourceProvider,
+          providerSessionId: params.providerSessionId
+        }))
+    const checkpointValid =
+      !checkpoint ||
+      (checkpointProviderMatches &&
+        areScanResultsValid(
+          {
+            accountEmail: checkpoint.accountEmail,
+            sourceProvider,
+            providerSessionId: checkpoint.providerSessionId
+          },
+          {
+            accountEmail: params.accountEmail,
+            sourceProvider,
+            providerSessionId: params.providerSessionId
+          }
+        ))
+
+    if (!scanResultsValid) {
+      if (!isCurrent()) return cancelledResult()
+      await this.invalidateReviewUnqueued(isCurrent, sourceProvider)
+    }
+    if (!checkpointValid) {
+      if (!isCurrent()) return cancelledResult()
+      await this.writeUnqueued(
+        { checkpoint: null },
+        isCurrent,
+        sourceProvider
+      )
+    }
+    if (!scanResultsValid) {
+      return {
+        settings,
+        checkpoint: checkpointValid ? checkpoint : null,
+        scanResults: null,
+        selections: null,
+        staleReviewRemoved: true,
+        identityPending: false,
+        cancelled: false
+      }
+    }
+
+    const hasBoundReviewGroups = Boolean(
+      stored.scanResults && Array.isArray(stored.scanResults.groups)
+    )
+    const orphanedSelections = Boolean(
+      stored.selections && !hasBoundReviewGroups
+    )
+    if (orphanedSelections) {
+      if (!isCurrent()) return cancelledResult()
+      await this.writeUnqueued(
+        { selections: null },
+        isCurrent,
+        sourceProvider
+      )
+    }
+
+    const deserialized = hasBoundReviewGroups
+      ? deserializeSelections(stored.selections)
+      : null
     let selections = deserialized
-    if (deserialized && stored.scanResults?.groups) {
+    if (deserialized && hasBoundReviewGroups && stored.scanResults?.groups) {
       const session = new DuplicateReviewSession({
         groups: stored.scanResults.groups,
         mediaItems: stored.scanResults.mediaItems ?? {},
         selections: deserialized
       })
       selections = session.selections
-      await this.write({ selections: session.serialize() })
+      if (!isCurrent()) return cancelledResult()
+      await this.writeUnqueued(
+        { selections: session.serialize() },
+        isCurrent,
+        sourceProvider
+      )
     }
 
     return {
       settings,
-      checkpoint: stored.scanCheckpoint ?? null,
+      checkpoint: checkpointValid ? checkpoint : null,
       scanResults: stored.scanResults ?? null,
       selections,
-      staleReviewRemoved: false
+      staleReviewRemoved: !checkpointValid || orphanedSelections,
+      identityPending: false,
+      cancelled: false
     }
   }
 
-  async write(patch: StoredReviewScopePatch): Promise<void> {
+  write(
+    patch: StoredReviewScopePatch,
+    isCurrent: () => boolean = () => true,
+    provider?: PhotoProvider
+  ): Promise<void> {
+    return this.storageQueue.run(() =>
+      this.writeUnqueued(patch, isCurrent, provider)
+    )
+  }
+
+  private async writeUnqueued(
+    patch: StoredReviewScopePatch,
+    isCurrent: () => boolean,
+    provider?: PhotoProvider
+  ): Promise<void> {
+    if (!isCurrent()) return
     const values: Record<string, unknown> = {}
     const remove: string[] = []
 
@@ -202,26 +382,59 @@ export class StoredReviewScope {
     }
     assign("settings", patch.settings)
     assign(SCAN_CHECKPOINT_KEY, patch.checkpoint)
-    if (
-      !this.reviewWritesSuppressed ||
-      patch.scanResults === null
-    ) {
+    if (!this.reviewWritesSuppressed || patch.scanResults === null) {
       assign("scanResults", patch.scanResults)
     }
-    if (
-      !this.reviewWritesSuppressed ||
-      patch.selections === null
-    ) {
+    if (!this.reviewWritesSuppressed || patch.selections === null) {
       assign("selections", patch.selections)
     }
 
-    if (Object.keys(values).length > 0) await this.adapter.set(values)
-    if (remove.length > 0) await this.adapter.remove(remove)
+    if (Object.keys(values).length > 0) {
+      if (!isCurrent()) return
+      await this.adapter.set(values, provider)
+    }
+    if (remove.length > 0) {
+      if (!isCurrent()) return
+      await this.adapter.remove(remove, provider)
+    }
   }
 
-  async invalidateReview(): Promise<void> {
+  invalidateReview(
+    isCurrent: () => boolean = () => true,
+    shouldInvalidate?: (stored: Partial<StoredState>) => boolean,
+    provider?: PhotoProvider
+  ): Promise<void> {
+    return this.storageQueue.run(async () => {
+      if (!isCurrent()) return
+      if (shouldInvalidate) {
+        const stored = await this.adapter.get(
+          ["scanResults", "selections"],
+          provider
+        )
+        if (!isCurrent() || !shouldInvalidate(stored)) return
+      }
+      await this.invalidateReviewUnqueued(isCurrent, provider)
+    })
+  }
+
+  private async invalidateReviewUnqueued(
+    isCurrent: () => boolean,
+    provider?: PhotoProvider
+  ): Promise<void> {
+    if (!isCurrent()) return
+    const previousSuppression = this.reviewWritesSuppressed
     this.reviewWritesSuppressed = true
-    await this.write({ scanResults: null, selections: null })
+    try {
+      await this.writeUnqueued(
+        { scanResults: null, selections: null },
+        isCurrent,
+        provider
+      )
+    } finally {
+      if (!isCurrent()) {
+        this.reviewWritesSuppressed = previousSuppression
+      }
+    }
   }
 
   startReview(): void {

@@ -15,6 +15,18 @@ import {
   getProviderCommandPublicKey,
   withProviderCommandCapability
 } from "../lib/provider-command-capability"
+import { attachRuntimeBuildIdentity } from "../lib/runtime-build-identity"
+import { handleRecoveryHistoryTransaction } from "./recovery-history-transactions"
+import {
+  fetchGoogleOriginalHash,
+  GoogleOriginalReviewBudget,
+  GOOGLE_ORIGINAL_ITEM_MAX_BYTES,
+  GOOGLE_ORIGINAL_REVIEW_MAX_BYTES
+} from "../lib/google-original-fetch"
+import {
+  GoogleCompletedScanRegistry,
+  type GoogleOriginalRelayMediaKind
+} from "../lib/google-original-relay"
 import { APP_ID } from "../lib/types"
 import type {
   AppMessage,
@@ -23,6 +35,10 @@ import type {
   GptkProgressMessage,
   GptkResultMessage,
   LaunchProviderResult,
+  ProviderOriginalHashCancelMessage,
+  ProviderOriginalHashFetchMessage,
+  ProviderOriginalHashRelayResponse,
+  RecoveryHistoryTransactionMessage,
   PhotoProvider
 } from "../lib/types"
 
@@ -30,6 +46,45 @@ import type {
 // Routes messages between the app tab and the active photo-provider tab.
 
 const connectionSession = new ProviderConnectionSession()
+const googleCompletedScans = new GoogleCompletedScanRegistry()
+const googleOriginalReviewBudget = new GoogleOriginalReviewBudget()
+const activeSidePanelClientIds = new Set<string>()
+
+interface GoogleOriginalRequestContext {
+  requestId: string
+  appTabId: number | null
+  appClientId?: string
+  providerTabId: number
+  accountEmail: string
+  providerSessionId: string
+  scopeFingerprint: string
+  mediaKey: string
+  mediaKind: GoogleOriginalRelayMediaKind
+  maxBytes: number
+  aggregateBudgetBytes: number
+  used: boolean
+}
+
+interface ActiveGoogleOriginalFetch {
+  context: GoogleOriginalRequestContext
+  controller: AbortController
+  timer: ReturnType<typeof setTimeout>
+  reservation: ReturnType<GoogleOriginalReviewBudget["reserve"]>
+}
+
+const pendingGoogleScanContexts = new Map<
+  string,
+  {
+    appTabId: number | null
+    appClientId?: string
+    providerTabId: number
+    accountEmail: string
+    scopeFingerprint: string
+  }
+>()
+const pendingGoogleOriginalRequests = new Map<string, GoogleOriginalRequestContext>()
+const activeGoogleOriginalFetches = new Map<string, ActiveGoogleOriginalFetch>()
+const knownGoogleProviderSessions = new Map<number, string>()
 
 type ChromeWithSidePanel = typeof chrome & {
   sidePanel?: {
@@ -48,6 +103,7 @@ type ChromeWithSidePanel = typeof chrome & {
 const sidePanelApi = (chrome as ChromeWithSidePanel).sidePanel
 const SIDE_PANEL_PATH = "tabs/scanner-panel.html"
 const GPTK_COMMAND_TIMEOUT_MS = 3500
+const GOOGLE_ORIGINAL_RELAY_TIMEOUT_MS = 60_000
 
 type ManifestWithExternalConnectable = {
   externally_connectable?: {
@@ -193,6 +249,151 @@ function isSidePanelSender(sender: chrome.runtime.MessageSender): boolean {
     sender.url?.includes(SIDE_PANEL_PATH) ||
       sender.tab?.url?.includes(SIDE_PANEL_PATH)
   )
+}
+
+function trustedExtensionUiContext(
+  sender: chrome.runtime.MessageSender,
+  clientId?: string
+): { appTabId: number | null; clientId?: string } | null {
+  if (sender.id !== chrome.runtime.id) return null
+  const senderUrl = sender.url ?? sender.tab?.url
+  if (typeof senderUrl !== "string") return null
+  let parsed: URL
+  try {
+    parsed = new URL(senderUrl)
+  } catch {
+    return null
+  }
+  if (
+    parsed.protocol !== "chrome-extension:" ||
+    parsed.host !== chrome.runtime.id
+  ) {
+    return null
+  }
+  if (parsed.pathname === "/tabs/app.html") {
+    return {
+      appTabId: sender.tab?.id ?? null,
+      ...(clientId ? { clientId } : {})
+    }
+  }
+  if (
+    parsed.pathname === `/${SIDE_PANEL_PATH}` &&
+    typeof clientId === "string" &&
+    clientId.length > 0 &&
+    clientId.length <= 128 &&
+    activeSidePanelClientIds.has(clientId)
+  ) {
+    return { appTabId: null, clientId }
+  }
+  return null
+}
+
+function normalizedEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const normalized = value.trim().toLowerCase()
+  return normalized.length > 0 && normalized.length <= 320 ? normalized : null
+}
+
+function validGoogleOriginalKind(value: unknown): value is GoogleOriginalRelayMediaKind {
+  return value === "photo" || value === "video" || value === "live-photo"
+}
+
+function validScopeFingerprint(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    value.trim() === value &&
+    !/[\u0000-\u001f\u007f]/.test(value)
+  )
+}
+
+function isGooglePhotosPageSender(sender: chrome.runtime.MessageSender): boolean {
+  if (sender.id !== chrome.runtime.id || sender.frameId !== 0) return false
+  const pageUrl = sender.url ?? sender.tab?.url
+  if (typeof pageUrl !== "string") return false
+  try {
+    const parsed = new URL(pageUrl)
+    return parsed.protocol === "https:" && parsed.hostname === "photos.google.com"
+  } catch {
+    return false
+  }
+}
+
+function sameOriginalRequest(
+  context: GoogleOriginalRequestContext,
+  message: Pick<ProviderOriginalHashFetchMessage, "requestId" | "providerSessionId" | "scanScopeFingerprint" | "mediaKey" | "mediaKind" | "maxBytes" | "aggregateBudgetBytes">
+): boolean {
+  return (
+    context.requestId === message.requestId &&
+    context.providerSessionId === message.providerSessionId &&
+    context.scopeFingerprint === message.scanScopeFingerprint &&
+    context.mediaKey === message.mediaKey &&
+    context.mediaKind === message.mediaKind &&
+    context.maxBytes === message.maxBytes &&
+    context.aggregateBudgetBytes === message.aggregateBudgetBytes
+  )
+}
+
+function abortGoogleOriginalFetch(requestId: string): void {
+  const active = activeGoogleOriginalFetches.get(requestId)
+  if (!active) return
+  active.controller.abort()
+  clearTimeout(active.timer)
+  active.reservation.release()
+}
+
+function cancelGoogleOriginalRequestsForOwner(
+  appTabId: number | null,
+  clientId: string | undefined,
+  providerTabId: number
+): void {
+  for (const [requestId, context] of pendingGoogleOriginalRequests) {
+    if (
+      context.appTabId === appTabId &&
+      context.appClientId === clientId &&
+      context.providerTabId === providerTabId
+    ) {
+      abortGoogleOriginalFetch(requestId)
+      pendingGoogleOriginalRequests.delete(requestId)
+    }
+  }
+  for (const [requestId, context] of pendingGoogleScanContexts) {
+    if (
+      context.appTabId === appTabId &&
+      context.appClientId === clientId &&
+      context.providerTabId === providerTabId
+    ) {
+      pendingGoogleScanContexts.delete(requestId)
+    }
+  }
+  googleCompletedScans.invalidateOwner(appTabId, clientId, providerTabId)
+}
+
+function invalidateGoogleProviderTab(providerTabId: number): void {
+  googleCompletedScans.invalidateProviderTab(providerTabId)
+  knownGoogleProviderSessions.delete(providerTabId)
+  for (const [requestId, context] of pendingGoogleOriginalRequests) {
+    if (context.providerTabId !== providerTabId) continue
+    abortGoogleOriginalFetch(requestId)
+    pendingGoogleOriginalRequests.delete(requestId)
+  }
+  for (const [requestId, context] of pendingGoogleScanContexts) {
+    if (context.providerTabId === providerTabId) {
+      pendingGoogleScanContexts.delete(requestId)
+    }
+  }
+}
+
+function rememberGoogleProviderSession(
+  providerTabId: number,
+  providerSessionId: string
+): void {
+  const previous = knownGoogleProviderSessions.get(providerTabId)
+  if (previous && previous !== providerSessionId) {
+    invalidateGoogleProviderTab(providerTabId)
+  }
+  knownGoogleProviderSessions.set(providerTabId, providerSessionId)
 }
 
 // ============================================================
@@ -429,23 +630,17 @@ async function ensureProviderBridge(
   }
 }
 
-async function getReachableMappedProviderTabId(
-  senderTabId: number,
-  provider: PhotoProvider = "google"
+async function resolveProviderTab(
+  appTabId: number | null,
+  provider: PhotoProvider
 ): Promise<number | null> {
-  const mappedTabId = connectionSession.mappedProviderTabId(
-    senderTabId,
-    provider
-  )
-  if (mappedTabId === null) return null
-
-  try {
-    if (!(await ensureProviderBridge(mappedTabId, provider))) throw new Error()
-    return mappedTabId
-  } catch {
-    connectionSession.forgetProviderTab(senderTabId)
-    return null
-  }
+  return connectionSession.resolveProviderTab(appTabId, provider, {
+    ensureReachable: ensureProviderBridge,
+    async findProviderTab(requestedProvider, preferredTabId) {
+      const tab = await findProviderTab(requestedProvider, preferredTabId)
+      return tab && hasTabId(tab) ? tab.id : null
+    }
+  })
 }
 
 /**
@@ -478,7 +673,10 @@ function sendToAppContext(
   message: AppMessage,
   clientId?: string
 ): void {
-  const targetedMessage = appMessage(message, clientId)
+  const targetedMessage = attachRuntimeBuildIdentity(
+    appMessage(message, clientId),
+    chrome.runtime
+  )
   if (tabId !== null) {
     Promise.resolve(chrome.tabs.sendMessage(tabId, targetedMessage)).catch(
       () => {
@@ -494,34 +692,6 @@ function sendToAppContext(
   if (clientId) {
     Promise.resolve(chrome.runtime.sendMessage(targetedMessage)).catch(() => {})
   }
-}
-
-async function getMappedProviderTabId(
-  senderTabId: number | null,
-  provider: PhotoProvider
-): Promise<number | null> {
-  if (senderTabId !== null) {
-    return getReachableMappedProviderTabId(senderTabId, provider)
-  }
-  const providerTabId = connectionSession.mappedProviderTabId(null, provider)
-  if (providerTabId === null) return null
-  try {
-    if (!(await ensureProviderBridge(providerTabId, provider))) {
-      throw new Error()
-    }
-    return providerTabId
-  } catch {
-    connectionSession.forgetProviderTab(null)
-    return null
-  }
-}
-
-function rememberProviderTab(
-  appTabId: number | null,
-  providerTabId: number,
-  provider: PhotoProvider
-): void {
-  connectionSession.remember(appTabId, providerTabId, provider)
 }
 
 async function openSidePanelForTab(tabId: number): Promise<boolean> {
@@ -559,6 +729,9 @@ chrome.tabs.onActivated?.addListener((activeInfo) => {
 })
 
 chrome.tabs.onUpdated?.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url && providerMatchesUrl(changeInfo.url, "google")) {
+    invalidateGoogleProviderTab(tabId)
+  }
   if (!tab.active && changeInfo.status !== "complete") return
   enableSidePanelForTab(tabId).catch((error) => {
     console.warn("[GPD] unable to enable updated tab side panel", error)
@@ -935,31 +1108,43 @@ async function sendIcloudDirectScan(
       results
         .map((result) => result.result ?? [])
         .sort((a, b) => b.length - a.length)[0] ?? []
-    chrome.tabs.sendMessage(appTabId, {
-      app: APP_ID,
-      action: "gptkProgress",
-      command: message.command,
-      requestId: message.requestId,
-      itemsProcessed: items.length,
-      message: `Collected ${items.length} loaded iCloud items from the page`
-    } as GptkProgressMessage)
-    chrome.tabs.sendMessage(appTabId, {
-      app: APP_ID,
-      action: "gptkResult",
-      command: message.command,
-      requestId: message.requestId,
-      success: true,
-      data: items
-    } as GptkResultMessage)
+    sendToAppContext(
+      appTabId,
+      {
+        app: APP_ID,
+        action: "gptkProgress",
+        command: message.command,
+        requestId: message.requestId,
+        itemsProcessed: items.length,
+        message: `Collected ${items.length} loaded iCloud items from the page`
+      } as GptkProgressMessage,
+      message.clientId
+    )
+    sendToAppContext(
+      appTabId,
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: message.command,
+        requestId: message.requestId,
+        success: true,
+        data: items
+      } as GptkResultMessage,
+      message.clientId
+    )
   } catch (error) {
-    chrome.tabs.sendMessage(appTabId, {
-      app: APP_ID,
-      action: "gptkResult",
-      command: message.command,
-      requestId: message.requestId,
-      success: false,
-      error: error instanceof Error ? error.message : String(error)
-    } as GptkResultMessage)
+    sendToAppContext(
+      appTabId,
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: message.command,
+        requestId: message.requestId,
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      } as GptkResultMessage,
+      message.clientId
+    )
   } finally {
     connectionSession.cancelCommand(message.requestId)
   }
@@ -1000,7 +1185,9 @@ async function sendGptkCommand(
         reject(error)
       },
       appTabId: null,
-      providerTabId: gpTabId
+      providerTabId: gpTabId,
+      provider,
+      command
     })
     const delivery =
       provider === "icloud"
@@ -1036,12 +1223,26 @@ chrome.runtime.onConnect.addListener((port) => {
       activeTabId?: number
     }
     if (payload?.app !== APP_ID || payload.action !== "sidePanel.ready") return
-    clientId = payload.clientId
+    if (
+      typeof payload.clientId === "string" &&
+      payload.clientId.length > 0 &&
+      payload.clientId.length <= 128
+    ) {
+      clientId = payload.clientId
+      activeSidePanelClientIds.add(clientId)
+    }
     if (typeof payload.activeTabId === "number") {
       connectionSession.setHostTab(payload.activeTabId)
     }
   })
   port.onDisconnect.addListener(() => {
+    if (clientId) {
+      activeSidePanelClientIds.delete(clientId)
+      const providerTabId = connectionSession.mappedProviderTabId(null, "google")
+      if (providerTabId !== null) {
+        cancelGoogleOriginalRequestsForOwner(null, clientId, providerTabId)
+      }
+    }
     stopPendingCommandsForSidePanel(clientId)
   })
 })
@@ -1107,6 +1308,25 @@ chrome.runtime.onMessage.addListener(
       case "gptkProgress":
         handleGptkProgress(message as GptkProgressMessage, sender)
         break
+      case "providerOriginalHash.fetch":
+        void handleGoogleOriginalHashFetch(
+          message as ProviderOriginalHashFetchMessage,
+          sender,
+          sendResponse
+        )
+        return true
+      case "providerOriginalHash.cancel":
+        handleGoogleOriginalHashCancel(
+          message as ProviderOriginalHashCancelMessage,
+          sender
+        )
+        break
+      case "recoveryHistory.transaction":
+        void handleRecoveryHistoryTransaction(
+          message as RecoveryHistoryTransactionMessage,
+          sender
+        ).then(sendResponse)
+        return true
     }
   }
 )
@@ -1169,8 +1389,7 @@ async function handleLaunchProvider(
     )
   }
 
-  rememberProviderTab(null, providerTab.id, provider)
-  connectionSession.setHostTab(providerTab.id)
+  connectionSession.rememberSidePanelProvider(providerTab.id, provider)
   try {
     await openSidePanelForTab(providerTab.id)
   } catch (error) {
@@ -1194,11 +1413,8 @@ async function handleHealthCheck(
   const senderTabId = await getSenderTabId(sender)
   const clientId = message.clientId
 
-  const providerTab = await findProviderTab(
-    provider,
-    connectionSession.hostTabId
-  )
-  if (!providerTab || !hasTabId(providerTab)) {
+  const providerTabId = await resolveProviderTab(senderTabId, provider)
+  if (providerTabId === null) {
     sendToAppContext(
       senderTabId,
       {
@@ -1214,28 +1430,24 @@ async function handleHealthCheck(
     return
   }
 
-  rememberProviderTab(senderTabId, providerTab.id, provider)
-
   try {
-    let result = await sendGptkCommand(
-      providerTab.id,
-      "healthCheck",
-      undefined,
-      provider
-    )
-    let r = result as { hasGptk: boolean; accountEmail?: string }
-    if (provider === "google" && !r.hasGptk) {
-      const injected = await ensureGoogleMainWorldScripts(providerTab.id)
-      if (injected) {
-        result = await sendGptkCommand(
-          providerTab.id,
-          "healthCheck",
-          undefined,
-          provider
-        )
-        r = result as { hasGptk: boolean; accountEmail?: string }
+    const outcome = await connectionSession.checkProviderHealth(
+      providerTabId,
+      provider,
+      {
+        async check(tabId, requestedProvider) {
+          return (await sendGptkCommand(
+            tabId,
+            "healthCheck",
+            undefined,
+            requestedProvider
+          )) as GptkResultMessage
+        },
+        ensureGoogleMainWorldScripts,
+        rememberGoogleSession: rememberGoogleProviderSession,
+        invalidateGoogleSession: invalidateGoogleProviderTab
       }
-    }
+    )
     sendToAppContext(
       senderTabId,
       {
@@ -1243,9 +1455,7 @@ async function handleHealthCheck(
         action: "healthCheck.result",
         provider,
         requestId,
-        success: Boolean(r.hasGptk),
-        hasGptk: r.hasGptk,
-        accountEmail: r.accountEmail
+        ...outcome
       },
       clientId
     )
@@ -1272,14 +1482,124 @@ async function handleGptkCommand(
 ): Promise<void> {
   const senderTabId = await getSenderTabId(sender)
   const provider = message.provider ?? "google"
+  const trustedUiBase = trustedExtensionUiContext(sender, message.clientId)
+  const trustedUi = trustedUiBase
+    ? { ...trustedUiBase, appTabId: senderTabId }
+    : null
+  const retrievalCommand =
+    provider === "google" &&
+    (message.command === "getOriginalContentHash" ||
+      message.command === "getVideoPlaybackUrl")
 
-  let providerTabId = await getMappedProviderTabId(senderTabId, provider)
-  if (providerTabId === null) {
-    const providerTab = await findProviderTab(
-      provider,
-      connectionSession.hostTabId
+  if (retrievalCommand && !trustedUi) {
+    sendToAppContext(
+      senderTabId,
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: message.command,
+        requestId: message.requestId,
+        provider,
+        success: false,
+        error: "Original media is available only from the active PhotoSweep review."
+      },
+      message.clientId
     )
-    if (!providerTab || !hasTabId(providerTab)) {
+    return
+  }
+
+  const providerTabId = await resolveProviderTab(senderTabId, provider)
+  if (providerTabId === null) {
+    sendToAppContext(
+      senderTabId,
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: message.command,
+        requestId: message.requestId,
+        provider,
+        success: false,
+        error: `${providerName(provider)} tab not found. Please open ${providerOpenUrl(provider)}.`
+      } as GptkResultMessage,
+      message.clientId
+    )
+    return
+  }
+
+  const commandArgs =
+    message.args && typeof message.args === "object"
+      ? (message.args as Record<string, unknown>)
+      : {}
+
+  if (provider === "google" && message.command === "getAllMediaItems") {
+    cancelGoogleOriginalRequestsForOwner(
+      senderTabId,
+      trustedUi?.clientId,
+      providerTabId
+    )
+    const accountEmail = normalizedEmail(commandArgs.accountEmail)
+    if (
+      trustedUi &&
+      accountEmail &&
+      validScopeFingerprint(commandArgs.scanScopeFingerprint)
+    ) {
+      pendingGoogleScanContexts.set(message.requestId, {
+        appTabId: senderTabId,
+        ...(trustedUi.clientId ? { appClientId: trustedUi.clientId } : {}),
+        providerTabId,
+        accountEmail,
+        scopeFingerprint: commandArgs.scanScopeFingerprint
+      })
+    }
+  }
+
+  if (retrievalCommand) {
+    const accountEmail = normalizedEmail(commandArgs.accountEmail)
+    const mediaKind = commandArgs.mediaKind
+    const mediaKey = commandArgs.mediaKey
+    const providerSessionId = commandArgs.providerSessionId
+    const scopeFingerprint = commandArgs.scanScopeFingerprint
+    const expectedMediaKind = validGoogleOriginalKind(mediaKind)
+      ? mediaKind
+      : null
+    const argsMatch = Boolean(
+      trustedUi &&
+        commandArgs.userOptIn === true &&
+        commandArgs.requestId === message.requestId &&
+        accountEmail &&
+        typeof providerSessionId === "string" &&
+        providerSessionId.length > 0 &&
+        validScopeFingerprint(scopeFingerprint) &&
+        typeof mediaKey === "string" &&
+        mediaKey.length > 0 &&
+        expectedMediaKind &&
+        (message.command !== "getVideoPlaybackUrl" ||
+          expectedMediaKind === "video")
+    )
+    const item = argsMatch
+      ? googleCompletedScans.hasItem({
+          appTabId: senderTabId,
+          ...(trustedUi?.clientId ? { clientId: trustedUi.clientId } : {}),
+          providerTabId,
+          provider: "google",
+          accountEmail: accountEmail!,
+          providerSessionId: providerSessionId as string,
+          scopeFingerprint: scopeFingerprint as string,
+          mediaKey: mediaKey as string,
+          expectedMediaKind: expectedMediaKind!
+        })
+      : null
+    const hashLimitsValid =
+      message.command !== "getOriginalContentHash" ||
+      (Number.isSafeInteger(commandArgs.maxBytes) &&
+        (commandArgs.maxBytes as number) >= 1 &&
+        (commandArgs.maxBytes as number) <= GOOGLE_ORIGINAL_ITEM_MAX_BYTES &&
+        Number.isSafeInteger(commandArgs.aggregateBudgetBytes) &&
+        (commandArgs.aggregateBudgetBytes as number) >= 1 &&
+        (commandArgs.aggregateBudgetBytes as number) <=
+          GOOGLE_ORIGINAL_REVIEW_MAX_BYTES)
+
+    if (!argsMatch || !item || !hashLimitsValid || !expectedMediaKind) {
       sendToAppContext(
         senderTabId,
         {
@@ -1287,27 +1607,85 @@ async function handleGptkCommand(
           action: "gptkResult",
           command: message.command,
           requestId: message.requestId,
+          provider,
           success: false,
-          error: `${providerName(provider)} tab not found. Please open ${providerOpenUrl(provider)}.`
-        } as GptkResultMessage,
+          error: "The Google Photos item is outside the active scanned review. Scan again before retrieving media."
+        },
         message.clientId
       )
       return
     }
-    providerTabId = providerTab.id
-    rememberProviderTab(senderTabId, providerTabId, provider)
+
+    if (message.command === "getOriginalContentHash") {
+      pendingGoogleOriginalRequests.set(message.requestId, {
+        requestId: message.requestId,
+        appTabId: senderTabId,
+        ...(trustedUi?.clientId ? { appClientId: trustedUi.clientId } : {}),
+        providerTabId,
+        accountEmail: accountEmail!,
+        providerSessionId: providerSessionId as string,
+        scopeFingerprint: scopeFingerprint as string,
+        mediaKey: mediaKey as string,
+        mediaKind: expectedMediaKind,
+        maxBytes: commandArgs.maxBytes as number,
+        aggregateBudgetBytes: commandArgs.aggregateBudgetBytes as number,
+        used: false
+      })
+    }
   }
 
-  const routedMessage = await withProviderCommandCapability({
-    ...message,
-    provider
-  })
+  if (message.command === "cancelProviderRequest" && provider === "google") {
+    const targetRequestId = commandArgs.targetRequestId
+    const target =
+      typeof targetRequestId === "string"
+        ? pendingGoogleOriginalRequests.get(targetRequestId)
+        : undefined
+    if (
+      target &&
+      trustedUi &&
+      target.appTabId === senderTabId &&
+      target.appClientId === trustedUi.clientId &&
+      target.providerTabId === providerTabId &&
+      target.providerSessionId === commandArgs.providerSessionId &&
+      target.scopeFingerprint === commandArgs.scanScopeFingerprint
+    ) {
+      abortGoogleOriginalFetch(target.requestId)
+      pendingGoogleOriginalRequests.delete(target.requestId)
+    }
+  }
+
+  let routedMessage: GptkCommandMessage
+  try {
+    routedMessage = await withProviderCommandCapability({
+      ...message,
+      provider
+    })
+  } catch {
+    pendingGoogleScanContexts.delete(message.requestId)
+    pendingGoogleOriginalRequests.delete(message.requestId)
+    sendToAppContext(
+      senderTabId,
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: message.command,
+        requestId: message.requestId,
+        provider,
+        success: false,
+        error: "The provider command could not be authorized. Reload the provider tab and try again."
+      },
+      message.clientId
+    )
+    return
+  }
 
   connectionSession.startCommand(message.requestId, {
     resolve: () => {},
     reject: () => {},
     appTabId: senderTabId,
     providerTabId,
+    provider,
+    command: message.command,
     appClientId: message.clientId
   })
 
@@ -1360,6 +1738,9 @@ async function handleGptkCommand(
   }
 
   chrome.tabs.sendMessage(providerTabId, routedMessage).catch(() => {
+    pendingGoogleScanContexts.delete(message.requestId)
+    pendingGoogleOriginalRequests.delete(message.requestId)
+    abortGoogleOriginalFetch(message.requestId)
     sendToAppContext(
       senderTabId,
       {
@@ -1380,20 +1761,291 @@ function handleGptkResult(
   message: GptkResultMessage,
   sender: chrome.runtime.MessageSender
 ): void {
-  const pending = connectionSession.pendingCommand(message.requestId)
-  if (!pending || sender.tab?.id !== pending.providerTabId) return
+  const pending = connectionSession.commandFromProvider(
+    message.requestId,
+    sender.tab?.id
+  )
+  if (!pending) return
+
+  // A successful original hash is an assertion about bytes read by this
+  // worker. Page-world messages are observable and forgeable, so only the
+  // worker's bounded fetch handler may finish a successful hash command.
+  if (
+    pending.provider === "google" &&
+    pending.command === "getOriginalContentHash" &&
+    message.success === true
+  ) {
+    return
+  }
 
   const finished = connectionSession.finishCommand(message.requestId)
   if (!finished) return
 
-  // Relay result to the app tab
-  sendToAppContext(finished.appTabId, message, finished.appClientId)
+  const responseMatchesRequest =
+    (!finished.command || message.command === finished.command) &&
+    (!message.provider || !finished.provider || message.provider === finished.provider)
+  const routedResult: GptkResultMessage = responseMatchesRequest
+    ? { ...message, ...(finished.provider ? { provider: finished.provider } : {}) }
+    : {
+        app: APP_ID,
+        action: "gptkResult",
+        command: finished.command ?? message.command,
+        requestId: message.requestId,
+        provider: finished.provider,
+        success: false,
+        error: "The provider response did not match the routed command."
+      }
+
+  const scanContext = pendingGoogleScanContexts.get(message.requestId)
+  pendingGoogleScanContexts.delete(message.requestId)
+  if (
+    responseMatchesRequest &&
+    routedResult.success &&
+    finished.provider === "google" &&
+    finished.command === "getAllMediaItems" &&
+    scanContext &&
+    scanContext.providerTabId === finished.providerTabId &&
+    scanContext.appTabId === finished.appTabId &&
+    scanContext.appClientId === finished.appClientId &&
+    routedResult.providerSessionId &&
+    (routedResult.scanCoverage?.status === "complete" ||
+      routedResult.scanCoverage?.status === "partial") &&
+    Array.isArray(routedResult.data)
+  ) {
+    rememberGoogleProviderSession(
+      scanContext.providerTabId,
+      routedResult.providerSessionId
+    )
+    googleCompletedScans.register({
+      appTabId: scanContext.appTabId,
+      ...(scanContext.appClientId ? { clientId: scanContext.appClientId } : {}),
+      providerTabId: scanContext.providerTabId,
+      provider: "google",
+      accountEmail: scanContext.accountEmail,
+      providerSessionId: routedResult.providerSessionId,
+      scopeFingerprint: scanContext.scopeFingerprint,
+      coverageStatus: routedResult.scanCoverage.status,
+      mediaItems: routedResult.data
+    })
+  }
+
+  if (
+    finished.provider === "google" &&
+    (finished.command === "getOriginalContentHash" ||
+      finished.command === "getVideoPlaybackUrl")
+  ) {
+    abortGoogleOriginalFetch(message.requestId)
+    pendingGoogleOriginalRequests.delete(message.requestId)
+  }
+
+  // The worker stamps the provider identity from the exact routed tab; provider
+  // page payloads cannot choose how the app binds a retrieval response.
+  sendToAppContext(finished.appTabId, routedResult, finished.appClientId)
 
   // Resolve/reject the promise if anyone is awaiting
-  if (message.success) {
-    finished.resolve(message.data)
+  if (routedResult.success) {
+  finished.resolve(routedResult)
   } else {
-    finished.reject(message.error || "Unknown error")
+    finished.reject(routedResult.error || "Unknown error")
+  }
+}
+
+function googleOriginalRelayResponse(
+  message: ProviderOriginalHashFetchMessage,
+  success: boolean,
+  data?: ProviderOriginalHashRelayResponse["data"]
+): ProviderOriginalHashRelayResponse {
+  return {
+    requestId: message.requestId,
+    providerSessionId: message.providerSessionId,
+    scanScopeFingerprint: message.scanScopeFingerprint,
+    mediaKey: message.mediaKey,
+    success,
+    ...(success && data ? { data } : {}),
+    ...(!success
+      ? { error: "The original could not be verified. The item remains unverified." }
+      : {})
+  }
+}
+
+function routeGoogleOriginalHashResult(
+  context: GoogleOriginalRequestContext,
+  success: boolean,
+  data?: ProviderOriginalHashRelayResponse["data"]
+): void {
+  const pending = connectionSession.pendingCommand(context.requestId)
+  if (
+    !pending ||
+    pending.command !== "getOriginalContentHash" ||
+    pending.provider !== "google" ||
+    pending.providerTabId !== context.providerTabId ||
+    pending.appTabId !== context.appTabId ||
+    pending.appClientId !== context.appClientId
+  ) {
+    return
+  }
+
+  const finished = connectionSession.finishCommand(context.requestId)
+  if (!finished) return
+  pendingGoogleOriginalRequests.delete(context.requestId)
+
+  const error = "The original could not be verified. The item remains unverified."
+  const result: GptkResultMessage = {
+    app: APP_ID,
+    action: "gptkResult",
+    command: "getOriginalContentHash",
+    requestId: context.requestId,
+    provider: "google",
+    providerSessionId: context.providerSessionId,
+    success: success && data !== undefined,
+    ...(success && data ? { data } : { error })
+  }
+  sendToAppContext(finished.appTabId, result, finished.appClientId)
+  if (result.success) finished.resolve(result)
+  else finished.reject(error)
+}
+
+async function handleGoogleOriginalHashFetch(
+  message: ProviderOriginalHashFetchMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: unknown) => void
+): Promise<void> {
+  const pendingCommand = connectionSession.pendingCommand(message.requestId)
+  const context = pendingGoogleOriginalRequests.get(message.requestId)
+  const matches = Boolean(
+    pendingCommand &&
+      pendingCommand.command === "getOriginalContentHash" &&
+      pendingCommand.provider === "google" &&
+      context &&
+      sameOriginalRequest(context, message) &&
+      message.provider === "google" &&
+      sender.tab?.id === context.providerTabId &&
+      isGooglePhotosPageSender(sender) &&
+      !context.used
+  )
+  if (!matches || !context) {
+    sendResponse(googleOriginalRelayResponse(message, false))
+    return
+  }
+
+  const item = googleCompletedScans.hasItem({
+    appTabId: context.appTabId,
+    ...(context.appClientId ? { clientId: context.appClientId } : {}),
+    providerTabId: context.providerTabId,
+    provider: "google",
+    accountEmail: context.accountEmail,
+    providerSessionId: context.providerSessionId,
+    scopeFingerprint: context.scopeFingerprint,
+    mediaKey: context.mediaKey,
+    expectedMediaKind: context.mediaKind
+  })
+  if (!item) {
+    context.used = true
+    sendResponse(googleOriginalRelayResponse(message, false))
+    return
+  }
+
+  // Claim the one-use in-flight provider URL before any validation or fetch.
+  // A page cannot retry the same request ID with a different URL.
+  context.used = true
+  let reservation: ReturnType<GoogleOriginalReviewBudget["reserve"]>
+  try {
+    reservation = googleOriginalReviewBudget.reserve(
+      JSON.stringify([
+        context.accountEmail,
+        context.providerSessionId,
+        context.scopeFingerprint
+      ]),
+      context.maxBytes,
+      context.aggregateBudgetBytes,
+      item.size
+    )
+  } catch {
+    sendResponse(googleOriginalRelayResponse(message, false))
+    return
+  }
+
+  const controller = new AbortController()
+  const active: ActiveGoogleOriginalFetch = {
+    context,
+    controller,
+    timer: setTimeout(
+      () => controller.abort(),
+      GOOGLE_ORIGINAL_RELAY_TIMEOUT_MS
+    ),
+    reservation
+  }
+  activeGoogleOriginalFetches.set(message.requestId, active)
+
+  try {
+    const data = await fetchGoogleOriginalHash({
+      resourceUrl: message.resourceUrl,
+      mediaKey: context.mediaKey,
+      scopeFingerprint: context.scopeFingerprint,
+      mediaKind: context.mediaKind,
+      maxBytes: reservation.maxBytes,
+      expectedByteLength: item.size,
+      expectedMimeType: item.mimeType,
+      signal: controller.signal,
+      onFetchStart: () => reservation.start(),
+      onBytesReceived: (byteLength) => reservation.consume(byteLength)
+    })
+    const isStillCurrent =
+      activeGoogleOriginalFetches.get(message.requestId) === active &&
+      connectionSession.pendingCommand(message.requestId) === pendingCommand &&
+      googleCompletedScans.hasItem({
+        appTabId: context.appTabId,
+        ...(context.appClientId ? { clientId: context.appClientId } : {}),
+        providerTabId: context.providerTabId,
+        provider: "google",
+        accountEmail: context.accountEmail,
+        providerSessionId: context.providerSessionId,
+        scopeFingerprint: context.scopeFingerprint,
+        mediaKey: context.mediaKey,
+        expectedMediaKind: context.mediaKind
+      }) !== null
+    if (!isStillCurrent || controller.signal.aborted) {
+      reservation.release()
+      routeGoogleOriginalHashResult(context, false)
+      sendResponse(googleOriginalRelayResponse(message, false))
+      return
+    }
+    reservation.complete(data.byteLength)
+    routeGoogleOriginalHashResult(context, true, data)
+    sendResponse(googleOriginalRelayResponse(message, true, data))
+  } catch {
+    reservation.release()
+    routeGoogleOriginalHashResult(context, false)
+    sendResponse(googleOriginalRelayResponse(message, false))
+  } finally {
+    clearTimeout(active.timer)
+    if (activeGoogleOriginalFetches.get(message.requestId) === active) {
+      activeGoogleOriginalFetches.delete(message.requestId)
+    }
+  }
+}
+
+function handleGoogleOriginalHashCancel(
+  message: ProviderOriginalHashCancelMessage,
+  sender: chrome.runtime.MessageSender
+): void {
+  if (
+    message.provider !== "google" ||
+    sender.tab?.id === undefined ||
+    sender.tab.id === null ||
+    !isGooglePhotosPageSender(sender)
+  ) {
+    return
+  }
+  const active = activeGoogleOriginalFetches.get(message.requestId)
+  if (
+    active &&
+    active.context.providerTabId === sender.tab.id &&
+    active.context.providerSessionId === message.providerSessionId &&
+    active.context.scopeFingerprint === message.scanScopeFingerprint &&
+    active.context.mediaKey === message.mediaKey
+  ) {
+    abortGoogleOriginalFetch(message.requestId)
   }
 }
 
@@ -1401,8 +2053,11 @@ function handleGptkProgress(
   message: GptkProgressMessage,
   sender: chrome.runtime.MessageSender
 ): void {
-  const pending = connectionSession.pendingCommand(message.requestId)
-  if (!pending || sender.tab?.id !== pending.providerTabId) return
+  const pending = connectionSession.commandFromProvider(
+    message.requestId,
+    sender.tab?.id
+  )
+  if (!pending) return
 
   // Relay progress to the app tab
   sendToAppContext(pending.appTabId, message, pending.appClientId)
@@ -1414,7 +2069,18 @@ function handleGptkProgress(
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   const mappedTabId = connectionSession.removeTab(tabId)
+  googleCompletedScans.invalidateAppTab(tabId)
+  invalidateGoogleProviderTab(tabId)
+  for (const [requestId, context] of pendingGoogleOriginalRequests) {
+    if (context.appTabId !== tabId) continue
+    abortGoogleOriginalFetch(requestId)
+    pendingGoogleOriginalRequests.delete(requestId)
+  }
+  for (const [requestId, context] of pendingGoogleScanContexts) {
+    if (context.appTabId === tabId) pendingGoogleScanContexts.delete(requestId)
+  }
   if (mappedTabId !== null) {
+    invalidateGoogleProviderTab(mappedTabId)
     // If a GP tab closed, notify the app tab
     chrome.tabs
       .sendMessage(mappedTabId, {

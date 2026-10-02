@@ -72,6 +72,14 @@ export function isTrustedContentHash(
   const candidate = value as Partial<ContentHashEvidence>
   const hash = typeof candidate.value === "string" ? candidate.value.trim() : ""
   if (!hash || candidate.provenance !== "original-content") return false
+  if (
+    candidate.verificationSource !== undefined &&
+    candidate.verificationSource !== "local-original-bytes" &&
+    candidate.verificationSource !== "provider-fingerprint" &&
+    candidate.verificationSource !== "provider-checksum"
+  ) {
+    return false
+  }
 
   if (candidate.algorithm === "md5") return /^[a-f0-9]{32}$/i.test(hash)
   if (candidate.algorithm === "sha256") return /^[a-f0-9]{64}$/i.test(hash)
@@ -87,16 +95,102 @@ export function getTrustedContentHash(
   return isTrustedContentHash(item.contentHash) ? item.contentHash : null
 }
 
-function hashIdentity(hash: ContentHashEvidence): string {
-  return `${hash.algorithm}:${hash.provenance}:${hash.value.trim().toLowerCase()}`
+export function normalizedMediaKind(item: GpdMediaItem):
+  | "photo"
+  | "video"
+  | "live-photo"
+  | "unknown" {
+  if (item.mediaKind) return item.mediaKind
+  if (Number.isFinite(item.duration) && (item.duration ?? 0) > 0) return "video"
+  return "photo"
 }
 
-function hasSameTrustedContentHash(items: GpdMediaItem[]): boolean {
-  const hashes = items.map(getTrustedContentHash)
+function normalizedHashValue(value: string): string {
+  const trimmed = value.trim()
+  return /^[a-f0-9]+$/i.test(trimmed) ? trimmed.toLowerCase() : trimmed
+}
+
+/**
+ * Candidate buckets are source- and media-kind-scoped. Only locally computed
+ * SHA-256 over original bytes deliberately shares a namespace across providers.
+ */
+export function contentHashBucketIdentity(item: GpdMediaItem): string | null {
+  const hash = getTrustedContentHash(item)
+  const mediaKind = normalizedMediaKind(item)
+  if (!hash || mediaKind === "unknown") return null
+
+  const isLocalOriginalSha256 =
+    hash.algorithm === "sha256" &&
+    hash.verificationSource === "local-original-bytes"
+  const unpairedLivePhoto =
+    mediaKind === "live-photo" && hash.contentRole !== "paired-live-photo"
+  if ((!isLocalOriginalSha256 || unpairedLivePhoto) && !item.provider) {
+    return null
+  }
+
+  const namespace =
+    isLocalOriginalSha256 && !unpairedLivePhoto
+      ? "cross-provider:local-original-bytes"
+      : `provider:${item.provider}:${unpairedLivePhoto ? "unpaired-live-photo" : hash.verificationSource ?? "legacy-source-unknown"}`
+  return [
+    namespace,
+    mediaKind,
+    hash.algorithm,
+    hash.provenance,
+    normalizedHashValue(hash.value)
+  ].join(":")
+}
+
+export function verifiedContentHashIdentity(item: GpdMediaItem): string | null {
+  const hash = getTrustedContentHash(item)
+  if (
+    !hash ||
+    hash.algorithm !== "sha256" ||
+    hash.verificationSource !== "local-original-bytes"
+  ) {
+    return null
+  }
+  const mediaKind = normalizedMediaKind(item)
+  if (mediaKind === "unknown") return null
+  if (
+    mediaKind === "live-photo" &&
+    hash.contentRole !== "paired-live-photo"
+  ) {
+    return null
+  }
+  return [
+    "cross-provider:local-original-bytes",
+    mediaKind,
+    hash.algorithm,
+    hash.provenance,
+    normalizedHashValue(hash.value)
+  ].join(":")
+}
+
+export function legacyContentHashBucketIdentity(
+  item: GpdMediaItem
+): string | null {
+  const hash = item.exactContentHash?.trim()
+  const mediaKind = normalizedMediaKind(item)
+  if (!hash || !item.provider || mediaKind === "unknown") return null
+  return `provider:${item.provider}:legacy:${mediaKind}:${normalizedHashValue(hash)}`
+}
+
+function hasSameVerifiedContentHash(items: GpdMediaItem[]): boolean {
+  const identities = items.map(verifiedContentHashIdentity)
   return (
-    hashes.length > 1 &&
-    hashes.every((hash): hash is ContentHashEvidence => Boolean(hash)) &&
-    allSame(hashes.map(hashIdentity))
+    identities.length > 1 &&
+    identities.every((identity): identity is string => Boolean(identity)) &&
+    allSame(identities)
+  )
+}
+
+function hasSameScopedContentHash(items: GpdMediaItem[]): boolean {
+  const identities = items.map(contentHashBucketIdentity)
+  return (
+    identities.length > 1 &&
+    identities.every((identity): identity is string => Boolean(identity)) &&
+    allSame(identities)
   )
 }
 
@@ -131,15 +225,17 @@ export function classifyDuplicateItems(
     )
   }
 
-  const hasVerifiedHash = hasSameTrustedContentHash(items)
+  const hasVerifiedHash = hasSameVerifiedContentHash(items)
   if (hasVerifiedHash) {
     const hash = getTrustedContentHash(items[0])
-    reasons.push(`same original-content hash (${hash?.algorithm ?? "unknown"})`)
+    reasons.push(`same original-byte SHA-256 (${hash?.algorithm ?? "unknown"})`)
+  } else if (hasSameScopedContentHash(items)) {
+    reasons.push("same provider-scoped content hash (not locally verified)")
   }
 
   const legacyContentHashes = presentValues(
     items,
-    (item) => item.exactContentHash?.trim() || undefined
+    (item) => legacyContentHashBucketIdentity(item) || undefined
   )
   const hasSameLegacyHash =
     legacyContentHashes.length === items.length && allSame(legacyContentHashes)
@@ -167,7 +263,9 @@ export function classifyDuplicateItems(
     reasons.push("same dimensions")
   }
 
-  const takenDates = presentValues(items, (item) => item.timestamp)
+  const takenDates = presentValues(items, (item) =>
+    item.timestampProvenance === "capture" ? item.timestamp : undefined
+  )
   if (takenDates.length === items.length && allSame(takenDates)) {
     reasons.push("same taken date")
   }
@@ -182,16 +280,16 @@ export function classifyDuplicateItems(
     reasons.push("same duration")
   }
 
+  const sameReliableCaptureDate =
+    takenDates.length === items.length && allSame(takenDates)
+  const sameReliableSize = sizes.length === items.length && allSame(sizes)
   const metadataDuplicateCandidate =
     items.length > 1 &&
     fileNames.length === items.length &&
     dimensions.length === items.length &&
-    takenDates.length === items.length &&
     allSame(fileNames) &&
     allSame(dimensions) &&
-    allSame(takenDates) &&
-    (sizes.length === 0 ||
-      (sizes.length === items.length && allSame(sizes)))
+    (sameReliableCaptureDate || sameReliableSize)
 
   const videoMetadataDuplicateCandidate =
     items.length > 1 &&

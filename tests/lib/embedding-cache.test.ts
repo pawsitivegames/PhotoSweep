@@ -41,7 +41,11 @@ function makeItem(mediaKey: string): GpdMediaItem {
     thumb: `https://thumb/${mediaKey}`,
     productUrl: `https://photos.google.com/photo/${mediaKey}`,
     timestamp: 1000,
+    timestampProvenance: "capture",
     creationTimestamp: 2000,
+    creationTimestampProvenance: "creation",
+    mediaKind: "video",
+    mimeType: "video/mp4",
     resWidth: 1920,
     resHeight: 1080,
     fileName: `${mediaKey}.jpg`,
@@ -49,6 +53,9 @@ function makeItem(mediaKey: string): GpdMediaItem {
     takesUpSpace: false,
     spaceTaken: 0,
     isOwned: true,
+    isFavorite: false,
+    favoriteStatus: "not-favorite",
+    favoriteSource: "provider-metadata",
     isOriginalQuality: false,
     duration: 12
   }
@@ -181,6 +188,37 @@ describe("EmbeddingCache", () => {
         null
       ])
       cache.close()
+    })
+
+    it("preserves normalized provenance but excludes transient retrieval URLs", () => {
+      const itemWithTransport = {
+        ...makeItem("key1"),
+        contentHash: {
+          value: "a".repeat(64),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
+        },
+        originalResourceUrl: "https://photos.googleusercontent.com/signed",
+        playbackUrl: "https://photos.googleusercontent.com/stream"
+      } as GpdMediaItem
+
+      const metadata = createCachedMediaMetadata(itemWithTransport)
+
+      expect(metadata).toMatchObject({
+        timestampProvenance: "capture",
+        creationTimestampProvenance: "creation",
+        mediaKind: "video",
+        mimeType: "video/mp4",
+        favoriteStatus: "not-favorite",
+        favoriteSource: "provider-metadata",
+        contentHash: {
+          algorithm: "sha256",
+          verificationSource: "local-original-bytes"
+        }
+      })
+      expect(metadata).not.toHaveProperty("originalResourceUrl")
+      expect(metadata).not.toHaveProperty("playbackUrl")
     })
   })
 

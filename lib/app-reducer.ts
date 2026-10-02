@@ -2,12 +2,16 @@
 // Extracted from tabs/app.tsx so it can be unit-tested independently.
 
 import { areScanResultsValid } from "./scan-results"
+import { providerHealthUnavailableMessage } from "./provider-operations"
+import { classifyDuplicateGroup, isTrustedContentHash } from "./duplicate-classifier"
 import type {
+  ContentHashEvidence,
   DuplicateGroup,
   GpdMediaItem,
   GptkProgressMessage,
   HealthCheckResultMessage,
   PhotoProvider,
+  ScanCoverage,
   ScanPhase
 } from "./types"
 
@@ -17,8 +21,17 @@ import type {
 
 export type AppState =
   | { status: "connecting" }
-  | { status: "connected"; hasGptk: boolean; accountEmail?: string }
-  | { status: "disconnected"; error: string }
+  | {
+      status: "connected"
+      hasGptk: boolean
+      accountEmail?: string
+      providerSessionId?: string
+    }
+  | {
+      status: "disconnected"
+      error: string
+      scanCoverage?: ScanCoverage
+    }
   | {
       status: "scanning"
       phase: ScanPhase
@@ -28,6 +41,7 @@ export type AppState =
       requestId: string
       hasGptk: boolean
       accountEmail?: string
+      providerSessionId?: string
       partialMediaItems?: Record<string, GpdMediaItem>
       partialGroups?: DuplicateGroup[]
       partialTotalItems?: number
@@ -38,6 +52,9 @@ export type AppState =
       groups: DuplicateGroup[]
       totalItems: number
       accountEmail?: string
+      providerSessionId?: string
+      providerSyncToken?: string
+      scanCoverage?: ScanCoverage
       sourceProvider?: PhotoProvider
       scanDate?: number
       scopeFingerprint?: string
@@ -50,6 +67,9 @@ export type AppState =
       totalToTrash: number
       trashedSoFar: number
       accountEmail?: string
+      providerSessionId?: string
+      providerSyncToken?: string
+      scanCoverage?: ScanCoverage
       sourceProvider?: PhotoProvider
       scanDate?: number
       scopeFingerprint?: string
@@ -62,6 +82,7 @@ export type AppAction =
       requestId: string
       hasGptk: boolean
       accountEmail?: string
+      providerSessionId?: string
     }
   | {
       type: "SCAN_PROGRESS"
@@ -75,6 +96,7 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      scanCoverage?: ScanCoverage
       sourceProvider?: PhotoProvider
       scanDate?: number
       scopeFingerprint?: string
@@ -84,11 +106,17 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      scanCoverage?: ScanCoverage
       sourceProvider?: PhotoProvider
       scanDate?: number
       scopeFingerprint?: string
+      providerSyncToken?: string
     }
-  | { type: "SCAN_ERROR"; error: string }
+  | {
+      type: "SCAN_ERROR"
+      error: string
+      scanCoverage?: ScanCoverage
+    }
   | { type: "SCAN_CANCELLED" }
   | {
       type: "TRASH_STARTED"
@@ -97,6 +125,7 @@ export type AppAction =
       groups: DuplicateGroup[]
       totalItems: number
       sourceProvider?: PhotoProvider
+      providerSessionId?: string
       scanDate?: number
       scopeFingerprint?: string
     }
@@ -104,11 +133,26 @@ export type AppAction =
   | { type: "TRASH_COMPLETE"; trashedKeys: string[] }
   | { type: "TRASH_ERROR"; error: string }
   | {
+      type: "ORIGINAL_HASH_VERIFIED"
+      provider: PhotoProvider
+      providerSessionId: string
+      accountEmail?: string
+      scopeFingerprint: string
+      mediaKey: string
+      dedupKey: string
+      contentHash: ContentHashEvidence
+      byteLength: number
+      mimeType?: string
+    }
+  | {
       type: "LOAD_SAVED_RESULTS"
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      scanCoverage?: ScanCoverage
       accountEmail?: string
+      providerSessionId?: string
+      providerSyncToken?: string
       sourceProvider?: PhotoProvider
       scanDate?: number
       scopeFingerprint?: string
@@ -131,6 +175,62 @@ export type AppAction =
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
+    case "ORIGINAL_HASH_VERIFIED": {
+      if (
+        state.status !== "results" ||
+        state.sourceProvider !== action.provider ||
+        state.providerSessionId !== action.providerSessionId ||
+        !state.scopeFingerprint ||
+        state.scopeFingerprint !== action.scopeFingerprint ||
+        (action.provider === "google" &&
+          (!state.accountEmail ||
+            !action.accountEmail ||
+            state.accountEmail.trim().toLowerCase() !==
+              action.accountEmail.trim().toLowerCase())) ||
+        !isTrustedContentHash(action.contentHash) ||
+        action.contentHash.algorithm !== "sha256" ||
+        action.contentHash.verificationSource !== "local-original-bytes" ||
+        action.contentHash.provenance !== "original-content" ||
+        (action.contentHash.contentRole !== undefined &&
+          action.contentHash.contentRole !== "single-file" &&
+          action.contentHash.contentRole !== "live-photo-still") ||
+        !Number.isSafeInteger(action.byteLength) ||
+        action.byteLength < 1 ||
+        action.byteLength > 25 * 1024 * 1024 ||
+        (action.mimeType !== undefined &&
+          !/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(
+            action.mimeType
+          ))
+      ) {
+        return state
+      }
+      const existing = state.mediaItems[action.mediaKey]
+      if (
+        !existing ||
+        existing.dedupKey !== action.dedupKey ||
+        existing.provider !== action.provider
+      ) {
+        return state
+      }
+      const mediaItems = {
+        ...state.mediaItems,
+        [action.mediaKey]: {
+          ...existing,
+          contentHash: action.contentHash,
+          originalByteLength: action.byteLength,
+          ...(action.mimeType ? { originalMimeType: action.mimeType } : {})
+        }
+      }
+      const groups = state.groups.map((group) => {
+        if (!group.mediaKeys.includes(action.mediaKey)) return group
+        return {
+          ...group,
+          ...classifyDuplicateGroup(group, mediaItems)
+        }
+      })
+      return { ...state, mediaItems, groups }
+    }
+
     case "HEALTH_CHECK_RESULT":
       if (action.payload.success) {
         // Don't downgrade from results — just confirm GP is still available
@@ -138,47 +238,54 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           // Clear stale results when a different account is detected
           if (
             !areScanResultsValid(
-              { accountEmail: state.accountEmail },
-              { accountEmail: action.payload.accountEmail }
+              {
+                accountEmail: state.accountEmail,
+                sourceProvider: state.sourceProvider,
+                providerSessionId: state.providerSessionId
+              },
+              {
+                accountEmail: action.payload.accountEmail,
+                sourceProvider:
+                  action.payload.provider ?? state.sourceProvider,
+                providerSessionId: action.payload.providerSessionId
+              }
             )
           ) {
             return {
               status: "connected",
               hasGptk: action.payload.hasGptk,
-              accountEmail: action.payload.accountEmail
+              accountEmail: action.payload.accountEmail,
+              providerSessionId: action.payload.providerSessionId
             }
           }
           const email = action.payload.accountEmail ?? state.accountEmail
-          if (email === state.accountEmail) return state
-          return { ...state, accountEmail: email }
+          if (
+            email === state.accountEmail &&
+            action.payload.providerSessionId === state.providerSessionId
+          ) {
+            return state
+          }
+          return {
+            ...state,
+            accountEmail: email,
+            providerSessionId: action.payload.providerSessionId
+          }
         }
         return {
           status: "connected",
           hasGptk: action.payload.hasGptk,
-          accountEmail: action.payload.accountEmail
+          accountEmail: action.payload.accountEmail,
+          providerSessionId: action.payload.providerSessionId
         }
       }
       // Don't disconnect if already showing results — user can still view them
       // and GP tab will be required again only when they start a new scan/trash
       if (state.status === "results") return state
       {
-        const providerName =
-          action.payload.provider === "icloud"
-            ? "iCloud Photos"
-            : action.payload.provider === "amazon"
-              ? "Amazon Photos"
-              : "Google Photos"
-        const providerUrl =
-          action.payload.provider === "icloud"
-            ? "icloud.com/photos"
-            : action.payload.provider === "amazon"
-              ? "Amazon Photos on your Amazon country site"
-              : "photos.google.com"
         return {
           status: "disconnected",
-          error:
-            action.payload.error ??
-            `Cannot connect to ${providerName}. Open ${providerUrl}, sign in, wait for your library to load, then click Retry.`
+          error: action.payload.error ??
+            providerHealthUnavailableMessage(action.payload.provider)
         }
       }
 
@@ -191,7 +298,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         message: "Starting scan...",
         requestId: action.requestId,
         hasGptk: action.hasGptk,
-        accountEmail: action.accountEmail
+        accountEmail: action.accountEmail,
+        providerSessionId: action.providerSessionId
       }
 
     case "SCAN_PROGRESS":
@@ -237,6 +345,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: action.groups,
         totalItems: action.totalItems,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        providerSessionId:
+          "providerSessionId" in state ? state.providerSessionId : undefined,
+        ...(action.providerSyncToken
+          ? { providerSyncToken: action.providerSyncToken }
+          : {}),
+        ...(action.scanCoverage ? { scanCoverage: action.scanCoverage } : {}),
         ...(action.sourceProvider ? { sourceProvider: action.sourceProvider } : {}),
         ...(action.scanDate ? { scanDate: action.scanDate } : {}),
         ...(action.scopeFingerprint
@@ -245,14 +359,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }
 
     case "SCAN_ERROR":
-      return { status: "disconnected", error: action.error }
+      return {
+        status: "disconnected",
+        error: action.error,
+        ...(action.scanCoverage ? { scanCoverage: action.scanCoverage } : {})
+      }
 
     case "SCAN_CANCELLED":
       if (state.status !== "scanning") return state
       return {
         status: "connected",
         hasGptk: state.hasGptk,
-        accountEmail: state.accountEmail
+        accountEmail: state.accountEmail,
+        providerSessionId: state.providerSessionId
       }
 
     case "TRASH_STARTED":
@@ -264,6 +383,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         totalToTrash: action.totalToTrash,
         trashedSoFar: 0,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        providerSessionId:
+          action.providerSessionId ??
+          ("providerSessionId" in state ? state.providerSessionId : undefined),
+        ...("scanCoverage" in state && state.scanCoverage
+          ? { scanCoverage: state.scanCoverage }
+          : {}),
         ...(action.sourceProvider
           ? { sourceProvider: action.sourceProvider }
           : {}),
@@ -317,6 +442,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: newGroups,
         totalItems: state.totalItems,
         accountEmail: state.accountEmail,
+        providerSessionId: state.providerSessionId,
+        ...(state.providerSyncToken
+          ? { providerSyncToken: state.providerSyncToken }
+          : {}),
+        ...(state.scanCoverage ? { scanCoverage: state.scanCoverage } : {}),
         ...(state.sourceProvider ? { sourceProvider: state.sourceProvider } : {}),
         ...(state.scanDate ? { scanDate: state.scanDate } : {}),
         ...(state.scopeFingerprint
@@ -335,6 +465,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: action.groups,
         totalItems: action.totalItems,
         accountEmail: action.accountEmail,
+        providerSessionId: action.providerSessionId,
+        ...(action.providerSyncToken
+          ? { providerSyncToken: action.providerSyncToken }
+          : {}),
+        ...(action.scanCoverage ? { scanCoverage: action.scanCoverage } : {}),
         ...(action.sourceProvider ? { sourceProvider: action.sourceProvider } : {}),
         ...(action.scanDate ? { scanDate: action.scanDate } : {}),
         ...(action.scopeFingerprint
@@ -349,6 +484,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: action.groups,
         totalItems: action.totalItems,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        providerSessionId:
+          "providerSessionId" in state ? state.providerSessionId : undefined,
+        ...("providerSyncToken" in state && state.providerSyncToken
+          ? { providerSyncToken: state.providerSyncToken }
+          : {}),
+        ...("scanCoverage" in state && state.scanCoverage
+          ? { scanCoverage: state.scanCoverage }
+          : {}),
         ...("sourceProvider" in state && state.sourceProvider
           ? { sourceProvider: state.sourceProvider }
           : {}),

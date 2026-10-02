@@ -16,7 +16,11 @@ function item(
     dedupKey: `dk-${mediaKey}`,
     thumb: `https://example.com/${mediaKey}`,
     timestamp: Date.parse("2024-01-01T00:00:00.000Z"),
+    timestampProvenance: "capture",
     creationTimestamp: Date.parse("2024-01-02T00:00:00.000Z"),
+    creationTimestampProvenance: "creation",
+    provider: "google",
+    mediaKind: "photo",
     resWidth: 1920,
     resHeight: 1080,
     fileName: `${mediaKey}.jpg`,
@@ -25,6 +29,7 @@ function item(
 }
 
 const md5 = (digit: string) => digit.repeat(32)
+const sha256 = (digit: string) => digit.repeat(64)
 
 describe("duplicate classifier", () => {
   it("does not treat provider asset IDs as content equality", () => {
@@ -44,22 +49,26 @@ describe("duplicate classifier", () => {
     )
   })
 
-  it("treats a validated original-content hash as verified identity", () => {
+  it("treats local original-byte SHA-256 as cross-provider identity", () => {
     const result = classifyDuplicateItems([
       item("a", {
         dedupKey: "node-a",
+        provider: "google",
         contentHash: {
-          value: md5("a"),
-          algorithm: "md5",
-          provenance: "original-content"
+          value: sha256("a"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
         }
       }),
       item("b", {
         dedupKey: "node-b",
+        provider: "icloud",
         contentHash: {
-          value: md5("a"),
-          algorithm: "md5",
-          provenance: "original-content"
+          value: sha256("a"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
         }
       })
     ])
@@ -69,7 +78,134 @@ describe("duplicate classifier", () => {
       evidenceLevel: "verified_identical",
       canProposeTrash: true
     })
-    expect(result.matchReasons).toContain("same original-content hash (md5)")
+    expect(result.matchReasons).toContain(
+      "same original-byte SHA-256 (sha256)"
+    )
+  })
+
+  it("does not equate equal raw strings across algorithms or evidence sources", () => {
+    const result = classifyDuplicateItems([
+      item("sha", {
+        contentHash: {
+          value: sha256("b"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
+        }
+      }),
+      item("fingerprint", {
+        contentHash: {
+          value: sha256("b"),
+          algorithm: "provider-fingerprint",
+          provenance: "original-content",
+          verificationSource: "provider-fingerprint"
+        }
+      })
+    ])
+
+    expect(result.evidenceLevel).not.toBe("verified_identical")
+    expect(result.duplicateKind).toBe("similar")
+  })
+
+  it.each(["video", "live-photo"] as const)(
+    "does not equate a photo hash with a %s hash",
+    (mediaKind) => {
+      const result = classifyDuplicateItems([
+        item("photo", {
+          contentHash: {
+            value: sha256("c"),
+            algorithm: "sha256",
+            provenance: "original-content",
+            verificationSource: "local-original-bytes"
+          }
+        }),
+        item("other-kind", {
+          mediaKind,
+          duration: mediaKind === "video" ? 1000 : undefined,
+          contentHash: {
+            value: sha256("c"),
+            algorithm: "sha256",
+            provenance: "original-content",
+            verificationSource: "local-original-bytes"
+          }
+        })
+      ])
+
+      expect(result.evidenceLevel).not.toBe("verified_identical")
+    }
+  )
+
+  it("keeps a still-only Live Photo hash as a candidate, not paired identity", () => {
+    const stillOnly = classifyDuplicateItems([
+      item("live-a", {
+        mediaKind: "live-photo",
+        contentHash: {
+          value: sha256("e"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes",
+          contentRole: "live-photo-still"
+        }
+      }),
+      item("live-b", {
+        mediaKind: "live-photo",
+        contentHash: {
+          value: sha256("e"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes",
+          contentRole: "live-photo-still"
+        }
+      })
+    ])
+    expect(stillOnly.evidenceLevel).not.toBe("verified_identical")
+
+    const paired = classifyDuplicateItems([
+      item("paired-a", {
+        mediaKind: "live-photo",
+        contentHash: {
+          value: sha256("f"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes",
+          contentRole: "paired-live-photo"
+        }
+      }),
+      item("paired-b", {
+        mediaKind: "live-photo",
+        contentHash: {
+          value: sha256("f"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes",
+          contentRole: "paired-live-photo"
+        }
+      })
+    ])
+    expect(paired.evidenceLevel).toBe("verified_identical")
+  })
+
+  it("normalizes hexadecimal digest casing", () => {
+    const result = classifyDuplicateItems([
+      item("lower", {
+        contentHash: {
+          value: sha256("d"),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
+        }
+      }),
+      item("upper", {
+        contentHash: {
+          value: sha256("d").toUpperCase(),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
+        }
+      })
+    ])
+
+    expect(result.evidenceLevel).toBe("verified_identical")
   })
 
   it("rejects malformed, derived, and legacy hashes as verified evidence", () => {

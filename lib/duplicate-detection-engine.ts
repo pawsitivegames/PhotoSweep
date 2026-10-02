@@ -6,8 +6,17 @@
 // 2. Compute L2-normalized embeddings via MediaPipe MobileNet V3
 // 3. Group duplicates using fast community detection (cosine similarity)
 
-import { classifyDuplicateItems } from "./duplicate-classifier"
-import { createCachedMediaMetadata, EmbeddingCache } from "./embedding-cache"
+import {
+  classifyDuplicateItems,
+  contentHashBucketIdentity,
+  legacyContentHashBucketIdentity,
+  normalizedMediaKind
+} from "./duplicate-classifier"
+import {
+  createCachedMediaMetadata,
+  EmbeddingCache,
+  scopedEmbeddingCacheKey
+} from "./embedding-cache"
 import { selectDefaultKeep } from "./keep-strategy"
 import { buildThumbUrl } from "./photo-url"
 import { StabilityTracker } from "./scan-log"
@@ -89,7 +98,19 @@ function normalizeFileStem(fileName: string | undefined): string | null {
 }
 
 function isVideo(item: GpdMediaItem): boolean {
-  return Number.isFinite(item.duration) && (item.duration ?? 0) > 0
+  const mediaKind = normalizedMediaKind(item)
+  return (
+    mediaKind === "video" &&
+    Number.isFinite(item.duration) &&
+    (item.duration ?? 0) > 0
+  )
+}
+
+function hasCaptureTimestamp(item: GpdMediaItem): boolean {
+  return (
+    item.timestampProvenance === "capture" &&
+    Number.isFinite(item.timestamp)
+  )
 }
 
 function providerConnectionLabel(provider: GpdMediaItem["provider"]): string {
@@ -144,15 +165,14 @@ export function findExactContentDuplicateGroups(
 ): GpdMediaItem[][] {
   const buckets = new Map<string, GpdMediaItem[]>()
   for (const item of items) {
-    // Keep legacy hash records discoverable so an old scan can still surface
-    // a review candidate, but the classifier only treats the new validated
-    // contentHash contract as verified identity.
-    const hash =
-      item.contentHash?.value?.trim() || item.exactContentHash?.trim()
-    if (!hash) continue
-    const bucket = buckets.get(hash) ?? []
+    // Provider hashes/fingerprints and legacy values stay in their provider
+    // namespace. Only locally computed original-byte SHA-256 can cross it.
+    const identity =
+      contentHashBucketIdentity(item) ?? legacyContentHashBucketIdentity(item)
+    if (!identity) continue
+    const bucket = buckets.get(identity) ?? []
     bucket.push(item)
-    buckets.set(hash, bucket)
+    buckets.set(identity, bucket)
   }
   return [...buckets.values()]
     .filter((group) => group.length >= 2)
@@ -329,7 +349,8 @@ export async function fullDetectDuplicates(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   logger?: ScanLogger,
-  onPartialGroups?: DuplicateGroupsCallback
+  onPartialGroups?: DuplicateGroupsCallback,
+  cacheNamespace?: string
 ): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
   const scanStart = performance.now()
 
@@ -360,7 +381,9 @@ export async function fullDetectDuplicates(
 
   if (candidates.length < 2) return { groups: [], timing: emptyTiming() }
 
-  const keys = candidates.map((item) => item.mediaKey)
+  const keys = candidates.map((item) =>
+    scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
+  )
 
   // Open the managed embedding cache used by the cache UI.
   let cache: EmbeddingCache | null = null
@@ -400,7 +423,8 @@ export async function fullDetectDuplicates(
     candidates,
     cachedKeySet,
     trackedProgress,
-    signal
+    signal,
+    cacheNamespace
   )
   const fetchThumbnailsMs = Math.round(performance.now() - t1)
   console.log(
@@ -418,7 +442,8 @@ export async function fullDetectDuplicates(
     cache,
     cachedKeySet,
     trackedProgress,
-    signal
+    signal,
+    cacheNamespace
   ).finally(() => {
     cache?.close()
     cache = null
@@ -533,7 +558,7 @@ export function groupByTimestamp(
 ): GpdMediaItem[][] {
   if (windowMs > 0) {
     const sorted = [...items]
-      .filter((item) => Number.isFinite(item.timestamp))
+      .filter(hasCaptureTimestamp)
       .sort((a, b) => a.timestamp - b.timestamp)
     const buckets: GpdMediaItem[][] = []
     let current: GpdMediaItem[] = []
@@ -557,6 +582,7 @@ export function groupByTimestamp(
 
   const buckets = new Map<number, GpdMediaItem[]>()
   for (const item of items) {
+    if (!hasCaptureTimestamp(item)) continue
     const key = item.timestamp
     if (!buckets.has(key)) buckets.set(key, [])
     buckets.get(key)!.push(item)
@@ -588,6 +614,8 @@ export function groupByProviderSequence(
     for (let i = 0; i < sorted.length; i++) {
       for (let j = i + 1; j < sorted.length && j <= i + neighborRadius; j++) {
         if (
+          hasCaptureTimestamp(sorted[i]) &&
+          hasCaptureTimestamp(sorted[j]) &&
           Number.isFinite(maxTimestampDistanceMs) &&
           maxTimestampDistanceMs > 0 &&
           Math.abs(sorted[i].timestamp - sorted[j].timestamp) >
@@ -675,6 +703,7 @@ async function runSmartDetectionInWorker(
   embeddings: Float32Array[],
   threshold: number,
   buckets: number[][],
+  bucketWindowMs: Array<number | null>,
   comparePairs: number[][],
   timestamps: number[],
   windowMs: number,
@@ -745,6 +774,7 @@ async function runSmartDetectionInWorker(
           dim,
           threshold,
           buckets,
+          bucketWindowMs,
           comparePairs,
           timestamps,
           windowMs
@@ -762,7 +792,8 @@ export async function smartDetectDuplicates(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   logger?: ScanLogger,
-  onPartialGroups?: DuplicateGroupsCallback
+  onPartialGroups?: DuplicateGroupsCallback,
+  cacheNamespace?: string
 ): Promise<DuplicateGroup[]> {
   const scanStart = performance.now()
   // Include items with thumbnails. Video posters work too — two copies of the
@@ -788,6 +819,14 @@ export async function smartDetectDuplicates(
     ? [candidates]
     : []
   const detectionBuckets = [...timestampBuckets, ...smallScopeBuckets]
+  // A small personal-album scope is intentionally compared as one bounded
+  // review set. Its bucket must not inherit the Smart timestamp gate: provider
+  // upload normalization can move duplicate taken dates far apart even when
+  // the user selected a tiny, explicit album scope.
+  const bucketWindowMs = [
+    ...timestampBuckets.map(() => windowMs),
+    ...smallScopeBuckets.map(() => null)
+  ]
   const embeddingCandidateBuckets = [...detectionBuckets, ...sequenceBuckets]
   console.log(
     `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${timestampBuckets.length} timestamp buckets, ${sequenceBuckets.length} sequence pairs, ${smallScopeBuckets.length} small-scope buckets`
@@ -832,7 +871,9 @@ export async function smartDetectDuplicates(
     )
   }
 
-  const keys = subset.map((item) => item.mediaKey)
+  const keys = subset.map((item) =>
+    scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
+  )
 
   // Open the managed embedding cache used by the cache UI.
   let cache: EmbeddingCache | null = null
@@ -866,7 +907,8 @@ export async function smartDetectDuplicates(
     subset,
     cachedKeySet,
     trackedProgress,
-    signal
+    signal,
+    cacheNamespace
   )
   const fetchThumbnailsMs = Math.round(performance.now() - t1)
   console.log(
@@ -883,7 +925,8 @@ export async function smartDetectDuplicates(
     cache,
     cachedKeySet,
     trackedProgress,
-    signal
+    signal,
+    cacheNamespace
   ).finally(() => {
     cache?.close()
     cache = null
@@ -915,13 +958,24 @@ export async function smartDetectDuplicates(
   for (let i = 0; i < validIndices.length; i++)
     mediaKeyToEmbIdx.set(subset[validIndices[i]].mediaKey, i)
 
-  const workerBuckets = detectionBuckets
-    .map((bucket) =>
-      bucket
-        .map((item) => mediaKeyToEmbIdx.get(item.mediaKey))
-        .filter((i): i is number => i !== undefined)
-    )
-    .filter((b) => b.length >= 2)
+  // Keep each bucket's timestamp policy paired with the bucket after
+  // filtering items that do not have usable embeddings. A filtered bucket
+  // list can be shorter than detectionBuckets, so passing the original
+  // parallel array would apply the wrong policy to later buckets.
+  const workerBuckets: number[][] = []
+  const workerBucketWindows: Array<number | null> = []
+  detectionBuckets.forEach((bucket, bucketIndex) => {
+    const mapped = bucket
+      .map((item) => mediaKeyToEmbIdx.get(item.mediaKey))
+      .filter((i): i is number => i !== undefined)
+    if (mapped.length >= 2) {
+      workerBuckets.push(mapped)
+      const configuredWindow = bucketWindowMs[bucketIndex]
+      workerBucketWindows.push(
+        configuredWindow === undefined ? windowMs : configuredWindow
+      )
+    }
+  })
   const workerComparePairs = sequenceBuckets
     .map((bucket) =>
       bucket
@@ -962,6 +1016,7 @@ export async function smartDetectDuplicates(
     embeddings,
     threshold,
     workerBuckets,
+    workerBucketWindows,
     workerComparePairs,
     workerTimestamps,
     windowMs,
@@ -991,7 +1046,8 @@ async function fetchThumbnails(
   items: GpdMediaItem[],
   cachedKeySet: Set<string>,
   onProgress?: ProgressCallback,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  cacheNamespace?: string
 ): Promise<(Blob | null)[]> {
   const concurrency = 10
   const fetchTimeoutMs = 8000
@@ -1001,7 +1057,12 @@ async function fetchThumbnails(
   // Only enqueue items that don't have a cached embedding
   const queue = items
     .map((item, i) => ({ item, index: i }))
-    .filter(({ item }) => !cachedKeySet.has(item.mediaKey))
+    .filter(
+      ({ item }) =>
+        !cachedKeySet.has(
+          scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
+        )
+    )
 
   // Report progress only against items that actually need downloading.
   // Counting cached items as "pre-completed" caused the bar to start at e.g. 80%
@@ -1092,9 +1153,12 @@ export async function computeEmbeddings(
   cache: EmbeddingCache | null,
   cachedKeySet: Set<string>,
   onProgress?: ProgressCallback,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  cacheNamespace?: string
 ): Promise<{ embeddings: Float32Array[]; validIndices: number[] }> {
-  const keys = items.map((item) => item.mediaKey)
+  const keys = items.map((item) =>
+    scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
+  )
   const scannedAt = Date.now()
   // Stage B: bulk-load embedding values for cached items.
   const cachedEmbeddings = new Map<number, Float32Array>()

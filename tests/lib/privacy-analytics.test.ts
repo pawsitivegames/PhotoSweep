@@ -127,6 +127,43 @@ describe("support diagnostics", () => {
     expect(JSON.stringify(report)).not.toContain("photos.google.com/photo/abc")
   })
 
+  it("[PARITY-08] includes only validated package identity in support diagnostics", () => {
+    const runtimeBuildIdentity = {
+      extensionId: "abcdefghijklmnopabcdefghijklmnop",
+      packageVersion: "2.3.0.3",
+      buildId: "123e4567-e89b-42d3-a456-426614174000"
+    }
+    const report = buildSupportDiagnosticsReport({
+      version: "2.3.0.3",
+      provider: "icloud",
+      scanMode: "smart",
+      entitlement: { planId: "free", active: true, source: "none" },
+      runtimeBuildIdentity
+    })
+
+    expect(report.runtimeBuildIdentity).toEqual(runtimeBuildIdentity)
+    const mismatchedVersion = buildSupportDiagnosticsReport({
+        version: "2.3.0.3",
+        provider: "icloud",
+        scanMode: "smart",
+        entitlement: { planId: "free", active: true, source: "none" },
+        runtimeBuildIdentity: {
+          ...runtimeBuildIdentity,
+          extensionId: "spoofed-extension"
+        }
+      }).runtimeBuildIdentity
+    const mismatchedPackageVersion = buildSupportDiagnosticsReport({
+      version: "2.3.0.2",
+      provider: "icloud",
+      scanMode: "smart",
+      entitlement: { planId: "free", active: true, source: "none" },
+      runtimeBuildIdentity
+    }).runtimeBuildIdentity
+
+    expect(mismatchedVersion).toBeUndefined()
+    expect(mismatchedPackageVersion).toBeUndefined()
+  })
+
   it("redacts obvious photo-derived values from recent logs", () => {
     const report = buildSupportDiagnosticsReport({
       version: "2.2.2",

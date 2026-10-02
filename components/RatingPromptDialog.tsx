@@ -34,7 +34,7 @@ export function RatingPromptDialog({
       slotProps={{
         backdrop: {
           sx: {
-            bgcolor: "rgba(23, 32, 28, 0.34)",
+            bgcolor: photoSweepColors.overlay,
             backdropFilter: "blur(3px)"
           }
         },
@@ -44,7 +44,7 @@ export function RatingPromptDialog({
             border: "1px solid",
             borderColor: photoSweepColors.border,
             bgcolor: photoSweepColors.surface,
-            boxShadow: "0 24px 70px rgba(23, 32, 28, 0.22)"
+            boxShadow: `0 24px 70px ${photoSweepColors.shadowDeep}`
           }
         }
       }}>

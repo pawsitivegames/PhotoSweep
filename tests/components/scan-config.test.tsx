@@ -14,6 +14,7 @@ import {
   ScanConfig
 } from "../../components/ScanConfig"
 import type { Entitlement } from "../../lib/entitlement"
+import { providerLivePhotoPairNotice } from "../../lib/provider-operations"
 import { createScanCheckpoint } from "../../lib/scan-checkpoint"
 import theme from "../../lib/theme"
 import type { ScanSettings } from "../../lib/types"
@@ -25,6 +26,7 @@ import type { ScanSettings } from "../../lib/types"
 function renderConfig(
   settings: Partial<ScanSettings> = {},
   options: {
+    amazonProfileName?: string
     compact?: boolean
     hasGptk?: boolean
     entitlement?: Entitlement | null
@@ -66,12 +68,40 @@ function renderConfig(
           }
         ]}
         entitlement={options.entitlement}
+        amazonProfileName={options.amazonProfileName}
         compact={options.compact}
       />
     </ThemeProvider>
   )
   return { onSettingsChange, onStartScan, onUpgrade }
 }
+
+describe("ScanConfig — Amazon session label", () => {
+  it("shows the Photos profile label as session-only in compact scan setup", () => {
+    renderConfig(
+      { sourceProvider: "amazon" },
+      { compact: true, amazonProfileName: "Pawsitive Games" }
+    )
+
+    expect(
+      screen.getByText("Amazon Photos profile: Pawsitive Games")
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        /Display label only\. This scan is bound to the open Amazon Photos session\./
+      )
+    ).toBeVisible()
+  })
+
+  it("does not show an Amazon label for a different provider", () => {
+    renderConfig(
+      { sourceProvider: "icloud" },
+      { compact: true, amazonProfileName: "Pawsitive Games" }
+    )
+
+    expect(screen.queryByText(/Amazon Photos profile:/)).not.toBeInTheDocument()
+  })
+})
 
 // ============================================================
 // formatWindow — label formatting via the rendered "Time window:" line
@@ -183,6 +213,17 @@ describe("ScanConfig — taken date range", () => {
     })
   })
 
+  it("does not describe ambiguous iCloud asset dates as capture dates", () => {
+    renderConfig({ sourceProvider: "icloud" })
+
+    expect(
+      screen.getByText(
+        "iCloud date filters use provider asset dates. Capture provenance can be unknown, and dates may fall back to upload time."
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/check every taken date/i)).not.toBeInTheDocument()
+  })
+
   it("labels the primary button as a date range scan when scoped", () => {
     renderConfig({ dateRange: { from: "2024-01-01", to: "2024-12-31" } })
     expect(
@@ -264,13 +305,16 @@ describe("ScanConfig — similarity threshold guidance", () => {
 })
 
 describe("ScanConfig — album scope", () => {
-  it("shows album count and emits the selected album scope", () => {
+  it("[PARITY-03] shows Google album count and emits the selected album scope", () => {
     const { onSettingsChange } = renderConfig()
 
     fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
-    expect(screen.getByText(/2 albums available/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 album available/i)).toBeInTheDocument()
     fireEvent.mouseDown(screen.getByRole("combobox", { name: /Library area/i }))
     fireEvent.click(screen.getByRole("option", { name: /Tiny test album/i }))
+    expect(
+      screen.queryByRole("option", { name: /Shared album/i })
+    ).not.toBeInTheDocument()
 
     expect(onSettingsChange).toHaveBeenCalledWith({
       albumScope: {
@@ -301,6 +345,119 @@ describe("ScanConfig — album scope", () => {
 })
 
 describe("ScanConfig — photo source", () => {
+  it("[PARITY-06] states that Live Photo pairs are not grouped in both layouts", () => {
+    for (const provider of ["google", "icloud", "amazon"] as const) {
+      for (const compact of [false, true]) {
+        renderConfig({ sourceProvider: provider }, { compact })
+        expect(
+          screen.getByText(providerLivePhotoPairNotice())
+        ).toBeInTheDocument()
+        cleanup()
+      }
+    }
+  })
+
+  it("[PARITY-05] explains each provider's scope and mutation differences in both layouts", () => {
+    const statusByProvider = {
+      google:
+        "Scan the Google Photos library, an album, or a date range. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Google Photos Trash.",
+      icloud:
+        "Scan the iCloud Photos library, a personal album, or a date range. Album scans use the personal PrimarySync library; shared libraries are not queried. CloudKit scans cover photos and videos and fail closed when a complete provider session is unavailable. Trash moves selected library items to Recently Deleted.",
+      amazon:
+        "Scan the Amazon Photos library, a personal album, or a date range. Shared albums and items owned by another account are excluded. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Amazon Photos Trash."
+    } as const
+
+    for (const provider of ["google", "icloud", "amazon"] as const) {
+      for (const compact of [false, true]) {
+        renderConfig({ sourceProvider: provider }, { compact })
+        expect(screen.getByText(statusByProvider[provider])).toBeInTheDocument()
+        cleanup()
+      }
+    }
+  })
+
+  it("[PARITY-05] gives iCloud and Amazon test batches the same visited-record meaning", () => {
+    const paidEntitlement = {
+      planId: "cleanup_pass",
+      active: true,
+      source: "signed_token"
+    } as const
+
+    for (const provider of ["icloud", "amazon"] as const) {
+      renderConfig(
+        {
+          sourceProvider: provider,
+          ...(provider === "icloud"
+            ? { icloudBatchLimit: 50 }
+            : { amazonBatchLimit: 50 })
+        },
+        { entitlement: paidEntitlement }
+      )
+
+      expect(
+        screen.getByRole("button", { name: /Check up to 50 records/i })
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Test batch is on/).closest('[role="alert"]')
+      ).toHaveTextContent(
+        "visit up to 50 provider records. Records outside the selected date range also count toward this limit."
+      )
+      cleanup()
+    }
+  })
+
+  it("[PARITY-03] exposes iCloud personal albums in both scan layouts", () => {
+    for (const compact of [false, true]) {
+      renderConfig({ sourceProvider: "icloud" }, { compact })
+      if (!compact) {
+        fireEvent.click(
+          screen.getByRole("button", { name: /Advanced matching/i })
+        )
+      }
+      expect(
+        screen.getByRole("combobox", { name: /Library area/i })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByText(/Album scans are not available/i)
+      ).not.toBeInTheDocument()
+      if (compact) {
+        expect(
+          screen.getByText(/Choose a personal album or scan the full library/i)
+        ).toBeInTheDocument()
+      } else {
+        expect(screen.getByText(/1 album available/i)).toBeInTheDocument()
+      }
+      cleanup()
+    }
+  })
+
+  it("[PARITY-03] exposes Amazon personal albums in both scan layouts", () => {
+    for (const compact of [false, true]) {
+      renderConfig({ sourceProvider: "amazon" }, { compact })
+      if (!compact) {
+        fireEvent.click(
+          screen.getByRole("button", { name: /Advanced matching/i })
+        )
+      }
+      expect(
+        screen.getByRole("combobox", { name: /Library area/i })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByText(/Album scans are not available/i)
+      ).not.toBeInTheDocument()
+      if (compact) {
+        expect(
+          screen.getByText(/Choose a personal album or scan the full library/i)
+        ).toBeInTheDocument()
+      } else {
+        expect(
+          screen.getByText(/narrow this to one personal album/i)
+        ).toBeInTheDocument()
+      }
+      cleanup()
+    }
+  })
+
   it("switches to iCloud and explains scan-only support", () => {
     const { onSettingsChange } = renderConfig()
 
@@ -313,7 +470,7 @@ describe("ScanConfig — photo source", () => {
     })
   })
 
-  it("uses shared scan controls for iCloud and hides Google album controls", () => {
+  it("describes iCloud provider fetch behavior and exposes album controls", () => {
     renderConfig({ sourceProvider: "icloud" })
 
     expect(
@@ -321,16 +478,19 @@ describe("ScanConfig — photo source", () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/Recently Deleted/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/Free users can review scoped Smart scans/i)
+      screen.getByText(/CloudKit scans cover photos and videos/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Full-library checks can use saved iCloud change data; date-range and album scans read their full scope\./i
+      )
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     expect(
-      screen.queryByRole("combobox", { name: /Library area/i })
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByText(/iCloud test batch size/i)
-    ).not.toBeInTheDocument()
+      screen.getByRole("combobox", { name: /Library area/i })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/iCloud test batch size/i)).toBeInTheDocument()
   })
 
   it("uses the same compact scope visual pattern for non-Google providers", () => {
@@ -339,14 +499,14 @@ describe("ScanConfig — photo source", () => {
       { compact: true, hasGptk: false }
     )
 
-    expect(screen.getByLabelText(/Library area/i)).toHaveValue(
-      "iCloud Photos library"
-    )
+    expect(
+      screen.getByRole("combobox", { name: /Library area/i })
+    ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: /Check entire library/i })
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Reads the connected iCloud Photos tab/i)
+      screen.getByText(/Choose a personal album or scan the full library/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/Choose photo source/i)).not.toBeInTheDocument()
     expect(
@@ -365,42 +525,53 @@ describe("ScanConfig — photo source", () => {
       { compact: true, hasGptk: false }
     )
 
-    expect(screen.getByLabelText(/Library area/i)).toHaveValue(
-      "Amazon Photos library"
-    )
     expect(
-      screen.getByText(/Reads the connected Amazon Photos tab/i)
+      screen.getByRole("combobox", { name: /Library area/i })
+    ).toHaveTextContent("Amazon Photos library")
+    expect(
+      screen.getByText(/Choose a personal album or scan the full library/i)
     ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: /Check entire library/i })
     ).toBeInTheDocument()
   })
 
-  it("uses the bounded first-scan recommendation for free iCloud users", () => {
+  it("exposes a free iCloud test batch while keeping the common plan gates", () => {
     const { onStartScan, onUpgrade } = renderConfig({
       sourceProvider: "icloud",
       icloudBatchLimit: 50
     })
 
     const startButton = screen.getByRole("button", {
-      name: /Scan recent 30 days/i
+      name: /Check up to 50 records/i
     })
     expect(startButton).toBeInTheDocument()
-    expect(screen.queryByText(/Test batch is on/i)).not.toBeInTheDocument()
-    expect(
-      screen.queryByText(/Free iCloud scans need a date range before scanning/i)
-    ).not.toBeInTheDocument()
+    expect(screen.getByText(/Test batch is on/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
+    expect(screen.getByText(/iCloud test batch size/i)).toBeInTheDocument()
 
     fireEvent.click(startButton)
-    expect(onStartScan).toHaveBeenCalledWith(
-      expect.objectContaining({
-        dateRange: recommendedFirstScanDateRange()
-      })
-    )
+    expect(onStartScan).toHaveBeenCalledWith()
     expect(onUpgrade).not.toHaveBeenCalled()
   })
 
-  it("labels iCloud capped scans as test batches for paid users", () => {
+  it("blocks a free iCloud batch above the common 1000-item cap", () => {
+    const { onStartScan, onUpgrade } = renderConfig({
+      sourceProvider: "icloud",
+      icloudBatchLimit: 1001
+    })
+
+    expect(
+      screen.getByText(/above the 1,000 photo scan limit for Free/i)
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: /Check up to 1,001 records/i })
+    )
+    expect(onStartScan).not.toHaveBeenCalled()
+    expect(onUpgrade).toHaveBeenCalled()
+  })
+
+  it("[PARITY-05] labels iCloud capped scans as visited-record test batches", () => {
     renderConfig(
       { sourceProvider: "icloud", icloudBatchLimit: 50 },
       {
@@ -413,9 +584,11 @@ describe("ScanConfig — photo source", () => {
     )
 
     expect(
-      screen.getByRole("button", { name: /Check 50 item test batch/i })
+      screen.getByRole("button", { name: /Check up to 50 records/i })
     ).toBeInTheDocument()
-    expect(screen.getByText(/Test batch is on/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Test batch is on/).closest('[role="alert"]')
+    ).toHaveTextContent(/outside the selected date range also count/i)
   })
 
   it("switches to Amazon Photos and uses shared scan controls", () => {
@@ -437,12 +610,14 @@ describe("ScanConfig — photo source", () => {
       screen.getByRole("button", { name: /Check entire library/i })
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Free and paid limits match the Google Photos workflow/i)
+      screen.getByText(
+        /Photos and videos are included, and results report examined and skipped records/i
+      )
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     expect(
-      screen.queryByRole("combobox", { name: /Library area/i })
-    ).not.toBeInTheDocument()
+      screen.getByRole("combobox", { name: /Library area/i })
+    ).toBeInTheDocument()
   })
 })
 

@@ -9,7 +9,7 @@
 //   { type: "embed", data: { items: Array<{ localIdx: number, blob: Blob }> } }
 //   { type: "detect", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number } }
 //   { type: "detectBlock", data: { flatA: Float32Array, rowsA: number, offsetA: number, flatB: Float32Array, rowsB: number, offsetB: number, dim: number, threshold: number, sameBlock: boolean } }
-//   { type: "detectSmart", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number, buckets: number[][] } }
+//   { type: "detectSmart", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number, buckets: number[][], bucketWindowMs?: Array<number | null> } }
 //
 // Message protocol (worker → main):
 //   { type: "ready" }
@@ -197,6 +197,7 @@ self.addEventListener("message", async (event: MessageEvent) => {
       dim,
       threshold,
       buckets,
+      bucketWindowMs,
       comparePairs,
       timestamps,
       windowMs
@@ -206,6 +207,7 @@ self.addEventListener("message", async (event: MessageEvent) => {
       dim: number;
       threshold: number;
       buckets: number[][];
+      bucketWindowMs?: Array<number | null>;
       comparePairs?: number[][];
       timestamps?: number[];
       windowMs?: number;
@@ -230,11 +232,15 @@ self.addEventListener("message", async (event: MessageEvent) => {
 
       for (let i = 0; i < bucket.length; i++) {
         for (let j = i + 1; j < bucket.length; j++) {
+          const configuredWindow = bucketWindowMs?.[bi];
+          const bucketWindow =
+            configuredWindow === undefined ? windowMs : configuredWindow;
           if (
             timestamps &&
-            Number.isFinite(windowMs) &&
-            windowMs! > 0 &&
-            Math.abs(timestamps[bucket[i]] - timestamps[bucket[j]]) > windowMs!
+            bucketWindow !== null &&
+            Number.isFinite(bucketWindow) &&
+            bucketWindow > 0 &&
+            Math.abs(timestamps[bucket[i]] - timestamps[bucket[j]]) > bucketWindow
           ) {
             continue;
           }

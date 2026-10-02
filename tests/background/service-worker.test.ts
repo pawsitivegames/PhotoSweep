@@ -11,6 +11,19 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { APP_ID } from "../../lib/types"
+import type { RecoveryHistoryTransactionMessage } from "../../lib/types"
+import {
+  RECOVERY_HISTORY_STORAGE_KEY,
+  createPendingRecoveryRecord,
+  updateRecoveryRecordFromTrash,
+  type RecoveryHistoryContext
+} from "../../lib/recovery-history"
+import type { DeleteReport } from "../../lib/delete-report"
+import type { TrashResultReport } from "../../lib/trash-result-report"
+
+vi.mock("../../lib/generated/build-flags", () => ({
+  BUILD_ID: "123e4567-e89b-42d3-a456-426614174000"
+}))
 
 // ============================================================
 // Chrome API mock setup — must be done before the module import
@@ -51,6 +64,11 @@ const storageLocal = {
   set: vi.fn(async (items: Record<string, unknown>) => {
     for (const [key, value] of Object.entries(items)) {
       licenseStorage.set(key, value)
+    }
+  }),
+  remove: vi.fn(async (keys: string | string[]) => {
+    for (const key of Array.isArray(keys) ? keys : [keys]) {
+      licenseStorage.delete(key)
     }
   })
 }
@@ -97,8 +115,10 @@ const mockChrome = {
     getAllFrames: vi.fn()
   },
   runtime: {
+    id: "abcdefghijklmnopabcdefghijklmnop",
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
     getManifest: vi.fn(() => ({
+      version: "2.3.0.3",
       externally_connectable: {
         matches: ["https://license.test/*"]
       },
@@ -176,6 +196,28 @@ async function dispatchMessageWithResponse(
   return response
 }
 
+async function waitForTabMessage(
+  tabId: number,
+  predicate: (message: Record<string, unknown>) => boolean,
+  timeoutMs = 1000
+): Promise<void> {
+  const startedAt = Date.now()
+  const wasSent = () =>
+    mockChrome.tabs.sendMessage.mock.calls.some(
+      ([sentTabId, message]) =>
+        sentTabId === tabId &&
+        Boolean(message) &&
+        predicate(message as Record<string, unknown>)
+    )
+
+  while (!wasSent()) {
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(`Timed out waiting for a message to tab ${tabId}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
 async function dispatchExternalMessageWithResponse(
   message: unknown,
   senderUrl?: string
@@ -234,10 +276,243 @@ function gpSender(tabId: number): Partial<chrome.runtime.MessageSender> {
   return { tab: { id: tabId } as chrome.tabs.Tab }
 }
 
+function trustedAppSender(tabId: number): Partial<chrome.runtime.MessageSender> {
+  const url = `chrome-extension://${mockChrome.runtime.id}/tabs/app.html`
+  return {
+    id: mockChrome.runtime.id,
+    url,
+    frameId: 0,
+    tab: { id: tabId, url } as chrome.tabs.Tab
+  }
+}
+
+function trustedGoogleProviderSender(
+  tabId: number,
+  frameId = 0
+): Partial<chrome.runtime.MessageSender> {
+  const url = "https://photos.google.com/"
+  return {
+    id: mockChrome.runtime.id,
+    url,
+    frameId,
+    tab: { id: tabId, url } as chrome.tabs.Tab
+  }
+}
+
+function dispatchMessageAndWaitForResponse(
+  message: unknown,
+  sender: Partial<chrome.runtime.MessageSender>,
+  timeoutMs = 1000
+): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const timeout = setTimeout(() => {
+      if (settled) return
+      settled = true
+      reject(new Error("Timed out waiting for a service worker response."))
+    }, timeoutMs)
+    const respond = (value?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      resolve(value)
+    }
+    for (const listener of messageListeners) {
+      listener(message, sender as chrome.runtime.MessageSender, respond)
+    }
+  })
+}
+
+function createRestorableAmazonRecord(
+  operationId: string,
+  dedupKey: string,
+  mediaKey: string
+) {
+  const createdAt = new Date().toISOString()
+  const context: RecoveryHistoryContext = {
+    operationId,
+    provider: "amazon",
+    providerSessionId: "amazon-session-a",
+    attemptedDedupKeys: [dedupKey],
+    attemptedMediaKeys: [mediaKey]
+  }
+  const preTrash: DeleteReport = {
+    reportId: `pre-${operationId}`,
+    operationId,
+    createdAt,
+    totalGroupsAffected: 1,
+    totalItemsKept: 1,
+    totalItemsSelectedForTrash: 1,
+    trashBatchSize: 25,
+    items: []
+  }
+  const pending = createPendingRecoveryRecord(preTrash, context)
+  const trashResult: TrashResultReport = {
+    reportId: `trash-${operationId}`,
+    operationId,
+    createdAt,
+    status: "complete",
+    attemptedCount: 1,
+    movedCount: 1,
+    failedCount: 0,
+    attemptedMediaKeys: [mediaKey],
+    attemptedDedupKeys: [dedupKey],
+    movedMediaKeys: [mediaKey],
+    movedDedupKeys: [dedupKey],
+    failedMediaKeys: [],
+    failedDedupKeys: [],
+    retryAttempts: 0,
+    error: null
+  }
+  return {
+    context,
+    preTrashReport: preTrash,
+    trashResult,
+    record: updateRecoveryRecordFromTrash([pending], trashResult, context)[0]!
+  }
+}
+
+function createRestorableFingerprintRecord(
+  provider: "google" | "icloud",
+  operationId: string,
+  dedupKey: string,
+  mediaKey: string,
+  accountEmail: string,
+  providerSessionId: string
+) {
+  const createdAt = new Date().toISOString()
+  const context: RecoveryHistoryContext = {
+    operationId,
+    provider,
+    accountEmail,
+    providerSessionId,
+    attemptedDedupKeys: [dedupKey],
+    attemptedMediaKeys: [mediaKey]
+  }
+  const preTrash: DeleteReport = {
+    reportId: `pre-${operationId}`,
+    operationId,
+    createdAt,
+    totalGroupsAffected: 1,
+    totalItemsKept: 1,
+    totalItemsSelectedForTrash: 1,
+    trashBatchSize: 25,
+    items: []
+  }
+  const pending = createPendingRecoveryRecord(preTrash, context)
+  const trashResult: TrashResultReport = {
+    reportId: `trash-${operationId}`,
+    operationId,
+    createdAt,
+    status: "complete",
+    attemptedCount: 1,
+    movedCount: 1,
+    failedCount: 0,
+    attemptedMediaKeys: [mediaKey],
+    attemptedDedupKeys: [dedupKey],
+    movedMediaKeys: [mediaKey],
+    movedDedupKeys: [dedupKey],
+    failedMediaKeys: [],
+    failedDedupKeys: [],
+    retryAttempts: 0,
+    error: null
+  }
+  return {
+    context,
+    record: updateRecoveryRecordFromTrash([pending], trashResult, context)[0]!
+  }
+}
+
+let recoveryTransactionSequence = 0
+function recoveryMessage(transaction: unknown) {
+  recoveryTransactionSequence += 1
+  return {
+    app: APP_ID,
+    action: "recoveryHistory.transaction",
+    transactionId: `recovery-tx-${recoveryTransactionSequence}`,
+    transaction
+  }
+}
+
+const recoveryAppSender = () => trustedAppSender(701)
+
+function beginAmazonRestore(operationId: string, targetDedupKey: string) {
+  return {
+    kind: "beginRestore",
+    operationId,
+    requestId: `restore-${operationId}`,
+    provider: "amazon",
+    providerSessionId: "amazon-session-a",
+    targetDedupKeys: [targetDedupKey]
+  }
+}
+
+function completeAmazonRestore(
+  operationId: string,
+  targetDedupKey: string,
+  requestId = `restore-${operationId}`
+) {
+  return {
+    kind: "updateRestore",
+    operationId,
+    requestId,
+    provider: "amazon",
+    providerSessionId: "amazon-session-a",
+    params: {
+      outcome: "complete",
+      requestId,
+      terminal: true,
+      restoredDedupKeys: [targetDedupKey],
+      unknownDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        {
+          operation: "restore",
+          targetKey: targetDedupKey,
+          status: "confirmed"
+        }
+      ]
+    }
+  }
+}
+
+function beginFingerprintRestore(
+  provider: "google" | "icloud",
+  operationId: string,
+  targetDedupKey: string,
+  providerSessionId: string,
+  accountEmail: string,
+  requestId = `restore-${operationId}-${providerSessionId}`
+) {
+  return {
+    kind: "beginRestore",
+    operationId,
+    requestId,
+    provider,
+    providerSessionId,
+    accountEmail,
+    targetDedupKeys: [targetDedupKey]
+  }
+}
+
 // Reset call history (not implementations) between tests
 beforeEach(() => {
   vi.clearAllMocks()
   licenseStorage.clear()
+  storageLocal.get.mockImplementation(async (key: string) => {
+    const value = licenseStorage.get(key)
+    return value === undefined ? {} : { [key]: value }
+  })
+  storageLocal.set.mockImplementation(async (items: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(items)) {
+      licenseStorage.set(key, value)
+    }
+  })
+  storageLocal.remove.mockImplementation(async (keys: string | string[]) => {
+    for (const key of Array.isArray(keys) ? keys : [keys]) {
+      licenseStorage.delete(key)
+    }
+  })
   mockChrome.tabs.get.mockResolvedValue(undefined)
   mockChrome.tabs.update.mockResolvedValue({})
   mockChrome.tabs.create.mockResolvedValue({})
@@ -594,7 +869,7 @@ describe("launch flow", () => {
 // ============================================================
 
 describe("healthCheck", () => {
-  it("sends healthCheck.result failure when no GP tab found", async () => {
+  it("[PARITY-08] attaches service-worker package identity to app results", async () => {
     const appTabId = 20
 
     mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
@@ -607,7 +882,15 @@ describe("healthCheck", () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       appTabId,
-      expect.objectContaining({ action: "healthCheck.result", success: false })
+      expect.objectContaining({
+        action: "healthCheck.result",
+        success: false,
+        runtimeBuildIdentity: {
+          extensionId: "abcdefghijklmnopabcdefghijklmnop",
+          packageVersion: "2.3.0.3",
+          buildId: "123e4567-e89b-42d3-a456-426614174000"
+        }
+      })
     )
   })
 
@@ -627,13 +910,15 @@ describe("healthCheck", () => {
     )
   })
 
-  it("forwards healthCheck command to GP tab when GP tab exists", async () => {
+  it("forwards the Amazon Photos profile label to the app context", async () => {
     const gpTabId = 10
     const appTabId = 20
 
     mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
-      if (query?.url?.includes("photos.google.com"))
-        return Promise.resolve([{ id: gpTabId }])
+      if (query?.url?.includes("amazon"))
+        return Promise.resolve([
+          { id: gpTabId, url: "https://www.amazon.ca/photos?sf=1" }
+        ])
       return Promise.resolve([{ id: appTabId }])
     })
 
@@ -649,7 +934,10 @@ describe("healthCheck", () => {
                 command: "healthCheck",
                 requestId: msg.requestId,
                 success: true,
-                data: { hasGptk: true, hasWizData: true }
+                data: {
+                  hasGptk: true,
+                  accountDisplayName: " Pawsitive Games "
+                }
               },
               gpSender(gpTabId)
             )
@@ -659,15 +947,20 @@ describe("healthCheck", () => {
       }
     )
 
-    dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
+    dispatchMessage(
+      { app: APP_ID, action: "healthCheck", provider: "amazon" },
+      appSender()
+    )
     await new Promise((r) => setTimeout(r, 30))
 
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       appTabId,
       expect.objectContaining({
         action: "healthCheck.result",
+        provider: "amazon",
         success: true,
-        hasGptk: true
+        hasGptk: true,
+        accountDisplayName: "Pawsitive Games"
       })
     )
   })
@@ -733,7 +1026,13 @@ describe("healthCheck", () => {
     )
 
     dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
-    await new Promise((r) => setTimeout(r, 40))
+    await waitForTabMessage(
+      appTabId,
+      (message) =>
+        message.action === "healthCheck.result" &&
+        message.success === true &&
+        message.hasGptk === true
+    )
 
     expect(healthChecks).toBe(2)
     expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith({
@@ -812,6 +1111,70 @@ describe("healthCheck", () => {
         provider: "icloud",
         success: false,
         hasGptk: false
+      })
+    )
+  })
+
+  it("reports Amazon sign-in guidance when its health probe is unavailable", async () => {
+    const amazonTabId = 31
+    const appTabId = 32
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("amazon.com"))
+        return Promise.resolve([
+          { id: amazonTabId, url: "https://www.amazon.com/photos?sf=1" }
+        ])
+      return Promise.resolve([{ id: appTabId }])
+    })
+    mockChrome.tabs.sendMessage.mockImplementation(
+      (
+        _tabId: number,
+        msg: { action?: string; command?: string; requestId?: string }
+      ) => {
+        if (msg?.action === "ping") return Promise.resolve()
+        if (msg?.command === "healthCheck") {
+          setTimeout(() => {
+            dispatchMessage(
+              {
+                app: APP_ID,
+                action: "gptkResult",
+                command: "healthCheck",
+                requestId: msg.requestId,
+                success: true,
+                data: {
+                  hasGptk: false,
+                  health: {
+                    schemaVersion: 1,
+                    contractVersion: "provider-parity-v1",
+                    provider: "amazon",
+                    status: "unavailable",
+                    checks: { page: true, session: false, readPath: false }
+                  }
+                }
+              },
+              gpSender(amazonTabId)
+            )
+          }, 0)
+        }
+        return Promise.resolve()
+      }
+    )
+    dispatchMessage(
+      { app: APP_ID, action: "healthCheck", provider: "amazon" },
+      appSender()
+    )
+    await new Promise((r) => setTimeout(r, 30))
+
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      appTabId,
+      expect.objectContaining({
+        action: "healthCheck.result",
+        provider: "amazon",
+        success: false,
+        hasGptk: false,
+        error: expect.stringMatching(
+          /Amazon Photos is not ready.*sign in again if needed/i
+        )
       })
     )
   })
@@ -1064,7 +1427,7 @@ describe("findGooglePhotosTab — multi-tab selection", () => {
     mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
 
     dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(activeId, (message) => message.command === "healthCheck")
 
     // The first (and only) ping hits the active tab; the inactive one is
     // never probed because the active tab answers first.
@@ -1212,7 +1575,10 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(
+      gpTabId,
+      (message) => message.requestId === requestId
+    )
 
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       gpTabId,
@@ -1402,7 +1768,10 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(
+      amazonTabId,
+      (message) => message.requestId === requestId
+    )
 
     expect(mockChrome.tabs.update).not.toHaveBeenCalled()
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
@@ -1445,7 +1814,11 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(
+      appTabId,
+      (message) =>
+        message.action === "gptkResult" && message.requestId === requestId
+    )
 
     expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalledWith(
       shoppingTabId,
@@ -1485,7 +1858,10 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(
+      gpTabId,
+      (message) => message.requestId === requestId
+    )
 
     // Now simulate result arriving from GP content script
     vi.clearAllMocks()
@@ -1500,7 +1876,10 @@ describe("gptkCommand routing", () => {
       },
       gpSender(gpTabId)
     )
-    await new Promise((r) => setTimeout(r, 10))
+    await waitForTabMessage(
+      appTabId,
+      (message) => message.action === "gptkResult"
+    )
 
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       appTabId,
@@ -1534,7 +1913,10 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(
+      gpTabId,
+      (message) => message.requestId === requestId
+    )
     vi.clearAllMocks()
 
     const unrelatedTabId = 999
@@ -1560,7 +1942,7 @@ describe("gptkCommand routing", () => {
       },
       gpSender(unrelatedTabId)
     )
-    await new Promise((r) => setTimeout(r, 10))
+    await new Promise((resolve) => setTimeout(resolve, 10))
 
     expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalled()
 
@@ -1575,7 +1957,10 @@ describe("gptkCommand routing", () => {
       },
       gpSender(gpTabId)
     )
-    await new Promise((r) => setTimeout(r, 10))
+    await waitForTabMessage(
+      appTabId,
+      (message) => message.action === "gptkResult"
+    )
 
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       appTabId,
@@ -1606,7 +1991,11 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await waitForTabMessage(
+      appTabId,
+      (message) =>
+        message.action === "gptkResult" && message.requestId === "req-err-2"
+    )
 
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       appTabId,
@@ -1708,6 +2097,360 @@ describe("gptkCommand routing", () => {
   })
 })
 
+describe("Google original hash relay", () => {
+  it("hashes only a one-use exact item from the current completed review", async () => {
+    const appTabId = 801
+    const providerTabId = 802
+    const accountEmail = "reviewer@example.test"
+    const providerSessionId = "google-session-current"
+    const scopeFingerprint = "review-scope-current"
+    const mediaKey = "scanned-photo-1"
+    const scanRequestId = "relay-scan-1"
+    const hashRequestId = "relay-hash-1"
+    const url = "https://lh3.google.com/original/signed-resource"
+    const originalFetch = globalThis.fetch
+    const originalCrypto = globalThis.crypto
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("photos.google.com")) {
+        return Promise.resolve([
+          { id: providerTabId, url: "https://photos.google.com/" }
+        ])
+      }
+      return Promise.resolve([])
+    })
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "getAllMediaItems",
+        requestId: scanRequestId,
+        provider: "google",
+        args: {
+          accountEmail,
+          scanScopeFingerprint: scopeFingerprint
+        }
+      },
+      trustedAppSender(appTabId)
+    )
+    await waitForTabMessage(
+      providerTabId,
+      (message) => message.requestId === scanRequestId
+    )
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: "getAllMediaItems",
+        provider: "google",
+        requestId: scanRequestId,
+        providerSessionId,
+        scanCoverage: { status: "partial", stopReason: "user_limit" },
+        success: true,
+        data: [
+          {
+            mediaKey,
+            mediaKind: "photo",
+            mimeType: "image/jpeg",
+            size: 4
+          }
+        ]
+      },
+      trustedGoogleProviderSender(providerTabId)
+    )
+
+    const responseBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("jpeg"))
+        controller.close()
+      }
+    })
+    const fetchResponse = {
+      ok: true,
+      status: 200,
+      url: "https://lh3.googleusercontent.com/original/verified-resource",
+      headers: new Headers({
+        "content-type": "image/jpeg",
+        "content-length": "4"
+      }),
+      body: responseBody
+    } as Response
+    const fetchMock = vi.fn(async () => fetchResponse)
+
+    try {
+      dispatchMessage(
+        {
+          app: APP_ID,
+          action: "gptkCommand",
+          command: "getOriginalContentHash",
+          requestId: hashRequestId,
+          provider: "google",
+          args: {
+            requestId: hashRequestId,
+            mediaKey,
+            mediaKind: "photo",
+            providerSessionId,
+            scanScopeFingerprint: scopeFingerprint,
+            accountEmail,
+            userOptIn: true,
+            maxBytes: 100,
+            aggregateBudgetBytes: 100
+          }
+        },
+        trustedAppSender(appTabId)
+      )
+      await waitForTabMessage(
+        providerTabId,
+        (message) => message.requestId === hashRequestId
+      )
+
+      const appHashResults = () =>
+        mockChrome.tabs.sendMessage.mock.calls.filter(
+          ([tabId, message]) =>
+            tabId === appTabId &&
+            (message as { action?: string; command?: string })?.action ===
+              "gptkResult" &&
+            (message as { command?: string })?.command ===
+              "getOriginalContentHash"
+        )
+      // Model same-window page scripts forwarding plausible, correctly bound
+      // hash results through the isolated bridge. No page-provided digest may
+      // complete the trusted app request.
+      for (let sample = 0; sample < 16; sample += 1) {
+        const forgedDigest = sample.toString(16).padStart(2, "0").repeat(32)
+        dispatchMessage(
+          {
+            app: APP_ID,
+            action: "gptkResult",
+            command: "getOriginalContentHash",
+            requestId: hashRequestId,
+            provider: "google",
+            providerSessionId,
+            success: true,
+            data: {
+              mediaKey,
+              scopeFingerprint,
+              byteLength: 4,
+              mimeType: "image/jpeg",
+              contentHash: {
+                value: forgedDigest,
+                algorithm: "sha256",
+                provenance: "original-content",
+                verificationSource: "local-original-bytes",
+                contentRole: "single-file"
+              }
+            }
+          },
+          trustedGoogleProviderSender(providerTabId)
+        )
+      }
+      expect(appHashResults()).toHaveLength(0)
+
+      vi.stubGlobal("fetch", fetchMock)
+      vi.stubGlobal("crypto", {
+        subtle: {
+          digest: vi.fn(async () => new Uint8Array(32).buffer)
+        }
+      })
+
+      const wrongFrame = await dispatchMessageAndWaitForResponse(
+        {
+          app: APP_ID,
+          action: "providerOriginalHash.fetch",
+          requestId: hashRequestId,
+          provider: "google",
+          providerSessionId,
+          scanScopeFingerprint: scopeFingerprint,
+          mediaKey,
+          resourceUrl: url,
+          mediaKind: "photo",
+          maxBytes: 100,
+          aggregateBudgetBytes: 100
+        },
+        trustedGoogleProviderSender(providerTabId, 1)
+      )
+      expect(wrongFrame).toMatchObject({ success: false })
+      expect(fetchMock).not.toHaveBeenCalled()
+
+      const response = await dispatchMessageAndWaitForResponse(
+        {
+          app: APP_ID,
+          action: "providerOriginalHash.fetch",
+          requestId: hashRequestId,
+          provider: "google",
+          providerSessionId,
+          scanScopeFingerprint: scopeFingerprint,
+          mediaKey,
+          resourceUrl: url,
+          mediaKind: "photo",
+          maxBytes: 100,
+          aggregateBudgetBytes: 100
+        },
+        trustedGoogleProviderSender(providerTabId)
+      )
+      await waitForTabMessage(
+        appTabId,
+        (message) =>
+          message.action === "gptkResult" &&
+          message.command === "getOriginalContentHash" &&
+          message.requestId === hashRequestId
+      )
+      expect(response).toMatchObject({
+        requestId: hashRequestId,
+        providerSessionId,
+        scanScopeFingerprint: scopeFingerprint,
+        mediaKey,
+        success: true,
+        data: {
+          mediaKey,
+          scopeFingerprint,
+          byteLength: 4,
+          mimeType: "image/jpeg",
+          contentHash: {
+            algorithm: "sha256",
+            provenance: "original-content",
+            verificationSource: "local-original-bytes",
+            value: "0".repeat(64),
+            contentRole: "single-file"
+          }
+        }
+      })
+      expect(response).not.toHaveProperty("url")
+      expect(JSON.stringify(response)).not.toContain("signed-resource")
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      const replay = await dispatchMessageAndWaitForResponse(
+        {
+          app: APP_ID,
+          action: "providerOriginalHash.fetch",
+          requestId: hashRequestId,
+          provider: "google",
+          providerSessionId,
+          scanScopeFingerprint: scopeFingerprint,
+          mediaKey,
+          resourceUrl: url,
+          mediaKind: "photo",
+          maxBytes: 100,
+          aggregateBudgetBytes: 100
+        },
+        trustedGoogleProviderSender(providerTabId)
+      )
+      expect(replay).toMatchObject({ success: false })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      dispatchMessage(
+        {
+          app: APP_ID,
+          action: "gptkResult",
+          command: "getOriginalContentHash",
+          requestId: hashRequestId,
+          provider: "google",
+          providerSessionId,
+          success: true,
+          data: { mediaKey, scopeFingerprint, contentHash: { value: "0".repeat(64) } }
+        },
+        trustedGoogleProviderSender(providerTabId)
+      )
+      expect(appHashResults()).toHaveLength(1)
+      expect(appHashResults()[0]?.[1]).toMatchObject({
+        command: "getOriginalContentHash",
+        requestId: hashRequestId,
+        provider: "google",
+        providerSessionId,
+        success: true,
+        data: {
+          mediaKey,
+          scopeFingerprint,
+          contentHash: { value: "0".repeat(64) }
+        }
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      vi.stubGlobal("crypto", originalCrypto)
+    }
+  })
+
+  it("does not route original retrieval for an item absent from the registered scan", async () => {
+    const appTabId = 811
+    const providerTabId = 812
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) =>
+      query?.url?.includes("photos.google.com")
+        ? Promise.resolve([{ id: providerTabId, url: "https://photos.google.com/" }])
+        : Promise.resolve([])
+    )
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "getAllMediaItems",
+        requestId: "relay-scan-foreign",
+        provider: "google",
+        args: {
+          accountEmail: "reviewer@example.test",
+          scanScopeFingerprint: "foreign-scope"
+        }
+      },
+      trustedAppSender(appTabId)
+    )
+    await waitForTabMessage(
+      providerTabId,
+      (message) => message.requestId === "relay-scan-foreign"
+    )
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkResult",
+        command: "getAllMediaItems",
+        provider: "google",
+        requestId: "relay-scan-foreign",
+        providerSessionId: "google-session-foreign-test",
+        scanCoverage: { status: "complete", stopReason: "exhausted" },
+        success: true,
+        data: [{ mediaKey: "scanned-only", mediaKind: "photo", size: 4 }]
+      },
+      trustedGoogleProviderSender(providerTabId)
+    )
+
+    const callCountBefore = mockChrome.tabs.sendMessage.mock.calls.filter(
+      ([tabId, message]) =>
+        tabId === providerTabId &&
+        (message as { command?: string }).command === "getOriginalContentHash"
+    ).length
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "getOriginalContentHash",
+        requestId: "relay-hash-foreign",
+        provider: "google",
+        args: {
+          requestId: "relay-hash-foreign",
+          mediaKey: "never-scanned",
+          mediaKind: "photo",
+          providerSessionId: "google-session-foreign-test",
+          scanScopeFingerprint: "foreign-scope",
+          accountEmail: "reviewer@example.test",
+          userOptIn: true,
+          maxBytes: 100,
+          aggregateBudgetBytes: 100
+        }
+      },
+      trustedAppSender(appTabId)
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const callCountAfter = mockChrome.tabs.sendMessage.mock.calls.filter(
+      ([tabId, message]) =>
+        tabId === providerTabId &&
+        (message as { command?: string }).command === "getOriginalContentHash"
+    ).length
+    expect(callCountAfter).toBe(callCountBefore)
+  })
+})
+
 // ============================================================
 // Message filter
 // ============================================================
@@ -1722,5 +2465,782 @@ describe("message filtering", () => {
   it("ignores messages without app field", () => {
     dispatchMessage({ action: "healthCheck" }, {})
     expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe("recovery history transaction authority", () => {
+  it("serializes independent app callers across the full storage read/modify/write", async () => {
+    const first = createRestorableAmazonRecord("operation-a", "dedup-a", "media-a")
+    const secondContext: RecoveryHistoryContext = {
+      operationId: "operation-b",
+      provider: "amazon",
+      providerSessionId: "amazon-session-a",
+      attemptedDedupKeys: ["dedup-b"],
+      attemptedMediaKeys: ["media-b"]
+    }
+    const secondReport: DeleteReport = {
+      reportId: "pre-operation-b",
+      operationId: "operation-b",
+      createdAt: new Date().toISOString(),
+      totalGroupsAffected: 1,
+      totalItemsKept: 1,
+      totalItemsSelectedForTrash: 1,
+      trashBatchSize: 25,
+      items: []
+    }
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record])
+
+    let releaseFirstRead!: () => void
+    let markFirstReadStarted!: () => void
+    const firstReadStarted = new Promise<void>((resolve) => {
+      markFirstReadStarted = resolve
+    })
+    const firstReadGate = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve
+    })
+    let heldFirstRead = false
+    storageLocal.get.mockImplementation(async (key: string) => {
+      if (key === RECOVERY_HISTORY_STORAGE_KEY && !heldFirstRead) {
+        heldFirstRead = true
+        markFirstReadStarted()
+        await firstReadGate
+      }
+      const value = licenseStorage.get(key)
+      return value === undefined ? {} : { [key]: value }
+    })
+
+    const firstCall = dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "dedup-a")),
+      recoveryAppSender()
+    )
+    await firstReadStarted
+    const secondCall = dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        kind: "createPendingTrash",
+        report: secondReport,
+        context: secondContext
+      }),
+      recoveryAppSender()
+    )
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(storageLocal.get).toHaveBeenCalledTimes(1)
+
+    releaseFirstRead()
+    const [firstResponse, secondResponse] = await Promise.all([
+      firstCall,
+      secondCall
+    ])
+    expect(firstResponse).toMatchObject({ success: true })
+    expect(secondResponse).toMatchObject({ success: true })
+    const records = licenseStorage.get(
+      RECOVERY_HISTORY_STORAGE_KEY
+    ) as Array<{
+      operationId: string
+      restorableDedupKeys: string[]
+      restoreOutcomeHistory?: Array<{ terminal?: boolean; outcomes: Array<{ targetKey: string }> }>
+    }>
+    expect(records.map((record) => record.operationId).sort()).toEqual([
+      "operation-a",
+      "operation-b"
+    ])
+    expect(
+      records.find((record) => record.operationId === "operation-a")
+        ?.restoreOutcomeHistory?.[0]
+    ).toMatchObject({ terminal: false, outcomes: [{ targetKey: "dedup-a" }] })
+  })
+
+  it("rejects same-scope overlap across separate recovery operations", async () => {
+    const first = createRestorableAmazonRecord("operation-a", "same-target", "media-a")
+    const second = createRestorableAmazonRecord("operation-b", "same-target", "media-b")
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record, second.record])
+
+    const firstResponse = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "same-target")),
+      recoveryAppSender()
+    )
+    const secondResponse = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-b", "same-target")),
+      recoveryAppSender()
+    )
+    expect(firstResponse).toMatchObject({ success: true })
+    expect(secondResponse).toMatchObject({ success: false })
+    const records = licenseStorage.get(
+      RECOVERY_HISTORY_STORAGE_KEY
+    ) as Array<{ operationId: string; restoreOutcomeHistory?: Array<unknown> }>
+    expect(
+      records.find((record) => record.operationId === "operation-a")
+        ?.restoreOutcomeHistory
+    ).toHaveLength(1)
+    expect(
+      records.find((record) => record.operationId === "operation-b")
+        ?.restoreOutcomeHistory
+    ).toBeUndefined()
+  })
+
+  it("retains an unresolved restore guard beyond the ordinary history capacity", async () => {
+    const active = createRestorableAmazonRecord(
+      "operation-active",
+      "capacity-target",
+      "media-active"
+    )
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [active.record])
+    const activeBegin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-active", "capacity-target")),
+      recoveryAppSender()
+    )
+    expect(activeBegin).toMatchObject({ success: true })
+
+    let latestOperationId = ""
+    for (let index = 0; index < 20; index += 1) {
+      latestOperationId = `operation-later-${index}`
+      const later = createRestorableAmazonRecord(
+        latestOperationId,
+        "capacity-target",
+        `media-later-${index}`
+      )
+      const pending = await dispatchMessageAndWaitForResponse(
+        recoveryMessage({
+          kind: "createPendingTrash",
+          report: later.preTrashReport,
+          context: later.context
+        }),
+        recoveryAppSender()
+      )
+      expect(pending).toMatchObject({ success: true })
+      const confirmed = await dispatchMessageAndWaitForResponse(
+        recoveryMessage({
+          kind: "recordTrashResult",
+          report: later.trashResult,
+          context: later.context
+        }),
+        recoveryAppSender()
+      )
+      expect(confirmed).toMatchObject({ success: true })
+    }
+
+    const stored = licenseStorage.get(
+      RECOVERY_HISTORY_STORAGE_KEY
+    ) as Array<{
+      operationId: string
+      restoreOutcomeHistory?: Array<{ requestId?: string; terminal?: boolean }>
+    }>
+    expect(stored).toHaveLength(20)
+    expect(stored.map((record) => record.operationId)).toContain(
+      "operation-active"
+    )
+    expect(
+      stored.find((record) => record.operationId === "operation-active")
+        ?.restoreOutcomeHistory?.[0]
+    ).toMatchObject({ requestId: "restore-operation-active", terminal: false })
+
+    const replay = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore(latestOperationId, "capacity-target")),
+      recoveryAppSender()
+    )
+    expect(replay).toMatchObject({ success: false })
+  })
+
+  it("accepts only an exact target vector for an idempotent terminal update", async () => {
+    const operationId = "operation-exact-terminal"
+    const targetDedupKeys = ["target-a", "target-b"]
+    const attemptedMediaKeys = ["media-a", "media-b"]
+    const context: RecoveryHistoryContext = {
+      operationId,
+      provider: "amazon",
+      providerSessionId: "amazon-session-a",
+      attemptedDedupKeys: targetDedupKeys,
+      attemptedMediaKeys
+    }
+    const preTrashReport: DeleteReport = {
+      reportId: "pre-exact-terminal",
+      operationId,
+      createdAt: new Date().toISOString(),
+      totalGroupsAffected: 2,
+      totalItemsKept: 2,
+      totalItemsSelectedForTrash: 2,
+      trashBatchSize: 25,
+      items: []
+    }
+    const pending = createPendingRecoveryRecord(preTrashReport, context)
+    const trashResult: TrashResultReport = {
+      reportId: "trash-exact-terminal",
+      operationId,
+      createdAt: new Date().toISOString(),
+      status: "complete",
+      attemptedCount: 2,
+      movedCount: 2,
+      failedCount: 0,
+      attemptedMediaKeys,
+      attemptedDedupKeys: targetDedupKeys,
+      movedMediaKeys: attemptedMediaKeys,
+      movedDedupKeys: targetDedupKeys,
+      failedMediaKeys: [],
+      failedDedupKeys: [],
+      retryAttempts: 0,
+      error: null
+    }
+    const record = updateRecoveryRecordFromTrash(
+      [pending],
+      trashResult,
+      context
+    )[0]!
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [record])
+    const requestId = "restore-exact-vector"
+    const begin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        ...beginAmazonRestore(operationId, targetDedupKeys[0]!),
+        requestId,
+        targetDedupKeys
+      }),
+      recoveryAppSender()
+    )
+    expect(begin).toMatchObject({ success: true })
+
+    const confirmedOutcomes = targetDedupKeys.map((targetKey) => ({
+      operation: "restore",
+      targetKey,
+      status: "confirmed"
+    }))
+    const terminalParams = {
+      outcome: "complete",
+      requestId,
+      terminal: true,
+      restoredDedupKeys: targetDedupKeys,
+      unknownDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      outcomes: confirmedOutcomes
+    }
+    const terminal = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        kind: "updateRestore",
+        operationId,
+        requestId,
+        provider: "amazon",
+        providerSessionId: "amazon-session-a",
+        params: terminalParams
+      }),
+      recoveryAppSender()
+    )
+    expect(terminal).toMatchObject({ success: true })
+
+    const duplicateTerminal = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        kind: "updateRestore",
+        operationId,
+        requestId,
+        provider: "amazon",
+        providerSessionId: "amazon-session-a",
+        params: terminalParams
+      }),
+      recoveryAppSender()
+    )
+    expect(duplicateTerminal).toMatchObject({ success: true })
+
+    const malformedDuplicate = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        kind: "updateRestore",
+        operationId,
+        requestId,
+        provider: "amazon",
+        providerSessionId: "amazon-session-a",
+        params: {
+          ...terminalParams,
+          outcomes: [confirmedOutcomes[0], confirmedOutcomes[0]]
+        }
+      }),
+      recoveryAppSender()
+    )
+    expect(malformedDuplicate).toMatchObject({ success: false })
+  })
+
+  it.each(["google", "icloud"] as const)(
+    "allows a verified %s account to restore after its provider page session refreshes",
+    async (provider) => {
+      const email = "pawsitivegames@example.test"
+      const stored = createRestorableFingerprintRecord(
+        provider,
+        `refresh-${provider}`,
+        `dedup-${provider}`,
+        `media-${provider}`,
+        email,
+        `${provider}-old-session`
+      )
+      licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [stored.record])
+
+      const response = await dispatchMessageAndWaitForResponse(
+        recoveryMessage(
+          beginFingerprintRestore(
+            provider,
+            `refresh-${provider}`,
+            `dedup-${provider}`,
+            `${provider}-new-session`,
+            email
+          )
+        ),
+        recoveryAppSender()
+      )
+
+      expect(response).toMatchObject({ success: true })
+      expect(
+        (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+          providerSessionId: string
+          restoreOutcomeHistory?: Array<{ terminal?: boolean }>
+        }>)[0]?.restoreOutcomeHistory?.[0]
+      ).toMatchObject({ terminal: false })
+    }
+  )
+
+  it("rejects a changed verified account and reserves overlap across refreshed sessions", async () => {
+    const email = "pawsitivegames@example.test"
+    const first = createRestorableFingerprintRecord(
+      "icloud",
+      "fingerprint-operation-a",
+      "fingerprint-shared-target",
+      "fingerprint-media-a",
+      email,
+      "icloud-old-session"
+    )
+    const second = createRestorableFingerprintRecord(
+      "icloud",
+      "fingerprint-operation-b",
+      "fingerprint-shared-target",
+      "fingerprint-media-b",
+      email,
+      "icloud-old-session"
+    )
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record])
+
+    const changedAccount = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(
+        beginFingerprintRestore(
+          "icloud",
+          "fingerprint-operation-a",
+          "fingerprint-shared-target",
+          "icloud-new-session",
+          "different@example.test",
+          "restore-changed-account"
+        )
+      ),
+      recoveryAppSender()
+    )
+    expect(changedAccount).toMatchObject({ success: false })
+    expect(
+      (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+        restorableDedupKeys: string[]
+      }>)[0]?.restorableDedupKeys
+    ).toEqual(["fingerprint-shared-target"])
+
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record, second.record])
+    const firstBegin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(
+        beginFingerprintRestore(
+          "icloud",
+          "fingerprint-operation-a",
+          "fingerprint-shared-target",
+          "icloud-session-b",
+          email,
+          "restore-first-fingerprint-target"
+        )
+      ),
+      recoveryAppSender()
+    )
+    const overlappingBegin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(
+        beginFingerprintRestore(
+          "icloud",
+          "fingerprint-operation-b",
+          "fingerprint-shared-target",
+          "icloud-session-c",
+          email,
+          "restore-second-fingerprint-target"
+        )
+      ),
+      recoveryAppSender()
+    )
+    expect(firstBegin).toMatchObject({ success: true })
+    expect(overlappingBegin).toMatchObject({ success: false })
+  })
+
+  it("fails closed on write or readback failure and leaves any committed guard in storage", async () => {
+    const first = createRestorableAmazonRecord("operation-a", "dedup-a", "media-a")
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record])
+    storageLocal.set.mockRejectedValueOnce(new Error("storage unavailable"))
+
+    const failedWrite = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "dedup-a")),
+      recoveryAppSender()
+    )
+    expect(failedWrite).toMatchObject({ success: false })
+    expect(
+      (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+        restorableDedupKeys: string[]
+      }>)[0]?.restorableDedupKeys
+    ).toEqual(["dedup-a"])
+
+    let readCount = 0
+    storageLocal.get.mockImplementation(async (key: string) => {
+      if (key === RECOVERY_HISTORY_STORAGE_KEY) {
+        readCount += 1
+        if (readCount === 2) return { [key]: [first.record] }
+      }
+      const value = licenseStorage.get(key)
+      return value === undefined ? {} : { [key]: value }
+    })
+    const failedReadback = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "dedup-a")),
+      recoveryAppSender()
+    )
+    expect(failedReadback).toMatchObject({ success: false })
+    const committed = licenseStorage.get(
+      RECOVERY_HISTORY_STORAGE_KEY
+    ) as Array<{
+      restorableDedupKeys: string[]
+      restoreOutcomes?: Array<{ targetKey: string; status: string }>
+    }>
+    expect(committed[0]?.restorableDedupKeys).toEqual([])
+    expect(committed[0]?.restoreOutcomes).toContainEqual({
+      operation: "restore",
+      targetKey: "dedup-a",
+      status: "unknown",
+      reason: "durable-pre-dispatch-intent"
+    })
+  })
+
+  it("keeps a provisional guard after terminal set failure and accepts only the exact late result", async () => {
+    const first = createRestorableAmazonRecord("operation-terminal-set", "dedup-terminal-set", "media-terminal-set")
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record])
+    const begin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-terminal-set", "dedup-terminal-set")),
+      recoveryAppSender()
+    )
+    expect(begin).toMatchObject({ success: true })
+
+    storageLocal.set.mockRejectedValueOnce(new Error("terminal write unavailable"))
+    const failedTerminal = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(completeAmazonRestore("operation-terminal-set", "dedup-terminal-set")),
+      recoveryAppSender()
+    )
+    expect(failedTerminal).toMatchObject({ success: false })
+    expect(
+      (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+        restorableDedupKeys: string[]
+        restoreOutcomeHistory?: Array<{ requestId?: string; terminal?: boolean }>
+      }>)[0]
+    ).toMatchObject({
+      restorableDedupKeys: [],
+      restoreOutcomeHistory: [{ requestId: "restore-operation-terminal-set", terminal: false }]
+    })
+
+    const competingBegin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        ...beginAmazonRestore("operation-terminal-set", "dedup-terminal-set"),
+        requestId: "restore-operation-terminal-set-replay"
+      }),
+      recoveryAppSender()
+    )
+    expect(competingBegin).toMatchObject({ success: false })
+
+    const exactLateTerminal = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(completeAmazonRestore("operation-terminal-set", "dedup-terminal-set")),
+      recoveryAppSender()
+    )
+    expect(exactLateTerminal).toMatchObject({ success: true })
+    const resolved = (licenseStorage.get(
+      RECOVERY_HISTORY_STORAGE_KEY
+    ) as Array<{
+      status: string
+      restorableDedupKeys: string[]
+      restoreUnknownCount?: number
+      restoreOutcomeHistory?: Array<{
+        requestId?: string
+        terminal?: boolean
+        outcomes: Array<{ targetKey: string; status: string }>
+      }>
+    }>)[0]
+    expect(resolved).toMatchObject({
+      status: "restored",
+      restorableDedupKeys: [],
+      restoreUnknownCount: 0,
+      restoreOutcomeHistory: [
+        {
+          requestId: "restore-operation-terminal-set",
+          terminal: true,
+          outcomes: [{ targetKey: "dedup-terminal-set", status: "confirmed" }]
+        }
+      ]
+    })
+  })
+
+  it.each(["mismatched-readback", "failed-readback"] as const)(
+    "does not reopen a committed terminal target when terminal %s cannot be verified",
+    async (readbackFailure) => {
+      const operationId = `operation-terminal-${readbackFailure}`
+      const targetDedupKey = `dedup-terminal-${readbackFailure}`
+      const first = createRestorableAmazonRecord(
+        operationId,
+        targetDedupKey,
+        `media-terminal-${readbackFailure}`
+      )
+      licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record])
+      const begin = await dispatchMessageAndWaitForResponse(
+        recoveryMessage(beginAmazonRestore(operationId, targetDedupKey)),
+        recoveryAppSender()
+      )
+      expect(begin).toMatchObject({ success: true })
+      const provisional = structuredClone(
+        licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY)
+      )
+
+      let historyReads = 0
+      storageLocal.get.mockImplementation(async (key: string) => {
+        if (key === RECOVERY_HISTORY_STORAGE_KEY) {
+          historyReads += 1
+          if (historyReads === 2) {
+            if (readbackFailure === "failed-readback") {
+              throw new Error("terminal readback unavailable")
+            }
+            return { [key]: provisional }
+          }
+        }
+        const value = licenseStorage.get(key)
+        return value === undefined ? {} : { [key]: value }
+      })
+
+      const terminal = await dispatchMessageAndWaitForResponse(
+        recoveryMessage(completeAmazonRestore(operationId, targetDedupKey)),
+        recoveryAppSender()
+      )
+      expect(terminal).toMatchObject({ success: false })
+
+      const committed = (licenseStorage.get(
+        RECOVERY_HISTORY_STORAGE_KEY
+      ) as Array<{
+        status: string
+        restorableDedupKeys: string[]
+        restoreOutcomeHistory?: Array<{
+          requestId?: string
+          terminal?: boolean
+          outcomes: Array<{ targetKey: string; status: string }>
+        }>
+      }>)[0]
+      expect(committed).toMatchObject({
+        status: "restored",
+        restorableDedupKeys: [],
+        restoreOutcomeHistory: [
+          {
+            requestId: `restore-${operationId}`,
+            terminal: true,
+            outcomes: [{ targetKey: targetDedupKey, status: "confirmed" }]
+          }
+        ]
+      })
+
+      storageLocal.get.mockImplementation(async (key: string) => {
+        const value = licenseStorage.get(key)
+        return value === undefined ? {} : { [key]: value }
+      })
+      const replay = await dispatchMessageAndWaitForResponse(
+        recoveryMessage({
+          ...beginAmazonRestore(operationId, targetDedupKey),
+          requestId: `new-${operationId}`
+        }),
+        recoveryAppSender()
+      )
+      expect(replay).toMatchObject({ success: false })
+    }
+  )
+
+  it("preserves a terminal vector committed before storage reports an error", async () => {
+    const operationId = "operation-terminal-committed-error"
+    const targetDedupKey = "dedup-terminal-committed-error"
+    const first = createRestorableAmazonRecord(
+      operationId,
+      targetDedupKey,
+      "media-terminal-committed-error"
+    )
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [first.record])
+    const begin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore(operationId, targetDedupKey)),
+      recoveryAppSender()
+    )
+    expect(begin).toMatchObject({ success: true })
+
+    storageLocal.set.mockImplementationOnce(async (items: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(items)) {
+        licenseStorage.set(key, value)
+      }
+      throw new Error("storage reported failure after commit")
+    })
+    const ambiguousAck = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(completeAmazonRestore(operationId, targetDedupKey)),
+      recoveryAppSender()
+    )
+    expect(ambiguousAck).toMatchObject({ success: false })
+
+    const stored = (licenseStorage.get(
+      RECOVERY_HISTORY_STORAGE_KEY
+    ) as Array<{
+      status: string
+      restorableDedupKeys: string[]
+      restoreOutcomeHistory?: Array<{ terminal?: boolean; outcomes: Array<{ targetKey: string; status: string }> }>
+    }>)[0]
+    expect(stored).toMatchObject({
+      status: "restored",
+      restorableDedupKeys: [],
+      restoreOutcomeHistory: [
+        {
+          terminal: true,
+          outcomes: [{ targetKey: targetDedupKey, status: "confirmed" }]
+        }
+      ]
+    })
+
+    const writesBeforeIdempotentReply = storageLocal.set.mock.calls.length
+    const exactRetry = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(completeAmazonRestore(operationId, targetDedupKey)),
+      recoveryAppSender()
+    )
+    expect(exactRetry).toMatchObject({ success: true })
+    expect(storageLocal.set).toHaveBeenCalledTimes(writesBeforeIdempotentReply)
+
+    const newAttempt = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        ...beginAmazonRestore(operationId, targetDedupKey),
+        requestId: "new-terminal-committed-error-attempt"
+      }),
+      recoveryAppSender()
+    )
+    expect(newAttempt).toMatchObject({ success: false })
+  })
+
+  it("retains active guards on clear and prevents late trash-result overwrite", async () => {
+    const active = createRestorableAmazonRecord("operation-a", "dedup-a", "media-a")
+    const completed = createRestorableAmazonRecord(
+      "operation-b",
+      "dedup-b",
+      "media-b"
+    )
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [active.record, completed.record])
+    const begin = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "dedup-a")),
+      recoveryAppSender()
+    )
+    expect(begin).toMatchObject({ success: true })
+
+    const clear = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({ kind: "clear" }),
+      recoveryAppSender()
+    )
+    expect(clear).toMatchObject({ success: true })
+    expect((clear as { records: Array<{ operationId: string }> }).records).toEqual(
+      expect.arrayContaining([expect.objectContaining({ operationId: "operation-a" })])
+    )
+    expect(
+      (clear as { records: Array<{ operationId: string }> }).records.map(
+        (record) => record.operationId
+      )
+    ).toEqual(["operation-a"])
+
+    const staleTrashResult: TrashResultReport = {
+      reportId: "late-trash-operation-a",
+      operationId: "operation-a",
+      createdAt: new Date().toISOString(),
+      status: "complete",
+      attemptedCount: 1,
+      movedCount: 1,
+      failedCount: 0,
+      attemptedMediaKeys: ["media-a"],
+      attemptedDedupKeys: ["dedup-a"],
+      movedMediaKeys: ["media-a"],
+      movedDedupKeys: ["dedup-a"],
+      failedMediaKeys: [],
+      failedDedupKeys: [],
+      retryAttempts: 0,
+      error: null
+    }
+    const trashResult = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({
+        kind: "recordTrashResult",
+        report: staleTrashResult,
+        context: active.context
+      }),
+      recoveryAppSender()
+    )
+    expect(trashResult).toMatchObject({ success: false })
+    expect(
+      (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+        operationId: string
+        restoreOutcomeHistory?: Array<{ terminal?: boolean }>
+      }>)[0]?.restoreOutcomeHistory?.[0]
+    ).toMatchObject({ terminal: false })
+  })
+
+  it("rejects provider-page messages and a fresh worker cannot replay a persisted guard", async () => {
+    const active = createRestorableAmazonRecord("operation-a", "dedup-a", "media-a")
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [active.record])
+    const unauthorized = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "dedup-a")),
+      {
+        id: mockChrome.runtime.id,
+        url: "https://www.amazon.ca/photos",
+        frameId: 0,
+        tab: { id: 77, url: "https://www.amazon.ca/photos" } as chrome.tabs.Tab
+      }
+    )
+    expect(unauthorized).toMatchObject({ success: false })
+    expect(storageLocal.get).not.toHaveBeenCalled()
+
+    const firstWorker = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(beginAmazonRestore("operation-a", "dedup-a")),
+      recoveryAppSender()
+    )
+    expect(firstWorker).toMatchObject({ success: true })
+
+    await vi.resetModules()
+    const restarted = await import("../../background/recovery-history-transactions")
+    const afterRestart = await restarted.handleRecoveryHistoryTransaction(
+      recoveryMessage({
+        ...beginAmazonRestore("operation-a", "dedup-a"),
+        requestId: "restore-after-worker-restart"
+      }) as RecoveryHistoryTransactionMessage,
+      recoveryAppSender() as chrome.runtime.MessageSender
+    )
+    expect(afterRestart).toMatchObject({ success: false })
+    expect(
+      (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+        restoreOutcomeHistory?: Array<{ requestId?: string; terminal?: boolean }>
+      }>)[0]?.restoreOutcomeHistory?.[0]
+    ).toMatchObject({ requestId: "restore-operation-a", terminal: false })
+  })
+
+  it("accepts native extension app contexts without tab/frame metadata and rejects explicit child or foreign contexts", async () => {
+    for (const path of ["/tabs/app.html", "/tabs/scanner-panel.html"]) {
+      const response = await dispatchMessageAndWaitForResponse(
+        recoveryMessage({ kind: "read" }),
+        {
+          id: mockChrome.runtime.id,
+          url: `chrome-extension://${mockChrome.runtime.id}${path}`
+        }
+      )
+      expect(response).toMatchObject({ success: true })
+    }
+
+    const childFrame = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({ kind: "read" }),
+      {
+        id: mockChrome.runtime.id,
+        url: `chrome-extension://${mockChrome.runtime.id}/tabs/app.html`,
+        frameId: 2
+      }
+    )
+    const foreignExtensionPath = await dispatchMessageAndWaitForResponse(
+      recoveryMessage({ kind: "read" }),
+      {
+        id: mockChrome.runtime.id,
+        url: `chrome-extension://${mockChrome.runtime.id}/provider/index.html`
+      }
+    )
+    expect(childFrame).toMatchObject({ success: false })
+    expect(foreignExtensionPath).toMatchObject({ success: false })
   })
 })

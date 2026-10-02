@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+vi.mock("../../lib/generated/build-flags", () => ({
+  // Match `write-build-flags.mjs` test mode: expose the dev key without
+  // enabling dev entitlements by default.
+  ALLOW_DEV_ENTITLEMENT: false,
+  DEV_ENTITLEMENT_STORAGE_KEY: "photoSweepDevEntitlement",
+  BUILD_ID: undefined
+}))
 
 import {
   DEV_ENTITLEMENT_STORAGE_KEY,

@@ -6,6 +6,7 @@ import {
   mergeDecisionMemory,
   stableGroupIdentity
 } from "../../lib/decision-memory"
+import { applyDefaultKeepStrategyToSelections } from "../../lib/duplicate-review-session"
 import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
 
 const items: Record<string, GpdMediaItem> = {
@@ -85,8 +86,111 @@ describe("decision memory", () => {
     expect(applied.reviewedGroupIds).toEqual(new Set(["new-group-id"]))
     expect(applied.keptOverrides["new-group-id"]).toEqual(new Set(["keep"]))
     expect(applied.keepDecisionProvenance?.["new-group-id"]).toEqual({
-      source: "legacy_preserved"
+      source: "manual"
     })
+  })
+
+  it("preserves identity-validated remembered manual keepers and replaces unproven legacy keepers", () => {
+    const records = captureManualDecisionRecords({
+      groups: [group],
+      mediaItems: items,
+      provider: "google",
+      accountEmail: "buyer@example.com",
+      selections: {
+        selectedGroupIds: new Set([group.id]),
+        reviewedGroupIds: new Set([group.id]),
+        keptOverrides: { [group.id]: new Set(["keep"]) },
+        keepDecisionProvenance: { [group.id]: { source: "manual" } }
+      },
+      now: 100
+    })
+    const restoredManualGroup = {
+      ...group,
+      id: "restored-manual-group",
+      mediaKeys: ["duplicate", "keep"]
+    }
+    const legacyGroup: DuplicateGroup = {
+      id: "unproven-legacy-group",
+      mediaKeys: ["legacy-worse", "legacy-best"],
+      originalMediaKey: "legacy-worse",
+      similarity: 1
+    }
+    const allGroups = [restoredManualGroup, legacyGroup]
+    const allItems = {
+      ...items,
+      "legacy-worse": {
+        mediaKey: "legacy-worse",
+        dedupKey: "asset-legacy-worse",
+        provider: "google" as const,
+        thumb: "legacy-worse",
+        timestamp: 1,
+        creationTimestamp: 1,
+        isOriginalQuality: false
+      },
+      "legacy-best": {
+        mediaKey: "legacy-best",
+        dedupKey: "asset-legacy-best",
+        provider: "google" as const,
+        thumb: "legacy-best",
+        timestamp: 1,
+        creationTimestamp: 1,
+        isOriginalQuality: true
+      }
+    }
+    const remembered = applyRememberedDecisions({
+      records,
+      groups: allGroups,
+      mediaItems: allItems,
+      provider: "google",
+      accountEmail: "buyer@example.com",
+      now: 100
+    })
+    expect(remembered.keptOverrides[restoredManualGroup.id]).toEqual(
+      new Set(["keep"])
+    )
+    expect(remembered.keepDecisionProvenance?.[restoredManualGroup.id]).toEqual({
+      source: "manual"
+    })
+
+    const previousSelections = {
+      selectedGroupIds: new Set([legacyGroup.id]),
+      reviewedGroupIds: new Set([legacyGroup.id]),
+      keptOverrides: { [legacyGroup.id]: new Set(["legacy-worse"]) }
+    }
+    const combined = {
+      selectedGroupIds: new Set([
+        ...previousSelections.selectedGroupIds,
+        ...remembered.selectedGroupIds
+      ]),
+      reviewedGroupIds: new Set([
+        ...previousSelections.reviewedGroupIds,
+        ...remembered.reviewedGroupIds
+      ]),
+      keptOverrides: {
+        ...previousSelections.keptOverrides,
+        ...remembered.keptOverrides
+      },
+      keepDecisionProvenance: remembered.keepDecisionProvenance
+    }
+    const applied = applyDefaultKeepStrategyToSelections({
+      groups: allGroups,
+      mediaItems: allItems,
+      selections: combined,
+      strategy: "best_quality"
+    })
+
+    expect(applied.keptOverrides[restoredManualGroup.id]).toEqual(
+      new Set(["keep"])
+    )
+    expect(applied.keepDecisionProvenance?.[restoredManualGroup.id]).toEqual({
+      source: "manual"
+    })
+    expect(applied.keptOverrides[legacyGroup.id]).toEqual(new Set(["legacy-best"]))
+    expect(applied.keepDecisionProvenance?.[legacyGroup.id]).toMatchObject({
+      source: "automatic",
+      strategy: "best_quality"
+    })
+    expect(applied.selectedGroupIds).toEqual(new Set([legacyGroup.id, restoredManualGroup.id]))
   })
 
   it("does not cross accounts or providers and fails closed for changed members", () => {

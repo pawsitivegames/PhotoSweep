@@ -11,6 +11,7 @@ export interface TrashDispatchAuthorization {
   generation: number
   provider: PhotoProvider
   accountEmail?: string
+  providerSessionId?: string
   scopeFingerprint?: string
   planFingerprint: string
 }
@@ -33,7 +34,8 @@ export function trashPlanFingerprint(plan: DuplicateTrashPlan): string {
       ? plan.icloudAssetRefs.map((ref) => ({ ...ref }))
       : null,
     blockedMediaKeys: [...plan.blockedMediaKeys],
-    blockedGroupIds: [...plan.blockedGroupIds]
+    blockedGroupIds: [...plan.blockedGroupIds],
+    unknownFavoriteMediaKeys: [...(plan.unknownFavoriteMediaKeys ?? [])]
   })
 }
 
@@ -42,6 +44,7 @@ export function captureTrashDispatchAuthorization(params: {
   plan: DuplicateTrashPlan
   provider: PhotoProvider
   accountEmail?: string
+  providerSessionId?: string
   scopeFingerprint?: string
 }): TrashDispatchAuthorization {
   return {
@@ -49,6 +52,9 @@ export function captureTrashDispatchAuthorization(params: {
     provider: params.provider,
     ...(normalizedEmail(params.accountEmail)
       ? { accountEmail: normalizedEmail(params.accountEmail) }
+      : {}),
+    ...(params.providerSessionId
+      ? { providerSessionId: params.providerSessionId }
       : {}),
     ...(params.scopeFingerprint
       ? { scopeFingerprint: params.scopeFingerprint }
@@ -65,6 +71,7 @@ export function isTrashDispatchAuthorizationCurrent(
     expected.generation === current.generation &&
     expected.provider === current.provider &&
     expected.accountEmail === current.accountEmail &&
+    expected.providerSessionId === current.providerSessionId &&
     expected.scopeFingerprint === current.scopeFingerprint &&
     expected.planFingerprint === current.planFingerprint
   )

@@ -150,7 +150,7 @@ describe("entitlement gates", () => {
     expect(canResumeCheckpoint(checkpoint, entitlement("cleanup_pass"))).toBe(true)
   })
 
-  it("treats saved iCloud test batches as paid-only scan scope", () => {
+  it("preserves a free iCloud batch as scan scope under the common free cap", () => {
     const savedFreeIcloudSettings: ScanSettings = {
       sourceProvider: "icloud",
       scanMode: "smart",
@@ -165,17 +165,19 @@ describe("entitlement gates", () => {
     expect(isFreeIcloudPlan(savedFreeIcloudSettings, entitlement("free"))).toBe(
       true
     )
-    expect(sanitized.icloudBatchLimit).toBeUndefined()
-    expect(canStartScan(sanitized, undefined, entitlement("free"))).toBe(false)
+    expect(sanitized).toBe(savedFreeIcloudSettings)
+    expect(sanitized.icloudBatchLimit).toBe(50)
+    expect(canStartScan(sanitized, 50, entitlement("free"))).toBe(true)
     expect(
-      scanSettingsForEntitlement(
-        savedFreeIcloudSettings,
-        entitlement("cleanup_pass")
-      ).icloudBatchLimit
-    ).toBe(50)
+      canStartScan(
+        { ...sanitized, icloudBatchLimit: 1001 },
+        1001,
+        entitlement("free")
+      )
+    ).toBe(false)
   })
 
-  it("does not let stale free iCloud batch checkpoints resume as scoped scans", () => {
+  it("allows free iCloud batch checkpoints to resume within the common cap", () => {
     const checkpoint = {
       id: "scan",
       status: "interrupted" as const,
@@ -194,8 +196,41 @@ describe("entitlement gates", () => {
       mediaItems: Array.from({ length: 50 }, (_, i) => item(i))
     }
 
-    expect(canResumeCheckpoint(checkpoint, entitlement("free"))).toBe(false)
+    expect(canResumeCheckpoint(checkpoint, entitlement("free"))).toBe(true)
     expect(canResumeCheckpoint(checkpoint, entitlement("cleanup_pass"))).toBe(true)
+  })
+
+  it("keeps the common free scan-size and full-mode gates on iCloud batch resumes", () => {
+    const checkpoint = {
+      id: "free-icloud-large-batch",
+      status: "interrupted" as const,
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+      settings: {
+        sourceProvider: "icloud" as const,
+        scanMode: "smart" as const,
+        similarityThreshold: 0.95,
+        icloudBatchLimit: 50
+      },
+      phase: "fetching" as const,
+      itemsProcessed: 0,
+      totalEstimate: 1001,
+      message: "paused",
+      mediaItems: Array.from({ length: 1001 }, (_, i) => item(i))
+    }
+
+    expect(canResumeCheckpoint(checkpoint, entitlement("free"))).toBe(false)
+    expect(
+      canResumeCheckpoint(
+        {
+          ...checkpoint,
+          settings: { ...checkpoint.settings, scanMode: "full" },
+          totalEstimate: 50,
+          mediaItems: checkpoint.mediaItems.slice(0, 50)
+        },
+        entitlement("free")
+      )
+    ).toBe(false)
   })
 
   it("keeps provider support consistent across Google, iCloud, and Amazon", () => {
@@ -224,6 +259,85 @@ describe("provider support matrix", () => {
     for (const planId of ["free", ...PAID_PLAN_IDS] as const) {
       for (const provider of ALL_PROVIDERS) {
         expect(canUsePaidProvider(provider, entitlement(planId))).toBe(true)
+      }
+    }
+  })
+
+  it("applies the same plan caps to each provider", () => {
+    const expectedLimits = {
+      free: { scan: 1000, visible: 25, trash: 10, full: false },
+      mini_cleanup: { scan: 2500, visible: 75, trash: 100, full: false },
+      cleanup_pass: {
+        scan: 10000,
+        visible: "unlimited",
+        trash: "unlimited",
+        full: true
+      },
+      lifetime: {
+        scan: "unlimited",
+        visible: "unlimited",
+        trash: "unlimited",
+        full: true
+      }
+    } as const
+
+    for (const provider of ALL_PROVIDERS) {
+      for (const planId of [
+        "free",
+        ...PAID_PLAN_IDS
+      ] as const) {
+        const limits = getPlanLimits(entitlement(planId))
+        expect({
+          scan: limits.maxPhotosPerScan,
+          visible: limits.maxVisibleGroups,
+          trash: limits.maxTrashMovesPerSession,
+          full: limits.fullScanMode
+        }).toEqual(expectedLimits[planId])
+
+        const groups = Array.from({ length: 100 }, (_, index) => group(index))
+        const visibleCap = expectedLimits[planId].visible
+        expect(getVisibleGroups(groups, entitlement(planId))).toHaveLength(
+          visibleCap === "unlimited" ? groups.length : visibleCap
+        )
+        const trashCap = expectedLimits[planId].trash
+        if (trashCap === "unlimited") {
+          expect(canTrashCount(100000, entitlement(planId))).toBe(true)
+        } else {
+          expect(canTrashCount(trashCap, entitlement(planId))).toBe(true)
+          expect(canTrashCount(trashCap + 1, entitlement(planId))).toBe(false)
+        }
+
+        const settings: ScanSettings = {
+          sourceProvider: provider,
+          scanMode: "smart",
+          similarityThreshold: 0.95,
+          albumScope: { mediaKey: `${provider}-album`, itemCount: 100 }
+        }
+        const scanCap = expectedLimits[planId].scan
+        expect(
+          canStartScan(
+            { ...settings, albumScope: { ...settings.albumScope!, itemCount: scanCap === "unlimited" ? 1000 : scanCap } },
+            scanCap === "unlimited" ? 1000 : scanCap,
+            entitlement(planId)
+          )
+        ).toBe(true)
+        if (scanCap !== "unlimited") {
+          expect(
+            canStartScan(
+              {
+                ...settings,
+                albumScope: { ...settings.albumScope!, itemCount: scanCap + 1 }
+              },
+              scanCap + 1,
+              entitlement(planId)
+            )
+          ).toBe(false)
+        }
+        expect(
+          canStartScan({ ...settings, scanMode: "full" }, 100, entitlement(planId))
+        ).toBe(
+          expectedLimits[planId].full
+        )
       }
     }
   })

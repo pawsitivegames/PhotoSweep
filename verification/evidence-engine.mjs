@@ -23,7 +23,15 @@ const PROOF_CLASSES = new Set([
   "evidence-integrity",
   "message-boundary",
   "baseline",
-  "live-provider"
+  "live-provider",
+  "generated-property",
+  "generated-implementation-oracle",
+  "implementation-boundary",
+  "source-bound-evidence-verifier",
+  "service-worker-boundary-test",
+  "static-model-correspondence-map",
+  "finite-service-worker-authority-model",
+  "finite-model-negative-control"
 ])
 const OBLIGATION_KINDS = new Set([
   ...CHECK_KINDS,

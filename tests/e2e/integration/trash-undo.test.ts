@@ -55,11 +55,157 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
   await confirmButton.click()
 }
 
-async function includeAllAndOpenTrashDialog(page: Page): Promise<void> {
+async function includeAllAndOpenTrashDialog(
+  page: Page,
+  accountEmail = "test@example.com"
+): Promise<void> {
+  // Trash preflight requires a fresh provider health result. Waiting for the
+  // signed-in banner avoids racing the health-check response after the saved
+  // results have already rendered.
+  await expect(page.getByText(`Signed in as ${accountEmail}`)).toBeVisible({
+    timeout: 8_000
+  })
   await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })
     .click()
+}
+
+type RecoveryTransactionFaultPhase = "begin" | "terminal" | "nonterminal"
+type RecoveryTransactionFaultMode =
+  | "reject-before-worker"
+  | "drop-ack-after-worker-commit"
+
+async function openAppTabWithRecoveryTransactionFault(
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  const page = await context.newPage()
+  await page.addInitScript(() => {
+    if (!location.pathname.endsWith("/tabs/app.html")) return
+    const runtime = chrome.runtime
+    const originalSendMessage = runtime.sendMessage.bind(runtime)
+    const control = {
+      armed: false,
+      failOnPhase: "" as RecoveryTransactionFaultPhase | "",
+      mode: "reject-before-worker" as RecoveryTransactionFaultMode,
+      recoveryTransactions: 0,
+      failures: 0,
+      failedPhase: "" as string,
+      arm(
+        failOnPhase: RecoveryTransactionFaultPhase,
+        mode: RecoveryTransactionFaultMode = "reject-before-worker"
+      ) {
+        this.armed = true
+        this.failOnPhase = failOnPhase
+        this.mode = mode
+        this.recoveryTransactions = 0
+        this.failedPhase = ""
+      }
+    }
+    ;(
+      window as unknown as {
+        __gpdRecoveryTransactionFault: typeof control
+      }
+    ).__gpdRecoveryTransactionFault = control
+    runtime.sendMessage = ((message, ...args) => {
+      const transactionMessage = message as {
+        action?: string
+        transaction?: { kind?: string; params?: { terminal?: boolean } }
+      }
+      const transaction = transactionMessage?.transaction
+      const isRecoveryMutation =
+        transactionMessage?.action === "recoveryHistory.transaction" &&
+        transaction?.kind !== "read"
+      if (isRecoveryMutation) {
+        control.recoveryTransactions += 1
+        const phase =
+          transaction?.kind === "beginRestore"
+            ? "begin"
+            : transaction?.kind === "updateRestore"
+              ? transaction.params?.terminal === true
+                ? "terminal"
+                : transaction.params?.terminal === false
+                  ? "nonterminal"
+                  : ""
+              : ""
+        if (
+          control.armed &&
+          phase === control.failOnPhase &&
+          control.mode === "reject-before-worker"
+        ) {
+          control.armed = false
+          control.failures += 1
+          control.failedPhase = phase
+          return Promise.reject(
+            new Error("injected recovery transaction non-delivery")
+          )
+        }
+        const response = originalSendMessage(message, ...args)
+        if (
+          control.armed &&
+          phase === control.failOnPhase &&
+          control.mode === "drop-ack-after-worker-commit"
+        ) {
+          return Promise.resolve(response).then(() => {
+            control.armed = false
+            control.failures += 1
+            control.failedPhase = phase
+            return Promise.reject(
+              new Error("injected recovery transaction acknowledgement loss")
+            )
+          })
+        }
+        return response
+      }
+      return originalSendMessage(message, ...args)
+    }) as typeof runtime.sendMessage
+  })
+  await page.goto(`chrome-extension://${extensionId}/tabs/app.html`)
+  return page
+}
+
+async function prepareTrashedReviewForRestore(
+  context: BrowserContext,
+  extensionId: string,
+  restoreOverride: Parameters<typeof openGptkStubPage>[1]["restoreItems"] = {}
+): Promise<{ page: Page; stub: Page }> {
+  await clearStorage(context)
+  const { groups, mediaItems } = smallPayload()
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length
+  )
+  const stub = await openGptkStubPage(context, {
+    restoreItems: restoreOverride
+  })
+  const page = await openAppTabWithRecoveryTransactionFault(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "3 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+  await includeAllAndOpenTrashDialog(page)
+  await confirmTrashDialog(page, 3)
+  await expect(page.getByText(/moved to trash/i)).toBeVisible({
+    timeout: 10_000
+  })
+  return { page, stub }
+}
+
+async function readRecoveryHistory(context: BrowserContext): Promise<any[]> {
+  const serviceWorker = context.serviceWorkers()[0]
+  return serviceWorker.evaluate(
+    () =>
+      new Promise<any[]>((resolve) => {
+        chrome.storage.local.get("recoveryHistory", (result) => {
+          resolve((result.recoveryHistory as any[]) || [])
+        })
+      })
+  )
 }
 
 // ============================================================
@@ -96,6 +242,11 @@ test("trashes selected groups and removes them from the UI", async () => {
   await expect(page.getByRole("dialog")).toBeVisible()
   await expect(
     page.getByRole("heading", { name: "Move to Trash" })
+  ).toBeVisible()
+  await expect(
+    page.getByText(
+      "Google Photos keeps deleted items in Trash for up to 30 days."
+    )
   ).toBeVisible()
 
   // Confirm by typing the exact item count
@@ -420,6 +571,487 @@ test("shows a retryable warning when restore undo fails", async () => {
   await page.close()
 })
 
+test("persists restore timeout uncertainty and reconciles only the same live late result", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = smallPayload()
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length
+  )
+
+  const stub = await openGptkStubPage(context, {
+    restoreItems: {
+      holdResponse: true,
+      progressItemsProcessed: 1,
+      progressData: {
+        outcomes: [
+          {
+            operation: "restore",
+            targetKey: "dedup-group0-item1",
+            status: "confirmed"
+          }
+        ]
+      }
+    }
+  })
+  const page = await openAppTab(context, extensionId)
+  await expect(
+    page.getByRole("heading", {
+      name: "3 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+
+  await includeAllAndOpenTrashDialog(page)
+  await confirmTrashDialog(page, 3)
+  await expect(page.getByText(/moved to trash/i)).toBeVisible({
+    timeout: 10_000
+  })
+
+  // Install the page clock only after setup, then advance the app's bounded
+  // restore timer without waiting two real minutes.
+  await page.clock.install()
+  await page.getByRole("button", { name: /^Undo$/i }).click()
+  await stub.waitForFunction(
+    () => {
+      const stubWindow = window as unknown as {
+        __gptkHeldRestoreResponses?: Record<string, unknown>
+      }
+      return Object.keys(stubWindow.__gptkHeldRestoreResponses ?? {}).length === 1
+    },
+    undefined,
+    { timeout: 8_000 }
+  )
+  const requestId = await stub.evaluate(() => {
+    const stubWindow = window as unknown as {
+      __gptkCommandLog: Array<{ command: string; requestId: string }>
+    }
+    const command = stubWindow.__gptkCommandLog.find(
+      (entry) => entry.command === "restoreItems"
+    )
+    return command?.requestId ?? null
+  })
+  if (!requestId) throw new Error("The stub did not receive restoreItems.")
+
+  await page.clock.fastForward(120_001)
+  await expect(
+    page.getByText(/has not returned a terminal restore result/i)
+  ).toBeVisible({ timeout: 8_000 })
+
+  const sw = context.serviceWorkers()[0]
+  await expect
+    .poll(async () =>
+      sw.evaluate(
+        () =>
+          new Promise<any[]>((resolve) => {
+            chrome.storage.local.get("recoveryHistory", (result) => {
+              resolve((result.recoveryHistory as any[]) || [])
+            })
+          })
+      )
+    )
+    .toMatchObject([
+      {
+        restoreUnknownCount: 2,
+        restoreOutcomeHistory: [
+          {
+            requestId,
+            terminal: false,
+            outcomes: [
+              { targetKey: "dedup-group0-item1", status: "confirmed" },
+              { targetKey: "dedup-group1-item1", status: "unknown" },
+              { targetKey: "dedup-group2-item1", status: "unknown" }
+            ]
+          }
+        ]
+      }
+    ])
+
+  await stub.evaluate((restoreRequestId) => {
+    const stubWindow = window as unknown as {
+      __gptkHeldRestoreResponses?: Record<
+        string,
+        (data: unknown) => void
+      >
+      __gptkCommandLog: Array<{
+        command: string
+        requestId: string
+        args?: { dedupKeys?: unknown }
+      }>
+    }
+    const restore = stubWindow.__gptkHeldRestoreResponses?.[restoreRequestId]
+    const command = stubWindow.__gptkCommandLog.find(
+      (entry) =>
+        entry.command === "restoreItems" && entry.requestId === restoreRequestId
+    )
+    const dedupKeys = Array.isArray(command?.args?.dedupKeys)
+      ? command.args.dedupKeys
+      : []
+    restore?.({
+      restoredDedupKeys: dedupKeys,
+      outcomes: dedupKeys.map((targetKey) => ({
+        operation: "restore",
+        targetKey,
+        status: "confirmed"
+      }))
+    })
+  }, requestId)
+
+  await expect
+    .poll(async () =>
+      sw.evaluate(
+        () =>
+          new Promise<any[]>((resolve) => {
+            chrome.storage.local.get("recoveryHistory", (result) => {
+              resolve((result.recoveryHistory as any[]) || [])
+            })
+          })
+      )
+    )
+    .toMatchObject([
+      {
+        status: "restored",
+        restoreUnknownCount: 0,
+        restorableDedupKeys: [],
+        restoreOutcomeHistory: [
+          { requestId, terminal: true }
+        ]
+      }
+    ])
+  await expect(
+    page.getByText(/Provider restore completed/i)
+  ).toBeVisible({ timeout: 8_000 })
+
+  await stub.close()
+  await page.close()
+})
+
+test("does not dispatch restore when the begin request is rejected before worker delivery", async () => {
+  const { page, stub } = await prepareTrashedReviewForRestore(
+    context,
+    extensionId
+  )
+  try {
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gpdRecoveryTransactionFault: {
+            arm(
+              failOnPhase: "begin" | "terminal" | "nonterminal",
+              mode?: "reject-before-worker" | "drop-ack-after-worker-commit"
+            ): void
+          }
+        }
+      ).__gpdRecoveryTransactionFault.arm("begin")
+    })
+    await page.getByRole("button", { name: /^Undo$/i }).click()
+
+    await expect(
+      page.getByText(
+        /Restore was not sent because its per-target recovery guard could not be saved\. No provider targets were dispatched\./i
+      )
+    ).toBeVisible({ timeout: 8_000 })
+    const restoreCommands = await stub.evaluate(() => {
+      const commands = (
+        window as unknown as {
+          __gptkCommandLog: Array<{ command: string }>
+        }
+      ).__gptkCommandLog
+      return commands.filter((entry) => entry.command === "restoreItems")
+        .length
+    })
+    expect(restoreCommands).toBe(0)
+
+    const records = await readRecoveryHistory(context)
+    expect(records[0]?.restorableDedupKeys).toEqual([
+      "dedup-group0-item1",
+      "dedup-group1-item1",
+      "dedup-group2-item1"
+    ])
+    expect(records[0]?.restoreOutcomeHistory ?? []).toEqual([])
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __gpdRecoveryTransactionFault: {
+                recoveryTransactions: number
+                failures: number
+                failedPhase: string
+              }
+            }
+          ).__gpdRecoveryTransactionFault
+      )
+    ).toMatchObject({
+      recoveryTransactions: 1,
+      failures: 1,
+      failedPhase: "begin"
+    })
+  } finally {
+    await stub.close()
+    await page.close()
+    await clearStorage(context)
+  }
+})
+
+test("does not dispatch restore when the committed begin guard acknowledgement is lost", async () => {
+  const { page, stub } = await prepareTrashedReviewForRestore(
+    context,
+    extensionId
+  )
+  try {
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gpdRecoveryTransactionFault: {
+            arm(
+              failOnPhase: "begin" | "terminal" | "nonterminal",
+              mode?: "reject-before-worker" | "drop-ack-after-worker-commit"
+            ): void
+          }
+        }
+      ).__gpdRecoveryTransactionFault.arm(
+        "begin",
+        "drop-ack-after-worker-commit"
+      )
+    })
+    await page.getByRole("button", { name: /^Undo$/i }).click()
+
+    await expect(
+      page.getByText(
+        /Restore was not sent because its per-target recovery guard could not be saved\. No provider targets were dispatched\./i
+      )
+    ).toBeVisible({ timeout: 8_000 })
+    const restoreCommands = await stub.evaluate(() => {
+      const commands = (
+        window as unknown as {
+          __gptkCommandLog: Array<{ command: string }>
+        }
+      ).__gptkCommandLog
+      return commands.filter((entry) => entry.command === "restoreItems")
+        .length
+    })
+    expect(restoreCommands).toBe(0)
+
+    const records = await readRecoveryHistory(context)
+    expect(records[0]).toMatchObject({
+      status: "restore_unknown",
+      restorableDedupKeys: [],
+      restoreUnknownCount: 3,
+      restoreOutcomes: [
+        {
+          targetKey: "dedup-group0-item1",
+          status: "unknown",
+          reason: "durable-pre-dispatch-intent"
+        },
+        {
+          targetKey: "dedup-group1-item1",
+          status: "unknown",
+          reason: "durable-pre-dispatch-intent"
+        },
+        {
+          targetKey: "dedup-group2-item1",
+          status: "unknown",
+          reason: "durable-pre-dispatch-intent"
+        }
+      ],
+      restoreOutcomeHistory: [{ terminal: false }]
+    })
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __gpdRecoveryTransactionFault: {
+                recoveryTransactions: number
+                failures: number
+                failedPhase: string
+                mode: string
+              }
+            }
+          ).__gpdRecoveryTransactionFault
+      )
+    ).toMatchObject({
+      recoveryTransactions: 1,
+      failures: 1,
+      failedPhase: "begin",
+      mode: "drop-ack-after-worker-commit"
+    })
+  } finally {
+    await stub.close()
+    await page.close()
+    await clearStorage(context)
+  }
+})
+
+test("keeps the prewritten guard when a terminal update is rejected before worker delivery", async () => {
+  const { page, stub } = await prepareTrashedReviewForRestore(
+    context,
+    extensionId
+  )
+  try {
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gpdRecoveryTransactionFault: {
+            arm(
+              failOnPhase: "begin" | "terminal" | "nonterminal",
+              mode?: "reject-before-worker" | "drop-ack-after-worker-commit"
+            ): void
+          }
+        }
+      ).__gpdRecoveryTransactionFault.arm("terminal")
+    })
+    await page.getByRole("button", { name: /^Undo$/i }).click()
+
+    await expect(
+      page.getByText(
+        /terminal restore result, but its final outcome could not be saved/i
+      )
+    ).toBeVisible({ timeout: 10_000 })
+    const restoreCommands = await stub.evaluate(() => {
+      const commands = (
+        window as unknown as {
+          __gptkCommandLog: Array<{ command: string }>
+        }
+      ).__gptkCommandLog
+      return commands.filter((entry) => entry.command === "restoreItems")
+        .length
+    })
+    expect(restoreCommands).toBe(1)
+
+    const records = await readRecoveryHistory(context)
+    expect(records[0]).toMatchObject({
+      status: "restore_unknown",
+      restorableDedupKeys: [],
+      restoreUnknownCount: 3,
+      restoreOutcomeHistory: [
+        {
+          terminal: false,
+          outcomes: [
+            { targetKey: "dedup-group0-item1", status: "unknown" },
+            { targetKey: "dedup-group1-item1", status: "unknown" },
+            { targetKey: "dedup-group2-item1", status: "unknown" }
+          ]
+        }
+      ]
+    })
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __gpdRecoveryTransactionFault: {
+                recoveryTransactions: number
+                failures: number
+                failedPhase: string
+              }
+            }
+          ).__gpdRecoveryTransactionFault
+      )
+    ).toMatchObject({ failures: 1, failedPhase: "terminal" })
+  } finally {
+    await stub.close()
+    await page.close()
+    await clearStorage(context)
+  }
+})
+
+test("a timeout update rejected before worker delivery cannot reopen its prewritten guard", async () => {
+  const { page, stub } = await prepareTrashedReviewForRestore(
+    context,
+    extensionId,
+    { holdResponse: true }
+  )
+  try {
+    await page.clock.install()
+    await page.getByRole("button", { name: /^Undo$/i }).click()
+    await stub.waitForFunction(
+      () => {
+        const held = (
+          window as unknown as {
+            __gptkHeldRestoreResponses?: Record<string, unknown>
+          }
+        ).__gptkHeldRestoreResponses
+        return Object.keys(held ?? {}).length === 1
+      },
+      undefined,
+      { timeout: 8_000 }
+    )
+    await page.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gpdRecoveryTransactionFault: {
+            arm(
+              failOnPhase: "begin" | "terminal" | "nonterminal",
+              mode?: "reject-before-worker" | "drop-ack-after-worker-commit"
+            ): void
+          }
+        }
+      ).__gpdRecoveryTransactionFault.arm("nonterminal")
+    })
+    await page.clock.fastForward(120_001)
+
+    await expect(
+      page.getByText(
+        /latest progress could not be saved.*durable pre-dispatch guard remains in recovery history/i
+      )
+    ).toBeVisible({ timeout: 8_000 })
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __gpdRecoveryTransactionFault: {
+                mode: "reject-before-worker" | "drop-ack-after-worker-commit"
+                failures: number
+                failedPhase: string
+              }
+            }
+          ).__gpdRecoveryTransactionFault
+      )
+      ).toMatchObject({
+        mode: "reject-before-worker",
+        failures: 1,
+        failedPhase: "nonterminal"
+      })
+    let records = await readRecoveryHistory(context)
+    expect(records[0]).toMatchObject({
+      status: "restore_unknown",
+      restorableDedupKeys: [],
+      restoreUnknownCount: 3,
+      restoreOutcomeHistory: [{ terminal: false }]
+    })
+
+    await page.reload()
+    await expect(
+      page.getByRole("heading", {
+        name: "3 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 10_000 })
+    records = await readRecoveryHistory(context)
+    expect(records[0]?.restorableDedupKeys).toEqual([])
+    expect(records[0]?.restoreUnknownCount).toBe(3)
+    const restoreCommands = await stub.evaluate(() => {
+      const commands = (
+        window as unknown as {
+          __gptkCommandLog: Array<{ command: string }>
+        }
+      ).__gptkCommandLog
+      return commands.filter((entry) => entry.command === "restoreItems")
+        .length
+    })
+    expect(restoreCommands).toBe(1)
+  } finally {
+    await stub.close()
+    await page.close()
+    await clearStorage(context)
+  }
+})
+
 test("retires an old Undo restore when the connected account changes", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = smallPayload()
@@ -450,7 +1082,7 @@ test("retires an old Undo restore when the connected account changes", async () 
     })
   ).toBeVisible({ timeout: 8_000 })
 
-  await includeAllAndOpenTrashDialog(page)
+  await includeAllAndOpenTrashDialog(page, "alice@example.com")
   await confirmTrashDialog(page, 3)
   await expect(page.getByText(/moved to trash/i)).toBeVisible({
     timeout: 10_000

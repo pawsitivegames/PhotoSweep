@@ -128,13 +128,10 @@ export function ScanProgress({
         sx={{
           p: compact ? 1.25 : { xs: 2.5, md: 4 },
           border: "1px solid",
-          borderColor: "rgba(214,226,221,0.9)",
-          borderRadius: compact ? 2 : 3,
-          bgcolor: compact
-            ? photoSweepColors.surface
-            : photoSweepColors.surfaceTint,
-          backdropFilter: "saturate(180%) blur(22px)",
-          boxShadow: compact ? "none" : `0 24px 70px ${photoSweepColors.shadow}`
+          borderColor: photoSweepColors.border,
+          borderRadius: 1.5,
+          bgcolor: photoSweepColors.surface,
+          boxShadow: compact ? "none" : "0 2px 10px rgba(27, 45, 66, 0.05)"
         }}>
         <Box
           sx={{

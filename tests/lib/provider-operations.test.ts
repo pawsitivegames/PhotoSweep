@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest"
 
 import {
   getProviderOperations,
+  providerAlbumTrashNotice,
   providerBatchLimit,
   providerFromUrl,
-  providerLabel
+  providerHealthUnavailableMessage,
+  providerLabel,
+  providerLivePhotoPairNotice,
+  providerRecoveryWindowNotice,
+  providerTrashDestination
 } from "../../lib/provider-operations"
 import {
   AMAZON_MARKETPLACE_HOSTS,
@@ -90,12 +95,101 @@ describe("provider operations", () => {
         amazonBatchLimit: 25.9
       })
     ).toBe(25)
-    expect(getProviderOperations("google").supportsAlbumScope).toBe(true)
+    expect(getProviderOperations("google").capabilities.albumScope).toBe(
+      "supported"
+    )
     expect(getProviderOperations("icloud").injectBridgeIntoAllFrames).toBe(true)
+  })
+
+  it("declares provider-specific incremental strategies", () => {
+    expect(
+      Object.fromEntries(
+        (["google", "icloud", "amazon"] as const).map((provider) => [
+          provider,
+          getProviderOperations(provider).capabilities
+        ])
+      )
+    ).toEqual({
+      google: {
+        libraryScan: "supported",
+        albumScope: "supported",
+        dateRange: "supported",
+        incrementalScan: "full_refresh",
+        photos: "supported",
+        videos: "supported",
+        livePhotoPairing: "unsupported",
+        accountIdentity: "email_when_available",
+        trash: "supported",
+        restore: "supported"
+      },
+      icloud: {
+        libraryScan: "supported",
+        albumScope: "supported",
+        dateRange: "supported",
+        incrementalScan: "provider_delta",
+        photos: "supported",
+        videos: "supported",
+        livePhotoPairing: "unsupported",
+        accountIdentity: "email_when_available",
+        trash: "supported",
+        restore: "supported"
+      },
+      amazon: {
+        libraryScan: "supported",
+        albumScope: "supported",
+        dateRange: "supported",
+        incrementalScan: "full_refresh",
+        photos: "supported",
+        videos: "supported",
+        livePhotoPairing: "unsupported",
+        accountIdentity: "session_only",
+        trash: "supported",
+        restore: "supported"
+      }
+    })
   })
 
   it("provides one canonical label", () => {
     expect(providerLabel(undefined)).toBe("Google Photos")
     expect(providerLabel("icloud")).toBe("iCloud Photos")
+  })
+
+  it("gives each provider an actionable health recovery message", () => {
+    expect(providerHealthUnavailableMessage("google")).toMatch(
+      /Google Photos is not ready.*photos\.google\.com.*sign in/i
+    )
+    expect(providerHealthUnavailableMessage("icloud")).toMatch(
+      /iCloud Photos is not ready.*icloud\.com\/photos.*sign in/i
+    )
+    expect(providerHealthUnavailableMessage("amazon")).toMatch(
+      /Amazon Photos is not ready.*country site.*sign in again if needed/i
+    )
+  })
+
+  it("[PARITY-04] reports each provider's native recovery destination and current window", () => {
+    expect(providerTrashDestination("google")).toBe("Google Photos Trash")
+    expect(providerRecoveryWindowNotice("google")).toContain("30 days")
+    expect(providerTrashDestination("icloud")).toBe(
+      "iCloud Photos Recently Deleted"
+    )
+    expect(providerRecoveryWindowNotice("icloud")).toContain("30 days")
+    expect(providerTrashDestination("amazon")).toBe("Amazon Photos Trash")
+    expect(providerRecoveryWindowNotice("amazon")).toContain(
+      "Check your account's Amazon Photos Help"
+    )
+    expect(providerAlbumTrashNotice()).toMatch(
+      /does not just remove it from the selected album/i
+    )
+  })
+
+  it("[PARITY-06] explicitly reports unpaired Live Photo component handling", () => {
+    expect(providerLivePhotoPairNotice()).toMatch(
+      /does not group a Live Photo's still and motion components as one item/i
+    )
+    for (const provider of ["google", "icloud", "amazon"] as const) {
+      expect(
+        getProviderOperations(provider).capabilities.livePhotoPairing
+      ).toBe("unsupported")
+    }
   })
 })
