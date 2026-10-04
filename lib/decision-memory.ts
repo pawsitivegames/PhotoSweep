@@ -163,7 +163,11 @@ export function captureManualDecisionRecords(params: {
     if (!groupIdentity) continue
     const provenance = params.selections.keepDecisionProvenance?.[group.id]
     const source: KeepDecisionSource | undefined = provenance?.source
-    if (source === "automatic" || source === "legacy_preserved") continue
+    if (
+      source === "automatic" ||
+      source === "legacy_preserved" ||
+      source === "stale_fallback"
+    ) continue
     const keptKeys = params.selections.keptOverrides[group.id]
     const keptIdentities = keptKeys
       ? [...keptKeys]

@@ -818,6 +818,30 @@ describe("keep strategy", () => {
     ).toEqual([expected])
   })
 
+  it("does not let a negative-dimension area win the deterministic resolution fallback", () => {
+    const recommendation = recommendDefaultKeepForGroup(
+      { mediaKeys: ["z-negative", "a-valid"] },
+      {
+        "z-negative": item("z-negative", {
+          resWidth: -4000,
+          resHeight: -3000
+        }),
+        "a-valid": item("a-valid", {
+          resWidth: 3000,
+          resHeight: 2000
+        })
+      },
+      "largest_resolution"
+    )
+
+    expect(recommendation).toMatchObject({
+      status: "recommended",
+      reasonCode: "deterministic_tiebreak",
+      keptMediaKeys: ["a-valid"],
+      evidence: { winnerMediaKey: "a-valid" }
+    })
+  })
+
   it.each([
     {
       label: "capture dates",
@@ -998,6 +1022,29 @@ describe("keep strategy", () => {
         "best_quality"
       ).keptMediaKeys
     ).toEqual(["a-known-best-quality"])
+  })
+
+  it("prefers an explicit non-original quality signal over unknown quality before resolution", () => {
+    const candidates = {
+      "a-known-non-original": item("a-known-non-original", {
+        isOriginalQuality: false,
+        resWidth: 1000,
+        resHeight: 1000
+      }),
+      "z-unknown-higher-resolution": item("z-unknown-higher-resolution", {
+        isOriginalQuality: null,
+        resWidth: 4000,
+        resHeight: 3000
+      })
+    }
+    const group = {
+      mediaKeys: ["a-known-non-original", "z-unknown-higher-resolution"]
+    }
+
+    expect(
+      recommendDefaultKeepForGroup(group, candidates, "best_quality")
+        .keptMediaKeys
+    ).toEqual(["a-known-non-original"])
   })
 
   it("uses resolution before file size when best-quality evidence ties", () => {

@@ -185,6 +185,20 @@ describe("provider command capability and result boundaries", () => {
     expect(fixture.handler).not.toHaveBeenCalled()
   })
 
+  it("rejects JSON null capability payloads without rejecting the message listener", async () => {
+    const fixture = await createCapabilityFixture()
+    const message = commandMessage("capability-request-null-payload")
+
+    await expect(
+      fixture.send({
+        ...message,
+        capability: { payload: "null", signature: "AA" }
+      })
+    ).resolves.toBeUndefined()
+
+    expect(fixture.handler).not.toHaveBeenCalled()
+  })
+
   it("accepts a signed command once and rejects payload binding mismatches and replay", async () => {
     // happy-dom accepts arbitrarily excessive trailing padding; Node's atob
     // matches Chrome's rejection of that malformed form for this signature path.
@@ -208,6 +222,60 @@ describe("provider command capability and result boundaries", () => {
       expect(fixture.handler).toHaveBeenCalledTimes(1)
     } finally {
       vi.unstubAllGlobals()
+    }
+  })
+
+  it("rejects duck-typed non-string signatures on same-window message events", async () => {
+    const fixture = await createCapabilityFixture()
+    const message = commandMessage("capability-request-duck-signature")
+    const capability = await fixture.sign(message)
+    const verifySpy = vi.spyOn(crypto.subtle, "verify")
+    const duckTypedSignature = {
+      replace(search: string | RegExp, replacement: string) {
+        return capability.signature.replace(search, replacement)
+      }
+    }
+
+    try {
+      await fixture.send({
+        ...message,
+        capability: {
+          ...capability,
+          signature: duckTypedSignature as unknown as string
+        }
+      })
+
+      expect(verifySpy).not.toHaveBeenCalled()
+      expect(fixture.handler).not.toHaveBeenCalled()
+    } finally {
+      verifySpy.mockRestore()
+    }
+  })
+
+  it("rejects coercible non-string payloads before parsing same-window messages", async () => {
+    const fixture = await createCapabilityFixture()
+    const message = commandMessage("capability-request-duck-payload")
+    const capability = await fixture.sign(message)
+    const coerciblePayload = [capability.payload]
+    expect(JSON.parse(coerciblePayload as unknown as string)).toMatchObject({
+      command: message.command,
+      requestId: message.requestId
+    })
+    const parseSpy = vi.spyOn(JSON, "parse")
+
+    try {
+      await fixture.send({
+        ...message,
+        capability: {
+          ...capability,
+          payload: structuredClone(coerciblePayload) as unknown as string
+        }
+      })
+
+      expect(parseSpy).not.toHaveBeenCalled()
+      expect(fixture.handler).not.toHaveBeenCalled()
+    } finally {
+      parseSpy.mockRestore()
     }
   })
 

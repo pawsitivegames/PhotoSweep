@@ -48,6 +48,7 @@ const REVIEW_LIST_MAX_HEIGHT = 900
 const REVIEW_LIST_VIEWPORT_OFFSET = 300
 const REVIEW_LIST_FALLBACK_WIDTH = 900
 const REVIEW_CARD_WIDTH = 190
+const EMPTY_TRASH_PLAN_MEDIA_KEYS: ReadonlySet<string> = new Set()
 const REVIEW_CARD_GAP = 12
 const REVIEW_ROW_HEADER_HEIGHT = 82
 const REVIEW_ROW_VERTICAL_PADDING = 24
@@ -316,6 +317,7 @@ function ThumbnailImage({
 interface DuplicateGroupRowProps {
   group: DuplicateGroup
   mediaItems: Record<string, GpdMediaItem>
+  trashPlanMediaKeys: ReadonlySet<string>
   isSelected: boolean
   isReviewed: boolean
   keptSet: Set<string>
@@ -334,6 +336,7 @@ interface DuplicateGroupRowProps {
 const DuplicateGroupRow = memo(function DuplicateGroupRow({
   group,
   mediaItems,
+  trashPlanMediaKeys,
   isSelected,
   isReviewed,
   keptSet,
@@ -389,7 +392,9 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
       ? "Manual keep selection"
       : decisionSource === "legacy_preserved"
         ? "Kept from previous review"
-        : describeKeepRecommendation(recommendation)
+        : decisionSource === "stale_fallback"
+          ? "Keeping all copies until saved keeper data is reviewed"
+          : describeKeepRecommendation(recommendation)
 
   return (
     <Paper
@@ -557,10 +562,16 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           const favoriteProtected = favoriteStatus === "favorite"
           const isLastKeptCopy =
             !readOnly && !favoriteProtected && isKept && keptSet.size === 1
-          const movesToTrash = isSelected && !isKept && !favoriteProtected
+          const movesToTrash =
+            isSelected &&
+            !isKept &&
+            !favoriteProtected &&
+            trashPlanMediaKeys.has(key)
           const lastKeeperHintId = `last-kept-copy-${encodeURIComponent(group.id)}-${encodeURIComponent(key)}`
           const isUserDecision =
-            decisionSource === "manual" || decisionSource === "legacy_preserved"
+            decisionSource === "manual" ||
+            decisionSource === "legacy_preserved" ||
+            decisionSource === "stale_fallback"
           const isExplicitlyKept = isUserDecision && isSelected && isKept
           const isSuggestedKeep = !isUserDecision && isKept
           const itemLabel = item.fileName || item.mediaKey
@@ -620,11 +631,13 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         ? `${itemLabel} is a favorite and is protected from Trash`
                         : isLastKeptCopy
                           ? `Keep ${itemLabel} (currently kept; this is the last kept copy, so at least one copy must remain kept.)`
-                          : isKept
+                        : isKept
                           ? `Keep ${itemLabel} (currently kept; click to move to Trash)`
-                        : favoriteStatus === "unknown"
-                          ? `Keep ${itemLabel} (currently moves to Trash; favorite status unknown; click to keep)`
-                          : `Keep ${itemLabel} (currently moves to Trash; click to keep)`
+                          : movesToTrash && favoriteStatus === "unknown"
+                            ? `Keep ${itemLabel} (currently moves to Trash; favorite status unknown; click to keep)`
+                            : movesToTrash
+                              ? `Keep ${itemLabel} (currently moves to Trash; click to keep)`
+                              : `Keep ${itemLabel} (not in the current Trash proposal; click to change the decision)`
                   }
                   aria-describedby={
                     isLastKeptCopy ? lastKeeperHintId : undefined
@@ -855,6 +868,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
 interface DuplicateGroupsProps {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
+  trashPlanMediaKeys?: ReadonlySet<string>
   selectedGroupIds: Set<string>
   reviewedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
@@ -879,6 +893,7 @@ interface DuplicateGroupsProps {
 interface VirtualGroupListData {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
+  trashPlanMediaKeys: ReadonlySet<string>
   selectedGroupIds: Set<string>
   reviewedGroupIds: Set<string>
   keptByGroupId: Map<string, Set<string>>
@@ -906,6 +921,7 @@ function VirtualGroupRow({
       <DuplicateGroupRow
         group={group}
         mediaItems={data.mediaItems}
+        trashPlanMediaKeys={data.trashPlanMediaKeys}
         isSelected={data.selectedGroupIds.has(group.id)}
         isReviewed={data.reviewedGroupIds.has(group.id)}
         keptSet={data.keptByGroupId.get(group.id) ?? new Set()}
@@ -926,6 +942,7 @@ function VirtualGroupRow({
 export function DuplicateGroups({
   groups,
   mediaItems,
+  trashPlanMediaKeys: suppliedTrashPlanMediaKeys,
   selectedGroupIds,
   reviewedGroupIds,
   onToggleGroup,
@@ -940,6 +957,9 @@ export function DuplicateGroups({
   heading,
   compact = false
 }: DuplicateGroupsProps) {
+  const trashPlanMediaKeys =
+    suppliedTrashPlanMediaKeys ?? EMPTY_TRASH_PLAN_MEDIA_KEYS
+
   // Measure time from first non-empty groups render to commit
   const renderLoggedRef = useRef(false)
   const renderStartRef = useRef<number | null>(null)
@@ -1077,6 +1097,7 @@ export function DuplicateGroups({
     () => ({
       groups: listGroups,
       mediaItems,
+      trashPlanMediaKeys,
       selectedGroupIds,
       reviewedGroupIds,
       keptByGroupId,
@@ -1093,6 +1114,7 @@ export function DuplicateGroups({
     [
       listGroups,
       mediaItems,
+      trashPlanMediaKeys,
       selectedGroupIds,
       reviewedGroupIds,
       keptByGroupId,
@@ -1165,6 +1187,7 @@ export function DuplicateGroups({
               key={group.id}
               group={group}
               mediaItems={mediaItems}
+              trashPlanMediaKeys={trashPlanMediaKeys}
               isSelected={selectedGroupIds.has(group.id)}
               isReviewed={reviewedGroupIds.has(group.id)}
               keptSet={keptByGroupId.get(group.id) ?? new Set()}

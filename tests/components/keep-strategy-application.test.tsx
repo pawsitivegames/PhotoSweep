@@ -172,6 +172,7 @@ function ReviewHarness({
       <DuplicateGroups
         groups={GROUPS}
         mediaItems={MEDIA_ITEMS}
+        trashPlanMediaKeys={new Set(session.trashPlan().mediaKeysToTrash)}
         selectedGroupIds={session.selectedGroupIds}
         reviewedGroupIds={session.reviewedGroupIds}
         onToggleGroup={(groupId) =>

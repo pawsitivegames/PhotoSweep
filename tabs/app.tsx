@@ -2633,10 +2633,9 @@ export default function App() {
         restoreCommitInFlightRef.current = false
         if (
           restoreOutcome.kind === "complete" &&
-          savedRecord?.status === "restored" &&
-          restoreRequest.history
+          savedRecord?.status === "restored"
         ) {
-          resetReviewRef.current()
+          if (restoreRequest.history) resetReviewRef.current()
           setTrashWarningSafely(
             "Provider restore completed. Run a new scoped scan to verify the library state."
           )
@@ -4410,6 +4409,14 @@ export default function App() {
         defaultStrategy: settings.defaultKeepStrategy
       }),
     [displayMediaItems, groups, reviewSelections, settings.defaultKeepStrategy]
+  )
+  const cleanupTrashPlan = useMemo(
+    () => reviewSession.trashPlan(cleanupScopeGroups),
+    [cleanupScopeGroups, reviewSession]
+  )
+  const trashPlanMediaKeys = useMemo(
+    () => new Set(cleanupTrashPlan.mediaKeysToTrash),
+    [cleanupTrashPlan]
   )
   const updateReviewSelections = useCallback(
     (
@@ -6197,7 +6204,7 @@ export default function App() {
   // Compute duplicate count for ActionBar
   const duplicateCount =
     state.status === "results"
-      ? reviewSession.duplicateCount(cleanupScopeGroups)
+      ? cleanupTrashPlan.mediaKeysToTrash.length
       : 0
   const includedGroupCount = cleanupScopeGroups.filter((group) =>
     reviewSession.selectedGroupIds.has(group.id)
@@ -6714,6 +6721,7 @@ export default function App() {
                   <DuplicateGroups
                     groups={visibleGroups}
                     mediaItems={displayMediaItems}
+                    trashPlanMediaKeys={trashPlanMediaKeys}
                     selectedGroupIds={selectedGroupIds}
                     reviewedGroupIds={reviewedGroupIds}
                     onToggleGroup={handleToggleGroup}
@@ -6921,6 +6929,7 @@ export default function App() {
                   <DuplicateGroups
                     groups={visibleGroups}
                     mediaItems={displayMediaItems}
+                    trashPlanMediaKeys={trashPlanMediaKeys}
                     selectedGroupIds={selectedGroupIds}
                     reviewedGroupIds={reviewedGroupIds}
                     onToggleGroup={handleToggleGroup}

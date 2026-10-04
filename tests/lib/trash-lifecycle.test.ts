@@ -1282,6 +1282,79 @@ describe("TrashLifecycle", () => {
     expect(lifecycle.isPending("restore-progress-timeout")).toBe(true)
   })
 
+  it("records the default restore timeout and per-target no-progress reason", () => {
+    const lifecycle = new TrashLifecycle(inMemoryAudit().adapter)
+    const requestId = "restore-default-timeout-reason"
+    lifecycle.beginRestore(
+      {
+        provider: "google",
+        dedupKeys: ["d-a"],
+        count: 1,
+        snapshot: { mediaItems: {}, groups: [], totalItems: 1 }
+      },
+      requestId
+    )
+
+    expect(lifecycle.timeoutRestore({ requestId })).toMatchObject({
+      kind: "unknown",
+      error: "The provider restore request timed out.",
+      unknownDedupKeys: ["d-a"],
+      outcomes: [
+        {
+          operation: "restore",
+          targetKey: "d-a",
+          status: "unknown",
+          reason: "timeout-without-target-outcome"
+        }
+      ]
+    })
+  })
+
+  it("does not treat an opaque restore target equal to fixture text as not dispatched on timeout", () => {
+    const sentinel = "Stryker was here"
+    const lifecycle = new TrashLifecycle(inMemoryAudit().adapter)
+    const requestId = "opaque-restore-timeout"
+    lifecycle.beginRestore({
+      provider: "google",
+      dedupKeys: [sentinel],
+      count: 1,
+      snapshot: { mediaItems: {}, groups: [], totalItems: 1 }
+    }, requestId)
+
+    expect(lifecycle.timeoutRestore({ requestId })).toMatchObject({
+      kind: "unknown",
+      unknownDedupKeys: [sentinel],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        {
+          operation: "restore",
+          targetKey: sentinel,
+          status: "unknown",
+          reason: "timeout-without-target-outcome"
+        }
+      ]
+    })
+  })
+
+  it("matches restore pending status to the active request ID", () => {
+    const lifecycle = new TrashLifecycle(inMemoryAudit().adapter)
+    const requestId = "restore-pending-scope"
+    lifecycle.beginRestore(
+      {
+        provider: "google",
+        dedupKeys: ["restore-a"],
+        count: 1,
+        snapshot: { mediaItems: {}, groups: [], totalItems: 1 }
+      },
+      requestId
+    )
+
+    expect(lifecycle.isPending()).toBe(true)
+    expect(lifecycle.isPending(requestId)).toBe(true)
+    expect(lifecycle.isPending("another-restore-request")).toBe(false)
+    expect(lifecycle.isPending(requestId)).toBe(true)
+  })
+
   it("lets an exact same-request terminal resolve provisional unknown restore progress", () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
@@ -1297,7 +1370,12 @@ describe("TrashLifecycle", () => {
       requestId,
       outcomes: [
         { operation: "restore", targetKey: "restore-a", status: "confirmed" },
-        { operation: "restore", targetKey: "restore-b", status: "unknown" }
+        {
+          operation: "restore",
+          targetKey: "restore-b",
+          status: "unknown",
+          reason: "provider still processing"
+        }
       ]
     })
 
@@ -1327,6 +1405,13 @@ describe("TrashLifecycle", () => {
         status: "confirmed"
       }))
     })
+    expect(lateTerminal?.outcomes).toEqual(
+      undo.dedupKeys.map((targetKey) => ({
+        operation: "restore",
+        targetKey,
+        status: "confirmed"
+      }))
+    )
     expect(lifecycle.isPending()).toBe(false)
   })
 
@@ -1344,17 +1429,21 @@ describe("TrashLifecycle", () => {
     lifecycle.recordRestoreProgress({
       requestId,
       outcomes: [
-        { operation: "restore", targetKey: "restore-a", status: "unknown" }
+        {
+          operation: "restore",
+          targetKey: "restore-a",
+          status: "unknown",
+          reason: "provider still processing"
+        }
       ]
     })
 
-    expect(
-      lifecycle.reconcileRestore({
-        requestId,
-        success: true,
-        restoredDedupKeys: undo.dedupKeys
-      })
-    ).toMatchObject({
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: undo.dedupKeys
+    })
+    expect(result).toMatchObject({
       kind: "complete",
       restoredDedupKeys: undo.dedupKeys,
       outcomes: undo.dedupKeys.map((targetKey) => ({
@@ -1363,6 +1452,13 @@ describe("TrashLifecycle", () => {
         status: "confirmed"
       }))
     })
+    expect(result?.outcomes).toEqual(
+      undo.dedupKeys.map((targetKey) => ({
+        operation: "restore",
+        targetKey,
+        status: "confirmed"
+      }))
+    )
   })
 
   it("keeps provisional unknown restore progress when a legacy terminal confirms only a subset", () => {
@@ -1378,17 +1474,22 @@ describe("TrashLifecycle", () => {
     lifecycle.recordRestoreProgress({
       requestId,
       outcomes: [
-        { operation: "restore", targetKey: "restore-a", status: "unknown" }
+        {
+          operation: "restore",
+          targetKey: "restore-a",
+          status: "unknown",
+          reason: "provider still processing"
+        }
       ]
     })
 
-    expect(
-      lifecycle.reconcileRestore({
-        requestId,
-        success: true,
-        restoredDedupKeys: ["restore-a"]
-      })
-    ).toMatchObject({
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: ["restore-a"]
+    })
+
+    expect(result).toMatchObject({
       kind: "unknown",
       restoredDedupKeys: [],
       unknownDedupKeys: ["restore-a", "restore-b"],
@@ -1397,6 +1498,20 @@ describe("TrashLifecycle", () => {
         { targetKey: "restore-b", status: "unknown" }
       ]
     })
+    expect(result?.outcomes).toEqual([
+      {
+        operation: "restore",
+        targetKey: "restore-a",
+        status: "unknown",
+        reason: "provider still processing"
+      },
+      {
+        operation: "restore",
+        targetKey: "restore-b",
+        status: "unknown"
+      }
+    ])
+    expect(Object.hasOwn(result?.outcomes?.[1] ?? {}, "reason")).toBe(false)
   })
 
   it("preserves confirmed restore progress against a contradictory same-request terminal", () => {
@@ -1817,6 +1932,14 @@ describe("TrashLifecycle", () => {
       error:
         "Trash provider did not respond before the safety timeout. Do not retry until the result is reconciled."
     })
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      {
+        operation: "trash",
+        targetKey: "dedup-trash",
+        status: "unknown",
+        reason: "provider-timeout-before-target-outcome"
+      }
+    ])
 
     await expect(
       lifecycle.timeout({ requestId: command.requestId })
@@ -1976,6 +2099,202 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       notDispatchedCount: 1, retryAttempts: 2, attemptedDedupKeys: ["d-a", "d-b", "d-c", "d-d"] })
   })
 
+  it("drops provider reasons when duplicate terminal identities make a Trash target ambiguous", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    await lifecycle.reconcile({
+      requestId,
+      success: false,
+      data: {
+        outcomes: [
+          { ...fact("trash", "d-a", "confirmed"), reason: "first result" },
+          { ...fact("trash", "d-a", "failed"), reason: "conflicting result" }
+        ]
+      }
+    })
+
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      fact("trash", "d-a", "unknown")
+    ])
+  })
+
+  it("explains an unconfirmed legacy Trash target in its normalized outcome", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    await lifecycle.reconcile({ requestId, success: false, data: {} })
+
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      {
+        ...fact("trash", "d-a", "unknown"),
+        reason: "legacy-response-did-not-confirm-target"
+      }
+    ])
+  })
+
+  it("keeps dry-run terminal identities out of moved result and audit payloads", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: {
+        dryRun: true,
+        requestedCount: 1,
+        trashedKeys: ["a"],
+        trashedDedupKeys: ["d-a"],
+        outcomes: [fact("trash", "d-a", "confirmed")]
+      }
+    })
+
+    expect(result).toMatchObject({
+      kind: "dry_run",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      undo: null
+    })
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "not_dispatched",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      notDispatchedDedupKeys: ["d-a"],
+      error: null,
+      outcomes: [
+        {
+          ...fact("trash", "d-a", "failed"),
+          reason: "dry-run-no-mutation"
+        }
+      ]
+    })
+  })
+
+  it("records duplicate response identities as an audit error for dry runs", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: {
+        dryRun: true,
+        outcomes: [
+          fact("trash", "d-a", "confirmed"),
+          fact("trash", "d-a", "failed")
+        ]
+      }
+    })
+
+    expect(result.kind).toBe("dry_run")
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "not_dispatched",
+      error: "Trash provider response included identities outside the confirmed request.",
+      movedDedupKeys: [],
+      outcomes: [
+        { ...fact("trash", "d-a", "failed"), reason: "dry-run-no-mutation" }
+      ]
+    })
+  })
+
+  it("keeps failed dry-run confirmations out of moved results and retains malformed audit errors", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: false,
+      error: "provider reported failure",
+      data: {
+        dryRun: true,
+        outcomes: [
+          fact("trash", "d-a", "confirmed"),
+          fact("trash", "foreign-dedup-key", "confirmed")
+        ]
+      }
+    })
+
+    expect(result).toEqual({
+      kind: "failed",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      error: "provider reported failure",
+      undo: null
+    })
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "not_dispatched",
+      movedMediaKeys: [],
+      movedDedupKeys: [],
+      movedCount: 0,
+      notDispatchedDedupKeys: ["d-a"],
+      error: "Trash provider response included identities outside the confirmed request.",
+      outcomes: [
+        {
+          ...fact("trash", "d-a", "failed"),
+          reason: "dry-run-no-mutation"
+        }
+      ]
+    })
+  })
+
+  it("preserves provider failure error precedence for malformed non-dry-run responses", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: false,
+      error: "provider reported failure",
+      data: {
+        outcomes: [
+          fact("trash", "d-a", "confirmed"),
+          fact("trash", "foreign-dedup-key", "confirmed")
+        ]
+      }
+    })
+
+    expect(result.kind).toBe("partial")
+    if (result.kind !== "partial") {
+      throw new Error(`Expected a partial result, received ${result.kind}`)
+    }
+    expect(result.message).toContain("provider reported failure")
+    expect(audit.resultReports[0]?.error).toBe("provider reported failure")
+  })
+
+  it("does not attach refreshed iCloud tags from a dry-run terminal", async () => {
+    const fixture = icloudFixture()
+    fixture.mediaItems.trash!.dedupKey = "Stryker was here"
+    const plan = fixture.reviewSession.trashPlan(fixture.groups)
+    const command = await fixture.lifecycle.begin({
+      plan,
+      reviewSession: fixture.reviewSession,
+      groups: fixture.groups,
+      snapshot: {
+        mediaItems: fixture.mediaItems,
+        groups: fixture.groups,
+        totalItems: 2
+      },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 1000,
+        retryCount: 2,
+        retryBackoffMs: 1000
+      }
+    })
+
+    await fixture.lifecycle.reconcile({
+      requestId: command.requestId,
+      success: true,
+      data: {
+        dryRun: true,
+        requestedCount: 1,
+        trashedKeys: ["trash"],
+        trashedDedupKeys: ["Stryker was here"],
+        outcomes: [fact("trash", "Stryker was here", "confirmed")],
+        icloudAssetRefs: [fixture.assetRef("asset-trash", "dry-run-tag")]
+      }
+    })
+
+    expect(fixture.audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+  })
+
   it.each(["confirmed", "failed", "unknown"] as const)("records a single explicit %s target without inventing any other disposition", async (status) => {
     const { lifecycle, audit, requestId } = await setupTrash(["a"])
     const result = await lifecycle.reconcile({ requestId, success: status === "confirmed", data: {
@@ -2064,10 +2383,25 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
   })
 
   it("recognizes legacy explicit not-dispatched targets without assuming the rest moved", async () => {
-    const { lifecycle, requestId } = await setupTrash(["a", "b"])
-    expect(await lifecycle.reconcile({ requestId, success: false, data: { notDispatchedDedupKeys: ["d-b"] } }))
+    const { lifecycle, audit, requestId } = await setupTrash(["a", "b"])
+    const result = await lifecycle.reconcile({ requestId, success: false, data: { notDispatchedDedupKeys: ["d-b"] } })
+    expect(result)
       .toMatchObject({ kind: "unknown", unknownMediaKeys: ["a"], unknownDedupKeys: ["d-a"],
         notDispatchedMediaKeys: ["b"], notDispatchedDedupKeys: ["d-b"], failedDedupKeys: [], undo: null })
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      {
+        operation: "trash",
+        targetKey: "d-a",
+        status: "unknown",
+        reason: "legacy-response-did-not-confirm-target"
+      },
+      {
+        operation: "trash",
+        targetKey: "d-b",
+        status: "failed",
+        reason: "not-dispatched"
+      }
+    ])
   })
 
   it.each(["bad", null, ["foreign"], ["d-a", "d-a"], ["d-a", 1]])("flags malformed not-dispatched metadata without silently accepting complete success: %#", async (notDispatchedDedupKeys) => {
@@ -2140,11 +2474,60 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     await expect(begin(lifecycle)).rejects.toThrow(/pending/)
   })
 
+  it.each(["timeout", "outcomes-omitted terminal"] as const)(
+    "preserves confirmed Trash recovery after malformed progress before %s",
+    async (resolution) => {
+      const { lifecycle, audit, requestId } = await setupTrash(["a", "b"])
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: { outcomes: [fact("trash", "d-a", "confirmed")] }
+      })).toBe(true)
+
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: {
+          outcomes: [{ operation: "trash", targetKey: "d-a", status: "done" }]
+        }
+      })).toBe(true)
+
+      const result = resolution === "timeout"
+        ? await lifecycle.timeout({ requestId, error: "provider timed out" })
+        : await lifecycle.reconcile({ requestId, success: false })
+
+      expect(result).toMatchObject({
+        kind: "partial",
+        movedMediaKeys: ["a"],
+        movedDedupKeys: ["d-a"],
+        movedCount: 1,
+        unknownDedupKeys: ["d-b"],
+        undo: { dedupKeys: ["d-a"], count: 1 }
+      })
+      expect(audit.resultReports).toHaveLength(1)
+      expect(audit.resultReports[0]?.outcomes).toEqual([
+        fact("trash", "d-a", "confirmed"),
+        {
+          ...fact("trash", "d-b", "unknown"),
+          reason: resolution === "timeout"
+            ? "provider-timeout-before-target-outcome"
+            : "no-terminal-provider-outcome"
+        }
+      ])
+    }
+  )
+
   it("uses retained progress when a same-request terminal omits outcomes", async () => {
-    const { lifecycle, requestId } = await setupTrash(["a", "b"])
+    const { lifecycle, audit, requestId } = await setupTrash(["a", "b"])
     lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "confirmed")] } })
-    expect(await lifecycle.reconcile({ requestId, success: false })).toMatchObject({ kind: "partial", movedDedupKeys: ["d-a"],
+    const result = await lifecycle.reconcile({ requestId, success: false })
+    expect(result).toMatchObject({ kind: "partial", movedDedupKeys: ["d-a"],
       unknownDedupKeys: ["d-b"], undo: { dedupKeys: ["d-a"] } })
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      fact("trash", "d-a", "confirmed"),
+      {
+        ...fact("trash", "d-b", "unknown"),
+        reason: "no-terminal-provider-outcome"
+      }
+    ])
     expect(lifecycle.isPending()).toBe(false)
   })
 
@@ -2265,6 +2648,25 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     ])
   })
 
+  it("bounds provider reason text on direct terminal Trash outcomes", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    await lifecycle.reconcile({
+      requestId,
+      success: false,
+      data: {
+        outcomes: [
+          { ...fact("trash", "d-a", "failed"), reason: "x".repeat(400) }
+        ]
+      }
+    })
+
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      { ...fact("trash", "d-a", "failed"), reason: "x".repeat(300) }
+    ])
+    expect(audit.resultReports[0]?.outcomes[0]?.reason).toHaveLength(300)
+  })
+
   it("snapshots every restore intent before dispatch and changes only evaluated target facts", () => {
     const { lifecycle, requestId } = setupRestore()
     expect(lifecycle.restoreProgressSnapshot("foreign")).toBeUndefined()
@@ -2298,11 +2700,13 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
   it("classifies an all-failed restore as failed rather than unknown", () => {
     const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
 
-    expect(lifecycle.reconcileRestore({
+    const outcome = lifecycle.reconcileRestore({
       requestId,
       success: false,
       outcomes: [fact("restore", "d-a", "failed"), fact("restore", "d-b", "failed")]
-    })).toMatchObject({
+    })
+
+    expect(outcome).toMatchObject({
       kind: "failed",
       restoredDedupKeys: [],
       failedDedupKeys: ["d-a", "d-b"],
@@ -2311,6 +2715,10 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       undo: { dedupKeys: ["d-a", "d-b"], count: 2 },
       outcomes: [fact("restore", "d-a", "failed"), fact("restore", "d-b", "failed")]
     })
+    expect(outcome?.outcomes).toEqual([
+      fact("restore", "d-a", "failed"),
+      fact("restore", "d-b", "failed")
+    ])
   })
 
   it("combines prior confirmed restore progress with a legacy terminal remainder", () => {
@@ -2330,6 +2738,38 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       outcomes: [
         fact("restore", "restore-a", "confirmed"),
         fact("restore", "restore-b", "confirmed")
+      ]
+    })
+  })
+
+  it("keeps progressed unknown restore out of retry and leaves the omitted remainder unknown", () => {
+    const { lifecycle, requestId } = setupRestore([
+      "restore-a",
+      "restore-b",
+      "restore-c"
+    ])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-b", "unknown")]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      restoredDedupKeys: ["restore-a"],
+      notDispatchedDedupKeys: ["restore-b"]
+    })
+
+    expect(result).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      unknownDedupKeys: ["restore-b", "restore-c"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "unknown"),
+        fact("restore", "restore-c", "unknown")
       ]
     })
   })
@@ -2404,6 +2844,39 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     })
   })
 
+  it("preserves a prior restore confirmation and quarantines siblings claimed as failed when it is marked not dispatched", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b", "restore-c"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "failed"),
+        fact("restore", "restore-c", "failed")
+      ],
+      notDispatchedDedupKeys: ["restore-a"]
+    })
+
+    expect(result).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      unknownDedupKeys: ["restore-b", "restore-c"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        fact("restore", "restore-b", "unknown"),
+        fact("restore", "restore-c", "unknown")
+      ]
+    })
+  })
+
   it("quarantines contradictory legacy restore identities and preserves prior confirmations", () => {
     const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
 
@@ -2446,6 +2919,92 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
         fact("restore", "restore-a", "confirmed"),
         fact("restore", "restore-b", "unknown")
       ]
+    })
+  })
+
+  it("does not keep a not-dispatched legacy restore beside a prior confirmation", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { ...fact("restore", "restore-a", "confirmed"), reason: "confirmed before terminal" }
+      ]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      restoredDedupKeys: [],
+      notDispatchedDedupKeys: ["restore-a"]
+    })
+
+    expect(result).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: ["restore-a"],
+      notDispatchedDedupKeys: [],
+      outcomes: [
+        { ...fact("restore", "restore-a", "confirmed"), reason: "confirmed before terminal" }
+      ]
+    })
+  })
+
+  it("keeps a prior legacy confirmation separate from a valid terminal not-dispatched remainder", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a", "restore-b"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      restoredDedupKeys: [],
+      notDispatchedDedupKeys: ["restore-b"]
+    })
+
+    expect(result).toMatchObject({
+      kind: "partial",
+      restoredDedupKeys: ["restore-a"],
+      failedDedupKeys: ["restore-b"],
+      unknownDedupKeys: [],
+      notDispatchedDedupKeys: ["restore-b"],
+      undo: { dedupKeys: ["restore-b"], count: 1 },
+      outcomes: [
+        fact("restore", "restore-a", "confirmed"),
+        { ...fact("restore", "restore-b", "failed"), reason: "not-dispatched" }
+      ]
+    })
+    expect(result?.restoredDedupKeys).not.toEqual(
+      expect.arrayContaining(result?.notDispatchedDedupKeys ?? [])
+    )
+  })
+
+  it("does not mark an unconfirmed legacy restore failure as not-dispatched", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        {
+          ...fact("restore", "restore-a", "failed"),
+          reason: "the dispatched provider restore failed"
+        }
+      ]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      restoredDedupKeys: []
+    })
+
+    expect(result).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      failedDedupKeys: [],
+      unknownDedupKeys: ["restore-a"],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [fact("restore", "restore-a", "unknown")]
     })
   })
 
@@ -2568,7 +3127,242 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
   ])("keeps malformed restore terminal targets out of the retry set: %#", (outcomes) => {
     const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
     expect(lifecycle.reconcileRestore({ requestId, success: true, outcomes })).toMatchObject({ kind: "unknown",
-      restoredDedupKeys: [], unknownDedupKeys: ["d-a", "d-b"], undo: { dedupKeys: [], count: 0 } })
+      restoredDedupKeys: [], unknownDedupKeys: ["d-a", "d-b"], undo: { dedupKeys: [], count: 0 },
+      error: "The provider restore response did not contain a valid identity for every requested item; ambiguous targets will not be retried." })
+  })
+
+  it("uses the default error for a valid terminal that confirms no restore targets", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [fact("restore", "d-a", "failed")]
+    })).toMatchObject({
+      kind: "failed",
+      error: "The provider did not confirm that every requested item was restored.",
+      failedDedupKeys: ["d-a"],
+      outcomes: [fact("restore", "d-a", "failed")]
+    })
+  })
+
+  it("accepts an explicit unknown restore outcome without classifying it as malformed", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      outcomes: [fact("restore", "d-a", "unknown")]
+    })).toMatchObject({
+      kind: "unknown",
+      error: "The provider did not confirm that every requested item was restored.",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      outcomes: [fact("restore", "d-a", "unknown")]
+    })
+  })
+
+  it("preserves a prior same-status restore reason when the terminal omits one", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { ...fact("restore", "d-a", "failed"), reason: "provider rejected the dispatched restore" }
+      ]
+    })
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [fact("restore", "d-a", "failed")]
+    })
+
+    expect(result).toMatchObject({
+      kind: "failed",
+      failedDedupKeys: ["d-a"],
+      outcomes: [
+        { ...fact("restore", "d-a", "failed"), reason: "provider rejected the dispatched restore" }
+      ]
+    })
+  })
+
+  it.each(["per-target", "legacy"] as const)(
+    "omits an absent prior reason after a malformed same-status %s terminal",
+    (protocol) => {
+      const { lifecycle, requestId } = setupRestore(["d-a"])
+      expect(lifecycle.recordRestoreProgress({
+        requestId,
+        outcomes: [fact("restore", "d-a", "unknown")]
+      })).toBe(true)
+
+      const result = protocol === "per-target"
+        ? lifecycle.reconcileRestore({
+            requestId,
+            success: true,
+            outcomes: [
+              fact("restore", "d-a", "unknown"),
+              fact("restore", "d-a", "unknown")
+            ]
+          })
+        : lifecycle.reconcileRestore({
+            requestId,
+            success: true,
+            restoredDedupKeys: ["d-a", "d-a"]
+          })
+
+      expect(result?.outcomes).toEqual([fact("restore", "d-a", "unknown")])
+      expect(Object.hasOwn(result?.outcomes?.[0] ?? {}, "reason")).toBe(false)
+    }
+  )
+
+  it("drops reasons from duplicate restore facts that make targets ambiguous", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        { ...fact("restore", "d-a", "failed"), reason: "first target fact" },
+        { ...fact("restore", "d-a", "confirmed"), reason: "conflicting duplicate fact" },
+        { ...fact("restore", "d-b", "failed"), reason: "sibling provider reason" }
+      ]
+    })
+
+    expect(result).toMatchObject({
+      kind: "unknown",
+      unknownDedupKeys: ["d-a", "d-b"],
+      outcomes: [fact("restore", "d-a", "unknown"), fact("restore", "d-b", "unknown")]
+    })
+    expect(result?.outcomes).toEqual([
+      fact("restore", "d-a", "unknown"),
+      fact("restore", "d-b", "unknown")
+    ])
+  })
+
+  it("suppresses malformed terminal reasons while retaining prior unknown progress reason", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { ...fact("restore", "d-a", "unknown"), reason: "earlier progress remains uncertain" }
+      ]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        { ...fact("restore", "d-a", "unknown"), reason: "untrusted terminal reason" },
+        { ...fact("restore", "d-b", "unknown"), reason: "untrusted sibling reason" },
+        fact("restore", "foreign", "confirmed")
+      ]
+    })
+
+    expect(result).toMatchObject({
+      kind: "unknown",
+      unknownDedupKeys: ["d-a", "d-b"],
+      outcomes: [
+        { ...fact("restore", "d-a", "unknown"), reason: "earlier progress remains uncertain" },
+        fact("restore", "d-b", "unknown")
+      ]
+    })
+    expect(result?.outcomes).toEqual([
+      { ...fact("restore", "d-a", "unknown"), reason: "earlier progress remains uncertain" },
+      fact("restore", "d-b", "unknown")
+    ])
+  })
+
+  it("drops a prior failed reason when a malformed per-target terminal becomes unknown", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { ...fact("restore", "d-a", "failed"), reason: "prior dispatched failure" }
+      ]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [
+        { ...fact("restore", "d-a", "unknown"), reason: "untrusted terminal reason" },
+        { ...fact("restore", "d-b", "unknown"), reason: "untrusted sibling reason" },
+        fact("restore", "foreign", "confirmed")
+      ]
+    })
+
+    expect(result?.outcomes).toEqual([
+      fact("restore", "d-a", "unknown"),
+      fact("restore", "d-b", "unknown")
+    ])
+  })
+
+  it("drops a prior failed reason when a malformed legacy terminal becomes unknown", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { ...fact("restore", "d-a", "failed"), reason: "prior dispatched failure" }
+      ]
+    })).toBe(true)
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: ["d-a", "foreign"]
+    })
+
+    expect(result?.outcomes).toEqual([
+      fact("restore", "d-a", "unknown"),
+      fact("restore", "d-b", "unknown")
+    ])
+  })
+
+  it("keeps prior uncertainty reason after a malformed legacy restore terminal", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a", "d-b"])
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [
+        { ...fact("restore", "d-a", "unknown"), reason: "earlier progress remains uncertain" }
+      ]
+    })
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      restoredDedupKeys: ["d-a", "foreign"]
+    })
+
+    expect(result).toMatchObject({
+      kind: "unknown",
+      unknownDedupKeys: ["d-a", "d-b"],
+      outcomes: [
+        { ...fact("restore", "d-a", "unknown"), reason: "earlier progress remains uncertain" },
+        fact("restore", "d-b", "unknown")
+      ]
+    })
+  })
+
+  it("does not treat an opaque failed restore target as not dispatched when metadata is omitted", () => {
+    const sentinel = "Stryker was here"
+    const { lifecycle, requestId } = setupRestore([sentinel])
+
+    const result = lifecycle.reconcileRestore({
+      requestId,
+      success: false,
+      outcomes: [fact("restore", sentinel, "failed")]
+    })
+
+    expect(result).toMatchObject({
+      kind: "failed",
+      failedDedupKeys: [sentinel],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [sentinel], count: 1 },
+      outcomes: [fact("restore", sentinel, "failed")]
+    })
+    expect(Object.hasOwn(result?.outcomes?.[0] ?? {}, "reason")).toBe(false)
   })
 
   it.each([true, false])("retries only proven failed restores with an exact not-dispatched subset (legacy=%s)", (legacy) => {
@@ -2579,6 +3373,13 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     })
     expect(result).toMatchObject({ kind: "partial", restoredDedupKeys: ["d-a"], failedDedupKeys: ["d-b"],
       unknownDedupKeys: [], notDispatchedDedupKeys: ["d-b"], undo: { dedupKeys: ["d-b"], count: 1 }, error: "stopped before second target" })
+    expect(result?.outcomes).toEqual([
+      fact("restore", "d-a", "confirmed"),
+      {
+        ...fact("restore", "d-b", "failed"),
+        reason: "not-dispatched"
+      }
+    ])
     if (result?.kind !== "partial") throw new Error("Expected partial restore")
     expect(lifecycle.beginRestore(result.undo, "retry-only-failed").args.dedupKeys).toEqual(["d-b"])
     expect(lifecycle.reconcileRestore({ requestId: "retry-only-failed", success: true, restoredDedupKeys: ["d-b"] }))
@@ -2606,9 +3407,11 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
 
   it.each([
     ["unknown", "failed", "unknown", "unknown"],
-    ["confirmed", "failed", "confirmed", "complete"]
+    ["confirmed", "failed", "confirmed", "complete"],
+    ["confirmed", "unknown", "unknown", "unknown"],
+    ["failed", "failed", "failed", "failed"]
   ] as const)(
-    "does not turn restore progress %s -> %s into a retryable failure",
+    "preserves the restore state contract for progress %s -> %s",
     (priorStatus, nextStatus, retainedStatus, expectedKind) => {
       const { lifecycle, requestId } = setupRestore(["d-a"])
       expect(lifecycle.recordRestoreProgress({
@@ -2629,11 +3432,40 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
           failedDedupKeys: [],
           undo: { dedupKeys: [], count: 0 }
         })
+      } else if (result?.kind === "failed") {
+        expect(result).toMatchObject({
+          restoredDedupKeys: [],
+          failedDedupKeys: ["d-a"],
+          undo: { dedupKeys: ["d-a"], count: 1 }
+        })
       } else {
         expect(result?.restoredDedupKeys).toEqual(["d-a"])
       }
     }
   )
+
+  it("retains a confirmed restore progress outcome after a later failed progress update", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+    const confirmed = {
+      ...fact("restore", "d-a", "confirmed"),
+      reason: "provider confirmed the restore"
+    }
+    expect(lifecycle.recordRestoreProgress({ requestId, outcomes: [confirmed] })).toBe(true)
+    expect(lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [{
+        ...fact("restore", "d-a", "failed"),
+        reason: "later contradictory failure"
+      }]
+    })).toBe(true)
+
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toEqual([confirmed])
+    expect(lifecycle.timeoutRestore({ requestId })).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: ["d-a"],
+      outcomes: [confirmed]
+    })
+  })
 
   it("quarantines contradictory same-request restore progress as unknown", () => {
     const { lifecycle, requestId } = setupRestore(["d-a"])
@@ -2699,6 +3531,47 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
         notDispatchedDedupKeys: [],
         outcomes: [fact("trash", "d-a", "unknown")]
       })
+    }
+  )
+
+  it.each(["confirmed", "failed"] as const)(
+    "keeps repeated %s Trash progress idempotent across messages",
+    async (status) => {
+      const { lifecycle, audit, requestId } = await setupTrash(["a", "b"])
+
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: { outcomes: [fact("trash", "d-a", status)] }
+      })).toBe(true)
+      expect(lifecycle.recordProgress({
+        requestId,
+        data: { outcomes: [fact("trash", "d-a", status)] }
+      })).toBe(true)
+
+      const result = await lifecycle.timeout({ requestId })
+      if (status === "confirmed") {
+        expect(result).toMatchObject({
+          kind: "partial",
+          movedDedupKeys: ["d-a"],
+          unknownDedupKeys: ["d-b"],
+          undo: { dedupKeys: ["d-a"], count: 1 }
+        })
+      } else {
+        expect(result).toMatchObject({
+          kind: "unknown",
+          movedDedupKeys: [],
+          failedDedupKeys: ["d-a"],
+          unknownDedupKeys: ["d-b"],
+          undo: null
+        })
+      }
+      expect(audit.resultReports[0]?.outcomes).toEqual([
+        fact("trash", "d-a", status),
+        {
+          ...fact("trash", "d-b", "unknown"),
+          reason: "provider-timeout-before-target-outcome"
+        }
+      ])
     }
   )
 

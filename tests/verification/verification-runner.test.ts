@@ -17,6 +17,30 @@ import { computeSourceFingerprint } from "../../verification/source-fingerprint.
 const root = resolve(process.cwd())
 
 describe("verification runner integrity", () => {
+  it("keeps the SAFE-13 evidence selector matched to its registered assertion", () => {
+    const runnerSource = readFileSync(
+      join(root, "verification/verification-runner.mjs"),
+      "utf8"
+    )
+    const selectorSource = runnerSource.match(
+      /"SAFE-13-properties":\s*\/([^/]+)\//
+    )
+    const propertiesSource = readFileSync(
+      join(root, "tests/verification/safety-properties.test.ts"),
+      "utf8"
+    )
+    const assertionTitle = propertiesSource.match(
+      /it\("([^"]*SAFE-13[^"]*)"/
+    )?.[1]
+
+    expect(selectorSource).not.toBeNull()
+    expect(assertionTitle).toBeDefined()
+    const selector = new RegExp(selectorSource?.[1] ?? "(?!)")
+    expect(
+      selector.test(`generated safety properties ${assertionTitle}`)
+    ).toBe(true)
+  })
+
   it("rejects a stale PASS artifact when a fresh model command fails", () => {
     const stalePath = join(root, "tmp/verification/current/model-SAFE-01.json")
     const hadStaleFile = existsSync(stalePath)

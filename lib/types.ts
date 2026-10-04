@@ -594,7 +594,7 @@ export interface StoredState {
     keepDecisionProvenance?: Record<
       string,
       {
-        source: "manual" | "legacy_preserved" | "automatic"
+        source: "manual" | "legacy_preserved" | "stale_fallback" | "automatic"
         strategy?: string
       }
     >

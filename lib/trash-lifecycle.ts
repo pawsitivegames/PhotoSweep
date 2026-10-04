@@ -814,25 +814,28 @@ export class TrashLifecycle {
       }
     }
     const confirmed = confirmedTrashKeys(pending, effectiveData)
-    const movedMediaKeys = effectiveData?.dryRun
-      ? []
-      : confirmed.movedMediaKeys
-    const movedDedupKeys = effectiveData?.dryRun
+    const dryRun = effectiveData?.dryRun === true
+    const movedMediaKeys = dryRun ? [] : confirmed.movedMediaKeys
+    const movedDedupKeys = dryRun
       ? []
       : confirmed.movedDedupKeys
     const error = params.error || "Trash failed"
     const incompleteSuccess =
       params.success &&
+      !dryRun &&
       (movedMediaKeys.length !== attemptedMediaKeys.length ||
         !confirmed.responseHadIdentity)
+    const malformedResponseError = confirmed.responseHadUnrequestedIdentity
+      ? "Trash provider response included identities outside the confirmed request."
+      : undefined
     const responseError =
-      !params.success
-        ? error
-        : incompleteSuccess
-          ? "Trash provider response did not confirm every requested item."
-          : confirmed.responseHadUnrequestedIdentity
-            ? "Trash provider response included identities outside the confirmed request."
-            : undefined
+      dryRun && malformedResponseError
+        ? malformedResponseError
+        : !params.success
+          ? error
+          : incompleteSuccess
+            ? "Trash provider response did not confirm every requested item."
+            : malformedResponseError
 
     const refreshedIcloudAssetRefs = confirmedIcloudAssetRefs(
       effectiveData,
@@ -844,6 +847,17 @@ export class TrashLifecycle {
           confirmedIcloudAssetRefs: refreshedIcloudAssetRefs
         }
       : pending.context
+    const auditOutcomes = dryRun
+      ? attemptedDedupKeys.map((targetKey) => ({
+          operation: "trash" as const,
+          targetKey,
+          status: "failed" as const,
+          reason: "dry-run-no-mutation"
+        }))
+      : confirmed.outcomes
+    const auditNotDispatchedDedupKeys = dryRun
+      ? attemptedDedupKeys
+      : confirmed.notDispatchedDedupKeys
 
     await this.audit.saveTrashResultReport(
       buildTrashResultReport({
@@ -852,15 +866,26 @@ export class TrashLifecycle {
         attemptedDedupKeys,
         movedMediaKeys,
         movedDedupKeys,
-        outcomes: confirmed.outcomes,
-        notDispatchedDedupKeys: confirmed.notDispatchedDedupKeys,
+        outcomes: auditOutcomes,
+        notDispatchedDedupKeys: auditNotDispatchedDedupKeys,
         retryAttempts: effectiveData?.retryAttempts,
         ...(responseError ? { error: responseError } : {})
       }),
       auditContext
     )
 
-    if (params.success && effectiveData?.dryRun) {
+    if (dryRun && !params.success) {
+      return {
+        kind: "failed",
+        movedMediaKeys: [],
+        movedDedupKeys: [],
+        movedCount: 0,
+        error,
+        undo: null
+      }
+    }
+
+    if (dryRun) {
       const requestedCount =
         effectiveData.requestedCount ?? attemptedMediaKeys.length
       return {
@@ -1228,6 +1253,11 @@ export class TrashLifecycle {
     }
     for (const incoming of parsed) {
       const prior = pending.progressOutcomes.get(incoming.targetKey)
+      if (prior?.status === "confirmed" && incoming.status === "failed") {
+        // A later negative progress fact cannot downgrade a target already
+        // confirmed in this request. Keep its full outcome, including reason.
+        continue
+      }
       let status = incoming.status
       if (
         prior?.status === "unknown" ||
@@ -1394,7 +1424,15 @@ export class TrashLifecycle {
       if (malformed) {
         for (const outcome of resolvedOutcomes) {
           const prior = pending.progressOutcomes.get(outcome.targetKey)
-          if (prior?.status !== "confirmed") outcome.status = "unknown"
+          outcome.status = prior?.status === "confirmed" ? "confirmed" : "unknown"
+          if (
+            prior?.status === outcome.status &&
+            typeof prior.reason === "string"
+          ) {
+            outcome.reason = prior.reason
+          } else {
+            delete outcome.reason
+          }
         }
         notDispatched.clear()
       }
@@ -1442,13 +1480,25 @@ export class TrashLifecycle {
           operation: "restore" as const,
           targetKey: key,
           status,
-          ...(status === "failed" ? { reason: "not-dispatched" } : {})
+          ...(status === "failed" && notDispatched.has(key)
+            ? { reason: "not-dispatched" }
+            : status === prior?.status && typeof prior.reason === "string"
+              ? { reason: prior.reason }
+              : {})
         }
       })
       if (malformed) {
         for (const outcome of resolvedOutcomes) {
           const prior = pending.progressOutcomes.get(outcome.targetKey)
-          if (prior?.status !== "confirmed") outcome.status = "unknown"
+          outcome.status = prior?.status === "confirmed" ? "confirmed" : "unknown"
+          if (
+            prior?.status === outcome.status &&
+            typeof prior.reason === "string"
+          ) {
+            outcome.reason = prior.reason
+          } else {
+            delete outcome.reason
+          }
         }
         notDispatched.clear()
       }

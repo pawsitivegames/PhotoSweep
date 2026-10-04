@@ -23,6 +23,9 @@ const REQUIRED_ACTIONS = [
   "BulkApplyStrategy",
   "ManualChoose",
   "ManualTrashAll",
+  "RestoreValidLegacyChoice",
+  "RestoreStaleKeeperFallback",
+  "PassiveDefaultRecompute",
   "SkipGroup",
   "SelectGroup",
   "ReviewGroup",
@@ -37,6 +40,8 @@ const REQUIRED_INVARIANTS = [
   "InvStrictRanking",
   "InvAutomaticKeeperIsBest",
   "InvDecisionProvenanceConsistent",
+  "InvStaleFallbackKeepsAllCurrentMembers",
+  "InvStaleFallbackProposesNoTrash",
   "InvNoLockedGroupProposal",
   "InvLockedGroupImmutable",
   "InvProposedTrashTargetsAreExact",
@@ -53,7 +58,11 @@ const REQUIRED_PROPERTIES = [
   "PropBulkReopensChangedPlans",
   "PropBulkOverridesManualChoices",
   "PropBulkDoesNotDispatchTrash",
-  "PropSelectGroupIsExplicitPerSetReview"
+  "PropSelectGroupIsExplicitPerSetReview",
+  "PropPassiveDefaultPreservesStaleFallback",
+  "PropPassiveDefaultRecomputesValidLegacyChoice",
+  "PropPassiveDefaultPreservesManualChoices",
+  "PropExplicitStrategyReplacesStaleFallback"
 ]
 
 function sha256(bytes) {

@@ -17,6 +17,7 @@ export const DUPLICATE_REVIEW_SELECTIONS_VERSION = 2 as const
 export type KeepDecisionSource =
   | "manual"
   | "legacy_preserved"
+  | "stale_fallback"
   | "automatic"
 
 export interface KeepDecisionProvenance {
@@ -116,9 +117,7 @@ function defaultSelections(): DuplicateReviewSelections {
 }
 
 export class DuplicateReviewSession {
-  readonly selections: DuplicateReviewSelections
-  readonly selectedGroupIds: Set<string>
-  readonly reviewedGroupIds: Set<string>
+  private readonly selectionState: DuplicateReviewSelections
   readonly keptByGroupId: Map<string, Set<string>>
   readonly keepDecisionByGroupId: Map<string, KeepDecision>
 
@@ -132,9 +131,9 @@ export class DuplicateReviewSession {
     this.mediaItems = params.mediaItems
     this.defaultStrategy = params.defaultStrategy ?? "best_quality"
     this.groupsById = new Map(params.groups.map((group) => [group.id, group]))
-    this.selections = this.sanitize(params.selections ?? defaultSelections())
-    this.selectedGroupIds = this.selections.selectedGroupIds
-    this.reviewedGroupIds = this.selections.reviewedGroupIds
+    this.selectionState = this.sanitize(
+      params.selections ?? defaultSelections()
+    )
     this.keepDecisionByGroupId = new Map(
       this.groups.map((group) => [group.id, this.resolveDecision(group)])
     )
@@ -148,8 +147,20 @@ export class DuplicateReviewSession {
     )
   }
 
+  get selections(): DuplicateReviewSelections {
+    return cloneSelections(this.selectionState)
+  }
+
+  get selectedGroupIds(): Set<string> {
+    return new Set(this.selectionState.selectedGroupIds)
+  }
+
+  get reviewedGroupIds(): Set<string> {
+    return new Set(this.selectionState.reviewedGroupIds)
+  }
+
   update(action: DuplicateReviewAction): DuplicateReviewSelections {
-    const current = cloneSelections(this.selections)
+    const current = cloneSelections(this.selectionState)
 
     switch (action.type) {
       case "select_groups":
@@ -211,9 +222,16 @@ export class DuplicateReviewSession {
           if (!group) continue
           const existingProvenance =
             current.keepDecisionProvenance[groupId]
+          const existingOverride = current.keptOverrides[groupId]
+          const preservesEmptyLegacyGroup =
+            group.mediaKeys.length === 0 &&
+            existingOverride?.size === 0 &&
+            existingProvenance?.source === "legacy_preserved"
           if (
-            existingProvenance?.source === "manual" &&
-            !action.overrideManualChoices
+            !action.overrideManualChoices &&
+            (existingProvenance?.source === "manual" ||
+              existingProvenance?.source === "stale_fallback" ||
+              preservesEmptyLegacyGroup)
           ) {
             continue
           }
@@ -269,7 +287,7 @@ export class DuplicateReviewSession {
     return buildReviewReport({
       groups,
       mediaItems: this.mediaItems,
-      selectedGroupIds: this.selectedGroupIds,
+      selectedGroupIds: this.selectionState.selectedGroupIds,
       getKept: (group) => this.keptFor(group),
       mediaKeysToTrash: plan.mediaKeysToTrash
     })
@@ -299,7 +317,7 @@ export class DuplicateReviewSession {
     }
 
     for (const group of groups) {
-      if (!this.selectedGroupIds.has(group.id)) continue
+      if (!this.selectionState.selectedGroupIds.has(group.id)) continue
       const kept = this.keptFor(group)
       const classification = classifyDuplicateGroup(group, this.mediaItems)
       for (const mediaKey of group.mediaKeys) {
@@ -361,7 +379,7 @@ export class DuplicateReviewSession {
     return buildDeleteReport({
       groups: params.groups ?? this.groups,
       mediaItems: this.mediaItems,
-      selectedGroupIds: this.selectedGroupIds,
+      selectedGroupIds: this.selectionState.selectedGroupIds,
       getKept: (group) => this.keptFor(group),
       mediaKeysToTrash: params.plan.mediaKeysToTrash,
       trashBatchSize: params.trashBatchSize,
@@ -372,16 +390,16 @@ export class DuplicateReviewSession {
   serialize(): StoredDuplicateReviewSelections {
     return {
       version: DUPLICATE_REVIEW_SELECTIONS_VERSION,
-      selectedGroupIds: [...this.selectedGroupIds],
-      reviewedGroupIds: [...this.reviewedGroupIds],
+      selectedGroupIds: [...this.selectionState.selectedGroupIds],
+      reviewedGroupIds: [...this.selectionState.reviewedGroupIds],
       keptOverrides: Object.fromEntries(
-        Object.entries(this.selections.keptOverrides).map(([groupId, keys]) => [
+        Object.entries(this.selectionState.keptOverrides).map(([groupId, keys]) => [
           groupId,
           [...keys]
         ])
       ),
       keepDecisionProvenance: Object.fromEntries(
-        Object.entries(this.selections.keepDecisionProvenance ?? {}).map(
+        Object.entries(this.selectionState.keepDecisionProvenance ?? {}).map(
           ([groupId, provenance]) => [groupId, { ...provenance }]
         )
       )
@@ -404,14 +422,23 @@ export class DuplicateReviewSession {
     const keptOverrides: Record<string, Set<string>> = {}
     const keepDecisionProvenance: Record<string, KeepDecisionProvenance> = {}
     const suppliedProvenance = selections.keepDecisionProvenance ?? {}
+    const suppliedOverrides =
+      selections.keptOverrides &&
+      typeof selections.keptOverrides === "object" &&
+      !Array.isArray(selections.keptOverrides)
+        ? selections.keptOverrides
+        : {}
 
-    for (const [groupId, keys] of Object.entries(selections.keptOverrides)) {
+    for (const [groupId, keys] of Object.entries(suppliedOverrides)) {
       const group = this.groupsById.get(groupId)
       if (!group) continue
       const validMediaKeys = new Set(group.mediaKeys)
       const filtered = [...keys].filter((key) => validMediaKeys.has(key))
       const provenance = this.normalizeProvenance(suppliedProvenance[groupId])
-      if (keys.size === 0) {
+      if (provenance?.source === "stale_fallback") {
+        keptOverrides[groupId] = new Set(group.mediaKeys)
+        keepDecisionProvenance[groupId] = provenance
+      } else if (keys.size === 0) {
         keptOverrides[groupId] = new Set()
         keepDecisionProvenance[groupId] =
           provenance ?? { source: "legacy_preserved" }
@@ -424,12 +451,33 @@ export class DuplicateReviewSession {
         // every current member preserves review intent without authorizing a
         // new single-copy Trash proposal.
         keptOverrides[groupId] = new Set(group.mediaKeys)
-        keepDecisionProvenance[groupId] = { source: "legacy_preserved" }
+        keepDecisionProvenance[groupId] = { source: "stale_fallback" }
       }
       // Review completion is explicit persisted state. A manual or legacy
       // choice shows that the user made a decision, but a later bulk action
       // can invalidate review while preserving that choice. Older stored
       // records without reviewedGroupIds are migrated in deserializeSelections.
+    }
+
+    for (const group of this.groups) {
+      if (Object.prototype.hasOwnProperty.call(suppliedOverrides, group.id)) {
+        continue
+      }
+      const provenance = this.normalizeProvenance(
+        suppliedProvenance[group.id]
+      )
+      if (
+        provenance?.source !== "manual" &&
+        provenance?.source !== "stale_fallback" &&
+        provenance?.source !== "legacy_preserved"
+      ) {
+        continue
+      }
+      // Provenance without a validated keeper list cannot authorize a new
+      // Trash proposal. Keep all current members until the user makes a new
+      // choice, while leaving ordinary legacy no-override snapshots intact.
+      keptOverrides[group.id] = new Set(group.mediaKeys)
+      keepDecisionProvenance[group.id] = { source: "stale_fallback" }
     }
 
     return {
@@ -445,8 +493,8 @@ export class DuplicateReviewSession {
   }
 
   private resolveDecision(group: DuplicateGroup): KeepDecision {
-    const override = this.selections.keptOverrides[group.id]
-    const provenance = this.selections.keepDecisionProvenance?.[group.id]
+    const override = this.selectionState.keptOverrides[group.id]
+    const provenance = this.selectionState.keepDecisionProvenance?.[group.id]
     const strategy = provenance?.strategy ?? this.defaultStrategy
     const recommendation = recommendDefaultKeepForGroup(
       group,
@@ -487,6 +535,7 @@ export class DuplicateReviewSession {
     if (
       provenance.source !== "manual" &&
       provenance.source !== "legacy_preserved" &&
+      provenance.source !== "stale_fallback" &&
       provenance.source !== "automatic"
     ) {
       return null
@@ -497,16 +546,18 @@ export class DuplicateReviewSession {
         : { source: provenance.source }
     }
     if (!isKeepStrategyValue(provenance.strategy)) {
-      return { source: "legacy_preserved" }
+      return provenance.source === "automatic"
+        ? { source: "legacy_preserved" }
+        : { source: provenance.source }
     }
     return { source: provenance.source, strategy: provenance.strategy }
   }
 }
 
 /**
- * Applies the persistent default to every current group while retaining only
- * explicit manual per-group choices. Legacy and automatic choices are
- * recomputed from the current media metadata and selected strategy.
+ * Applies the persistent default to every current group while retaining
+ * explicit manual choices and conservative stale-keeper fallbacks. Other
+ * legacy and automatic choices are recomputed from current metadata.
  */
 export function applyDefaultKeepStrategyToSelections(params: {
   groups: DuplicateGroup[]

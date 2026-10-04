@@ -311,6 +311,27 @@ async function sendOriginalRetrievalWithArgs(
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+async function sendVideoPlaybackRetrievalWithArgs(
+  requestId: string,
+  args: Record<string, unknown>,
+  provider = "amazon"
+): Promise<void> {
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      source: window,
+      data: {
+        app: "GPD",
+        action: "gptkCommand",
+        command: "getVideoPlaybackUrl",
+        requestId,
+        provider,
+        args
+      }
+    })
+  )
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 async function sendProviderRetrievalCancellation(
   requestId: string,
   targetRequestId: string,
@@ -843,6 +864,111 @@ describe("PARITY-02 provider command host session binding", () => {
     expect(retrievalHandler).toHaveBeenCalledTimes(1)
     expect(retrievalHandler.mock.calls[0]?.[2]).toBeInstanceOf(AbortSignal)
     postMessage.mockRestore()
+  })
+
+  it("binds video playback retrieval and cancellation to the current request identity", async () => {
+    const host = window.__GPD_COMMAND_HOST__!
+    const scopeFingerprint = "video-playback-current-scope"
+    const postMessage = vi.spyOn(window, "postMessage")
+    try {
+      await sendSessionCommand(
+        "getAllMediaItems",
+        host.providerSessionId,
+        "amazon",
+        scopeFingerprint
+      )
+
+      const invalidRequests = [
+        {
+          requestId: "video-stale-session",
+          args: {
+            requestId: "video-stale-session",
+            providerSessionId: "stale-session",
+            scanScopeFingerprint: scopeFingerprint,
+            userOptIn: true
+          }
+        },
+        {
+          requestId: "video-mismatched-request",
+          args: {
+            requestId: "different-video-request",
+            providerSessionId: host.providerSessionId,
+            scanScopeFingerprint: scopeFingerprint,
+            userOptIn: true
+          }
+        },
+        {
+          requestId: "video-stale-scope",
+          args: {
+            requestId: "video-stale-scope",
+            providerSessionId: host.providerSessionId,
+            scanScopeFingerprint: "stale-video-scope",
+            userOptIn: true
+          }
+        },
+        {
+          requestId: "video-missing-opt-in",
+          args: {
+            requestId: "video-missing-opt-in",
+            providerSessionId: host.providerSessionId,
+            scanScopeFingerprint: scopeFingerprint,
+            userOptIn: false
+          }
+        }
+      ]
+
+      for (const { requestId, args } of invalidRequests) {
+        await sendVideoPlaybackRetrievalWithArgs(requestId, args)
+        expect(retrievalHandler).not.toHaveBeenCalled()
+        expect(postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            command: "getVideoPlaybackUrl",
+            requestId,
+            success: false
+          }),
+          "*"
+        )
+      }
+
+      const validRequestId = "video-playback-bound-request"
+      await sendVideoPlaybackRetrievalWithArgs(validRequestId, {
+        requestId: validRequestId,
+        providerSessionId: host.providerSessionId,
+        scanScopeFingerprint: scopeFingerprint,
+        userOptIn: true
+      })
+      const signal = retrievalHandler.mock.calls[0]?.[2]
+      if (!signal) {
+        throw new Error("video playback handler did not receive an abort signal")
+      }
+      expect(signal.aborted).toBe(false)
+
+      await sendProviderRetrievalCancellation(
+        "cancel-video-wrong-scope",
+        validRequestId,
+        host.providerSessionId,
+        "stale-video-scope"
+      )
+      expect(signal.aborted).toBe(false)
+
+      await sendProviderRetrievalCancellation(
+        "cancel-video-current-scope",
+        validRequestId,
+        host.providerSessionId,
+        scopeFingerprint
+      )
+      expect(signal.aborted).toBe(true)
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: "cancelProviderRequest",
+          requestId: "cancel-video-current-scope",
+          data: { targetRequestId: validRequestId, cancelled: true }
+        }),
+        "*"
+      )
+    } finally {
+      postMessage.mockRestore()
+    }
   })
 
   it("returns protocol errors when provider commands have no argument object", async () => {
@@ -1969,6 +2095,17 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     )
     expect(maximum.reservedBytes).toBe(maxItemBytes)
     cache.releaseBudget(maximum)
+    expectPolicyError(
+      () =>
+        cache.reserveBudget(
+          reservationInput(host, "amazon", scope, {
+            maxBytes: maxItemBytes + 1,
+            aggregateBudgetBytes: maxReviewBytes
+          })
+        ),
+      "invalid-item-limit",
+      "The Amazon Photos original byte limit must be between 1 byte and 25 MiB."
+    )
 
     cache.reset()
     const filled = cache.reserveBudget(
@@ -2112,8 +2249,82 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     const protectedReservation = cache.reserveBudget(reservationInput(host, "amazon", overrunScope, { maxBytes: 4, aggregateBudgetBytes: 8 }))
     expect(cache.consumeChunk(overrun, 5)).toBe(false)
     expect(overrun.budget).toMatchObject({ bytesRead: 5, bytesReserved: 4 })
+    expect(overrun).toMatchObject({ bytesConsumed: 5, reservedBytes: 0 })
+    expect(cache.consumeChunk(overrun, 0)).toBe(false)
+    expect(overrun.budget).toMatchObject({ bytesRead: 5, bytesReserved: 4 })
     cache.releaseBudget(overrun)
     expect(protectedReservation.budget.bytesReserved).toBe(4)
+
+    const knownSizeOverrunScope = "known-size-chunk-overrun-scope"
+    await activateScope(host, "amazon", knownSizeOverrunScope)
+    const knownSizeOverrun = cache.reserveBudget(
+      reservationInput(host, "amazon", knownSizeOverrunScope, {
+        maxBytes: 8,
+        aggregateBudgetBytes: 16,
+        resourceSize: 4,
+        reserveKnownResourceSize: true
+      })
+    )
+    expect(knownSizeOverrun.reservedBytes).toBe(4)
+    expect(cache.consumeChunk(knownSizeOverrun, 5)).toBe(false)
+    cache.releaseBudget(knownSizeOverrun)
+
+    const releasedReservationScope = "released-known-size-chunk-scope"
+    await activateScope(host, "amazon", releasedReservationScope)
+    const releasedKnownSize = cache.reserveBudget(
+      reservationInput(host, "amazon", releasedReservationScope, {
+        maxBytes: 8,
+        aggregateBudgetBytes: 16,
+        resourceSize: 4,
+        reserveKnownResourceSize: true
+      })
+    )
+    expect(releasedKnownSize.reservedBytes).toBe(4)
+    expect(releasedKnownSize.maxBytes).toBe(4)
+    cache.releaseBudget(releasedKnownSize)
+    expect(cache.consumeChunk(releasedKnownSize, 1)).toBe(false)
+  })
+
+  it("rejects mutated and copied reservations without changing their budget", async () => {
+    const host = window.__GPD_COMMAND_HOST__!
+    const cache = resource(host)
+    const scope = "immutable-reservation-accounting-scope"
+    await activateScope(host, "amazon", scope)
+    const reservation = cache.reserveBudget(
+      reservationInput(host, "amazon", scope, {
+        maxBytes: 4,
+        aggregateBudgetBytes: 8
+      })
+    )
+    const protectedReservation = cache.reserveBudget(
+      reservationInput(host, "amazon", scope, {
+        maxBytes: 4,
+        aggregateBudgetBytes: 8
+      })
+    )
+
+    expect(Object.isFrozen(reservation)).toBe(true)
+    expect(Object.isFrozen(reservation.budget)).toBe(true)
+    expect(Reflect.set(reservation, "reservedBytes", 100)).toBe(false)
+    expect(Reflect.set(reservation, "maxBytes", 100)).toBe(false)
+    expect(Reflect.set(reservation.budget, "bytesReserved", 0)).toBe(false)
+
+    expect(cache.consumeChunk(reservation, 2)).toBe(true)
+    expect(reservation).toMatchObject({ bytesConsumed: 2, reservedBytes: 2 })
+    const forgedReservation = {
+      ...reservation,
+      maxBytes: 100,
+      reservedBytes: 100,
+      bytesConsumed: 0
+    }
+    expect(cache.consumeChunk(forgedReservation, 100)).toBe(false)
+    cache.accountResult(forgedReservation, 100)
+    cache.releaseBudget(forgedReservation)
+    expect(reservation.budget).toMatchObject({ bytesRead: 2, bytesReserved: 6 })
+
+    cache.releaseBudget(reservation)
+    cache.releaseBudget(protectedReservation)
+    expect(reservation.budget).toMatchObject({ bytesRead: 2, bytesReserved: 0 })
   })
 
 

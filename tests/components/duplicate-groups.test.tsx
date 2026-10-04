@@ -13,7 +13,10 @@ import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { DuplicateGroups } from "../../components/DuplicateGroups"
-import type { KeepDecision } from "../../lib/duplicate-review-session"
+import {
+  DuplicateReviewSession,
+  type KeepDecision
+} from "../../lib/duplicate-review-session"
 import {
   recommendKeepForGroup,
   type KeepRecommendation
@@ -82,6 +85,24 @@ function makeGroup(id: string, ...mediaKeys: string[]): DuplicateGroup {
   return { id, mediaKeys, originalMediaKey: mediaKeys[0], similarity: 0.99 }
 }
 
+function proposedTrashMediaKeys(params: {
+  groups: DuplicateGroup[]
+  mediaItems: Record<string, GpdMediaItem>
+  selectedGroupIds: Set<string>
+  keptByGroupId: Map<string, Set<string>>
+}): string[] {
+  const reviewSession = new DuplicateReviewSession({
+    groups: params.groups,
+    mediaItems: params.mediaItems,
+    selections: {
+      selectedGroupIds: params.selectedGroupIds,
+      reviewedGroupIds: params.selectedGroupIds,
+      keptOverrides: Object.fromEntries(params.keptByGroupId)
+    }
+  })
+  return reviewSession.trashPlan().mediaKeysToTrash
+}
+
 const mediaItems: Record<string, GpdMediaItem> = {
   img1: makeItem("img1"),
   img2: makeItem("img2"),
@@ -102,14 +123,28 @@ const manualDecision: KeepDecision = {
   recommendation: manualRecommendation
 }
 
+const defaultSelectedGroupIds = new Set(["g1"])
+const defaultKeptByGroupId = new Map<string, Set<string>>([
+  ["g1", new Set(["img1"])]
+])
+const defaultTrashPlanMediaKeys = new Set(
+  proposedTrashMediaKeys({
+    groups: [group],
+    mediaItems,
+    selectedGroupIds: defaultSelectedGroupIds,
+    keptByGroupId: defaultKeptByGroupId
+  })
+)
+
 const defaultProps = {
   groups: [group],
   mediaItems,
-  selectedGroupIds: new Set(["g1"]),
+  trashPlanMediaKeys: defaultTrashPlanMediaKeys,
+  selectedGroupIds: defaultSelectedGroupIds,
   reviewedGroupIds: new Set(["g1"]),
   onToggleGroup: vi.fn(),
   onSkipGroup: vi.fn(),
-  keptByGroupId: new Map([["g1", new Set(["img1"])]]),
+  keptByGroupId: defaultKeptByGroupId,
   keepDecisionByGroupId: new Map([["g1", manualDecision]]) ,
   onToggleKept: vi.fn(),
   onTrashAll: vi.fn()
@@ -150,6 +185,157 @@ describe("DuplicateGroups — chip rendering", () => {
     // img2 and img3 are not kept and group is selected
     const trashChips = screen.getAllByText("Moves to Trash")
     expect(trashChips).toHaveLength(2)
+  })
+
+  it("shows Trash status only for the proposal from the shared review plan", () => {
+    const reviewOnlyGroup = makeGroup("g1", "review-keep", "review-target")
+    const reviewOnlyItems = {
+      "review-keep": { ...makeItem("review-keep"), dedupKey: "same-provider-asset" },
+      "review-target": { ...makeItem("review-target"), dedupKey: "same-provider-asset" }
+    }
+    const reviewOnlyKept = new Map<string, Set<string>>([
+      ["g1", new Set(["review-keep"])]
+    ])
+    const reviewOnlySelection = new Set(["g1"])
+    const reviewOnlyPlan = proposedTrashMediaKeys({
+      groups: [reviewOnlyGroup],
+      mediaItems: reviewOnlyItems,
+      selectedGroupIds: reviewOnlySelection,
+      keptByGroupId: reviewOnlyKept
+    })
+
+    expect(reviewOnlyPlan).not.toContain("review-target")
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[reviewOnlyGroup]}
+        mediaItems={reviewOnlyItems}
+        trashPlanMediaKeys={new Set(reviewOnlyPlan)}
+        selectedGroupIds={reviewOnlySelection}
+        keptByGroupId={reviewOnlyKept}
+        keepDecisionByGroupId={new Map()}
+      />
+    )
+
+    expect(screen.getByText("Review only")).toBeInTheDocument()
+    expect(screen.queryAllByText("Moves to Trash")).toHaveLength(
+      reviewOnlyPlan.length
+    )
+    expect(
+      screen.getByRole("button", { name: /Keep review-target\.jpg/ })
+    ).not.toHaveAccessibleName(/currently moves to Trash/)
+  })
+
+  it("does not label an item without a dedup identity as moving to Trash", () => {
+    const groupWithoutIdentity = makeGroup("g1", "identity-keep", "identity-missing")
+    const itemsWithoutIdentity = {
+      "identity-keep": makeItem("identity-keep"),
+      "identity-missing": { ...makeItem("identity-missing"), dedupKey: "" }
+    }
+    const kept = new Map<string, Set<string>>([
+      ["g1", new Set(["identity-keep"])]
+    ])
+    const selected = new Set(["g1"])
+    const plan = proposedTrashMediaKeys({
+      groups: [groupWithoutIdentity],
+      mediaItems: itemsWithoutIdentity,
+      selectedGroupIds: selected,
+      keptByGroupId: kept
+    })
+
+    expect(plan).not.toContain("identity-missing")
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[groupWithoutIdentity]}
+        mediaItems={itemsWithoutIdentity}
+        trashPlanMediaKeys={new Set(plan)}
+        selectedGroupIds={selected}
+        keptByGroupId={kept}
+        keepDecisionByGroupId={new Map()}
+      />
+    )
+
+    expect(screen.queryAllByText("Moves to Trash")).toHaveLength(plan.length)
+    expect(
+      screen.getByRole("button", { name: /Keep identity-missing\.jpg/ })
+    ).not.toHaveAccessibleName(/currently moves to Trash/)
+  })
+
+  it("honors duplicate provider identities across the full plan scope", () => {
+    const displayedGroup = makeGroup("g1", "global-keep", "global-target")
+    const otherGroup = makeGroup("other", "other-keep", "same-identity")
+    const allGroups = [displayedGroup, otherGroup]
+    const allItems = {
+      "global-keep": makeItem("global-keep"),
+      "global-target": { ...makeItem("global-target"), dedupKey: "shared-provider-identity" },
+      "other-keep": makeItem("other-keep"),
+      "same-identity": { ...makeItem("same-identity"), dedupKey: "shared-provider-identity" }
+    }
+    const kept = new Map<string, Set<string>>([
+      ["g1", new Set(["global-keep"])]
+    ])
+    const selected = new Set(["g1"])
+    const plan = proposedTrashMediaKeys({
+      groups: allGroups,
+      mediaItems: allItems,
+      selectedGroupIds: selected,
+      keptByGroupId: kept
+    })
+
+    expect(plan).not.toContain("global-target")
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[displayedGroup]}
+        mediaItems={allItems}
+        trashPlanMediaKeys={new Set(plan)}
+        selectedGroupIds={selected}
+        keptByGroupId={kept}
+        keepDecisionByGroupId={new Map()}
+      />
+    )
+
+    expect(screen.queryAllByText("Moves to Trash")).toHaveLength(plan.length)
+    expect(
+      screen.getByRole("button", { name: /Keep global-target\.jpg/ })
+    ).not.toHaveAccessibleName(/currently moves to Trash/)
+  })
+
+  it("shows Trash status for an item included in the shared review plan", () => {
+    const proposalGroup = makeGroup("g1", "proposal-keep", "proposal-target")
+    const proposalItems = {
+      "proposal-keep": makeItem("proposal-keep"),
+      "proposal-target": makeItem("proposal-target")
+    }
+    const kept = new Map<string, Set<string>>([
+      ["g1", new Set(["proposal-keep"])]
+    ])
+    const selected = new Set(["g1"])
+    const plan = proposedTrashMediaKeys({
+      groups: [proposalGroup],
+      mediaItems: proposalItems,
+      selectedGroupIds: selected,
+      keptByGroupId: kept
+    })
+
+    expect(plan).toContain("proposal-target")
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[proposalGroup]}
+        mediaItems={proposalItems}
+        trashPlanMediaKeys={new Set(plan)}
+        selectedGroupIds={selected}
+        keptByGroupId={kept}
+        keepDecisionByGroupId={new Map()}
+      />
+    )
+
+    expect(screen.getByText("Moves to Trash")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /Keep proposal-target\.jpg/ })
+    ).toHaveAccessibleName(/currently moves to Trash/)
   })
 
   it("shows favorite protection and prevents toggling a confirmed favorite", () => {
@@ -233,9 +419,21 @@ describe("DuplicateGroups — chip rendering", () => {
   })
 
   it("shows every item as trash when no copy is kept", () => {
+    const keptByGroupId = new Map<string, Set<string>>([
+      ["g1", new Set<string>()]
+    ])
+    const trashPlanMediaKeys = new Set(
+      proposedTrashMediaKeys({
+        groups: [group],
+        mediaItems,
+        selectedGroupIds: new Set(["g1"]),
+        keptByGroupId
+      })
+    )
     wrap(
       <DuplicateGroups
         {...defaultProps}
+        trashPlanMediaKeys={trashPlanMediaKeys}
         keptByGroupId={new Map([["g1", new Set()]])}
       />
     )
@@ -316,6 +514,7 @@ describe("DuplicateGroups — chip rendering", () => {
           img2: { ...makeItem("img2"), dedupKey: "same-asset" },
           img3: makeItem("img3")
         }}
+        trashPlanMediaKeys={new Set()}
       />
     )
     expect(screen.getByText("Same asset reference")).toBeInTheDocument()

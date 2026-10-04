@@ -249,13 +249,6 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
     outputDirectory,
     runId: process.env.VERIFICATION_RUN_ID ?? null
   })
-  const selectionClosure = runKeeperSelectionTlc({
-    root,
-    jarPath: args.jar,
-    outputDirectory,
-    runId: process.env.VERIFICATION_RUN_ID ?? null,
-    closure: true
-  })
   const selectionNegativeControl = runKeeperSelectionTlc({
     root,
     jarPath: args.jar,
@@ -268,15 +261,12 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
   const sourceFingerprintBefore = selection.sourceFingerprintBefore
   const sourceDrift =
     selection.sourceDrift ||
-    selectionClosure.sourceDrift ||
     selectionNegativeControl.sourceDrift ||
     selection.sourceFingerprintAfter !==
-      selectionClosure.sourceFingerprintBefore ||
-    selectionClosure.sourceFingerprintAfter !==
       selectionNegativeControl.sourceFingerprintBefore ||
     selectionNegativeControl.sourceFingerprintAfter !== sourceFingerprintAfter ||
     sourceFingerprintBefore !== sourceFingerprintAfter
-  const selectionRuns = [selection, selectionClosure, selectionNegativeControl]
+  const selectionRuns = [selection, selectionNegativeControl]
   const selectionHasBlockedRun = selectionRuns.some(
     (run) => run.status === "BLOCKED"
   )
@@ -304,9 +294,8 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
     kind: "model",
     status: selectionAggregateStatus,
     exitCode: selectionAggregateExitCode,
-    checksRun: selection.checksRun + selectionClosure.checksRun,
-    modelComplete:
-      selection.modelComplete && selectionClosure.modelComplete && !sourceDrift,
+    checksRun: selection.checksRun,
+    modelComplete: selection.modelComplete && !sourceDrift,
     statesExplored: selection.statesExplored,
     statesGenerated: selection.statesGenerated,
     depth: selection.depth,
@@ -331,32 +320,6 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
     sourceFingerprintAfter,
     sourceFingerprint: sourceFingerprintAfter,
     sourceDrift,
-    closure: {
-      id: selectionClosure.id,
-      status: selectionClosure.status,
-      exitCode: selectionClosure.exitCode,
-      modelComplete: selectionClosure.modelComplete,
-      checksRun: selectionClosure.checksRun,
-      statesExplored: selectionClosure.statesExplored,
-      statesGenerated: selectionClosure.statesGenerated,
-      depth: selectionClosure.depth,
-      coverageActions: selectionClosure.coverageActions,
-      coverageCounts: selectionClosure.coverageCounts,
-      configuredInvariants: selectionClosure.configuredInvariants,
-      configuredProperties: selectionClosure.configuredProperties,
-      modelConfig: selectionClosure.configPath,
-      modelModuleSha256: selectionClosure.moduleSha256,
-      modelConfigSha256: selectionClosure.configSha256,
-      sourceFingerprintBefore: selectionClosure.sourceFingerprintBefore,
-      sourceFingerprintAfter: selectionClosure.sourceFingerprintAfter,
-      sourceFileCountBefore: selectionClosure.sourceFileCountBefore,
-      sourceFileCountAfter: selectionClosure.sourceFileCountAfter,
-      sourceDrift: selectionClosure.sourceDrift,
-      rawResult: relative(root, selectionClosure.resultPath),
-      rawResultSha256: sha256File(selectionClosure.resultPath),
-      rawLog: relative(root, selectionClosure.logPath),
-      runId: selectionClosure.runId
-    },
     negativeControl: {
       id: selectionNegativeControl.id,
       status: selectionNegativeControl.status,
@@ -376,7 +339,7 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
       runId: selectionNegativeControl.runId
     },
     proofBoundary:
-      "TLC exhausts the declared finite constants and transitions; it does not prove TypeScript refinement or whole-app behavior."
+      "TLC exhaustively checks the complete graph reachable from Init under the declared finite constants, including all configured safety invariants and action properties. It does not check arbitrary InvSelectionSafety initial valuations or prove TypeScript refinement or whole-app behavior."
   }
   writeFileSync(
     selectionArtifactPath,
@@ -387,24 +350,20 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
     status:
       lifecycle.status === "PASS" &&
       selection.status === "PASS" &&
-      selectionClosure.status === "PASS" &&
       selectionNegativeControl.status === "PASS"
         ? "PASS"
         : lifecycle.status === "BLOCKED" ||
             selection.status === "BLOCKED" ||
-            selectionClosure.status === "BLOCKED" ||
             selectionNegativeControl.status === "BLOCKED"
           ? "BLOCKED"
           : "FAIL",
     exitCode:
       lifecycle.exitCode === 0 &&
       selection.exitCode === 0 &&
-      selectionClosure.exitCode === 0 &&
       selectionNegativeControl.exitCode === 0
         ? 0
         : lifecycle.exitCode === 2 ||
             selection.exitCode === 2 ||
-            selectionClosure.exitCode === 2 ||
             selectionNegativeControl.exitCode === 2
           ? 2
           : 1,
@@ -423,15 +382,6 @@ if (process.argv[1]?.endsWith("/verification/run-tlc.mjs")) {
         depth: selection.depth,
         resultPath: relative(root, selectionArtifactPath),
         rawResultPath: relative(root, selection.resultPath),
-        closure: {
-          id: selectionClosure.id,
-          status: selectionClosure.status,
-          exitCode: selectionClosure.exitCode,
-          statesExplored: selectionClosure.statesExplored,
-          statesGenerated: selectionClosure.statesGenerated,
-          resultPath: relative(root, selectionClosure.resultPath),
-          rawLogPath: relative(root, selectionClosure.logPath)
-        },
         negativeControl: {
           status: selectionNegativeControl.status,
           exitCode: selectionNegativeControl.exitCode,

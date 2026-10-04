@@ -82,7 +82,7 @@ test.describe("healthCheck", () => {
     const page = await openAppTab(context, extensionId)
 
     await expect(
-      page.getByText(/Cannot connect to Google Photos/i)
+      page.getByText(/Google Photos is not ready/i)
     ).toBeVisible({ timeout: 10_000 })
 
     await page.close()
@@ -116,7 +116,7 @@ test.describe("healthCheck", () => {
     // users reach after Open has completed but the bridge is still settling.
     const page = await openAppTab(context, extensionId)
     await expect(
-      page.getByText(/Cannot connect to Google Photos/i)
+      page.getByText(/Google Photos is not ready/i)
     ).toBeVisible({ timeout: 10_000 })
 
     const stub = await openGptkStubPage(context, {
@@ -164,7 +164,7 @@ test.describe("healthCheck", () => {
 
     const page = await openAppTab(context, extensionId)
     await expect(
-      page.getByText(/Cannot connect to Google Photos/i)
+      page.getByText(/Google Photos is not ready/i)
     ).toBeVisible({ timeout: 10_000 })
 
     const stub = await openGptkStubPage(context, {
@@ -176,7 +176,7 @@ test.describe("healthCheck", () => {
     // still in flight. The app must not remain connected to the old tab.
     await stub.goto("https://example.com/")
     await expect(
-      page.getByText(/Cannot connect to Google Photos/i)
+      page.getByText(/Google Photos is not ready/i)
     ).toBeVisible({ timeout: 15_000 })
     await expect(
       page.getByRole("button", { name: /Retry connection/i })
@@ -279,7 +279,7 @@ test.describe("gptkCommand routing", () => {
 
     // Wait for disconnected state
     await expect(
-      page.getByText(/Cannot connect to Google Photos/i)
+      page.getByText(/Google Photos is not ready/i)
     ).toBeVisible({ timeout: 8_000 })
 
     const result = await page.evaluate(() => {

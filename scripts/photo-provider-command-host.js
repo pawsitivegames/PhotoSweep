@@ -172,6 +172,68 @@ function createCommandHost(targetWindow, publicKey) {
   const originalMediaRetrieval = (() => {
     const resources = new Map()
     const budgets = new Map()
+    const reservationStates = new WeakMap()
+    const budgetViews = new WeakMap()
+
+    function readOnlyBudgetView(budget) {
+      let view = budgetViews.get(budget)
+      if (!view) {
+        view = Object.freeze(
+          Object.defineProperties({}, {
+            limitBytes: {
+              enumerable: true,
+              get: () => budget.limitBytes
+            },
+            bytesRead: {
+              enumerable: true,
+              get: () => budget.bytesRead
+            },
+            bytesReserved: {
+              enumerable: true,
+              get: () => budget.bytesReserved
+            }
+          })
+        )
+        budgetViews.set(budget, view)
+      }
+      return view
+    }
+
+    function createReservation(key, budget, reservedBytes) {
+      const state = {
+        key,
+        budget,
+        maxBytes: reservedBytes,
+        reservedBytes,
+        bytesConsumed: 0
+      }
+      const reservation = Object.freeze(
+        Object.defineProperties({}, {
+          key: {
+            enumerable: true,
+            get: () => state.key
+          },
+          budget: {
+            enumerable: true,
+            get: () => readOnlyBudgetView(state.budget)
+          },
+          maxBytes: {
+            enumerable: true,
+            get: () => state.maxBytes
+          },
+          reservedBytes: {
+            enumerable: true,
+            get: () => state.reservedBytes
+          },
+          bytesConsumed: {
+            enumerable: true,
+            get: () => state.bytesConsumed
+          }
+        })
+      )
+      reservationStates.set(reservation, state)
+      return reservation
+    }
 
     function resourceKey(provider, sessionId, scopeFingerprint, mediaKey) {
       return JSON.stringify([provider, sessionId, scopeFingerprint, mediaKey])
@@ -358,70 +420,76 @@ function createCommandHost(targetWindow, publicKey) {
         throw policyError(provider, "review-budget-exhausted")
       }
       budget.bytesReserved += reservedBytes
-      return {
-        key,
-        budget,
-        maxBytes: reservedBytes,
-        reservedBytes,
-        bytesConsumed: 0
-      }
+      return createReservation(key, budget, reservedBytes)
     }
 
     function consumeChunk(reservation, byteLength) {
-      if (!reservation || !Number.isSafeInteger(byteLength) || byteLength < 0) {
+      const state =
+        reservation && typeof reservation === "object"
+          ? reservationStates.get(reservation)
+          : undefined
+      if (!state || !Number.isSafeInteger(byteLength) || byteLength < 0) {
         return false
       }
-      const budget = budgets.get(reservation.key)
-      if (budget !== reservation.budget) return false
+      const budget = budgets.get(state.key)
+      if (budget !== state.budget) return false
       const withinReservation =
-        byteLength <= reservation.reservedBytes &&
-        reservation.bytesConsumed + byteLength <= reservation.maxBytes
-      const reservedCharge = Math.min(byteLength, reservation.reservedBytes)
+        byteLength <= state.reservedBytes &&
+        state.bytesConsumed + byteLength <= state.maxBytes
+      const reservedCharge = Math.min(byteLength, state.reservedBytes)
       budget.bytesRead += byteLength
       budget.bytesReserved = Math.max(
         0,
         budget.bytesReserved - reservedCharge
       )
-      reservation.reservedBytes -= reservedCharge
-      reservation.bytesConsumed += byteLength
+      state.reservedBytes -= reservedCharge
+      state.bytesConsumed += byteLength
       if (!withinReservation) {
         budget.bytesReserved = Math.max(
           0,
-          budget.bytesReserved - reservation.reservedBytes
+          budget.bytesReserved - state.reservedBytes
         )
-        reservation.reservedBytes = 0
+        state.reservedBytes = 0
       }
       return withinReservation
     }
 
     function accountResult(reservation, byteLength) {
-      if (!reservation) return
-      const budget = budgets.get(reservation.key)
-      if (budget !== reservation.budget) return
+      const state =
+        reservation && typeof reservation === "object"
+          ? reservationStates.get(reservation)
+          : undefined
+      if (!state) return
+      const budget = budgets.get(state.key)
+      if (budget !== state.budget) return
       const chargedBytes =
         Number.isSafeInteger(byteLength) &&
         byteLength > 0 &&
-        byteLength <= reservation.reservedBytes
+        byteLength <= state.reservedBytes
           ? byteLength
-          : reservation.reservedBytes
+          : state.reservedBytes
       budget.bytesRead += chargedBytes
       budget.bytesReserved = Math.max(
         0,
-        budget.bytesReserved - reservation.reservedBytes
+        budget.bytesReserved - state.reservedBytes
       )
-      reservation.bytesConsumed += chargedBytes
-      reservation.reservedBytes = 0
+      state.bytesConsumed += chargedBytes
+      state.reservedBytes = 0
     }
 
     function releaseBudget(reservation) {
-      if (!reservation) return
-      const budget = budgets.get(reservation.key)
-      if (budget !== reservation.budget) return
+      const state =
+        reservation && typeof reservation === "object"
+          ? reservationStates.get(reservation)
+          : undefined
+      if (!state) return
+      const budget = budgets.get(state.key)
+      if (budget !== state.budget) return
       budget.bytesReserved = Math.max(
         0,
-        budget.bytesReserved - reservation.reservedBytes
+        budget.bytesReserved - state.reservedBytes
       )
-      reservation.reservedBytes = 0
+      state.reservedBytes = 0
     }
 
     return Object.freeze({

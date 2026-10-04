@@ -93,12 +93,33 @@ function deserializeSelections(
   const selectedGroupIds = Array.isArray(raw.selectedGroupIds)
     ? raw.selectedGroupIds.filter((id): id is string => typeof id === "string")
     : []
+  const hasKeeperRoot = Object.prototype.hasOwnProperty.call(
+    raw,
+    "keptOverrides"
+  )
+  const malformedKeeperRoot =
+    hasKeeperRoot &&
+    (!raw.keptOverrides ||
+      typeof raw.keptOverrides !== "object" ||
+      Array.isArray(raw.keptOverrides))
   const keptOverrides: Record<string, Set<string>> = {}
-  if (raw.keptOverrides && typeof raw.keptOverrides === "object") {
+  const malformedKeeperGroups = new Set<string>()
+  if (
+    raw.keptOverrides &&
+    typeof raw.keptOverrides === "object" &&
+    !Array.isArray(raw.keptOverrides)
+  ) {
     for (const [groupId, mediaKeys] of Object.entries(
       raw.keptOverrides as Record<string, unknown>
     )) {
-      if (!Array.isArray(mediaKeys)) continue
+      if (!Array.isArray(mediaKeys)) {
+        malformedKeeperGroups.add(groupId)
+        keptOverrides[groupId] = new Set()
+        continue
+      }
+      if (mediaKeys.some((key) => typeof key !== "string")) {
+        malformedKeeperGroups.add(groupId)
+      }
       keptOverrides[groupId] = new Set(
         mediaKeys.filter((key): key is string => typeof key === "string")
       )
@@ -120,6 +141,7 @@ function deserializeSelections(
       if (
         provenance.source !== "manual" &&
         provenance.source !== "legacy_preserved" &&
+        provenance.source !== "stale_fallback" &&
         provenance.source !== "automatic"
       ) {
         continue
@@ -132,9 +154,23 @@ function deserializeSelections(
       }
     }
   }
+  for (const groupId of malformedKeeperGroups) {
+    // Invalid stored identities must never become an intentional empty
+    // override. DuplicateReviewSession expands this fallback to all current
+    // members before it can produce a Trash plan.
+    keepDecisionProvenance[groupId] = { source: "stale_fallback" }
+  }
   const reviewedGroupIds = Array.isArray(raw.reviewedGroupIds)
     ? raw.reviewedGroupIds.filter((id): id is string => typeof id === "string")
     : [...new Set([...selectedGroupIds, ...Object.keys(keptOverrides)])]
+  if (malformedKeeperRoot) {
+    // A present malformed root cannot establish which current keepers were
+    // saved. Fail closed for groups with persisted selection/review state;
+    // an absent root remains a valid pre-v2 migration shape.
+    for (const groupId of new Set([...selectedGroupIds, ...reviewedGroupIds])) {
+      keepDecisionProvenance[groupId] = { source: "stale_fallback" }
+    }
+  }
   return {
     selectedGroupIds: new Set(selectedGroupIds),
     reviewedGroupIds: new Set(reviewedGroupIds),

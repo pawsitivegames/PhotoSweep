@@ -12,6 +12,7 @@ import {
 } from "@playwright/test"
 
 import type { PlanId } from "../../../lib/entitlement"
+import type { KeepDecisionProvenance } from "../../../lib/duplicate-review-session"
 import { buildScanScopeFingerprint } from "../../../lib/review-preflight"
 import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../../../lib/privacy-disclosure"
@@ -289,19 +290,26 @@ export async function injectSelections(
   context: BrowserContext,
   selectedGroupIds: string[],
   keptOverrides: Record<string, string[]> = {},
-  provider: "google" | "icloud" | "amazon" = "google"
+  provider: "google" | "icloud" | "amazon" = "google",
+  keepDecisionProvenance?: Record<string, KeepDecisionProvenance>
 ): Promise<void> {
   const storageKey = providerReviewStorageKey(provider, "selections")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ selectedGroupIds, keptOverrides, storageKey }) =>
+      ({ selectedGroupIds, keptOverrides, keepDecisionProvenance, storageKey }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
-            { [storageKey]: { selectedGroupIds, keptOverrides } },
+            {
+              [storageKey]: {
+                selectedGroupIds,
+                keptOverrides,
+                ...(keepDecisionProvenance ? { keepDecisionProvenance } : {})
+              }
+            },
             resolve
           )
         }),
-      { selectedGroupIds, keptOverrides, storageKey }
+      { selectedGroupIds, keptOverrides, keepDecisionProvenance, storageKey }
     )
   )
 }

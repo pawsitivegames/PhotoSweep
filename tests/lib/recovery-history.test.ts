@@ -343,7 +343,9 @@ describe("recovery history", () => {
     expect(isRecoveryRestorable(afterRetryReload)).toBe(false)
   })
 
-  it("resolves provisional timeout unknowns only from a complete terminal for the same live request", () => {
+  // This reducer test covers persisted request-ID matching only. The app's
+  // in-memory live-request map is the boundary that rejects replies after reload.
+  it("resolves provisional timeout unknowns from a complete terminal for the same persisted request", () => {
     const keys = ["late-a", "late-b", "late-c"]
     const requestId = "live-restore-request"
     const timeout = markRecoveryRestore(

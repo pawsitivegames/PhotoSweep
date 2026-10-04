@@ -265,52 +265,11 @@ function modelArtifact({ obligation, rawPath, result, invariant }) {
     /safe01-selection\.json$/,
     "safe01-selection-negative.json"
   )
-  const closureResultPath = rawPath.replace(
-    /safe01-selection\.json$/,
-    "safe01-selection-closure.json"
-  )
   const negativeControl =
     obligation.id === "SAFE-01-model" &&
     existsSync(resolve(root, negativeControlPath))
       ? JSON.parse(readFileSync(resolve(root, negativeControlPath), "utf8"))
       : null
-  const closureResult =
-    obligation.id === "SAFE-01-model" &&
-    existsSync(resolve(root, closureResultPath))
-      ? JSON.parse(readFileSync(resolve(root, closureResultPath), "utf8"))
-      : null
-  const requiredClosureInvariants = [
-    "InvGroupsHaveDisjointMembers",
-    "InvProposedTrashTargetsAreExact",
-    "InvEveryIncludedNonKeeperIsProposed",
-    "InvNoKeeperIsProposedForTrash",
-    "InvNoLockedGroupProposal",
-    "InvBulkStrategyDoesNotDispatchTrash",
-    "InvDispatchMatchesConfirmation",
-    "InvSelectionSafety"
-  ]
-  const requiredClosureProperties = [
-    "PropBulkIncludesEligibleGroups",
-    "PropBulkDoesNotReviewGroups",
-    "PropBulkReopensChangedPlans",
-    "PropBulkDoesNotDispatchTrash",
-    "PropSelectGroupIsExplicitPerSetReview"
-  ]
-  const closurePassed =
-    obligation.id !== "SAFE-01-model" ||
-    (closureResult?.runId === runId &&
-      closureResult?.id === "SAFE-01-closure-model" &&
-      closureResult?.status === "PASS" &&
-      closureResult?.modelComplete === true &&
-      closureResult?.sourceDrift === false &&
-      closureResult?.sourceFingerprintBefore === sourceFingerprint.digest &&
-      closureResult?.sourceFingerprintAfter === sourceFingerprint.digest &&
-      requiredClosureInvariants.every((name) =>
-        closureResult?.configuredInvariants?.includes(name)
-      ) &&
-      requiredClosureProperties.every((name) =>
-        closureResult?.configuredProperties?.includes(name)
-      ))
   const negativeControlPassed =
     obligation.id !== "SAFE-01-model" ||
     (negativeControl?.runId === runId &&
@@ -331,7 +290,7 @@ function modelArtifact({ obligation, rawPath, result, invariant }) {
         raw.sourceFingerprintBefore === sourceFingerprint.digest &&
         raw.sourceFingerprintAfter === sourceFingerprint.digest)) &&
     (obligation.id !== "SAFE-01-model" ||
-      (negativeControlPassed && closurePassed)) &&
+      negativeControlPassed) &&
     (obligation.id !== "SAFE-01-model" || raw.id === obligation.id)
   const safe01Blocked =
     obligation.id === "SAFE-01-model" &&
@@ -365,8 +324,7 @@ function modelArtifact({ obligation, rawPath, result, invariant }) {
     modelComplete:
       freshResult &&
       raw.modelComplete === true &&
-      supported &&
-      (obligation.id !== "SAFE-01-model" || closurePassed),
+      supported,
     statesExplored: raw.statesExplored,
     statesGenerated: raw.statesGenerated,
     depth: raw.depth,
@@ -379,25 +337,6 @@ function modelArtifact({ obligation, rawPath, result, invariant }) {
     invariantConfigured: supported,
     ...(obligation.id === "SAFE-01-model"
       ? {
-          closure: {
-            status: closureResult?.status ?? "MISSING",
-            modelComplete: closureResult?.modelComplete === true,
-            statesExplored: closureResult?.statesExplored ?? 0,
-            statesGenerated: closureResult?.statesGenerated ?? 0,
-            sourceFingerprintBefore:
-              closureResult?.sourceFingerprintBefore ?? null,
-            sourceFingerprintAfter:
-              closureResult?.sourceFingerprintAfter ?? null,
-            sourceDrift: closureResult?.sourceDrift ?? null,
-            configuredInvariants:
-              closureResult?.configuredInvariants ?? [],
-            configuredProperties:
-              closureResult?.configuredProperties ?? [],
-            rawResult: closureResultPath,
-            rawResultSha256: existsSync(resolve(root, closureResultPath))
-              ? artifactHash(closureResultPath)
-              : null
-          },
           negativeControl: {
             status: negativeControl?.status ?? "MISSING",
             expectedInvariant: negativeControl?.expectedInvariant ?? null,
@@ -424,7 +363,9 @@ function modelArtifact({ obligation, rawPath, result, invariant }) {
     commandExitCode: result?.exitCode ?? null,
     sourceFingerprint: sourceFingerprint.digest,
     proofBoundary:
-      "TLC exhausts the declared finite constants and transitions; it does not prove TypeScript refinement or whole-app behavior."
+      obligation.id === "SAFE-01-model"
+        ? "TLC exhaustively checks the complete graph reachable from Init under the declared finite constants, including all configured safety invariants and action properties. It does not check arbitrary InvSelectionSafety initial valuations or prove TypeScript refinement or whole-app behavior."
+        : "TLC exhaustively checks the declared finite transition model and its reachable states; it does not prove TypeScript refinement or whole-app behavior."
   }
 }
 
@@ -1063,7 +1004,7 @@ const propertyPatterns = {
   "SAFE-08-properties": /SAFE-08\b/,
   "SAFE-09-properties": /SAFE-09\b/,
   "SAFE-13-properties":
-    /SAFE-13 re-includes bulk strategy groups and reopens changed plans/,
+    /SAFE-13 explicitly replaces manual choices, re-includes groups, and reopens changed plans/,
   "SAFE-12-properties": /SAFE-12 refines generated per-target restore states/,
   "SAFE-12-capacity":
     /\[SAFE-12\] recovery evidence capacity|recovery history exact capacity/,

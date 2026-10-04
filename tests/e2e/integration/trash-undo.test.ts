@@ -29,6 +29,15 @@ test.beforeAll(async () => {
   ;({ context, extensionId } = await launchExtension())
 })
 
+test.afterEach(async () => {
+  for (const page of context.pages()) {
+    if (page.url().startsWith("https://photos.google.com/")) {
+      await page.close().catch(() => {})
+    }
+  }
+  await context.unroute("https://photos.google.com/**").catch(() => {})
+})
+
 test.afterAll(async () => {
   await context.close()
 })
@@ -49,8 +58,13 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
   const confirmButton = page
     .getByRole("button", { name: /^Move to Trash$/i })
     .last()
-  await expect(confirmButton).toBeDisabled()
+  const unknownFavoriteAcknowledgment = page.getByRole("checkbox", {
+    name: "I understand these items may be favorites"
+  })
+  await expect(unknownFavoriteAcknowledgment).toBeVisible()
   await page.getByLabel(`Type ${count} to confirm`).fill(String(count))
+  await expect(confirmButton).toBeDisabled()
+  await unknownFavoriteAcknowledgment.check()
   await expect(confirmButton).toBeEnabled()
   await confirmButton.click()
 }
@@ -62,7 +76,7 @@ async function includeAllAndOpenTrashDialog(
   // Trash preflight requires a fresh provider health result. Waiting for the
   // signed-in banner avoids racing the health-check response after the saved
   // results have already rendered.
-  await expect(page.getByText(`Signed in as ${accountEmail}`)).toBeVisible({
+  await expect(page.getByText(`Signed in · ${accountEmail}`)).toBeVisible({
     timeout: 8_000
   })
   await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
@@ -529,7 +543,29 @@ test("shows a retryable warning when restore undo fails", async () => {
   )
 
   const stub = await openGptkStubPage(context, {
-    restoreItems: { success: false, error: "HTTP 504 restore failed" }
+    restoreItems: {
+      success: false,
+      error: "HTTP 504 restore failed",
+      data: {
+        outcomes: [
+          {
+            operation: "restore",
+            targetKey: "dedup-group0-item1",
+            status: "failed"
+          },
+          {
+            operation: "restore",
+            targetKey: "dedup-group1-item1",
+            status: "failed"
+          },
+          {
+            operation: "restore",
+            targetKey: "dedup-group2-item1",
+            status: "failed"
+          }
+        ]
+      }
+    }
   })
   const page = await openAppTab(context, extensionId)
 
@@ -571,7 +607,7 @@ test("shows a retryable warning when restore undo fails", async () => {
   await page.close()
 })
 
-test("persists restore timeout uncertainty and reconciles only the same live late result", async () => {
+test("reconciles a same-page late restore but seals uncertainty after reload", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = smallPayload()
   await injectScanResults(
@@ -726,6 +762,137 @@ test("persists restore timeout uncertainty and reconciles only the same live lat
 
   await stub.close()
   await page.close()
+  await context.unroute("https://photos.google.com/**")
+
+  // A terminal provider reply held by the old page must not authorize a
+  // completion after the app has reloaded and lost its live request binding.
+  const reloadedCase = await prepareTrashedReviewForRestore(
+    context,
+    extensionId,
+    {
+      holdResponse: true,
+      progressItemsProcessed: 1,
+      progressData: {
+        outcomes: [
+          {
+            operation: "restore",
+            targetKey: "dedup-group0-item1",
+            status: "confirmed"
+          }
+        ]
+      }
+    }
+  )
+  const reloadedPage = reloadedCase.page
+  const reloadedStub = reloadedCase.stub
+  try {
+    await reloadedPage.clock.install()
+    await reloadedPage.getByRole("button", { name: /^Undo$/i }).click()
+    await reloadedStub.waitForFunction(
+      () => {
+        const stubWindow = window as unknown as {
+          __gptkHeldRestoreResponses?: Record<string, unknown>
+        }
+        return Object.keys(stubWindow.__gptkHeldRestoreResponses ?? {}).length === 1
+      },
+      undefined,
+      { timeout: 8_000 }
+    )
+    const lateRequestId = await reloadedStub.evaluate(() => {
+      const commands = (
+        window as unknown as {
+          __gptkCommandLog: Array<{ command: string; requestId: string }>
+        }
+      ).__gptkCommandLog.filter((entry) => entry.command === "restoreItems")
+      return commands.at(-1)?.requestId ?? null
+    })
+    if (!lateRequestId) {
+      throw new Error("The reloaded-case stub did not receive restoreItems.")
+    }
+
+    await reloadedPage.clock.fastForward(120_001)
+    await expect(
+      reloadedPage.getByText(/has not returned a terminal restore result/i)
+    ).toBeVisible({ timeout: 8_000 })
+    const beforeReload = await readRecoveryHistory(context)
+    expect(
+      beforeReload.find((record) =>
+        record.restoreOutcomeHistory?.some(
+          (entry: { requestId?: string }) => entry.requestId === lateRequestId
+        )
+      )
+    ).toMatchObject({ status: "restore_unknown", restoreUnknownCount: 2 })
+
+    await reloadedPage.reload()
+    await expect(
+      reloadedPage.getByRole("button", {
+        name: "Recovery · 1",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 10_000 })
+    await reloadedPage.getByRole("button", { name: "Recovery · 1" }).click()
+    await expect(
+      reloadedPage.getByText("Restore outcome unknown", { exact: true })
+    ).toBeVisible()
+
+    await reloadedStub.evaluate((restoreRequestId) => {
+      const stubWindow = window as unknown as {
+        __gptkHeldRestoreResponses?: Record<
+          string,
+          (data: unknown) => void
+        >
+        __gptkCommandLog: Array<{
+          command: string
+          requestId: string
+          args?: { dedupKeys?: unknown }
+        }>
+      }
+      const restore =
+        stubWindow.__gptkHeldRestoreResponses?.[restoreRequestId]
+      const command = stubWindow.__gptkCommandLog.find(
+        (entry) =>
+          entry.command === "restoreItems" &&
+          entry.requestId === restoreRequestId
+      )
+      const dedupKeys = Array.isArray(command?.args?.dedupKeys)
+        ? command.args.dedupKeys
+        : []
+      restore?.({
+        restoredDedupKeys: dedupKeys,
+        outcomes: dedupKeys.map((targetKey) => ({
+          operation: "restore",
+          targetKey,
+          status: "confirmed"
+        }))
+      })
+    }, lateRequestId)
+
+    await expect
+      .poll(async () => {
+        const records = await readRecoveryHistory(context)
+        return records.find((record) =>
+          record.restoreOutcomeHistory?.some(
+            (entry: { requestId?: string }) => entry.requestId === lateRequestId
+          )
+        )
+      })
+      .toMatchObject({
+        status: "restore_unknown",
+        restoreUnknownCount: 2,
+        restoreOutcomeHistory: [{ requestId: lateRequestId, terminal: false }]
+      })
+    await expect(
+      reloadedPage.getByText("Restore outcome unknown", { exact: true })
+    ).toBeVisible()
+    await expect(
+      reloadedPage.getByText(/Provider restore completed/i)
+    ).not.toBeVisible()
+  } finally {
+    await reloadedStub.close()
+    await reloadedPage.close()
+    await context.unroute("https://photos.google.com/**")
+    await clearStorage(context)
+  }
 })
 
 test("does not dispatch restore when the begin request is rejected before worker delivery", async () => {
@@ -1110,7 +1277,7 @@ test("retires an old Undo restore when the connected account changes", async () 
     })
   })
 
-  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+  await expect(page.getByText("Signed in · bob@example.com")).toBeVisible({
     timeout: 8_000
   })
   await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
@@ -1169,7 +1336,50 @@ test("shows error state when trashItems fails", async () => {
     page.getByRole("button", { name: /Retry Connection/i })
   ).toBeVisible({ timeout: 10_000 })
   // The raw error from the stub is surfaced in the Alert
-  await expect(page.getByText("HTTP 504")).toBeVisible()
+  await expect(page.getByRole("main").getByText(/HTTP 504/)).toBeVisible()
+
+  await stub.close()
+  await page.close()
+})
+
+test("surfaces provider failure for a dry-run result", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = smallPayload()
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length
+  )
+
+  const stub = await openGptkStubPage(context, {
+    trashItems: {
+      success: false,
+      error: "dry-run provider failure",
+      data: { dryRun: true, requestedCount: 3 }
+    }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  await expect(
+    page.getByRole("heading", {
+      name: "3 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({ timeout: 8_000 })
+
+  await includeAllAndOpenTrashDialog(page)
+  await confirmTrashDialog(page, 3)
+
+  await expect(
+    page.getByRole("button", { name: /Retry Connection/i })
+  ).toBeVisible({ timeout: 10_000 })
+  await expect(
+    page.getByRole("main").getByText("dry-run provider failure")
+  ).toBeVisible()
+  await expect(
+    page.getByRole("main").getByText(/iCloud delete dry-run completed/i)
+  ).not.toBeVisible()
 
   await stub.close()
   await page.close()
@@ -1194,6 +1404,23 @@ test("keeps failed items visible and reports partial trash results", async () =>
         trashedCount: 1,
         trashedKeys: ["group0-item1"],
         trashedDedupKeys: ["dedup-group0-item1"],
+        outcomes: [
+          {
+            operation: "trash",
+            targetKey: "dedup-group0-item1",
+            status: "confirmed"
+          },
+          {
+            operation: "trash",
+            targetKey: "dedup-group1-item1",
+            status: "failed"
+          },
+          {
+            operation: "trash",
+            targetKey: "dedup-group2-item1",
+            status: "failed"
+          }
+        ],
         retryAttempts: 0
       }
     }

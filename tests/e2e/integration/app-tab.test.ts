@@ -47,6 +47,15 @@ test.beforeEach(async () => {
   }
 })
 
+test.afterEach(async () => {
+  for (const page of context.pages()) {
+    if (page.url().startsWith("https://photos.google.com/")) {
+      await page.close().catch(() => {})
+    }
+  }
+  await context.unroute("https://photos.google.com/**").catch(() => {})
+})
+
 test.afterAll(async () => {
   await context.close()
 })
@@ -124,6 +133,7 @@ test("restores saved scan results from storage on load", async () => {
     4
   )
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
   await expect(
@@ -143,10 +153,12 @@ test("restores saved scan results from storage on load", async () => {
   ).not.toBeVisible()
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
 test("filters review groups by exact and similar classification", async () => {
+  await clearStorage(context)
   await injectScanResults(
     context,
     [
@@ -178,10 +190,12 @@ test("filters review groups by exact and similar classification", async () => {
         resHeight: 100,
         fileName: "exact1.jpg",
         contentHash: {
-          value: "a".repeat(32),
-          algorithm: "md5",
-          provenance: "original-content"
-        }
+          value: "a".repeat(64),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
+        },
+        provider: "google"
       },
       exact2: {
         mediaKey: "exact2",
@@ -193,10 +207,12 @@ test("filters review groups by exact and similar classification", async () => {
         resHeight: 100,
         fileName: "exact2.jpg",
         contentHash: {
-          value: "a".repeat(32),
-          algorithm: "md5",
-          provenance: "original-content"
-        }
+          value: "a".repeat(64),
+          algorithm: "sha256",
+          provenance: "original-content",
+          verificationSource: "local-original-bytes"
+        },
+        provider: "google"
       },
       similar1: {
         mediaKey: "similar1",
@@ -222,6 +238,7 @@ test("filters review groups by exact and similar classification", async () => {
     4
   )
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
   await expect(
@@ -275,6 +292,7 @@ test("filters review groups by exact and similar classification", async () => {
   ).not.toBeVisible()
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
@@ -308,11 +326,11 @@ test("clears saved results and selections when a different Google account is det
   const page = await openAppTab(context, extensionId)
 
   await expect(
-    page.getByText("Find duplicates from your photo library")
+    page.getByText("Find copies across your photo library")
   ).toBeVisible({
     timeout: 8_000
   })
-  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+  await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
   await expect(
     page.getByRole("heading", {
       name: "1 Duplicate Set to Review",
@@ -387,7 +405,7 @@ test("closes a paid prompt when a connected account changes", async () => {
   await expect(
     page.getByRole("heading", { name: "Unlock larger cleanup" })
   ).not.toBeVisible({ timeout: 8_000 })
-  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+  await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
 
   await page.close()
   await stub.close()
@@ -424,7 +442,7 @@ test("drops a delayed old-account trash result after identity changes", async ()
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
-    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible()
+    await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
@@ -433,6 +451,11 @@ test("drops a delayed old-account trash result after identity changes", async ()
       page.getByRole("heading", { name: "Move to Trash" })
     ).toBeVisible()
     await page.getByLabel("Type 8 to confirm").fill("8")
+    await page
+      .getByRole("checkbox", {
+        name: "I understand these items may be favorites"
+      })
+      .check()
     await page
       .getByRole("button", { name: /^Move to Trash$/i })
       .last()
@@ -459,7 +482,7 @@ test("drops a delayed old-account trash result after identity changes", async ()
       })
     })
 
-    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+    await expect(page.getByText("Signed in · bob@example.com")).toBeVisible({
       timeout: 8_000
     })
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
@@ -503,12 +526,17 @@ test("dispatch-authorization rejects account drift during deferred audit persist
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
-    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible()
+    await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
       .click()
     await page.getByLabel("Type 8 to confirm").fill("8")
+    await page
+      .getByRole("checkbox", {
+        name: "I understand these items may be favorites"
+      })
+      .check()
 
     // Hold only the pre-trash report write. The confirmation handler must
     // re-read current selections after this await boundary before dispatching.
@@ -578,7 +606,7 @@ test("dispatch-authorization rejects account drift during deferred audit persist
         provider: "google"
       })
     })
-    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+    await expect(page.getByText("Signed in · bob@example.com")).toBeVisible({
       timeout: 8_000
     })
     await page.evaluate(() => {
@@ -592,7 +620,7 @@ test("dispatch-authorization rejects account drift during deferred audit persist
     // The identity change invalidates the paid conversion generation before
     // dispatch. The deferred handler must therefore complete without opening
     // a Trash result or issuing a destructive provider command.
-    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
+    await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
     const commands = await stub.evaluate(
       () =>
@@ -641,12 +669,17 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
-    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible()
+    await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
     await page.getByRole("button", { name: /^Include all(?: sets)?$/i }).click()
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
       .click()
     await page.getByLabel("Type 8 to confirm").fill("8")
+    await page
+      .getByRole("checkbox", {
+        name: "I understand these items may be favorites"
+      })
+      .check()
 
     await page.evaluate(() => {
       const barrier = {
@@ -777,7 +810,7 @@ test("retires a deferred scan upgrade suggestion after identity changes", async 
   const page = await openAppTab(context, extensionId)
 
   try {
-    await expect(page.getByText("Signed in as alice@example.com")).toBeVisible({
+    await expect(page.getByText("Signed in · alice@example.com")).toBeVisible({
       timeout: 8_000
     })
     await page
@@ -811,7 +844,7 @@ test("retires a deferred scan upgrade suggestion after identity changes", async 
       })
     })
 
-    await expect(page.getByText("Signed in as bob@example.com")).toBeVisible({
+    await expect(page.getByText("Signed in · bob@example.com")).toBeVisible({
       timeout: 8_000
     })
     await expect(
@@ -884,7 +917,7 @@ test("does not open a stale checkout tab after results reset", async () => {
     await page
       .getByRole("button", { name: "Keep reviewing free results" })
       .click()
-    await page.getByRole("button", { name: "Start over", exact: true }).click()
+    await page.getByRole("button", { name: "New scan", exact: true }).click()
 
     releaseCheckout()
     await page.waitForTimeout(300)
@@ -1034,11 +1067,11 @@ test("clears legacy saved results when the current Google account is known", asy
   const page = await openAppTab(context, extensionId)
 
   await expect(
-    page.getByText("Find duplicates from your photo library")
+    page.getByText("Find copies across your photo library")
   ).toBeVisible({
     timeout: 8_000
   })
-  await expect(page.getByText("Signed in as known@example.com")).toBeVisible()
+  await expect(page.getByText("Signed in · known@example.com")).toBeVisible()
   await expect(
     page.getByRole("heading", {
       name: "1 Duplicate Set to Review",
@@ -1056,8 +1089,10 @@ test("clears legacy saved results when the current Google account is known", asy
 })
 
 test("shows 'no duplicates found' when scan returns zero groups", async () => {
+  await clearStorage(context)
   await injectScanResults(context, [], {}, 500)
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
   await expect(
@@ -1066,6 +1101,7 @@ test("shows 'no duplicates found' when scan returns zero groups", async () => {
   await expect(page.getByText(/try Full scan/i)).toBeVisible()
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
@@ -1078,51 +1114,68 @@ test("a delayed identity restore released after scan completion cannot replace i
     savedReview.mediaItems,
     Object.keys(savedReview.mediaItems).length
   )
-  await context.addInitScript(() => {
-    if (
-      !location.pathname.endsWith("/tabs/app.html") ||
-      !location.search.includes("delay-review-restore")
-    ) {
-      return
-    }
-    const storage = chrome.storage.local
-    const originalGet = storage.get.bind(storage)
-    let reviewRestoreReads = 0
-    ;(
-      window as unknown as {
-        __gpdReviewRestoreReads?: number
-        __gpdReviewRestorePaused?: boolean
-        __gpdReleaseReviewRestore?: (() => void) | null
+  const scanResultsStorageKey = providerReviewStorageKey("google", "scanResults")
+  const scanCheckpointStorageKey = providerReviewStorageKey(
+    "google",
+    "scanCheckpoint"
+  )
+  await context.addInitScript(
+    ({ scanResultsStorageKey, scanCheckpointStorageKey }) => {
+      if (
+        !location.pathname.endsWith("/tabs/app.html") ||
+        !location.search.includes("delay-review-restore")
+      ) {
+        return
       }
-    ).__gpdReleaseReviewRestore = null
-    storage.get = ((keys: string | string[] | null, callback?: (items: Record<string, unknown>) => void) => {
-      const isReviewRestoreRead =
-        Array.isArray(keys) &&
-        keys.includes("scanResults") &&
-        keys.includes("scanCheckpoint")
-      if (isReviewRestoreRead) reviewRestoreReads += 1
-      return originalGet(keys, (items) => {
-        if (isReviewRestoreRead && reviewRestoreReads === 2 && callback) {
+      const storage = chrome.storage.local
+      const originalGet = storage.get.bind(storage)
+      let reviewRestoreReads = 0
+      ;(
+        window as unknown as {
+          __gpdReviewRestoreReads?: number
+          __gpdReviewRestorePaused?: boolean
+          __gpdReleaseReviewRestore?: (() => void) | null
+        }
+      ).__gpdReleaseReviewRestore = null
+      storage.get = ((keys: string | string[] | null, callback?: (items: Record<string, unknown>) => void) => {
+        const isReviewRestoreRead =
+          Array.isArray(keys) &&
+          keys.includes(scanResultsStorageKey) &&
+          keys.includes(scanCheckpointStorageKey)
+        if (isReviewRestoreRead) reviewRestoreReads += 1
+        return originalGet(keys).then((items) => {
+          if (isReviewRestoreRead && reviewRestoreReads === 2) {
+            const globals = window as unknown as {
+              __gpdReviewRestoreReads?: number
+              __gpdReviewRestorePaused?: boolean
+              __gpdReleaseReviewRestore?: (() => void) | null
+            }
+            globals.__gpdReviewRestoreReads = reviewRestoreReads
+            globals.__gpdReviewRestorePaused = true
+            return new Promise<Record<string, unknown>>((resolve) => {
+              globals.__gpdReleaseReviewRestore = () => {
+                callback?.(items)
+                resolve(items)
+              }
+            })
+          }
           const globals = window as unknown as {
             __gpdReviewRestoreReads?: number
-            __gpdReviewRestorePaused?: boolean
-            __gpdReleaseReviewRestore?: (() => void) | null
           }
           globals.__gpdReviewRestoreReads = reviewRestoreReads
-          globals.__gpdReviewRestorePaused = true
-          globals.__gpdReleaseReviewRestore = () => callback(items)
-          return
-        }
-        const globals = window as unknown as {
-          __gpdReviewRestoreReads?: number
-        }
-        globals.__gpdReviewRestoreReads = reviewRestoreReads
-        callback?.(items)
-      })
-    }) as typeof storage.get
-  })
+          callback?.(items)
+          return items
+        })
+      }) as typeof storage.get
+    },
+    { scanResultsStorageKey, scanCheckpointStorageKey }
+  )
 
-  const stub = await openGptkStubPage(context)
+  const stub = await openGptkStubPage(context, {
+    // Keep the first read identity-pending so the second read is deterministically
+    // the current-owner restore that this test releases after a new scan.
+    healthCheck: { delayMs: 500 }
+  })
   await stub.evaluate(() => {
     ;(
       window as unknown as {
@@ -1136,7 +1189,14 @@ test("a delayed identity restore released after scan completion cannot replace i
   )
 
   try {
-    await expect(page.getByText("Signed in as test@example.com")).toBeVisible({
+    const consentButton = page.getByRole("button", {
+      name: "I understand, continue",
+      exact: true
+    })
+    if (await consentButton.isVisible().catch(() => false)) {
+      await consentButton.click()
+    }
+    await expect(page.getByText("Signed in · test@example.com")).toBeVisible({
       timeout: 8_000
     })
     await expect
@@ -1152,30 +1212,48 @@ test("a delayed identity restore released after scan completion cannot replace i
       )
       .toBe(true)
 
-    await page
-      .getByRole("button", {
-        name: /^(Scan recent 30 days|Check entire library(?: instead)?)$/i
-      })
-      .first()
-      .click()
+    const analyticsNoticeDismiss = page.getByRole("button", {
+      name: "No thanks",
+      exact: true
+    })
+    if (await analyticsNoticeDismiss.isVisible().catch(() => false)) {
+      await analyticsNoticeDismiss.click({ timeout: 5_000 })
+    }
+    const dateInputs = page.locator('input[type="date"]')
+    await dateInputs.nth(0).fill("2026-10-02")
+    await dateInputs.nth(1).fill("2026-10-03")
+    const scanButton = page.getByRole("button", {
+      name: "Check this date range",
+      exact: true
+    })
+    await expect(scanButton).toBeEnabled()
+    await scanButton.click({ timeout: 5_000 })
     await expect
-      .poll(() =>
-        stub.evaluate(
-          () =>
-            (
-              window as unknown as {
-                __gptkCommandLog?: Array<{ command: string }>
-              }
-            ).__gptkCommandLog?.some(
-              (entry) => entry.command === "getAllMediaItems"
-            ) ?? false
-        )
+      .poll(
+        () =>
+          stub.evaluate(
+            () =>
+              (
+                window as unknown as {
+                  __gptkCommandLog?: Array<{ command: string }>
+                }
+              ).__gptkCommandLog?.some(
+                (entry) => entry.command === "getAllMediaItems"
+              ) ?? false
+          ),
+        { timeout: 8_000 }
       )
       .toBe(true)
 
     await expect(
       page.getByText("No duplicate sets found in this scan.")
     ).toBeVisible({ timeout: 10_000 })
+    const savedResultsBeforeRelease = await readLocalStorage(context, [
+      "scanResults"
+    ])
+    expect(
+      (savedResultsBeforeRelease.scanResults as { groups?: unknown[] })?.groups
+    ).toHaveLength(1)
     await page.evaluate(() => {
       ;(
         window as unknown as {
@@ -1189,6 +1267,12 @@ test("a delayed identity restore released after scan completion cannot replace i
         exact: true
       })
     ).not.toBeVisible()
+    await expect(
+      page.getByText("No duplicate sets found in this scan.")
+    ).toBeVisible()
+    await expect
+      .poll(async () => (await readLocalStorage(context, ["scanResults"])).scanResults)
+      .toBeUndefined()
     await expect
       .poll(() =>
         page.evaluate(
@@ -1202,6 +1286,15 @@ test("a delayed identity restore released after scan completion cannot replace i
       )
       .toBe(2)
   } finally {
+    await page
+      .evaluate(() => {
+        ;(
+          window as unknown as {
+            __gpdReleaseReviewRestore?: (() => void) | null
+          }
+        ).__gpdReleaseReviewRestore?.()
+      })
+      .catch(() => {})
     await page.close()
     await stub.close()
     await clearStorage(context)
@@ -1283,7 +1376,7 @@ test("opens feedback from settings with the support inbox prefilled", async () =
 
   try {
     await expect(
-      page.getByText("Find duplicates from your photo library")
+      page.getByText("Find copies across your photo library")
     ).toBeVisible({ timeout: 8_000 })
     await page.getByRole("button", { name: /Help & feedback/i }).click()
 
@@ -1381,7 +1474,7 @@ test("clears resumable checkpoint when a different Google account is detected", 
   const page = await openAppTab(context, extensionId)
 
   await expect(
-    page.getByText("Find duplicates from your photo library")
+    page.getByText("Find copies across your photo library")
   ).toBeVisible({
     timeout: 8_000
   })
@@ -1463,9 +1556,9 @@ test("loads albums and allows choosing an album scan scope", async () => {
   const page = await openAppTab(context, extensionId)
 
   await page.getByRole("button", { name: /Advanced matching/i }).click()
-  await expect(page.getByText(/2 albums available/i)).toBeVisible({
-    timeout: 5000
-  })
+  await expect(
+    page.getByText("1 album available.", { exact: true })
+  ).toBeVisible({ timeout: 5000 })
   const albumRequest = await gpPage.evaluate(() => {
     const commands =
       (
@@ -1533,7 +1626,7 @@ test("drops a delayed Google album response after the same account gets a new pa
   const page = await openAppTab(context, extensionId)
 
   try {
-    await expect(page.getByText("Signed in as same@example.com")).toBeVisible({
+    await expect(page.getByText("Signed in · same@example.com")).toBeVisible({
       timeout: 8_000
     })
     await expect
@@ -1818,7 +1911,7 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
 
   await page.getByRole("button", { name: /Scan again/i }).click()
   await expect(
-    page.getByText("Find duplicates from your photo library")
+    page.getByText("Find copies across your photo library")
   ).toBeVisible({
     timeout: 8_000
   })
@@ -1834,7 +1927,7 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
 
   await page.reload()
   await expect(
-    page.getByText("Find duplicates from your photo library")
+    page.getByText("Find copies across your photo library")
   ).toBeVisible({
     timeout: 8_000
   })
@@ -1866,8 +1959,15 @@ test("persists kept overrides through page reload", async () => {
     { key1: BASE_MEDIA_ITEMS.key1, key2: BASE_MEDIA_ITEMS.key2 },
     2
   )
-  await injectSelections(context, ["g1"], { g1: ["key2"] })
+  await injectSelections(
+    context,
+    ["g1"],
+    { g1: ["key2"] },
+    "google",
+    { g1: { source: "manual" } }
+  )
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await expect(
     page.getByRole("heading", {
@@ -1896,6 +1996,7 @@ test("persists kept overrides through page reload", async () => {
   await expect(cards.nth(1)).toContainText("Keep")
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
@@ -1929,7 +2030,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
     },
     2
   )
-
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await expect(
     page.getByRole("heading", {
@@ -1975,6 +2076,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
   ).toHaveAttribute("aria-pressed", "true")
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
@@ -2398,14 +2500,15 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
     .click()
   await page.getByRole("menuitem", { name: "Best quality" }).click()
 
-  await expect(page.getByRole("status").filter({ hasText: "Best quality was applied" })).toContainText(
-    "0 sets changed"
-  )
-  await expect(page.getByRole("status")).toContainText(
+  const autoKeepStatus = page
+    .getByRole("status")
+    .filter({ hasText: "Best quality was applied" })
+  await expect(autoKeepStatus).toContainText("0 sets changed")
+  await expect(autoKeepStatus).toContainText(
     "1 set resolved by deterministic tie-break"
   )
-  await expect(page.getByRole("status").filter({ hasText: "Best quality was applied" })).toContainText(
-    "All sets are included for cleanup review"
+  await expect(autoKeepStatus).toContainText(
+    "1 set included for cleanup review; 1 media item proposed for Trash"
   )
   await expect(page.getByTestId("keep-decision-g1")).toHaveText(
     "Suggested keep: Best quality (deterministic tie-break)"
@@ -2414,15 +2517,17 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
     ["key1.jpg", true],
     ["key2.jpg", false]
   ] as const) {
-    await expect(
-      page.getByRole("button", {
-        name: new RegExp(
-          isKept
-            ? `Keep ${fileName.replace(".", "\\.")} \\(currently kept; click to move to Trash\\)`
-            : `Keep ${fileName.replace(".", "\\.")} \\(click to keep\\)`
-        )
-      })
-    ).toHaveAttribute("aria-pressed", isKept ? "true" : "false")
+    const itemButton = page.getByRole("button", {
+      name: new RegExp(`^Keep ${fileName.replace(".", "\\.")} \\(`)
+    })
+    await expect(itemButton).toHaveAttribute(
+      "aria-pressed",
+      isKept ? "true" : "false"
+    )
+    await expect(itemButton).toHaveAttribute(
+      "aria-label",
+      isKept ? /currently kept/ : /currently moves to Trash/
+    )
   }
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
@@ -2471,15 +2576,17 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
     ["key1.jpg", true],
     ["key2.jpg", false]
   ] as const) {
-    await expect(
-      page.getByRole("button", {
-        name: new RegExp(
-          isKept
-            ? `Keep ${fileName.replace(".", "\\.")} \\(currently kept; click to move to Trash\\)`
-            : `Keep ${fileName.replace(".", "\\.")} \\(click to keep\\)`
-        )
-      })
-    ).toHaveAttribute("aria-pressed", isKept ? "true" : "false")
+    const itemButton = page.getByRole("button", {
+      name: new RegExp(`^Keep ${fileName.replace(".", "\\.")} \\(`)
+    })
+    await expect(itemButton).toHaveAttribute(
+      "aria-pressed",
+      isKept ? "true" : "false"
+    )
+    await expect(itemButton).toHaveAttribute(
+      "aria-label",
+      isKept ? /currently kept/ : /currently moves to Trash/
+    )
   }
   await expect(
     page.getByRole("button", { name: /Review 1 more to continue/i })
@@ -2581,9 +2688,6 @@ test("Auto Keep includes sets for review while Include all and Skip all remain e
 
   await page.getByRole("button", { name: /^Skip all$/i }).click()
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
-  ).toBeVisible()
-  await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeVisible()
 
@@ -2656,9 +2760,6 @@ test("Auto Keep includes sets for review while Include all and Skip all remain e
   ).toHaveAttribute("aria-pressed", "false")
 
   await page.getByRole("button", { name: /^Skip all$/i }).click()
-  await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
-  ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review & move 1 to Trash/i })
   ).not.toBeVisible()
@@ -2940,7 +3041,9 @@ test("bulk Auto Keep reopens a per-set skipped group for review without dispatch
     page.getByRole("status").filter({
       hasText: "Best quality was applied and saved as the default"
     })
-  ).toContainText("All sets are included for cleanup review")
+  ).toContainText(
+    "1 set included for cleanup review; 1 media item proposed for Trash"
+  )
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
@@ -3186,6 +3289,7 @@ test("persists trash-all copy choices through page reload", async () => {
     2
   )
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await expect(
     page.getByRole("heading", {
@@ -3237,6 +3341,7 @@ test("persists trash-all copy choices through page reload", async () => {
   )
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
@@ -3257,6 +3362,7 @@ test("keeps all current copies when every saved keeper key is stale", async () =
   )
   await injectSelections(context, ["g1"], { g1: ["missing-key"] })
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await expect(
     page.getByRole("heading", {
@@ -3269,6 +3375,9 @@ test("keeps all current copies when every saved keeper key is stale", async () =
   await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeVisible()
+  await expect(
+    page.getByText("0 media items proposed for Trash", { exact: true })
+  ).toBeVisible()
   await expect(page.locator(".MuiCard-root").nth(0)).not.toContainText(
     "Moves to Trash"
   )
@@ -3276,21 +3385,75 @@ test("keeps all current copies when every saved keeper key is stale", async () =
     "Moves to Trash"
   )
 
-  const sw = context.serviceWorkers()[0]
   await expect
     .poll(async () => {
       const stored = await readLocalStorage(context, ["selections"]) as {
-        selections?: { keptOverrides?: Record<string, string[]> }
+        selections?: {
+          keptOverrides?: Record<string, string[]>
+          keepDecisionProvenance?: Record<string, { source: string }>
+        }
       }
-      return stored.selections?.keptOverrides?.g1 ?? []
+      return stored.selections
     })
-    .toEqual(["key1", "key2"])
+    .toMatchObject({
+      keptOverrides: { g1: ["key1", "key2"] },
+      keepDecisionProvenance: { g1: { source: "stale_fallback" } }
+    })
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })
 
-test("shows the conservative keep-all decision in the compact scanner panel", async () => {
+test("shows the stale-keeper keep-all fallback in the compact scanner panel", async () => {
+  await clearStorage(context)
+  await injectScanResults(
+    context,
+    [
+      {
+        id: "g1",
+        mediaKeys: ["key1", "key2"],
+        originalMediaKey: "key1",
+        similarity: 0.99
+      }
+    ],
+    { key1: BASE_MEDIA_ITEMS.key1, key2: BASE_MEDIA_ITEMS.key2 },
+    2
+  )
+  await injectSelections(context, ["g1"], { g1: ["missing-key"] })
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "test@example.com"
+      }
+    }
+  })
+  const page = await context.newPage()
+  await stub.bringToFront()
+  await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+  await expect(
+    page.getByText("Keeping all copies until saved keeper data is reviewed", {
+      exact: true
+    })
+  ).toBeVisible({ timeout: 5000 })
+  await expect(
+    page.getByText("Moves to Trash", { exact: true })
+  ).not.toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: /currently kept; click to move to Trash/i
+    })
+  ).toHaveCount(2)
+
+  await page.close()
+  await stub.close()
+  await clearStorage(context)
+})
+
+test("uses a deterministic tie-break for unknown quality in the compact scanner panel", async () => {
   await clearStorage(context)
   await injectScanResults(
     context,
@@ -3309,24 +3472,46 @@ test("shows the conservative keep-all decision in the compact scanner panel", as
     2
   )
 
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "test@example.com"
+      }
+    }
+  })
   const page = await context.newPage()
-  await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
-  await expect(
-    page.getByText("No confident recommendation — keeping all copies", {
-      exact: true
-    })
-  ).toBeVisible({ timeout: 5000 })
-  await expect(
-    page.getByText("Moves to Trash", { exact: true })
-  ).not.toBeVisible()
-  await expect(
-    page.getByRole("button", {
-      name: /currently kept; click to move to Trash/i
-    })
-  ).toHaveCount(2)
-
-  await page.close()
-  await clearStorage(context)
+  await stub.bringToFront()
+  try {
+    await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+    await expect(
+      page.getByText("Suggested keep: Best quality (deterministic tie-break)", {
+        exact: true
+      })
+    ).toBeVisible({ timeout: 5_000 })
+    await page
+      .getByRole("checkbox", { name: "Include duplicate set of 2 photos" })
+      .click()
+    await expect(page.getByText("Suggested keep", { exact: true })).toBeVisible()
+    await expect(
+      page.getByText("Moves to Trash · favorite unknown", { exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("button", {
+        name: /photo1\.jpg \(currently kept;/i
+      })
+    ).toHaveCount(1)
+    await expect(
+      page.getByRole("button", {
+        name: /photo2\.jpg \(currently moves to Trash;/i
+      })
+    ).toHaveCount(1)
+  } finally {
+    await page.close()
+    await stub.close()
+    await clearStorage(context)
+  }
 })
 
 test("ignores malformed saved selections without crashing on load", async () => {
@@ -3366,6 +3551,7 @@ test("ignores malformed saved selections without crashing on load", async () => 
     selectionStorageKey
   )
 
+  const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await expect(
     page.getByRole("heading", {
@@ -3380,5 +3566,6 @@ test("ignores malformed saved selections without crashing on load", async () => 
   ).not.toBeVisible()
 
   await page.close()
+  await stub.close()
   await clearStorage(context)
 })

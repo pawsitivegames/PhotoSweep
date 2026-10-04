@@ -39,7 +39,7 @@
   "properties": [
     {
       "id": "SAFE-01",
-      "requirement": "Every nonempty review group receives exactly one deterministic automatic default keeper, using Best quality initially and a persisted user-selected strategy thereafter. Passive default recomputation and hydration preserve explicit manual per-group choices, including multi-item keepers and a manual Trash-all decision with no keeper; automatic and legacy decisions are recomputed. An explicit Selection-menu strategy choice applies the chosen strategy to every completed result group, replaces prior manual keeper, multi-keep, and Trash-all choices, and includes only eligible groups in the proposed cleanup review. Quality, resolution, file size, trusted timestamps, and stable media-key ordering resolve incomplete or tied evidence. For each included group, the exact proposed Trash targets are its media members minus its keeper set; no keeper is proposed. Safety eligibility, favorite, and repeated-identity gates continue to constrain proposals. The action clears prior reviewed status whenever inclusion or proposed Trash targets change, retains review only for unchanged plans, never marks groups reviewed, and never dispatches provider Trash. Provider Trash remains behind per-set review and the existing explicit confirmation path. The standalone conservative recommendation helper may still report insufficient evidence; that does not leave the review default unresolved.",
+      "requirement": "Every nonempty review group receives exactly one deterministic automatic default keeper, using Best quality initially and a persisted user-selected strategy thereafter. Passive default recomputation and hydration preserve explicit manual per-group choices, including multi-item keepers and a manual Trash-all decision with no keeper. Automatic choices and still-valid legacy keeper choices, including valid legacy keep-all choices, are recomputed from the current strategy. If a saved keeper list has no valid current media keys, hydration preserves every current group member under distinct stale-fallback provenance; passive default recomputation retains that fallback and proposes no Trash until the user explicitly chooses current keepers or selects a Selection-menu strategy. The menu action applies its chosen strategy to every completed result group, replaces prior manual keeper, multi-keep, Trash-all, and stale-key fallback choices, and includes only eligible groups in the proposed cleanup review. Quality, resolution, file size, trusted timestamps, and stable media-key ordering resolve incomplete or tied evidence. For each included group, the exact proposed Trash targets are its media members minus its keeper set; no keeper is proposed. Safety eligibility, favorite, and repeated-identity gates continue to constrain proposals. The action clears prior reviewed status whenever inclusion or proposed Trash targets change, retains review only for unchanged plans, never marks groups reviewed, and never dispatches provider Trash. Provider Trash remains behind per-set review and the existing explicit confirmation path. The standalone conservative recommendation helper may still report insufficient evidence; that does not leave the review default unresolved.",
       "seams": [
         "lib/keep-strategy.ts",
         "lib/duplicate-review-session.ts",
@@ -55,7 +55,6 @@
         "tests/verification/safety-properties.test.ts",
         "verification/model/KeeperSelection.tla",
         "verification/model/KeeperSelection.cfg",
-        "verification/model/KeeperSelection.closure.cfg",
         "verification/model/KeeperSelection.negative.cfg",
         "verification/run-keeper-selection-tlc.mjs",
         "verification/run-tlc.mjs",
@@ -262,7 +261,7 @@
     },
     {
       "id": "SAFE-12",
-      "requirement": "Restore mutation recovery preserves exact per-target confirmed, failed, and unknown outcomes plus the never-dispatched subset through durable reload; only failed targets may be retried, and unknown stays sticky. A bounded worker-authority model covers durable pre-dispatch guards, exact ACK binding, reload revocation, active-only overlap reservation, retained unknown safety rows, and selective clear.",
+      "requirement": "Restore mutation recovery preserves exact per-target confirmed, failed, and unknown outcomes plus the never-dispatched subset through durable reload; only failed targets may be retried, and unknown stays sticky. If never-dispatched metadata contradicts a previously confirmed target, preserve that confirmation, quarantine every unconfirmed requested target as unknown, clear the never-dispatched subset, and grant no retry authority. A bounded worker-authority model covers durable pre-dispatch guards, exact ACK binding, reload revocation, active-only overlap reservation, retained unknown safety rows, and selective clear.",
       "seams": [
         "lib/trash-lifecycle.ts",
         "lib/recovery-history.ts",
@@ -400,11 +399,16 @@
     },
     {
       "id": "SAFE-08",
-      "requirement": "Saved selection migration never turns stale or malformed keeper IDs into unintended automatic Trash; manual choices remain authoritative.",
+      "requirement": "Saved selection migration never turns malformed keeper data or a keeper list with no valid current media keys (for example, all saved IDs are stale) into unintended Trash. Non-string IDs, manual, stale, or legacy-preserved provenance without a validated per-group override, and an explicitly present malformed override root paired with persisted selected/reviewed groups produce a conservative fallback that keeps every current member. A valid empty array remains an empty override, and manual provenance makes an intentional manual Trash-all choice authoritative during passive recomputation. The fallback has provenance distinct from a valid legacy choice and survives passive hydration and default recomputation with zero Trash targets. Partially valid legacy choices, including valid legacy keep-all choices, are recomputed from the current strategy. A user may replace the stale or malformed fallback by choosing current keepers or explicitly selecting a Selection-menu strategy; manual choices remain authoritative during passive recomputation. Legacy no-override snapshots with no provenance and an absent or valid root continue to use the automatic default. The SAFE-01 finite model includes the stale fallback, passive recomputation, exact zero-target invariant, and explicit menu replacement; stored-review-scope tests cover malformed roots with and without provenance, orphan provenance, absent-root migration, and intentional-empty data.",
       "seams": [
         "lib/duplicate-review-session.ts",
         "lib/decision-memory.ts",
-        "lib/stored-review-scope.ts"
+        "lib/stored-review-scope.ts",
+        "tests/lib/stored-review-scope.test.ts",
+        "tests/lib/keeper-decisions.test.ts",
+        "verification/model/KeeperSelection.tla",
+        "verification/model/KeeperSelection.cfg",
+        "verification/run-keeper-selection-tlc.mjs"
       ],
       "obligations": [
         {

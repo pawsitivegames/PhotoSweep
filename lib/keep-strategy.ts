@@ -439,9 +439,20 @@ export function recommendDefaultKeepForGroup(
     return strictRecommendation
   }
 
-  const keptMediaKey = [...new Set(group.mediaKeys)].sort((left, right) =>
-    compareDefaultCandidate(left, right, mediaItems, strategy)
-  )[0]
+  const candidateKeys = [...new Set(group.mediaKeys)]
+  let keptMediaKey = candidateKeys[0]!
+  for (const candidateKey of candidateKeys.slice(1)) {
+    if (
+      compareDefaultCandidate(
+        candidateKey,
+        keptMediaKey,
+        mediaItems,
+        strategy
+      ) < 0
+    ) {
+      keptMediaKey = candidateKey
+    }
+  }
 
   return {
     status: "recommended",

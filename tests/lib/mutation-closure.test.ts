@@ -816,14 +816,13 @@ describe("mutation closure: duplicate review session", () => {
       }
     })
     expect(invalidStrategy.decisionFor(groups[0])).toMatchObject({
-      source: "legacy_preserved",
-      strategy: "best_quality"
+      source: "manual"
     })
     expect(invalidStrategy.decisionFor(groups[0]).keptMediaKeys).toEqual(
       new Set(["a"])
     )
     expect(invalidStrategy.serialize().keepDecisionProvenance).toEqual({
-      g1: { source: "legacy_preserved" }
+      g1: { source: "manual" }
     })
 
     const legacyWithStrategy = new DuplicateReviewSession({
@@ -1593,7 +1592,8 @@ describe("mutation closure: trash lifecycle", () => {
     })
     expect(singular.resultReports[0]).toMatchObject({
       movedMediaKeys: [],
-      movedDedupKeys: []
+      movedDedupKeys: [],
+      error: null
     })
 
     const plural = auditFixture()

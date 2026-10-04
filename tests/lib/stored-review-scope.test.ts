@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { DuplicateReviewSession } from "../../lib/duplicate-review-session"
 import { StoredReviewScope } from "../../lib/stored-review-scope"
 import { DEFAULT_SETTINGS, type StoredState } from "../../lib/types"
 
@@ -603,6 +604,298 @@ describe("StoredReviewScope", () => {
         group: { source: "legacy_preserved" }
       }
     })
+  })
+
+  it.each([[null], ["keep", null]] as const)(
+    "fails closed when saved keeper identities contain non-strings: %j",
+    async (savedKeys) => {
+      const subject = adapter({
+        settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: 1,
+          totalItems: 2,
+          accountEmail: "buyer@example.com",
+          sourceProvider: "google"
+        },
+        selections: {
+          selectedGroupIds: ["group"],
+          reviewedGroupIds: ["group"],
+          keptOverrides: { group: savedKeys as unknown as string[] },
+          keepDecisionProvenance: { group: { source: "manual" } }
+        }
+      })
+
+      const restored = await subject.scope.restore({
+        fallbackSettings: DEFAULT_SETTINGS,
+        identityProvider: "google",
+        accountEmail: "buyer@example.com"
+      })
+      const review = new DuplicateReviewSession({
+        groups,
+        mediaItems,
+        selections: restored.selections ?? undefined
+      })
+
+      expect(review.decisionFor(groups[0]!).source).toBe("stale_fallback")
+      expect(review.keptFor(groups[0]!)).toEqual(new Set(["keep", "trash"]))
+      expect(review.trashPlan(groups).mediaKeysToTrash).toEqual([])
+      expect(subject.values.selections).toMatchObject({
+        keptOverrides: { group: ["keep", "trash"] },
+        keepDecisionProvenance: { group: { source: "stale_fallback" } }
+      })
+    }
+  )
+
+  it("preserves an intentional empty manual keeper list", async () => {
+    const subject = adapter({
+      settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+      scanResults: {
+        mediaItems,
+        groups,
+        scanDate: 1,
+        totalItems: 2,
+        accountEmail: "buyer@example.com",
+        sourceProvider: "google"
+      },
+      selections: {
+        selectedGroupIds: ["group"],
+        reviewedGroupIds: ["group"],
+        keptOverrides: { group: [] },
+        keepDecisionProvenance: { group: { source: "manual" } }
+      }
+    })
+
+    const restored = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS,
+      identityProvider: "google",
+      accountEmail: "buyer@example.com"
+    })
+    const review = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: restored.selections ?? undefined
+    })
+
+    expect(review.decisionFor(groups[0]!).source).toBe("manual")
+    expect(review.keptFor(groups[0]!)).toEqual(new Set())
+    expect(review.trashPlan(groups).mediaKeysToTrash).toEqual(["keep", "trash"])
+  })
+
+  it.each([
+    ["absent", undefined, false],
+    ["null", null, true],
+    ["string", "malformed", true],
+    ["array", [], true]
+  ] as const)(
+    "fails closed for %s keeper roots when manual provenance remains",
+    async (_label, root, hasRoot) => {
+      const subject = adapter({
+        settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: 1,
+          totalItems: 2,
+          accountEmail: "buyer@example.com",
+          sourceProvider: "google"
+        },
+        selections: ({
+          selectedGroupIds: ["group"],
+          reviewedGroupIds: ["group"],
+          ...(hasRoot
+            ? { keptOverrides: root as unknown as Record<string, string[]> }
+            : {}),
+          keepDecisionProvenance: { group: { source: "manual" } }
+        } as unknown) as StoredState["selections"]
+      })
+
+      const restored = await subject.scope.restore({
+        fallbackSettings: DEFAULT_SETTINGS,
+        identityProvider: "google",
+        accountEmail: "buyer@example.com"
+      })
+      const review = new DuplicateReviewSession({
+        groups,
+        mediaItems,
+        selections: restored.selections ?? undefined
+      })
+
+      expect(review.decisionFor(groups[0]!).source).toBe("stale_fallback")
+      expect(review.trashPlan(groups).mediaKeysToTrash).toEqual([])
+      expect(subject.values.selections).toMatchObject({
+        keptOverrides: { group: ["keep", "trash"] },
+        keepDecisionProvenance: { group: { source: "stale_fallback" } }
+      })
+    }
+  )
+
+  it.each([
+    ["null", null],
+    ["string", "malformed"],
+    ["array", []]
+  ] as const)(
+    "fails closed for a present malformed %s keeper root without provenance",
+    async (_label, root) => {
+      const subject = adapter({
+        settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: 1,
+          totalItems: 2,
+          accountEmail: "buyer@example.com",
+          sourceProvider: "google"
+        },
+        selections: ({
+          selectedGroupIds: ["group"],
+          reviewedGroupIds: ["group"],
+          keptOverrides: root
+        } as unknown) as StoredState["selections"]
+      })
+
+      const restored = await subject.scope.restore({
+        fallbackSettings: DEFAULT_SETTINGS,
+        identityProvider: "google",
+        accountEmail: "buyer@example.com"
+      })
+      const review = new DuplicateReviewSession({
+        groups,
+        mediaItems,
+        selections: restored.selections ?? undefined
+      })
+
+      expect(review.decisionFor(groups[0]!).source).toBe("stale_fallback")
+      expect(review.keptFor(groups[0]!)).toEqual(new Set(["keep", "trash"]))
+      expect(review.trashPlan(groups).mediaKeysToTrash).toEqual([])
+      expect(subject.values.selections).toMatchObject({
+        keptOverrides: { group: ["keep", "trash"] },
+        keepDecisionProvenance: { group: { source: "stale_fallback" } }
+      })
+    }
+  )
+
+  it.each([
+    ["absent", undefined, false],
+    ["null", null, true],
+    ["string", "malformed", true],
+    ["array", [], true]
+  ] as const)(
+    "fails closed for %s keeper roots when orphan legacy provenance remains",
+    async (_label, root, hasRoot) => {
+      const subject = adapter({
+        settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: 1,
+          totalItems: 2,
+          accountEmail: "buyer@example.com",
+          sourceProvider: "google"
+        },
+        selections: ({
+          selectedGroupIds: ["group"],
+          reviewedGroupIds: ["group"],
+          ...(hasRoot
+            ? { keptOverrides: root as unknown as Record<string, string[]> }
+            : {}),
+          keepDecisionProvenance: {
+            group: { source: "legacy_preserved" }
+          }
+        } as unknown) as StoredState["selections"]
+      })
+
+      const restored = await subject.scope.restore({
+        fallbackSettings: DEFAULT_SETTINGS,
+        identityProvider: "google",
+        accountEmail: "buyer@example.com"
+      })
+      const review = new DuplicateReviewSession({
+        groups,
+        mediaItems,
+        selections: restored.selections ?? undefined
+      })
+
+      expect(review.decisionFor(groups[0]!).source).toBe("stale_fallback")
+      expect(review.keptFor(groups[0]!)).toEqual(new Set(["keep", "trash"]))
+      expect(review.trashPlan(groups).mediaKeysToTrash).toEqual([])
+      expect(subject.values.selections).toMatchObject({
+        keptOverrides: { group: ["keep", "trash"] },
+        keepDecisionProvenance: { group: { source: "stale_fallback" } }
+      })
+    }
+  )
+
+  it.each(["manual", "stale_fallback", "legacy_preserved"] as const)(
+    "fails closed when %s provenance has no per-group keeper override",
+    async (source) => {
+      const subject = adapter({
+        settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: 1,
+          totalItems: 2,
+          accountEmail: "buyer@example.com",
+          sourceProvider: "google"
+        },
+        selections: {
+          selectedGroupIds: ["group"],
+          reviewedGroupIds: ["group"],
+          keptOverrides: {},
+          keepDecisionProvenance: { group: { source } }
+        }
+      })
+
+      const restored = await subject.scope.restore({
+        fallbackSettings: DEFAULT_SETTINGS,
+        identityProvider: "google",
+        accountEmail: "buyer@example.com"
+      })
+      const review = new DuplicateReviewSession({
+        groups,
+        mediaItems,
+        selections: restored.selections ?? undefined
+      })
+
+      expect(review.decisionFor(groups[0]!).source).toBe("stale_fallback")
+      expect(review.keptFor(groups[0]!)).toEqual(new Set(["keep", "trash"]))
+      expect(review.trashPlan(groups).mediaKeysToTrash).toEqual([])
+    }
+  )
+
+  it("keeps legacy no-provenance hydration on the automatic default path", async () => {
+    const subject = adapter({
+      settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+      scanResults: {
+        mediaItems,
+        groups,
+        scanDate: 1,
+        totalItems: 2,
+        accountEmail: "buyer@example.com",
+        sourceProvider: "google"
+      },
+      selections: {
+        selectedGroupIds: ["group"],
+        reviewedGroupIds: ["group"]
+      } as unknown as StoredState["selections"]
+    })
+
+    const restored = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS,
+      identityProvider: "google",
+      accountEmail: "buyer@example.com"
+    })
+    const review = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: restored.selections ?? undefined
+    })
+
+    expect(review.decisionFor(groups[0]!).source).toBe("automatic")
+    expect(review.keptFor(groups[0]!).size).toBe(1)
+    expect(review.trashPlan(groups).mediaKeysToTrash).toHaveLength(1)
   })
 
   it("removes review material from a different account", async () => {
