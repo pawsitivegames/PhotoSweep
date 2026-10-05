@@ -236,7 +236,14 @@ function connectSmtpSocket({ host, port, secure }) {
 function upgradeSmtpSocketToTls(socket, host) {
   socket.setTimeout(0)
   return new Promise((resolve, reject) => {
-    const secureSocket = tls.connect({ socket, servername: host })
+    const options = { socket }
+    if (net.isIP(host)) {
+      options.checkServerIdentity = (_servername, certificate) =>
+        tls.checkServerIdentity(host, certificate)
+    } else {
+      options.servername = host
+    }
+    const secureSocket = tls.connect(options)
     const onError = (error) => reject(error)
     secureSocket.once("error", onError)
     secureSocket.once("secureConnect", () => {

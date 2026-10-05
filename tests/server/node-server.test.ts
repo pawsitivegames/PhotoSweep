@@ -1,6 +1,11 @@
+import { readFileSync } from "node:fs"
 import http from "node:http"
 import net from "node:net"
-import { afterEach, describe, expect, it } from "vitest"
+import tls, {
+  type ConnectionOptions,
+  type PeerCertificate
+} from "node:tls"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { createMemoryLicenseStore } from "../../server/license-api.mjs"
 import {
@@ -15,6 +20,8 @@ import {
 } from "../../server/recovery-email-webhook/server.mjs"
 
 const servers: Array<http.Server | net.Server> = []
+const smtpTestCertificate = readFileSync("tests/fixtures/smtp-test-cert.pem")
+const smtpTestPrivateKey = readFileSync("tests/fixtures/smtp-test-key.pem")
 
 afterEach(async () => {
   await Promise.all(
@@ -28,10 +35,13 @@ afterEach(async () => {
   servers.length = 0
 })
 
-function listen(server: http.Server | net.Server): Promise<number> {
+function listen(
+  server: http.Server | net.Server,
+  host = "127.0.0.1"
+): Promise<number> {
   return new Promise((resolve, reject) => {
     server.once("error", reject)
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(0, host, () => {
       const address = server.address()
       if (!address || typeof address === "string") {
         reject(new Error("Server did not expose a TCP address."))
@@ -90,6 +100,191 @@ function createMockSmtpServer({ advertiseStartTls = false } = {}): {
   })
 
   return { server, commands: commandsPromise }
+}
+
+type StartTlsSmtpResult = {
+  plaintextCommands: string[]
+  tlsCommands: string[]
+  deliveredMessage: string
+}
+
+function createStartTlsSmtpServer(): {
+  server: net.Server
+  result: Promise<StartTlsSmtpResult>
+} {
+  const secureContext = tls.createSecureContext({
+    cert: smtpTestCertificate,
+    key: smtpTestPrivateKey
+  })
+  const plaintextCommands: string[] = []
+  const tlsCommands: string[] = []
+  let deliveredMessage = ""
+  let resolveResult: (result: StartTlsSmtpResult) => void = () => {}
+  let rejectResult: (error: Error) => void = () => {}
+  const result = new Promise<StartTlsSmtpResult>((resolve, reject) => {
+    resolveResult = resolve
+    rejectResult = reject
+  })
+
+  const server = net.createServer((socket) => {
+    socket.write("220 smtp.test ESMTP\r\n")
+    socket.once("close", () =>
+      resolveResult({ plaintextCommands, tlsCommands, deliveredMessage })
+    )
+    socket.once("error", rejectResult)
+
+    let plaintextBuffer = Buffer.alloc(0)
+    const onPlaintextData = (chunk: Buffer) => {
+      plaintextBuffer = Buffer.concat([plaintextBuffer, chunk])
+      let lineEnd = plaintextBuffer.indexOf("\r\n")
+      while (lineEnd >= 0) {
+        const line = plaintextBuffer.subarray(0, lineEnd).toString("utf8")
+        plaintextBuffer = plaintextBuffer.subarray(lineEnd + 2)
+        plaintextCommands.push(line)
+
+        if (line.toUpperCase() === "EHLO LOCALHOST") {
+          socket.write(
+            "250-smtp.test\r\n250-STARTTLS\r\n250-AUTH PLAIN LOGIN\r\n250 OK\r\n"
+          )
+        } else if (line.toUpperCase() === "STARTTLS") {
+          socket.pause()
+          socket.removeListener("data", onPlaintextData)
+          socket.write("220 2.0.0 ready to start TLS\r\n", () => {
+            const secureSocket = new tls.TLSSocket(socket, {
+              isServer: true,
+              secureContext
+            })
+            let tlsBuffer = ""
+            let receivingMessage = false
+            const messageLines: string[] = []
+
+            secureSocket.on("error", rejectResult)
+            secureSocket.on("data", (chunk: Buffer | string) => {
+              tlsBuffer += chunk.toString()
+              let tlsLineEnd = tlsBuffer.indexOf("\r\n")
+              while (tlsLineEnd >= 0) {
+                const tlsLine = tlsBuffer.slice(0, tlsLineEnd)
+                tlsBuffer = tlsBuffer.slice(tlsLineEnd + 2)
+
+                if (receivingMessage) {
+                  if (tlsLine === ".") {
+                    receivingMessage = false
+                    deliveredMessage = messageLines.join("\r\n")
+                    secureSocket.write("250 2.0.0 recovery message queued\r\n")
+                  } else {
+                    messageLines.push(tlsLine)
+                  }
+                } else {
+                  tlsCommands.push(tlsLine)
+                  if (tlsLine.toUpperCase() === "EHLO LOCALHOST") {
+                    secureSocket.write(
+                      "250-smtp.test\r\n250-AUTH PLAIN LOGIN\r\n250 OK\r\n"
+                    )
+                  } else if (tlsLine.toUpperCase().startsWith("AUTH ")) {
+                    secureSocket.write("235 2.7.0 authenticated\r\n")
+                  } else if (tlsLine.toUpperCase().startsWith("MAIL FROM:")) {
+                    secureSocket.write("250 2.1.0 sender accepted\r\n")
+                  } else if (tlsLine.toUpperCase().startsWith("RCPT TO:")) {
+                    secureSocket.write("250 2.1.5 recipient accepted\r\n")
+                  } else if (tlsLine.toUpperCase() === "DATA") {
+                    receivingMessage = true
+                    secureSocket.write("354 end with <CRLF>.<CRLF>\r\n")
+                  } else if (tlsLine.toUpperCase() === "QUIT") {
+                    secureSocket.write("221 2.0.0 closing\r\n", () =>
+                      secureSocket.end()
+                    )
+                  } else {
+                    secureSocket.write("500 5.5.1 unsupported command\r\n")
+                  }
+                }
+
+                tlsLineEnd = tlsBuffer.indexOf("\r\n")
+              }
+            })
+            secureSocket.resume()
+          })
+          return
+        } else {
+          socket.write("500 5.5.1 unsupported command\r\n")
+        }
+
+        lineEnd = plaintextBuffer.indexOf("\r\n")
+      }
+    }
+    socket.on("data", onPlaintextData)
+  })
+
+  return { server, result }
+}
+
+async function sendRecoveryEmailOverStartTls(host: string) {
+  const smtp = createStartTlsSmtpServer()
+  servers.push(smtp.server)
+  const port = await listen(smtp.server, host)
+  const recoveryUrl =
+    "https://license.test/license/recover/complete?token=abc"
+  const sender = createSmtpRecoveryEmailSender({
+    env: {
+      NODE_ENV: "development",
+      PHOTOSWEEP_SMTP_HOST: host,
+      PHOTOSWEEP_SMTP_PORT: String(port),
+      PHOTOSWEEP_SMTP_USER: "smtp_user",
+      PHOTOSWEEP_SMTP_PASS: "smtp_pass",
+      PHOTOSWEEP_SMTP_FROM: "recovery@photosweep.test",
+      PHOTOSWEEP_SMTP_SECURE: "0"
+    }
+  })
+
+  expect(sender).toBeTypeOf("function")
+  const originalTlsConnect = tls.connect.bind(tls)
+  const originalIdentityChecker = tls.checkServerIdentity.bind(tls)
+  const tlsConnectSpy = vi.spyOn(tls, "connect")
+  const identitySpy = vi.spyOn(tls, "checkServerIdentity")
+  let tlsOptions: ConnectionOptions | undefined
+  let identityCheckedHosts: string[] = []
+  identitySpy.mockImplementation(originalIdentityChecker)
+  tlsConnectSpy.mockImplementation(
+    ((options: ConnectionOptions) => {
+      tlsOptions = options
+      return originalTlsConnect({
+        ...options,
+        ca: smtpTestCertificate
+      })
+    }) as typeof tls.connect
+  )
+
+  try {
+    await sender?.({ email: "buyer@example.com", recoveryUrl })
+    expect(tlsConnectSpy).toHaveBeenCalledTimes(1)
+    identityCheckedHosts = identitySpy.mock.calls.map(([checkedHost]) => checkedHost)
+  } finally {
+    tlsConnectSpy.mockRestore()
+    identitySpy.mockRestore()
+  }
+
+  return {
+    result: await smtp.result,
+    recoveryUrl,
+    tlsOptions,
+    identityCheckedHosts
+  }
+}
+
+function expectStartTlsDelivery(
+  result: StartTlsSmtpResult,
+  recoveryUrl: string
+) {
+  expect(result.plaintextCommands).toEqual(["EHLO localhost", "STARTTLS"])
+  expect(result.tlsCommands).toEqual([
+    "EHLO localhost",
+    `AUTH PLAIN ${Buffer.from("\u0000smtp_user\u0000smtp_pass").toString("base64")}`,
+    "MAIL FROM:<recovery@photosweep.test>",
+    "RCPT TO:<buyer@example.com>",
+    "DATA",
+    "QUIT"
+  ])
+  expect(result.deliveredMessage).toContain("To: buyer@example.com")
+  expect(result.deliveredMessage).toContain(recoveryUrl)
 }
 
 function request(
@@ -285,6 +480,26 @@ describe("node license server adapter", () => {
       "STARTTLS",
       "QUIT"
     ])
+  })
+
+  it("upgrades SMTP to TLS before authenticating and delivering recovery email", async () => {
+    const delivery = await sendRecoveryEmailOverStartTls("localhost")
+
+    expect(delivery.tlsOptions?.servername).toBe("localhost")
+    expectStartTlsDelivery(delivery.result, delivery.recoveryUrl)
+  })
+
+  it("verifies an IP SMTP host against its IP subject alternative name", async () => {
+    const delivery = await sendRecoveryEmailOverStartTls("127.0.0.1")
+    const identityError = delivery.tlsOptions?.checkServerIdentity?.("ignored", {
+      subjectaltname: "IP Address:127.0.0.2"
+    } as PeerCertificate)
+
+    expect(delivery.tlsOptions?.servername).toBeUndefined()
+    expect(delivery.tlsOptions?.checkServerIdentity).toBeTypeOf("function")
+    expect(delivery.identityCheckedHosts).toContain("127.0.0.1")
+    expect(identityError).toBeInstanceOf(Error)
+    expectStartTlsDelivery(delivery.result, delivery.recoveryUrl)
   })
 
   it("wires the recovery email webhook into the default license API", async () => {
