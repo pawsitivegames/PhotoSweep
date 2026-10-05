@@ -659,6 +659,82 @@ describe("keeper decision contract", () => {
     expect(updated.decisionFor(emptyGroup).source).toBe("legacy_preserved")
   })
 
+  it("keeps empty groups reviewed when a strategy leaves keeper and trash sets empty", () => {
+    const emptyGroup = group("empty")
+    const initial = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: {
+        selectedGroupIds: new Set(["empty"]),
+        reviewedGroupIds: new Set(["empty"]),
+        keptOverrides: {}
+      }
+    })
+    const updated = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: initial.update({
+        type: "apply_keep_strategy",
+        groupIds: ["empty"],
+        strategy: "best_quality"
+      })
+    })
+
+    expect(updated.reviewedGroupIds).toEqual(new Set(["empty"]))
+    expect(updated.keptFor(emptyGroup)).toEqual(new Set())
+    expect(updated.trashPlan([emptyGroup]).mediaKeysToTrash).toEqual([])
+
+    const automatic = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: {
+        selectedGroupIds: new Set(["empty"]),
+        reviewedGroupIds: new Set(["empty"]),
+        keptOverrides: { empty: new Set() },
+        keepDecisionProvenance: {
+          empty: { source: "automatic", strategy: "best_quality" }
+        }
+      }
+    })
+    const reapplied = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: automatic.update({
+        type: "apply_keep_strategy",
+        groupIds: ["empty"],
+        strategy: "largest_resolution"
+      })
+    })
+
+    expect(reapplied.reviewedGroupIds).toEqual(new Set(["empty"]))
+    expect(reapplied.decisionFor(emptyGroup)).toMatchObject({
+      source: "automatic",
+      strategy: "largest_resolution"
+    })
+  })
+
+  it("recomputes nonempty groups with an empty legacy keeper override", () => {
+    const initial = session({
+      selectedGroupIds: new Set(["g1"]),
+      reviewedGroupIds: new Set(["g1"]),
+      keptOverrides: { g1: new Set() }
+    })
+
+    expect(initial.decisionFor(g1).source).toBe("legacy_preserved")
+    const updated = session(
+      initial.update({
+        type: "apply_keep_strategy",
+        groupIds: ["g1"],
+        strategy: "best_quality"
+      })
+    )
+
+    expect(updated.keptFor(g1)).toEqual(new Set(["b"]))
+    expect(updated.reviewedGroupIds).toEqual(new Set())
+    expect(updated.decisionFor(g1).source).toBe("automatic")
+    expect(updated.trashPlan([g1]).mediaKeysToTrash).toEqual(["a", "c"])
+  })
+
   it("does not mark automatically selected keeper sets as reviewed after hydration", () => {
     const restored = session({
       selectedGroupIds: new Set(["g1"]),
