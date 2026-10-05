@@ -149,6 +149,28 @@ describe("createFirestoreLicenseStore", () => {
     )
   })
 
+  it("claims recovery email cooldowns transactionally per normalized email", async () => {
+    const firestore = new FakeFirestore()
+    const store = createFirestoreLicenseStore({ firestore: firestore as never })
+    await store.upsertLicense({
+      sessionId: "sess_recovery",
+      planId: "lifetime",
+      status: "active",
+      email: "Buyer@Example.com",
+      purchasedAt: 1000
+    })
+
+    await expect(
+      store.claimRecoveryEmailCooldown("buyer@example.com", 100_000, 900_000)
+    ).resolves.toBe(true)
+    await expect(
+      store.claimRecoveryEmailCooldown("BUYER@example.com", 999_999, 900_000)
+    ).resolves.toBe(false)
+    await expect(
+      store.claimRecoveryEmailCooldown("buyer@example.com", 1_000_000, 900_000)
+    ).resolves.toBe(true)
+  })
+
   it("indexes every purchase in a multi-purchase ledger", async () => {
     const firestore = new FakeFirestore()
     const store = createFirestoreLicenseStore({ firestore: firestore as never })

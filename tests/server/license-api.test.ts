@@ -1310,7 +1310,7 @@ describe("license API", () => {
     expect(response.headers.get("set-cookie")).toBeNull()
   })
 
-  it("sends a signed recovery link without revealing whether an email exists", async () => {
+  it("throttles repeated recovery emails without revealing whether an email exists", async () => {
     const keys = testKeys()
     const store = createMemoryLicenseStore()
     const sent: Array<{ email: string; recoveryUrl: string }> = []
@@ -1335,13 +1335,22 @@ describe("license API", () => {
     })
 
     const recoveryRequestedAt = Date.now()
-    const response = await api(
-      new Request("https://license.test/license/recover", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: "buyer@example.com" })
-      })
-    )
+    const repeatedResponses = await Promise.all([
+      api(
+        new Request("https://license.test/license/recover", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: "buyer@example.com" })
+        })
+      ),
+      api(
+        new Request("https://license.test/license/recover", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: "BUYER@example.com" })
+        })
+      )
+    ])
     const missingResponse = await api(
       new Request("https://license.test/license/recover", {
         method: "POST",
@@ -1350,8 +1359,12 @@ describe("license API", () => {
       })
     )
 
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true })
+    expect(repeatedResponses.map((response) => response.status)).toEqual([
+      200,
+      200
+    ])
+    await expect(repeatedResponses[0].json()).resolves.toEqual({ ok: true })
+    await expect(repeatedResponses[1].json()).resolves.toEqual({ ok: true })
     expect(missingResponse.status).toBe(200)
     expect(await missingResponse.json()).toEqual({ ok: true })
     expect(sent).toHaveLength(1)

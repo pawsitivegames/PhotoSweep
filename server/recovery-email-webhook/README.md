@@ -72,7 +72,7 @@ Secret Manager entries. Then point the existing license API at the receiver:
 gcloud run services update <LICENSE_API_SERVICE_NAME> \
   --project=photosweep-prod \
   --region=<GCP_REGION> \
-  --set-env-vars="PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL=<RECOVERY_WEBHOOK_SERVICE_URL>" \
+  --set-env-vars="HOST=0.0.0.0,PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_URL=<RECOVERY_WEBHOOK_SERVICE_URL>" \
   --set-secrets="PHOTOSWEEP_RECOVERY_EMAIL_WEBHOOK_SECRET=<RECOVERY_WEBHOOK_SECRET_NAME>:<SECRET_VERSION>"
 ```
 

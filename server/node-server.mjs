@@ -5,6 +5,10 @@ import tls from "node:tls"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
 import { createFirestoreLicenseStore } from "./firestore-license-store.mjs"
+import {
+  isRequestBodyTooLargeError,
+  readBoundedRequestBody
+} from "./http-request-body.mjs"
 import { createJsonFileLicenseStore, createLicenseApi } from "./license-api.mjs"
 
 const DEFAULT_PORT = 8787
@@ -22,14 +26,6 @@ function requestUrl(nodeRequest, env) {
   const host =
     nodeRequest.headers.host ?? `localhost:${env.PORT ?? DEFAULT_PORT}`
   return `${proto}://${host}${nodeRequest.url ?? "/"}`
-}
-
-async function readBody(nodeRequest) {
-  const chunks = []
-  for await (const chunk of nodeRequest) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-  }
-  return Buffer.concat(chunks)
 }
 
 function requestHeaders(nodeRequest) {
@@ -320,7 +316,10 @@ async function sendSmtpRecoveryEmail(config, message) {
     let ehloResponse = await smtpCommand(socket, reader, "EHLO localhost", [
       250
     ])
-    if (!config.secure && hasSmtpCapability(ehloResponse, "STARTTLS")) {
+    if (!config.secure) {
+      if (!hasSmtpCapability(ehloResponse, "STARTTLS")) {
+        throw new Error("SMTP server does not advertise STARTTLS.")
+      }
       await smtpCommand(socket, reader, "STARTTLS", [220])
       reader.close()
       socket = await upgradeSmtpSocketToTls(socket, config.host)
@@ -399,7 +398,7 @@ export function createNodeRequestHandler({
       const body =
         method === "GET" || method === "HEAD"
           ? undefined
-          : await readBody(nodeRequest)
+          : await readBoundedRequestBody(nodeRequest)
       const response = await licenseApi(
         new Request(requestUrl(nodeRequest, env), {
           method,
@@ -419,6 +418,18 @@ export function createNodeRequestHandler({
         nodeResponse.end()
       }
     } catch (error) {
+      if (isRequestBodyTooLargeError(error)) {
+        nodeResponse.statusCode = 413
+        nodeResponse.setHeader("connection", "close")
+        nodeResponse.setHeader("content-type", "application/json")
+        nodeResponse.end(
+          JSON.stringify({ error: "Request body is too large." }),
+          () => {
+            if (!nodeRequest.socket.destroyed) nodeRequest.socket.end()
+          }
+        )
+        return
+      }
       nodeResponse.statusCode = 500
       nodeResponse.setHeader("content-type", "application/json")
       nodeResponse.end(
@@ -433,7 +444,7 @@ export function createNodeRequestHandler({
 export function startNodeLicenseServer({
   env = process.env,
   port = Number(env.PORT ?? DEFAULT_PORT),
-  host = env.HOST ?? "0.0.0.0",
+  host = env.HOST ?? "127.0.0.1",
   handler = createNodeRequestHandler({ env })
 } = {}) {
   const server = http.createServer(handler)

@@ -22,6 +22,8 @@ const STRIPE_API_BASE = "https://api.stripe.com/v1"
 const STRIPE_API_VERSION = "2026-02-25.clover"
 const LONG_LIVED_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const RECOVERY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
+const RECOVERY_EMAIL_COOLDOWN_MS = 15 * 60 * 1000
+const defaultRecoveryEmailCooldowns = new Map()
 const ANALYTICS_EVENT_NAMES = new Set([
   "app_opened",
   "scan_started",
@@ -404,6 +406,36 @@ function randomId(prefix) {
 
 function now() {
   return Date.now()
+}
+
+async function claimRecoveryEmailCooldown(
+  store,
+  localCooldowns,
+  email,
+  currentTime
+) {
+  if (typeof store.claimRecoveryEmailCooldown === "function") {
+    return store.claimRecoveryEmailCooldown(
+      email,
+      currentTime,
+      RECOVERY_EMAIL_COOLDOWN_MS
+    )
+  }
+
+  for (const [cooldownEmail, sentAt] of localCooldowns) {
+    if (currentTime - sentAt >= RECOVERY_EMAIL_COOLDOWN_MS) {
+      localCooldowns.delete(cooldownEmail)
+    }
+  }
+  const lastSentAt = localCooldowns.get(email)
+  if (
+    lastSentAt !== undefined &&
+    currentTime - lastSentAt < RECOVERY_EMAIL_COOLDOWN_MS
+  ) {
+    return false
+  }
+  localCooldowns.set(email, currentTime)
+  return true
 }
 
 const PLAN_PRIORITY = {
@@ -1526,7 +1558,12 @@ export async function handleEntitlement(request, env, store) {
   return jsonResponse({ token })
 }
 
-export async function handleRecoverLicense(request, env, store) {
+export async function handleRecoverLicense(
+  request,
+  env,
+  store,
+  recoveryEmailCooldowns = defaultRecoveryEmailCooldowns
+) {
   const body = await request.json().catch(() => ({}))
   const email =
     typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
@@ -1541,21 +1578,31 @@ export async function handleRecoverLicense(request, env, store) {
     license?.status === "active" &&
     typeof store.sendRecoveryEmail === "function"
   ) {
-    const token = createRecoveryToken(
-      {
+    const currentTime = now()
+    if (
+      await claimRecoveryEmailCooldown(
+        store,
+        recoveryEmailCooldowns,
         email,
-        sessionId,
-        expiresAt: now() + RECOVERY_TOKEN_TTL_MS
-      },
-      env
-    )
-    const recoveryBaseUrl = requireEnv(env, "PHOTOSWEEP_RECOVERY_BASE_URL")
-    const recoveryUrl = new URL("/license/recover/complete", recoveryBaseUrl)
-    recoveryUrl.searchParams.set("token", token)
-    await store.sendRecoveryEmail({
-      email,
-      recoveryUrl: recoveryUrl.toString()
-    })
+        currentTime
+      )
+    ) {
+      const token = createRecoveryToken(
+        {
+          email,
+          sessionId,
+          expiresAt: currentTime + RECOVERY_TOKEN_TTL_MS
+        },
+        env
+      )
+      const recoveryBaseUrl = requireEnv(env, "PHOTOSWEEP_RECOVERY_BASE_URL")
+      const recoveryUrl = new URL("/license/recover/complete", recoveryBaseUrl)
+      recoveryUrl.searchParams.set("token", token)
+      await store.sendRecoveryEmail({
+        email,
+        recoveryUrl: recoveryUrl.toString()
+      })
+    }
   }
   if (env.PHOTOSWEEP_UNSAFE_EMAIL_RECOVERY !== "1") {
     return jsonResponse({ ok: true })
@@ -1619,6 +1666,7 @@ export function createLicenseApi({
   fetchImpl = fetch
 } = {}) {
   const licenseStore = store ?? createMemoryLicenseStore()
+  const recoveryEmailCooldowns = new Map()
   return async function handleRequest(request) {
     if (request.method === "OPTIONS") {
       return withCors(request, env, new Response(null, { status: 204 }))
@@ -1634,7 +1682,12 @@ export function createLicenseApi({
         request.method === "POST" &&
         url.pathname === "/license/recover"
       ) {
-        response = await handleRecoverLicense(request, env, licenseStore)
+        response = await handleRecoverLicense(
+          request,
+          env,
+          licenseStore,
+          recoveryEmailCooldowns
+        )
       } else if (
         request.method === "GET" &&
         url.pathname === "/license/recover/complete"

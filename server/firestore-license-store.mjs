@@ -139,6 +139,28 @@ export function createFirestoreLicenseStore({
       return getIndex("email", email)
     },
 
+    async claimRecoveryEmailCooldown(email, currentTime, cooldownMs) {
+      const ref = indexes.doc(`email_${encodeKey(email)}`)
+      return firestore.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(ref)
+        const sentAt = snapshot.exists
+          ? Number(snapshot.data()?.recoveryEmailSentAt)
+          : undefined
+        if (
+          Number.isFinite(sentAt) &&
+          currentTime - sentAt < cooldownMs
+        ) {
+          return false
+        }
+        transaction.set(
+          ref,
+          { recoveryEmailSentAt: currentTime },
+          { merge: true }
+        )
+        return true
+      })
+    },
+
     async getSessionIdByStripeCustomerId(customerId) {
       return getIndex("stripe_customer", customerId)
     },

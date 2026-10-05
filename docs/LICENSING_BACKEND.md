@@ -12,7 +12,9 @@ npm run license:serve
 
 By default it listens on `127.0.0.1:8787` and uses
 `.photosweep/license-store.json`. Set `HOST`, `PORT`, and
-`PHOTOSWEEP_LICENSE_STORE_PATH` as needed.
+`PHOTOSWEEP_LICENSE_STORE_PATH` as needed. Container deployments must set
+`HOST=0.0.0.0` so the platform can reach the process; the repository Dockerfile
+sets this explicitly.
 
 ## Endpoints
 
@@ -267,11 +269,18 @@ PHOTOSWEEP_SMTP_SECURE=0
 ```
 
 `PHOTOSWEEP_SMTP_SECURE=0` selects a non-implicit-TLS connection (the default
-port is `587`); if the server advertises STARTTLS, the adapter upgrades the
-connection before authentication. If `PHOTOSWEEP_SMTP_SECURE` is omitted, the
-adapter uses implicit TLS with default port `465`. The SMTP message is plain
-text with subject `PhotoSweep license recovery`, and its body is exactly the
-`recoveryUrl` value with no additional text.
+port is `587`); the adapter requires STARTTLS and upgrades the connection before
+authentication. A missing capability, rejected STARTTLS command, or failed TLS
+upgrade aborts delivery. If `PHOTOSWEEP_SMTP_SECURE` is omitted, the adapter
+uses implicit TLS with default port `465`. The SMTP message is plain text with
+subject `PhotoSweep license recovery`, and its body is exactly the `recoveryUrl`
+value with no additional text.
+
+Recovery email requests for the same normalized email address are limited to
+one send per 15 minutes. Firestore claims this cooldown transactionally in the
+email index, shared across API instances. Memory, JSON-file, and custom stores
+use an in-handler cooldown; multi-instance deployments using those stores need
+an instance-independent rate limit at their shared ingress or store layer.
 
 ### CoS-owned production secrets
 
@@ -315,7 +324,7 @@ after that approval.
    ```bash
    gcloud run services update <CLOUD_RUN_SERVICE_NAME> \
      --project=<GCP_PROJECT_ID> --region=<GCP_REGION> \
-     --set-env-vars="PHOTOSWEEP_SMTP_HOST=<SMTP_HOST>,PHOTOSWEEP_SMTP_PORT=<SMTP_PORT>,PHOTOSWEEP_SMTP_FROM=<SMTP_FROM_ADDRESS>,PHOTOSWEEP_SMTP_SECURE=<SMTP_SECURE>" \
+     --set-env-vars="HOST=0.0.0.0,PHOTOSWEEP_SMTP_HOST=<SMTP_HOST>,PHOTOSWEEP_SMTP_PORT=<SMTP_PORT>,PHOTOSWEEP_SMTP_FROM=<SMTP_FROM_ADDRESS>,PHOTOSWEEP_SMTP_SECURE=<SMTP_SECURE>" \
      --set-secrets="PHOTOSWEEP_SMTP_USER=<SMTP_USER_SECRET_NAME>:<SECRET_VERSION>,PHOTOSWEEP_SMTP_PASS=<SMTP_PASS_SECRET_NAME>:<SECRET_VERSION>"
    ```
 

@@ -6,14 +6,13 @@ import { createMemoryLicenseStore } from "../../server/license-api.mjs"
 import {
   createNodeRequestHandler,
   createSmtpRecoveryEmailSender,
-  createWebhookRecoveryEmailSender
+  createWebhookRecoveryEmailSender,
+  startNodeLicenseServer
 } from "../../server/node-server.mjs"
-
-type MockSmtpMessage = {
-  commands: string[]
-  headers: string
-  body: string
-}
+import { MAX_REQUEST_BODY_BYTES } from "../../server/http-request-body.mjs"
+import {
+  createNodeRequestHandler as createRecoveryWebhookNodeRequestHandler
+} from "../../server/recovery-email-webhook/server.mjs"
 
 const servers: Array<http.Server | net.Server> = []
 
@@ -43,15 +42,15 @@ function listen(server: http.Server | net.Server): Promise<number> {
   })
 }
 
-function createMockSmtpServer(): {
+function createMockSmtpServer({ advertiseStartTls = false } = {}): {
   server: net.Server
-  message: Promise<MockSmtpMessage>
+  commands: Promise<string[]>
 } {
-  let resolveMessage: (message: MockSmtpMessage) => void = () => {}
-  let rejectMessage: (error: Error) => void = () => {}
-  const message = new Promise<MockSmtpMessage>((resolve, reject) => {
-    resolveMessage = resolve
-    rejectMessage = reject
+  let resolveCommands: (commands: string[]) => void = () => {}
+  let rejectCommands: (error: Error) => void = () => {}
+  const commandsPromise = new Promise<string[]>((resolve, reject) => {
+    resolveCommands = resolve
+    rejectCommands = reject
   })
 
   const server = net.createServer((socket) => {
@@ -59,9 +58,8 @@ function createMockSmtpServer(): {
     socket.write("220 smtp.test ESMTP\r\n")
 
     let buffer = ""
-    let readingData = false
     const commands: string[] = []
-    const dataLines: string[] = []
+    socket.once("close", () => resolveCommands(commands))
 
     socket.on("data", (chunk: string) => {
       buffer += chunk
@@ -70,68 +68,57 @@ function createMockSmtpServer(): {
         const line = buffer.slice(0, lineEnd)
         buffer = buffer.slice(lineEnd + 2)
 
-        if (readingData) {
-          if (line === ".") {
-            readingData = false
-            const separator = dataLines.indexOf("")
-            resolveMessage({
-              commands,
-              headers: dataLines.slice(0, separator).join("\n"),
-              body: dataLines.slice(separator + 1).join("\n")
-            })
-            socket.write("250 2.0.0 queued\r\n")
-          } else {
-            dataLines.push(line.startsWith("..") ? line.slice(1) : line)
-          }
+        commands.push(line)
+        const command = line.split(" ", 1)[0].toUpperCase()
+        if (command === "EHLO") {
+          socket.write(
+            `250-smtp.test\r\n${advertiseStartTls ? "250-STARTTLS\r\n" : ""}250-AUTH PLAIN LOGIN\r\n250 OK\r\n`
+          )
+        } else if (command === "STARTTLS") {
+          socket.write("454 4.7.0 TLS temporarily unavailable\r\n")
+        } else if (command === "QUIT") {
+          socket.write("221 2.0.0 closing\r\n")
+          socket.end()
         } else {
-          commands.push(line)
-          const command = line.split(" ", 1)[0].toUpperCase()
-          if (command === "EHLO") {
-            socket.write("250-smtp.test\r\n250-AUTH PLAIN LOGIN\r\n250 OK\r\n")
-          } else if (command === "AUTH") {
-            socket.write("235 2.7.0 authenticated\r\n")
-          } else if (command === "MAIL" || command === "RCPT") {
-            socket.write("250 2.1.0 accepted\r\n")
-          } else if (command === "DATA") {
-            readingData = true
-            socket.write("354 3.0.0 send data\r\n")
-          } else if (command === "QUIT") {
-            socket.write("221 2.0.0 closing\r\n")
-            socket.end()
-          } else {
-            socket.write("250 2.0.0 accepted\r\n")
-          }
+          socket.write("250 2.0.0 accepted\r\n")
         }
 
         lineEnd = buffer.indexOf("\r\n")
       }
     })
-    socket.on("error", rejectMessage)
+    socket.on("error", rejectCommands)
   })
 
-  return { server, message }
+  return { server, commands: commandsPromise }
 }
 
 function request(
   port: number,
   body: string,
-  path = "/checkout"
+  path = "/checkout",
+  chunked = false,
+  declaredContentLength?: number
 ): Promise<{
   status: number
   headers: http.IncomingHttpHeaders
   body: string
 }> {
   return new Promise((resolve, reject) => {
+    const headers: http.OutgoingHttpHeaders = {
+      "content-type": "application/json"
+    }
+    if (chunked) {
+      headers["transfer-encoding"] = "chunked"
+    } else {
+      headers["content-length"] = declaredContentLength ?? Buffer.byteLength(body)
+    }
     const req = http.request(
       {
         host: "127.0.0.1",
         port,
         path,
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "content-length": Buffer.byteLength(body)
-        }
+        headers
       },
       (res) => {
         const chunks: Buffer[] = []
@@ -146,7 +133,11 @@ function request(
       }
     )
     req.once("error", reject)
-    req.end(body)
+    if (declaredContentLength !== undefined) {
+      req.flushHeaders()
+    } else {
+      req.end(body)
+    }
   })
 }
 
@@ -242,7 +233,7 @@ describe("node license server adapter", () => {
     ])
   })
 
-  it("sends plaintext recovery emails through configured SMTP", async () => {
+  it("requires STARTTLS before authenticating on non-implicit-TLS SMTP", async () => {
     const smtp = createMockSmtpServer()
     servers.push(smtp.server)
     const port = await listen(smtp.server)
@@ -261,19 +252,39 @@ describe("node license server adapter", () => {
     })
 
     expect(sender).toBeTypeOf("function")
-    await sender?.({ email: "buyer@example.com", recoveryUrl })
+    await expect(
+      sender?.({ email: "buyer@example.com", recoveryUrl })
+    ).rejects.toThrow("SMTP server does not advertise STARTTLS.")
+    expect(await smtp.commands).toEqual(["EHLO localhost", "QUIT"])
+  })
 
-    const delivered = await smtp.message
-    expect(delivered.commands).toEqual([
+  it("stops when the SMTP server rejects STARTTLS", async () => {
+    const smtp = createMockSmtpServer({ advertiseStartTls: true })
+    servers.push(smtp.server)
+    const port = await listen(smtp.server)
+    const sender = createSmtpRecoveryEmailSender({
+      env: {
+        NODE_ENV: "development",
+        PHOTOSWEEP_SMTP_HOST: "127.0.0.1",
+        PHOTOSWEEP_SMTP_PORT: String(port),
+        PHOTOSWEEP_SMTP_USER: "smtp_user",
+        PHOTOSWEEP_SMTP_PASS: "smtp_pass",
+        PHOTOSWEEP_SMTP_FROM: "recovery@photosweep.test",
+        PHOTOSWEEP_SMTP_SECURE: "0"
+      }
+    })
+
+    await expect(
+      sender?.({
+        email: "buyer@example.com",
+        recoveryUrl: "https://license.test/license/recover/complete?token=abc"
+      })
+    ).rejects.toThrow("SMTP STARTTLS failed with response 454.")
+    expect(await smtp.commands).toEqual([
       "EHLO localhost",
-      expect.stringMatching(/^AUTH PLAIN /),
-      "MAIL FROM:<recovery@photosweep.test>",
-      "RCPT TO:<buyer@example.com>",
-      "DATA",
+      "STARTTLS",
       "QUIT"
     ])
-    expect(delivered.headers).toContain("Subject: PhotoSweep license recovery")
-    expect(delivered.body).toBe(recoveryUrl)
   })
 
   it("wires the recovery email webhook into the default license API", async () => {
@@ -326,7 +337,7 @@ describe("node license server adapter", () => {
     )
   })
 
-  it("uses SMTP as the recovery sender when no webhook is configured", async () => {
+  it("does not send SMTP credentials when STARTTLS is missing", async () => {
     const smtp = createMockSmtpServer()
     servers.push(smtp.server)
     const smtpPort = await listen(smtp.server)
@@ -348,6 +359,8 @@ describe("node license server adapter", () => {
           PHOTOSWEEP_RECOVERY_BASE_URL: "https://license.test",
           PHOTOSWEEP_SMTP_HOST: "127.0.0.1",
           PHOTOSWEEP_SMTP_PORT: String(smtpPort),
+          PHOTOSWEEP_SMTP_USER: "smtp_user",
+          PHOTOSWEEP_SMTP_PASS: "smtp_pass",
           PHOTOSWEEP_SMTP_FROM: "recovery@photosweep.test",
           PHOTOSWEEP_SMTP_SECURE: "0"
         },
@@ -363,12 +376,96 @@ describe("node license server adapter", () => {
       "/license/recover"
     )
 
-    expect(response.status).toBe(200)
-    expect(JSON.parse(response.body)).toEqual({ ok: true })
-    const delivered = await smtp.message
-    expect(delivered.headers).toContain("Subject: PhotoSweep license recovery")
-    expect(delivered.body).toMatch(
-      /^https:\/\/license\.test\/license\/recover\/complete\?token=/
-    )
+    expect(response.status).toBe(500)
+    expect(await smtp.commands).toEqual(["EHLO localhost", "QUIT"])
+  })
+
+  it.each([
+    {
+      adapter: "license API adapter",
+      mode: "Content-Length preflight",
+      chunked: false
+    },
+    {
+      adapter: "license API adapter",
+      mode: "chunked stream",
+      chunked: true
+    },
+    {
+      adapter: "recovery webhook adapter",
+      mode: "Content-Length preflight",
+      chunked: false
+    },
+    {
+      adapter: "recovery webhook adapter",
+      mode: "chunked stream",
+      chunked: true
+    }
+  ])(
+    "rejects oversized bodies in the $adapter ($mode)",
+    async ({ adapter, chunked, mode }) => {
+      let handlerCalls = 0
+      const handler = async () => {
+        handlerCalls += 1
+        return new Response(JSON.stringify({ ok: true }))
+      }
+      const nodeHandler =
+        adapter === "license API adapter"
+          ? createNodeRequestHandler({
+              env: { NODE_ENV: "development" },
+              api: handler
+            })
+          : createRecoveryWebhookNodeRequestHandler({ handler })
+      const server = http.createServer(nodeHandler)
+      servers.push(server)
+      const port = await listen(server)
+      const contentLengthPreflight = mode === "Content-Length preflight"
+      const response = await request(
+        port,
+        contentLengthPreflight ? "" : "x".repeat(MAX_REQUEST_BODY_BYTES + 1),
+        "/oversized",
+        chunked,
+        contentLengthPreflight ? MAX_REQUEST_BODY_BYTES + 1 : undefined
+      )
+
+      expect(response.status).toBe(413)
+      expect(response.headers.connection).toBe("close")
+      expect(JSON.parse(response.body)).toEqual({
+        error: "Request body is too large."
+      })
+      expect(handlerCalls).toBe(0)
+    }
+  )
+
+  it.each([
+    {
+      name: "defaults to loopback",
+      host: undefined,
+      expectedAddress: "127.0.0.1"
+    },
+    {
+      name: "preserves an explicit remote bind",
+      host: "0.0.0.0",
+      expectedAddress: "0.0.0.0"
+    }
+  ])("license server $name", async ({ host, expectedAddress }) => {
+    const server = startNodeLicenseServer({
+      env: {
+        NODE_ENV: "development",
+        ...(host ? { HOST: host } : {})
+      },
+      port: 0,
+      handler: (_request, response) => response.end("ok")
+    })
+    servers.push(server)
+    await new Promise<void>((resolve, reject) => {
+      server.once("listening", resolve)
+      server.once("error", reject)
+    })
+    const address = server.address()
+
+    expect(address).not.toBeNull()
+    expect(typeof address).not.toBe("string")
+    expect((address as net.AddressInfo).address).toBe(expectedAddress)
   })
 })

@@ -1,6 +1,11 @@
 import http from "node:http"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
+import {
+  isRequestBodyTooLargeError,
+  readBoundedRequestBody
+} from "../http-request-body.mjs"
+
 const DEFAULT_HOST = "0.0.0.0"
 const DEFAULT_PORT = 8080
 export const RESEND_EMAILS_URL = "https://api.resend.com/emails"
@@ -152,14 +157,6 @@ function requestUrl(nodeRequest, env) {
   return `${proto}://${host}${nodeRequest.url ?? "/"}`
 }
 
-async function readBody(nodeRequest) {
-  const chunks = []
-  for await (const chunk of nodeRequest) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-  }
-  return Buffer.concat(chunks)
-}
-
 function requestHeaders(nodeRequest) {
   const headers = new Headers()
   for (const [key, value] of Object.entries(nodeRequest.headers)) {
@@ -187,7 +184,7 @@ export function createNodeRequestHandler({
         headers: requestHeaders(nodeRequest)
       }
       if (method !== "GET" && method !== "HEAD") {
-        requestInit.body = await readBody(nodeRequest)
+        requestInit.body = await readBoundedRequestBody(nodeRequest)
       }
       const response = await webhook(
         new Request(requestUrl(nodeRequest, env), requestInit)
@@ -203,7 +200,19 @@ export function createNodeRequestHandler({
       } else {
         nodeResponse.end()
       }
-    } catch {
+    } catch (error) {
+      if (isRequestBodyTooLargeError(error)) {
+        nodeResponse.statusCode = 413
+        nodeResponse.setHeader("connection", "close")
+        nodeResponse.setHeader("content-type", "application/json")
+        nodeResponse.end(
+          JSON.stringify({ error: "Request body is too large." }),
+          () => {
+            if (!nodeRequest.socket.destroyed) nodeRequest.socket.end()
+          }
+        )
+        return
+      }
       nodeResponse.statusCode = 500
       nodeResponse.setHeader("content-type", "application/json")
       nodeResponse.end(JSON.stringify({ error: "Webhook request failed." }))
