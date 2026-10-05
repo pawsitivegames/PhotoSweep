@@ -2963,7 +2963,7 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
   ).toBeVisible()
   await expect(
     page.getByRole("button", {
-      name: /Keep key1\.jpg \(currently moves to Trash; favorite status unknown/
+      name: /Keep key1\.jpg \(not in the current Trash proposal; click to change the decision\)/
     })
   ).toHaveAttribute("aria-pressed", "false")
   await expect(

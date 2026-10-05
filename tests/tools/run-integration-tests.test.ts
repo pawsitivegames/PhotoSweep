@@ -2,18 +2,24 @@ import { expect, it } from "vitest"
 
 import { runIntegrationTests } from "../../tools/run-integration-tests.mjs"
 
-it("runs the integration build and Playwright from the npm-installed dependency tree", async () => {
+it("runs build and Playwright against a test-only license API origin", async () => {
   const calls: Array<{
     command: string
     args: string[]
     allowDevEntitlement: string | undefined
+    licenseApiBaseUrl: string | undefined
+    licenseApiHostPermission: string | undefined
   }> = []
 
   const result = await runIntegrationTests({
     env: {
       npm_execpath: "/ci/npm/bin/npm-cli.js",
       NODE_ENV: "development",
-      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0",
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL:
+        "https://configured-license.example",
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION:
+        "https://configured-license.example/*"
     },
     playwrightArgs: ["--grep", "integration smoke"],
     runCommand: async (command, args, env) => {
@@ -21,7 +27,11 @@ it("runs the integration build and Playwright from the npm-installed dependency 
         command,
         args,
         allowDevEntitlement:
-          env.PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT
+          env.PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT,
+        licenseApiBaseUrl:
+          env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL,
+        licenseApiHostPermission:
+          env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION
       })
       return 0
     }
@@ -32,7 +42,9 @@ it("runs the integration build and Playwright from the npm-installed dependency 
     {
       command: process.execPath,
       args: ["/ci/npm/bin/npm-cli.js", "run", "build"],
-      allowDevEntitlement: "1"
+      allowDevEntitlement: "1",
+      licenseApiBaseUrl: "https://photosweep-license-api.test",
+      licenseApiHostPermission: "https://photosweep-license-api.test/*"
     },
     {
       command: process.execPath,
@@ -47,12 +59,16 @@ it("runs the integration build and Playwright from the npm-installed dependency 
         "--grep",
         "integration smoke"
       ],
-      allowDevEntitlement: "0"
+      allowDevEntitlement: "0",
+      licenseApiBaseUrl: "https://photosweep-license-api.test",
+      licenseApiHostPermission: "https://photosweep-license-api.test/*"
     },
     {
       command: process.execPath,
       args: ["/ci/npm/bin/npm-cli.js", "run", "build"],
-      allowDevEntitlement: "0"
+      allowDevEntitlement: "0",
+      licenseApiBaseUrl: "https://configured-license.example",
+      licenseApiHostPermission: "https://configured-license.example/*"
     }
   ])
 })
