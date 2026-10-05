@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
+
 import { describe, expect, it } from "vitest"
 
 import {
@@ -6,6 +9,22 @@ import {
 } from "../../server/recovery-email-webhook/server.mjs"
 
 describe("recovery email webhook", () => {
+  it("includes local runtime modules in its documented source build context", () => {
+    const buildContext = resolve(process.cwd(), "server/recovery-email-webhook")
+    const serverSource = readFileSync(resolve(buildContext, "server.mjs"), "utf8")
+    const dockerfile = readFileSync(resolve(buildContext, "Dockerfile"), "utf8")
+    const localImports = Array.from(
+      serverSource.matchAll(/from ["']\.\/([^"']+\.mjs)["']/g),
+      ([, file]) => file
+    )
+
+    expect(localImports).toContain("http-request-body.mjs")
+    for (const file of localImports) {
+      expect(existsSync(resolve(buildContext, file))).toBe(true)
+      expect(dockerfile).toContain(`COPY ${file} ./${file}`)
+    }
+  })
+
   it("sends a license recovery message through Resend", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = []
     const handler = createRecoveryEmailWebhook({

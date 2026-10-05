@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import {
   isRequestBodyTooLargeError,
   readBoundedRequestBody
-} from "../http-request-body.mjs"
+} from "./http-request-body.mjs"
 
 const DEFAULT_HOST = "0.0.0.0"
 const DEFAULT_PORT = 8080
