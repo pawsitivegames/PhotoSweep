@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 
 const TLC_VERSION = "1.8.0"
-const TLC_SHA256 = "b490f45c1de08e4ff9753259a00338981b9cf464f01ca9e9cd5f19f33cf0bb92"
+const TLC_SHA256 = "c2fe4e56e43bde19f213b4a7e441d037297fda733e503579623e859b79348239"
 const MODULE_PATH = "verification/model/MutationOutcomeRecovery.tla"
 const POSITIVE_CONFIG_PATH = "verification/model/MutationOutcomeRecovery.cfg"
 const NEGATIVE_CONFIG_PATH = "verification/model/MutationOutcomeRecovery.negative.cfg"
