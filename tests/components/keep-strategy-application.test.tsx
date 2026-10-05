@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@mui/material/styles"
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 
@@ -217,6 +217,27 @@ function chooseStrategy(label: string) {
   fireEvent.click(screen.getByRole("menuitem", { name: label }))
 }
 
+const KEEP_STRATEGY_MENU_CASES: Array<{
+  strategy: KeepStrategy
+  keptMediaKey: string
+  changed: boolean
+}> = [
+  { strategy: "best_quality", keptMediaKey: "key1", changed: false },
+  {
+    strategy: "largest_resolution",
+    keptMediaKey: "key2",
+    changed: true
+  },
+  { strategy: "newest_taken", keptMediaKey: "key2", changed: true },
+  { strategy: "oldest_taken", keptMediaKey: "key1", changed: false },
+  { strategy: "newest_upload", keptMediaKey: "key3", changed: true },
+  {
+    strategy: "non_storage_counting",
+    keptMediaKey: "key2",
+    changed: true
+  }
+]
+
 describe("Selection strategy application in the review UI", () => {
   it("restarts feedback lifetime when a new strategy result replaces it", () => {
     vi.useFakeTimers()
@@ -255,79 +276,72 @@ describe("Selection strategy application in the review UI", () => {
     }
   })
 
-  it("persists all six menu choices and announces their state and scope", async () => {
-    const cases: Array<{
-      strategy: KeepStrategy
-      keptMediaKey: string
-      changed: boolean
-    }> = [
-      { strategy: "best_quality", keptMediaKey: "key1", changed: false },
-      {
-        strategy: "largest_resolution",
-        keptMediaKey: "key2",
-        changed: true
-      },
-      { strategy: "newest_taken", keptMediaKey: "key2", changed: true },
-      { strategy: "oldest_taken", keptMediaKey: "key1", changed: false },
-      { strategy: "newest_upload", keptMediaKey: "key3", changed: true },
-      {
-        strategy: "non_storage_counting",
-        keptMediaKey: "key2",
-        changed: true
-      }
-    ]
+  it.each(KEEP_STRATEGY_MENU_CASES)(
+    "persists $strategy and announces its state and scope",
+    async (outcome) => {
+      const view = render(<ReviewHarness />)
+      try {
+        const checkbox = screen.getByRole("checkbox", {
+          name: "Include duplicate set of 3 photos"
+        })
+        expect(checkbox).toHaveAttribute("aria-checked", "false")
 
-    for (const outcome of cases) {
-      render(<ReviewHarness />)
+        const label = KEEP_STRATEGY_LABELS[outcome.strategy]
+        chooseStrategy(label)
+
+        await screen.findByRole("status")
+        const status = screen.getByRole("status")
+        expect(status).toHaveTextContent(
+          outcome.changed
+            ? "1 set changed"
+            : "1 set already had the selected keeper"
+        )
+        expect(status).toHaveTextContent(
+          "was applied and saved as the default"
+        )
+        expect(status).toHaveTextContent(
+          "1 set included for cleanup review; 2 media items proposed for Trash."
+        )
+        expect(screen.getByTestId("default-keep-strategy")).toHaveTextContent(
+          outcome.strategy
+        )
+        for (const key of ["key1", "key2", "key3"]) {
+          expect(
+            screen.getByRole("button", {
+              name: new RegExp(`^Keep photo${key.slice(-1)}\\.jpg`)
+            })
+          ).toHaveAttribute(
+            "aria-pressed",
+            key === outcome.keptMediaKey ? "true" : "false"
+          )
+        }
+        expect(checkbox).toHaveAttribute("aria-checked", "true")
+      } finally {
+        view.unmount()
+      }
+    }
+  )
+
+  it("includes or skips all sets without changing the saved strategy", () => {
+    const view = render(<ReviewHarness />)
+    try {
       const checkbox = screen.getByRole("checkbox", {
         name: "Include duplicate set of 3 photos"
       })
-      expect(checkbox).toHaveAttribute("aria-checked", "false")
-
-      const label = KEEP_STRATEGY_LABELS[outcome.strategy]
-      chooseStrategy(label)
-
-      await screen.findByRole("status")
-      const status = screen.getByRole("status")
-      expect(status).toHaveTextContent(
-        outcome.changed
-          ? "1 set changed"
-          : "1 set already had the selected keeper"
+      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Include all sets" })
       )
-      expect(status).toHaveTextContent("was applied and saved as the default")
-      expect(status).toHaveTextContent(
-        "1 set included for cleanup review; 2 media items proposed for Trash."
-      )
-      expect(screen.getByTestId("default-keep-strategy")).toHaveTextContent(
-        outcome.strategy
-      )
-      for (const key of ["key1", "key2", "key3"]) {
-        expect(
-          screen.getByRole("button", {
-            name: new RegExp(`^Keep photo${key.slice(-1)}\\.jpg`)
-          })
-        ).toHaveAttribute(
-          "aria-pressed",
-          key === outcome.keptMediaKey ? "true" : "false"
-        )
-      }
       expect(checkbox).toHaveAttribute("aria-checked", "true")
-      cleanup()
+      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+      fireEvent.click(screen.getByRole("menuitem", { name: "Skip all sets" }))
+      expect(checkbox).toHaveAttribute("aria-checked", "false")
+      expect(screen.getByTestId("default-keep-strategy")).toHaveTextContent(
+        "best_quality"
+      )
+    } finally {
+      view.unmount()
     }
-
-    render(<ReviewHarness />)
-    const checkbox = screen.getByRole("checkbox", {
-      name: "Include duplicate set of 3 photos"
-    })
-    fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Include all sets" }))
-    expect(checkbox).toHaveAttribute("aria-checked", "true")
-    fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Skip all sets" }))
-    expect(checkbox).toHaveAttribute("aria-checked", "false")
-    expect(screen.getByTestId("default-keep-strategy")).toHaveTextContent(
-      "best_quality"
-    )
   })
 
   it("applies a saved strategy to all groups regardless of the current filter", () => {
