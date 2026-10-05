@@ -863,7 +863,7 @@ test("does not open a stale checkout tab after results reset", async () => {
   await clearStorage(context)
   const apiBaseUrl =
     process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
-    "https://photosweep-license-api-206538169327.us-west1.run.app"
+    "https://photosweep-license-api.test"
   const { groups, mediaItems } = makeGroups(2, 7)
   await injectScanResults(
     context,
@@ -878,7 +878,13 @@ test("does not open a stale checkout tab after results reset", async () => {
   const checkoutReleased = new Promise<void>((resolve) => {
     releaseCheckout = resolve
   })
-  await context.route(`${apiBaseUrl}/checkout`, async (route) => {
+  // Match only this API path across hosts; reject a bundle built for an
+  // unexpected origin before the request can reach the network.
+  const checkoutRoute = /^https?:\/\/[^/]+\/checkout(?:\?.*)?$/
+  await context.route(checkoutRoute, async (route) => {
+    expect(new URL(route.request().url()).origin).toBe(
+      new URL(apiBaseUrl).origin
+    )
     checkoutRequested = true
     await checkoutReleased
     await route.fulfill({
@@ -930,7 +936,7 @@ test("does not open a stale checkout tab after results reset", async () => {
     ).toHaveLength(0)
   } finally {
     releaseCheckout()
-    await context.unroute(`${apiBaseUrl}/checkout`)
+    await context.unroute(checkoutRoute)
     await clearStorage(context)
     await page.close()
     await stub.close()
@@ -941,7 +947,7 @@ test("keeps the free-results exit clickable after an unverified checkout return"
   await clearStorage(context)
   const apiBaseUrl =
     process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
-    "https://photosweep-license-api-206538169327.us-west1.run.app"
+    "https://photosweep-license-api.test"
   const { groups, mediaItems } = makeGroups(2, 7)
   await injectScanResults(
     context,
@@ -957,7 +963,12 @@ test("keeps the free-results exit clickable after an unverified checkout return"
 
   let checkoutStarts = 0
   let entitlementRefreshes = 0
-  await context.route(`${apiBaseUrl}/checkout`, async (route) => {
+  const checkoutRoute = /^https?:\/\/[^/]+\/checkout(?:\?.*)?$/
+  const entitlementRoute = /^https?:\/\/[^/]+\/entitlement(?:\?.*)?$/
+  await context.route(checkoutRoute, async (route) => {
+    expect(new URL(route.request().url()).origin).toBe(
+      new URL(apiBaseUrl).origin
+    )
     checkoutStarts += 1
     await route.fulfill({
       status: 200,
@@ -969,7 +980,10 @@ test("keeps the free-results exit clickable after an unverified checkout return"
       })
     })
   })
-  await context.route(`${apiBaseUrl}/entitlement`, async (route) => {
+  await context.route(entitlementRoute, async (route) => {
+    expect(new URL(route.request().url()).origin).toBe(
+      new URL(apiBaseUrl).origin
+    )
     entitlementRefreshes += 1
     await route.fulfill({
       status: 200,
@@ -1024,8 +1038,8 @@ test("keeps the free-results exit clickable after an unverified checkout return"
     ).toBeVisible()
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
   } finally {
-    await context.unroute(`${apiBaseUrl}/checkout`)
-    await context.unroute(`${apiBaseUrl}/entitlement`)
+    await context.unroute(checkoutRoute)
+    await context.unroute(entitlementRoute)
     await clearStorage(context)
     for (const candidate of context.pages()) {
       if (candidate !== page && candidate !== stub) {
