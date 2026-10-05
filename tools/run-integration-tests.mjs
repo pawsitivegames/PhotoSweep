@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process"
 import { pathToFileURL } from "node:url"
 
+const TEST_LICENSE_API_BASE_URL = "https://photosweep-license-api.test"
+
 function run(command, args, env) {
   return new Promise((resolve) => {
     const child = spawn(command, args, { env, stdio: "inherit" })
@@ -25,8 +27,15 @@ export async function runIntegrationTests({
   const runNpm = (args, childEnv) =>
     runCommand(npmCommand, [...npmPrefixArgs, ...args], childEnv)
 
-  const testBuildEnvironment = {
+  const testEnvironment = {
     ...env,
+    PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL:
+      TEST_LICENSE_API_BASE_URL,
+    PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION:
+      `${TEST_LICENSE_API_BASE_URL}/*`
+  }
+  const testBuildEnvironment = {
+    ...testEnvironment,
     PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "1"
   }
   const productionBuildEnvironment = {
@@ -53,7 +62,7 @@ export async function runIntegrationTests({
           "playwright.config.ts",
           ...playwrightArgs
         ],
-        env
+        testEnvironment
       )
     }
   } finally {

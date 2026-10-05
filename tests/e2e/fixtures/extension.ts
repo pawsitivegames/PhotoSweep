@@ -218,6 +218,16 @@ export async function launchExtension(): Promise<{
     ]
   })
 
+  // Keep integration checkout flows offline even when the backend fixture
+  // returns a Stripe-shaped URL.
+  await context.route("https://checkout.stripe.com/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><title>Checkout test fixture</title>"
+    })
+  )
+
   let sw = context.serviceWorkers()[0]
   if (!sw) sw = await context.waitForEvent("serviceworker")
   const extensionId = new URL(sw.url()).hostname
