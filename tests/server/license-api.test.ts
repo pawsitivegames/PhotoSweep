@@ -1397,6 +1397,43 @@ describe("license API", () => {
     expect(completeHtml).toContain("license_recovery=ok")
   })
 
+  it("retains the recovery cooldown after an ambiguous sender error", async () => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    await store.upsertLicense({
+      sessionId: "pls_recover_ambiguous",
+      planId: "lifetime",
+      status: "active",
+      email: "buyer@example.com",
+      purchasedAt: Date.now()
+    })
+    let senderCalls = 0
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store: {
+        ...store,
+        async sendRecoveryEmail() {
+          senderCalls += 1
+          throw new Error("delivery status is unknown")
+        }
+      }
+    })
+    const requestRecovery = () =>
+      new Request("https://license.test/license/recover", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "buyer@example.com" })
+      })
+
+    const failedAttempt = await api(requestRecovery())
+    const throttledRetry = await api(requestRecovery())
+
+    expect(failedAttempt.status).toBe(500)
+    expect(throttledRetry.status).toBe(200)
+    await expect(throttledRetry.json()).resolves.toEqual({ ok: true })
+    expect(senderCalls).toBe(1)
+  })
+
   it("does not send recovery email for inactive or refunded licenses", async () => {
     const keys = testKeys()
     const store = createMemoryLicenseStore()

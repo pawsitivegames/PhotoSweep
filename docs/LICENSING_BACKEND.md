@@ -277,10 +277,13 @@ subject `PhotoSweep license recovery`, and its body is exactly the `recoveryUrl`
 value with no additional text.
 
 Recovery email requests for the same normalized email address are limited to
-one send per 15 minutes. Firestore claims this cooldown transactionally in the
-email index, shared across API instances. Memory, JSON-file, and custom stores
-use an in-handler cooldown; multi-instance deployments using those stores need
-an instance-independent rate limit at their shared ingress or store layer.
+one attempt per 15 minutes. The cooldown is claimed before message preparation
+and dispatch. If a request fails, the cooldown remains because a sender error
+can leave delivery status ambiguous; retry after the window. Firestore claims
+this cooldown transactionally in the email index, shared across API instances.
+Memory, JSON-file, and custom stores use an in-handler cooldown; multi-instance
+deployments using those stores need an instance-independent rate limit at their
+shared ingress or store layer.
 
 ### CoS-owned production secrets
 
