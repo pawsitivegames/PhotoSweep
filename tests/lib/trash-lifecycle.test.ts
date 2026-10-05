@@ -2402,6 +2402,13 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
         reason: "not-dispatched"
       }
     ])
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "unknown",
+      failedCount: 0,
+      failedDedupKeys: [],
+      notDispatchedCount: 1,
+      notDispatchedDedupKeys: ["d-b"]
+    })
   })
 
   it.each(["bad", null, ["foreign"], ["d-a", "d-a"], ["d-a", 1]])("flags malformed not-dispatched metadata without silently accepting complete success: %#", async (notDispatchedDedupKeys) => {
