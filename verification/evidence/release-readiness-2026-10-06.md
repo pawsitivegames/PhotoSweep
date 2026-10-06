@@ -1,5 +1,7 @@
 # Release readiness evidence — 2026-10-06
 
+> **Superseded snapshot:** This note is bound to older source commit `1b6ba99761890326d57169fb000e2668caf03013` and the verification runs recorded below. It does not describe current `main`; see the [current remaining-gates ledger](../../docs/REMAINING_GATES_STATUS.md). Historical evidence below is preserved.
+
 ## Pushed commit and verification scope
 
 - Tested source candidate: commit `1b6ba99761890326d57169fb000e2668caf03013` (on `origin/main` for these verification runs).
