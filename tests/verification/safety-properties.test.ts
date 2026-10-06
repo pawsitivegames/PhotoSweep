@@ -633,18 +633,33 @@ describe("generated safety properties", () => {
             mediaItems,
             defaultStrategy: strategy
           })
-          const selectedByGroup = new Map<string, string>()
+          const selectedByGroup = new Map<string, Set<string>>()
           for (const group of groups) {
             const decision = defaults.decisionFor(group)
             expect(decision.source).toBe("automatic")
             expect(decision.strategy).toBe(strategy)
-            expect(decision.keptMediaKeys.size).toBe(1)
-            const selectedKey = [...decision.keptMediaKeys][0]
-            expect(
-              recommendDefaultKeepForGroup(group, mediaItems, strategy)
-                .keptMediaKeys
-            ).toEqual([selectedKey])
-            selectedByGroup.set(group.id, selectedKey)
+            const presentMediaKeys = group.mediaKeys.filter((key) =>
+              Boolean(mediaItems[key])
+            )
+            const recommendation = recommendDefaultKeepForGroup(
+              group,
+              mediaItems,
+              strategy
+            )
+            expect(decision.keptMediaKeys).toEqual(
+              new Set(recommendation.keptMediaKeys)
+            )
+            if (presentMediaKeys.length === group.mediaKeys.length) {
+              expect(decision.keptMediaKeys.size).toBe(1)
+              expect(recommendation.status).toBe("recommended")
+            } else {
+              expect(recommendation).toMatchObject({
+                status: "no_confident_recommendation",
+                reasonCode: "missing_member"
+              })
+              expect(recommendation.keptMediaKeys).toEqual(presentMediaKeys)
+            }
+            selectedByGroup.set(group.id, new Set(decision.keptMediaKeys))
           }
 
           const reorderedGroups = groups.map((group) => ({
@@ -660,9 +675,9 @@ describe("generated safety properties", () => {
             defaultStrategy: strategy
           })
           for (const group of reorderedGroups) {
-            expect([...reorderedDefaults.keptFor(group)]).toEqual([
+            expect(reorderedDefaults.keptFor(group)).toEqual(
               selectedByGroup.get(group.id)
-            ])
+            )
           }
 
           const persisted: Record<string, unknown> = {}
@@ -724,13 +739,38 @@ describe("generated safety properties", () => {
             selections: applied,
             defaultStrategy: strategy
           })
-          expect(appliedSession.keptFor(groups[0])).toEqual(
-            new Set(manualKeys)
+          const presentManualKeys = manualKeys.filter((key) =>
+            Boolean(mediaItems[key])
           )
-          expect(appliedSession.decisionFor(groups[0]).source).toBe("manual")
+          const presentGroupKeys = groups[0].mediaKeys.filter((key) =>
+            Boolean(mediaItems[key])
+          )
+          const expectedManualKeys =
+            manualKeys.length === 0
+              ? []
+              : presentManualKeys.length > 0
+                ? presentManualKeys
+                : presentGroupKeys
+          const expectedManualSource =
+            manualKeys.length > 0 && presentManualKeys.length === 0
+              ? "stale_fallback"
+              : "manual"
+          expect(appliedSession.keptFor(groups[0])).toEqual(
+            new Set(expectedManualKeys)
+          )
+          expect(appliedSession.decisionFor(groups[0]).source).toBe(
+            expectedManualSource
+          )
+          if (presentGroupKeys.length < groups[0].mediaKeys.length) {
+            expect(
+              appliedSession.trashPlan([groups[0]]).mediaKeysToTrash
+            ).toEqual([])
+          }
           for (const group of groups.slice(1)) {
             expect(appliedSession.decisionFor(group)).toMatchObject({
-              source: "automatic",
+              source: mediaItems[group.mediaKeys[0]]
+                ? "automatic"
+                : "stale_fallback",
               strategy
             })
             expect([...appliedSession.keptFor(group)]).toEqual(
@@ -765,12 +805,21 @@ describe("generated safety properties", () => {
             defaultStrategy: nextStrategy
           })
           expect(reappliedSession.keptFor(groups[0])).toEqual(
-            new Set(manualKeys)
+            new Set(expectedManualKeys)
           )
-          expect(reappliedSession.decisionFor(groups[0]).source).toBe("manual")
+          expect(reappliedSession.decisionFor(groups[0]).source).toBe(
+            expectedManualSource
+          )
+          if (presentGroupKeys.length < groups[0].mediaKeys.length) {
+            expect(
+              reappliedSession.trashPlan([groups[0]]).mediaKeysToTrash
+            ).toEqual([])
+          }
           for (const group of groups.slice(1)) {
             expect(reappliedSession.decisionFor(group)).toMatchObject({
-              source: "automatic",
+              source: mediaItems[group.mediaKeys[0]]
+                ? "automatic"
+                : "stale_fallback",
               strategy: nextStrategy
             })
             expect([...reappliedSession.keptFor(group)]).toEqual(

@@ -1,890 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceFingerprint": "90fd91839f7dedd216de0812ad220f383b03dd1071b60033c1aa98905f7a1cde",
-  "rawReportSha256": "0017630c62e8a13d6f3b3e14da7caabdd55b83c8a9cec7b3ba8390975604cd17",
+  "sourceFingerprint": "a7896963f8bf4eda018d8bb3780691b3a040cb80d09df61d3a15b8909a976195",
+  "rawReportSha256": "634c1bff19c372d3270341fc35e2b7645edf1978f049116fa0e8ae1727cee48b",
   "entries": [
     {
-      "id": "307",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "NoCoverage",
-      "location": {
-        "start": {
-          "line": 517,
-          "column": 39
-        },
-        "end": {
-          "line": 517,
-          "column": 57
-        }
-      },
-      "mutatorName": "StringLiteral",
-      "replacement": "\"\"",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "The constructor sanitizes selections before resolveDecision runs. sanitize() stores normalized or synthesized legacy_preserved/stale_fallback provenance alongside every accepted keptOverrides entry (lines 423-483); when no override exists, resolveDecision skips this override branch. Therefore the nullish fallback at line 517 cannot be taken for a decision that reaches this return. Bound to this report and source by the enclosing policy.",
-      "reviewer": "Independent policy audit"
-    },
-    {
-      "id": "95",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 228,
-          "column": 13
-        },
-        "end": {
-          "line": 228,
-          "column": 41
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "true",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "sanitize() makes an empty legacy_preserved group carry an empty override; absent or invalid nonempty overrides become stale_fallback (duplicate-review-session.ts:432-455, 462-480). Thus the changed condition cannot matter for a reachable accepted state.",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "100",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 229,
-          "column": 13
-        },
-        "end": {
-          "line": 229,
-          "column": 39
-        }
-      },
-      "mutatorName": "OptionalChaining",
-      "replacement": "existingProvenance.source",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The direct existingProvenance.source read follows the empty-override check; sanitize() assigns provenance to every accepted override, and absent overrides short-circuit (duplicate-review-session.ts:437-455).",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "288",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 497,
-          "column": 24
-        },
-        "end": {
-          "line": 497,
-          "column": 78
-        }
-      },
-      "mutatorName": "OptionalChaining",
-      "replacement": "this.selectionState.keepDecisionProvenance[group.id]",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "sanitize() initializes keepDecisionProvenance as an object and always returns it (duplicate-review-session.ts:423-424, 483-488), so removing optional chaining preserves behavior.",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "296",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 505,
-          "column": 21
-        },
-        "end": {
-          "line": 505,
-          "column": 39
-        }
-      },
-      "mutatorName": "OptionalChaining",
-      "replacement": "provenance.source",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Each provenance.source read is guarded by a truthy override, and sanitize() assigns provenance to every accepted override (duplicate-review-session.ts:432-455, 514).",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "306",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 517,
-          "column": 17
-        },
-        "end": {
-          "line": 517,
-          "column": 35
-        }
-      },
-      "mutatorName": "OptionalChaining",
-      "replacement": "provenance.source",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Each provenance.source read is guarded by a truthy override, and sanitize() assigns provenance to every accepted override (duplicate-review-session.ts:432-455, 514).",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "335",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 543,
-          "column": 9
-        },
-        "end": {
-          "line": 543,
-          "column": 42
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Disabling the undefined-strategy condition falls through to the invalid-strategy guard, which handles undefined identically and returns the same normalization (duplicate-review-session.ts:543-551).",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "337",
-      "file": "lib/duplicate-review-session.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 543,
-          "column": 44
-        },
-        "end": {
-          "line": 547,
-          "column": 6
-        }
-      },
-      "mutatorName": "BlockStatement",
-      "replacement": "{}",
-      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
-      "critical": true,
-      "classification": "DUPLICATE",
-      "evidence": "Removing this undefined-strategy branch has the same fallthrough as mutant 335: the next invalid-strategy guard produces the same result with no side effects (duplicate-review-session.ts:543-551).",
-      "reviewer": "Independent review: duplicate-session"
-    },
-    {
-      "id": "547",
-      "file": "lib/keep-strategy.ts",
-      "status": "NoCoverage",
-      "location": {
-        "start": {
-          "line": 224,
-          "column": 11
-        },
-        "end": {
-          "line": 224,
-          "column": 16
-        }
-      },
-      "mutatorName": "BooleanLiteral",
-      "replacement": "true",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "recommendationEvidence populates provenanceByMediaKey only for newest_taken/oldest_taken or newest_upload (lines 139-165). For those strategies the corresponding requiresCaptureProvenance or requiresCreationProvenance condition is true, so the final false arm at line 224 is not selected. Other strategies leave provenanceByMediaKey empty, so its callback is not invoked. Bound to this report and source by the enclosing policy.",
-      "reviewer": "Independent policy audit"
-    },
-    {
-      "id": "431",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 104,
-          "column": 9
-        },
-        "end": {
-          "line": 104,
-          "column": 19
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Removing or relaxing the width boundary cannot admit invalid resolution: the independent height guard rejects a nonpositive height and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "432",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 104,
-          "column": 9
-        },
-        "end": {
-          "line": 104,
-          "column": 19
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "width < 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Removing or relaxing the width boundary cannot admit invalid resolution: the independent height guard rejects a nonpositive height and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "434",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 105,
-          "column": 9
-        },
-        "end": {
-          "line": 105,
-          "column": 20
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Removing or relaxing the height boundary cannot admit invalid resolution: the independent width guard rejects a nonpositive width and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "435",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 105,
-          "column": 9
-        },
-        "end": {
-          "line": 105,
-          "column": 20
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "height < 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Removing or relaxing the height boundary cannot admit invalid resolution: the independent width guard rejects a nonpositive width and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "533",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 216,
-          "column": 38
-        },
-        "end": {
-          "line": 216,
-          "column": 66
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "true",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "provenanceByMediaKey is populated only for date strategies; upload dates already require creation provenance, while other strategies leave the map empty.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "607",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 296,
-          "column": 5
-        },
-        "end": {
-          "line": 299,
-          "column": 20
-        }
-      },
-      "mutatorName": "LogicalOperator",
-      "replacement": "(!Number.isFinite(resWidth) || !Number.isFinite(resHeight) || resWidth! <= 0) && resHeight! <= 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "608",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 296,
-          "column": 5
-        },
-        "end": {
-          "line": 298,
-          "column": 19
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "609",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 296,
-          "column": 5
-        },
-        "end": {
-          "line": 298,
-          "column": 19
-        }
-      },
-      "mutatorName": "LogicalOperator",
-      "replacement": "(!Number.isFinite(resWidth) || !Number.isFinite(resHeight)) && resWidth! <= 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "610",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 296,
-          "column": 5
-        },
-        "end": {
-          "line": 297,
-          "column": 32
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "611",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 296,
-          "column": 5
-        },
-        "end": {
-          "line": 297,
-          "column": 32
-        }
-      },
-      "mutatorName": "LogicalOperator",
-      "replacement": "!Number.isFinite(resWidth) && !Number.isFinite(resHeight)",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "614",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 298,
-          "column": 5
-        },
-        "end": {
-          "line": 298,
-          "column": 19
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "615",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 298,
-          "column": 5
-        },
-        "end": {
-          "line": 298,
-          "column": 19
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "resWidth! < 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "617",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 299,
-          "column": 5
-        },
-        "end": {
-          "line": 299,
-          "column": 20
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "618",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 299,
-          "column": 5
-        },
-        "end": {
-          "line": 299,
-          "column": 20
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "resHeight! < 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "650",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 329,
-          "column": 21
-        },
-        "end": {
-          "line": 329,
-          "column": 37
-        }
-      },
-      "mutatorName": "ObjectLiteral",
-      "replacement": "{}",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "An empty comparison still has value undefined; omitted direction is undefined and activates compareSignal's default direction of 1.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "653",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 332,
-          "column": 14
-        },
-        "end": {
-          "line": 340,
-          "column": 8
-        }
-      },
-      "mutatorName": "ObjectLiteral",
-      "replacement": "{}",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "For best_quality, the primary score maps true to 2, false to 1, and unknown to undefined; its first fallback repeats that mapping. When the primary score ties, the fallback preserves the same quality ordering. Tests cover known true and false values against unknown quality, plus resolution when both are unknown (lib/keep-strategy.ts:331-342, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "654",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 334,
-          "column": 11
-        },
-        "end": {
-          "line": 334,
-          "column": 42
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "true",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "For best_quality, the primary score maps true to 2, false to 1, and unknown to undefined; its first fallback repeats that mapping. When the primary score ties, the fallback preserves the same quality ordering. Tests cover known true and false values against unknown quality, plus resolution when both are unknown (lib/keep-strategy.ts:331-342, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "658",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 336,
-          "column": 15
-        },
-        "end": {
-          "line": 336,
-          "column": 47
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "true",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "A boolean substituted into the primary numeric score is unknown to Number.isFinite; comparison ties and the explicit numeric quality fallback preserves the ordering (lib/keep-strategy.ts:362-371, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "659",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 336,
-          "column": 15
-        },
-        "end": {
-          "line": 336,
-          "column": 47
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "A boolean substituted into the primary numeric score is unknown to Number.isFinite; comparison ties and the explicit numeric quality fallback preserves the ordering (lib/keep-strategy.ts:362-371, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "661",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 336,
-          "column": 42
-        },
-        "end": {
-          "line": 336,
-          "column": 47
-        }
-      },
-      "mutatorName": "BooleanLiteral",
-      "replacement": "true",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "A boolean substituted for the explicit false score is unknown to Number.isFinite. The primary comparison ties, then the fallback maps false to 1 and retains the ordering (lib/keep-strategy.ts:331-342, 362-371, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "689",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 370,
-          "column": 7
-        },
-        "end": {
-          "line": 370,
-          "column": 50
-        }
-      },
-      "mutatorName": "LogicalOperator",
-      "replacement": "(!leftKnown || !rightKnown) && left === right",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Mixed-knownness cases return earlier. Equal finite inputs subtract to zero, and helper-produced unknowns are undefined on both sides, satisfying equality.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "690",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 370,
-          "column": 7
-        },
-        "end": {
-          "line": 370,
-          "column": 32
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Mixed-knownness cases return earlier. Equal finite inputs subtract to zero, and helper-produced unknowns are undefined on both sides, satisfying equality.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "691",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 370,
-          "column": 7
-        },
-        "end": {
-          "line": 370,
-          "column": 32
-        }
-      },
-      "mutatorName": "LogicalOperator",
-      "replacement": "!leftKnown && !rightKnown",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "Mixed-knownness cases return earlier. Equal finite inputs subtract to zero, and helper-produced unknowns are undefined on both sides, satisfying equality.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "694",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 370,
-          "column": 36
-        },
-        "end": {
-          "line": 370,
-          "column": 50
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The earlier missing-value check remains; equal finite inputs reach subtraction and yield zero.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "736",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 420,
-          "column": 10
-        },
-        "end": {
-          "line": 420,
-          "column": 28
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "leftKey <= rightKey",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "The public selector removes duplicate media keys with Set before comparing candidates, so compared keys are distinct. The final comparator uses code-unit ordering and returns zero only for equal keys; changing the strict comparison boundary therefore cannot change the selected candidate (lib/keep-strategy.ts:414-420, 442-455; tests/lib/keep-strategy.test.ts:894-930).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "739",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 420,
-          "column": 36
-        },
-        "end": {
-          "line": 420,
-          "column": 54
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "true",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "For distinct greater keys, comparator outcomes differ only among positive/zero values and all fail the caller's < 0 check; equal keys are excluded by Set deduplication.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "740",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 420,
-          "column": 36
-        },
-        "end": {
-          "line": 420,
-          "column": 54
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "For distinct greater keys, comparator outcomes differ only among positive/zero values and all fail the caller's < 0 check; equal keys are excluded by Set deduplication.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "741",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 420,
-          "column": 36
-        },
-        "end": {
-          "line": 420,
-          "column": 54
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "leftKey >= rightKey",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "The public selector removes duplicate media keys with Set before comparing candidates, so compared keys are distinct. The final comparator uses code-unit ordering and returns zero only for equal keys; changing the strict comparison boundary therefore cannot change the selected candidate (lib/keep-strategy.ts:414-420, 442-455; tests/lib/keep-strategy.test.ts:894-930).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "742",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 420,
-          "column": 36
-        },
-        "end": {
-          "line": 420,
-          "column": 54
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "leftKey <= rightKey",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "For distinct greater keys, comparator outcomes differ only among positive/zero values and all fail the caller's < 0 check; equal keys are excluded by Set deduplication.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "754",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 444,
-          "column": 30
-        },
-        "end": {
-          "line": 444,
-          "column": 52
-        }
-      },
-      "mutatorName": "MethodExpression",
-      "replacement": "candidateKeys",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The added self-comparison of the initial keeper returns zero, which fails the loop's < 0 check; other candidates are still compared normally.",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "758",
-      "file": "lib/keep-strategy.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 446,
-          "column": 7
-        },
-        "end": {
-          "line": 451,
-          "column": 12
-        }
-      },
-      "mutatorName": "EqualityOperator",
-      "replacement": "compareDefaultCandidate(candidateKey, keptMediaKey, mediaItems, strategy) <= 0",
-      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "The public selector removes duplicate media keys with Set before comparing candidates, so compared keys are distinct. The final comparator uses code-unit ordering and returns zero only for equal keys; changing the strict comparison boundary therefore cannot change the selected candidate (lib/keep-strategy.ts:414-420, 442-455; tests/lib/keep-strategy.test.ts:894-930).",
-      "reviewer": "Independent review: keep-strategy"
-    },
-    {
-      "id": "1221",
+      "id": "1373",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -906,7 +26,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1222",
+      "id": "1374",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -928,7 +48,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1223",
+      "id": "1375",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -950,7 +70,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1224",
+      "id": "1376",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -972,7 +92,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1225",
+      "id": "1377",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -994,7 +114,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1226",
+      "id": "1378",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1016,7 +136,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1665",
+      "id": "1817",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1038,7 +158,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1828",
+      "id": "1980",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1060,7 +180,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "2005",
+      "id": "2157",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1082,7 +202,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "2374",
+      "id": "2526",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1104,7 +224,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "2375",
+      "id": "2527",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1126,7 +246,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "2376",
+      "id": "2528",
       "file": "lib/trash-lifecycle.ts",
       "status": "NoCoverage",
       "location": {
@@ -1148,7 +268,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "1237",
+      "id": "1389",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1170,7 +290,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1238",
+      "id": "1390",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1192,7 +312,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1260",
+      "id": "1412",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1214,7 +334,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1274",
+      "id": "1426",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1236,7 +356,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1277",
+      "id": "1429",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1258,7 +378,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1296",
+      "id": "1448",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1280,7 +400,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1321",
+      "id": "1473",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1302,7 +422,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1330",
+      "id": "1482",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1324,7 +444,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1365",
+      "id": "1517",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1346,7 +466,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1511",
+      "id": "1663",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1368,7 +488,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1518",
+      "id": "1670",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1390,7 +510,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1525",
+      "id": "1677",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1412,7 +532,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1566",
+      "id": "1718",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1434,7 +554,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1659",
+      "id": "1811",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1456,7 +576,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1693",
+      "id": "1845",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1478,7 +598,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1749",
+      "id": "1901",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1500,7 +620,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1871",
+      "id": "2023",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1522,7 +642,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1872",
+      "id": "2024",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1544,7 +664,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1922",
+      "id": "2074",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1566,7 +686,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1943",
+      "id": "2095",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1588,7 +708,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1944",
+      "id": "2096",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1610,7 +730,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1945",
+      "id": "2097",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1632,7 +752,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1988",
+      "id": "2140",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1654,7 +774,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1999",
+      "id": "2151",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1676,7 +796,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2000",
+      "id": "2152",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1698,7 +818,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2001",
+      "id": "2153",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1720,7 +840,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2003",
+      "id": "2155",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1742,7 +862,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2004",
+      "id": "2156",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1764,7 +884,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2010",
+      "id": "2162",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1786,7 +906,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2011",
+      "id": "2163",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1808,7 +928,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2012",
+      "id": "2164",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1830,7 +950,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2091",
+      "id": "2243",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1852,7 +972,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2113",
+      "id": "2265",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1874,7 +994,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2176",
+      "id": "2328",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1896,7 +1016,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2177",
+      "id": "2329",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1918,7 +1038,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2178",
+      "id": "2330",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1940,7 +1060,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2181",
+      "id": "2333",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1962,7 +1082,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2182",
+      "id": "2334",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -1984,7 +1104,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2184",
+      "id": "2336",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2006,7 +1126,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2185",
+      "id": "2337",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2028,7 +1148,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2222",
+      "id": "2374",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2050,7 +1170,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2224",
+      "id": "2376",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2072,7 +1192,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2229",
+      "id": "2381",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2094,7 +1214,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2261",
+      "id": "2413",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2116,7 +1236,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2276",
+      "id": "2428",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2138,7 +1258,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2298",
+      "id": "2450",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2160,7 +1280,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2305",
+      "id": "2457",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2182,7 +1302,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2306",
+      "id": "2458",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2204,7 +1324,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2328",
+      "id": "2480",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2226,7 +1346,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2333",
+      "id": "2485",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2248,7 +1368,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2334",
+      "id": "2486",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2270,7 +1390,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2340",
+      "id": "2492",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2292,7 +1412,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2341",
+      "id": "2493",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2314,7 +1434,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2346",
+      "id": "2498",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2336,7 +1456,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2348",
+      "id": "2500",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2358,7 +1478,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2349",
+      "id": "2501",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2380,7 +1500,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2350",
+      "id": "2502",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2402,7 +1522,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2353",
+      "id": "2505",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2424,7 +1544,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2354",
+      "id": "2506",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2446,7 +1566,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2355",
+      "id": "2507",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2468,7 +1588,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2356",
+      "id": "2508",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2490,7 +1610,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2358",
+      "id": "2510",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2512,7 +1632,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2359",
+      "id": "2511",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2534,7 +1654,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2360",
+      "id": "2512",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2556,7 +1676,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2369",
+      "id": "2521",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2578,7 +1698,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2380",
+      "id": "2532",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2600,7 +1720,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2399",
+      "id": "2551",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2622,7 +1742,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2434",
+      "id": "2586",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2644,7 +1764,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2435",
+      "id": "2587",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2666,7 +1786,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2437",
+      "id": "2589",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2688,7 +1808,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2465",
+      "id": "2617",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2710,7 +1830,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2466",
+      "id": "2618",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2732,7 +1852,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2467",
+      "id": "2619",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2754,7 +1874,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2469",
+      "id": "2621",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2776,7 +1896,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2471",
+      "id": "2623",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2798,7 +1918,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2508",
+      "id": "2660",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2820,7 +1940,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2509",
+      "id": "2661",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2842,7 +1962,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2525",
+      "id": "2677",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2864,7 +1984,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2526",
+      "id": "2678",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2886,7 +2006,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2527",
+      "id": "2679",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2908,7 +2028,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2544",
+      "id": "2696",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2930,7 +2050,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2545",
+      "id": "2697",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
       "location": {
@@ -2952,7 +2072,7 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "2747",
+      "id": "2899",
       "file": "scripts/photo-provider-command-host.js",
       "status": "NoCoverage",
       "location": {
@@ -2974,7 +2094,7 @@
       "reviewer": "Independent policy audit"
     },
     {
-      "id": "2615",
+      "id": "2767",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -2996,7 +2116,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2616",
+      "id": "2768",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3018,7 +2138,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2618",
+      "id": "2770",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3040,7 +2160,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2619",
+      "id": "2771",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3062,7 +2182,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2622",
+      "id": "2774",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3084,7 +2204,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2623",
+      "id": "2775",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3106,7 +2226,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2624",
+      "id": "2776",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3128,7 +2248,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2630",
+      "id": "2782",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3150,7 +2270,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2632",
+      "id": "2784",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3172,7 +2292,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2639",
+      "id": "2791",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3194,7 +2314,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2650",
+      "id": "2802",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3216,7 +2336,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2777",
+      "id": "2929",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3238,7 +2358,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2918",
+      "id": "3070",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3260,7 +2380,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2920",
+      "id": "3072",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3282,7 +2402,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2921",
+      "id": "3073",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3304,7 +2424,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2949",
+      "id": "3101",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3326,7 +2446,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2958",
+      "id": "3110",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3348,7 +2468,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2959",
+      "id": "3111",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3370,7 +2490,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2961",
+      "id": "3113",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3392,7 +2512,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2963",
+      "id": "3115",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3414,7 +2534,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2965",
+      "id": "3117",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3436,7 +2556,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2966",
+      "id": "3118",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3458,7 +2578,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2984",
+      "id": "3136",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3480,7 +2600,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2991",
+      "id": "3143",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3502,7 +2622,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2993",
+      "id": "3145",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3524,7 +2644,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2994",
+      "id": "3146",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3546,7 +2666,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3096",
+      "id": "3248",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3568,7 +2688,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3099",
+      "id": "3251",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3590,7 +2710,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3138",
+      "id": "3290",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3612,7 +2732,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3168",
+      "id": "3320",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3634,7 +2754,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3171",
+      "id": "3323",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3656,7 +2776,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3173",
+      "id": "3325",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3678,7 +2798,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3176",
+      "id": "3328",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3700,7 +2820,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3178",
+      "id": "3330",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3722,7 +2842,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3180",
+      "id": "3332",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3744,7 +2864,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3214",
+      "id": "3366",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3766,7 +2886,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3217",
+      "id": "3369",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3788,7 +2908,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3319",
+      "id": "3471",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3810,7 +2930,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3320",
+      "id": "3472",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3832,7 +2952,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3329",
+      "id": "3481",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3854,7 +2974,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3339",
+      "id": "3491",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3876,7 +2996,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3340",
+      "id": "3492",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3898,7 +3018,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3366",
+      "id": "3518",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3920,7 +3040,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3367",
+      "id": "3519",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3942,7 +3062,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3369",
+      "id": "3521",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3964,7 +3084,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3389",
+      "id": "3541",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -3986,7 +3106,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3511",
+      "id": "3663",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4008,7 +3128,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3514",
+      "id": "3666",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4030,7 +3150,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3520",
+      "id": "3672",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4052,7 +3172,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3602",
+      "id": "3754",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4074,7 +3194,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3612",
+      "id": "3764",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4096,7 +3216,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3665",
+      "id": "3817",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4118,7 +3238,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3712",
+      "id": "3864",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4140,7 +3260,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "3784",
+      "id": "3936",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4162,7 +3282,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2554",
+      "id": "2706",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4184,7 +3304,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2560",
+      "id": "2712",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4206,7 +3326,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2612",
+      "id": "2764",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4228,7 +3348,7 @@
       "reviewer": "Independent review: command-host"
     },
     {
-      "id": "2649",
+      "id": "2801",
       "file": "scripts/photo-provider-command-host.js",
       "status": "Survived",
       "location": {
@@ -4248,6 +3368,1282 @@
       "classification": "EQUIVALENT",
       "evidence": "sessionStorage.getItem is enclosed in try/catch; absent/throwing storage follows the same fallback session-id path.",
       "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "36",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 116,
+          "column": 28
+        },
+        "end": {
+          "line": 116,
+          "column": 53
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The mutation changes only the `typeof value === \"object\"` term; the preceding `value !== null` and following `!Array.isArray(value)` guards remain, so JSON null and arrays are rejected, and JSON primitives do not provide a nonblank id. Only undefined/hole entries or function-shaped objects with crafted fields supplied through direct JavaScript differ, outside the supported app-generated/JSON-persisted group contract (duplicate-review-session.ts:115-129; restore accepts group arrays at tabs/app.tsx:4311-4319).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "43",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 120,
+          "column": 7
+        },
+        "end": {
+          "line": 120,
+          "column": 28
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "This mutation affects the non-array fallback in the private validator, which is reached only if malformed runtime input supplies a non-array through the public session constructor or `trashPlan(groups)` API. Supported app callers pass scan-group arrays; direct JavaScript non-array calls are outside the app-generated/persisted group contract (tabs/app.tsx:4311-4319, 4394-4415, 5508-5523; stored-review-scope.ts:350-375).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "44",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 120,
+          "column": 37
+        },
+        "end": {
+          "line": 120,
+          "column": 39
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "NoCoverage is on the non-array fallback in the private validator, reachable only if malformed runtime input supplies a non-array through the public session constructor or `trashPlan(groups)` API. Supported app callers pass scan-group arrays; direct JavaScript non-array calls are outside the app-generated/persisted group contract (tabs/app.tsx:4311-4319, 4394-4415, 5508-5523; stored-review-scope.ts:350-375).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "68",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 131,
+          "column": 7
+        },
+        "end": {
+          "line": 131,
+          "column": 47
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The `typeof` branch is redundant because the following `Number.isFinite(candidate.similarity)` check rejects non-numbers and non-finite values; the remaining range checks still enforce the accepted 0..1 interval (duplicate-review-session.ts:131-136).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "184",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 281,
+          "column": 13
+        },
+        "end": {
+          "line": 283,
+          "column": 62
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "Validated groups require at least two member keys, so the empty-group branch is unreachable for groups participating in selection or Trash planning (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "190",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 282,
+          "column": 13
+        },
+        "end": {
+          "line": 282,
+          "column": 41
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "191",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 282,
+          "column": 13
+        },
+        "end": {
+          "line": 282,
+          "column": 41
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "existingOverride?.size !== 0",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "192",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 282,
+          "column": 13
+        },
+        "end": {
+          "line": 282,
+          "column": 35
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "existingOverride.size",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "193",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 283,
+          "column": 13
+        },
+        "end": {
+          "line": 283,
+          "column": 62
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "194",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 283,
+          "column": 13
+        },
+        "end": {
+          "line": 283,
+          "column": 62
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "existingProvenance?.source !== \"legacy_preserved\"",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "195",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 283,
+          "column": 13
+        },
+        "end": {
+          "line": 283,
+          "column": 39
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "existingProvenance.source",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "196",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 283,
+          "column": 44
+        },
+        "end": {
+          "line": 283,
+          "column": 62
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The empty-override preservation branch cannot apply to validated session groups because groups with fewer than two member keys are excluded (duplicate-review-session.ts:141-143).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "241",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 365,
+          "column": 69
+        },
+        "end": {
+          "line": 365,
+          "column": 71
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The mutation replaces only the empty-array false branch of the usability filter with a sentinel; the usable-item `[item]` branch remains unchanged. The sentinel has no `dedupKey`, so it can add only an `undefined` Map key. Usable items require a nonblank dedup key, and Trash planning reads counts only for a truthy item dedup key; groups with unusable members are independently blocked by `hasMissingMediaItem` (duplicate-review-session.ts:363-394; keep-strategy.ts:23-38).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "395",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 568,
+          "column": 24
+        },
+        "end": {
+          "line": 568,
+          "column": 78
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "this.selectionState.keepDecisionProvenance[group.id]",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The optional provenance-map access is safe after constructor sanitization normalizes persisted selection and provenance state before the decision is resolved (duplicate-review-session.ts:423-488, 566-590).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "403",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 576,
+          "column": 21
+        },
+        "end": {
+          "line": 576,
+          "column": 39
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "provenance.source",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The provenance value is normalized before this access; the optional chain is redundant for accepted session state (duplicate-review-session.ts:423-488, 566-590).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "413",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 588,
+          "column": 17
+        },
+        "end": {
+          "line": 588,
+          "column": 35
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "provenance.source",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The provenance value is normalized before this access; the optional chain is redundant for accepted session state (duplicate-review-session.ts:423-488, 566-590).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "414",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 588,
+          "column": 39
+        },
+        "end": {
+          "line": 588,
+          "column": 57
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "Constructor sanitization creates provenance for every accepted override before `resolveDecision`; this legacy fallback is not reachable for accepted session state (duplicate-review-session.ts:423-488, 585-590).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "442",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 614,
+          "column": 9
+        },
+        "end": {
+          "line": 614,
+          "column": 42
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Removing this undefined-strategy normalization reaches the invalid-strategy guard, which produces the same normalized provenance result (duplicate-review-session.ts:614-627).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "444",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 614,
+          "column": 44
+        },
+        "end": {
+          "line": 618,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "ab84ec414bf237d377231ba514d839c3a5a66835d255380e0c5a023a1ec97f0e",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Removing this normalization block reaches the same invalid-strategy fallback; accepted inputs therefore produce the same normalized provenance (duplicate-review-session.ts:614-627).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "576",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 122,
+          "column": 9
+        },
+        "end": {
+          "line": 122,
+          "column": 19
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The strict largest-resolution branch may pass zero dimensions after this mutation, but its following area check rejects area <= 0; negative dimensions remain rejected by the unchanged checks (keep-strategy.ts:116-129).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "577",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 122,
+          "column": 9
+        },
+        "end": {
+          "line": 122,
+          "column": 19
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "width < 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The strict largest-resolution branch may pass zero dimensions after this mutation, but its following area check rejects area <= 0; negative dimensions remain rejected by the unchanged checks (keep-strategy.ts:116-129).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "579",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 123,
+          "column": 9
+        },
+        "end": {
+          "line": 123,
+          "column": 20
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The strict largest-resolution branch may pass zero dimensions after this mutation, but its following area check rejects area <= 0; negative dimensions remain rejected by the unchanged checks (keep-strategy.ts:116-129).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "580",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 123,
+          "column": 9
+        },
+        "end": {
+          "line": 123,
+          "column": 20
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "height < 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The strict largest-resolution branch may pass zero dimensions after this mutation, but its following area check rejects area <= 0; negative dimensions remain rejected by the unchanged checks (keep-strategy.ts:116-129).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "678",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 238,
+          "column": 38
+        },
+        "end": {
+          "line": 238,
+          "column": 66
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The provenance callback reads a map that is populated only for strategies requiring capture/creation provenance; other strategies retain an empty map and produce the same result (keep-strategy.ts:172-180, 236-248).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "692",
+      "file": "lib/keep-strategy.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 246,
+          "column": 11
+        },
+        "end": {
+          "line": 246,
+          "column": 16
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "true",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "NoCoverage location is a provenance callback for item-level comparison; the callback has no entries for strategies not requiring capture/creation provenance, so no reachable recommendation observes this branch (keep-strategy.ts:172-180, 236-248).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "737",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 306,
+          "column": 7
+        },
+        "end": {
+          "line": 306,
+          "column": 12
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The recommendation returns before this fallback when recommendation evidence reports missing members; the helper receives complete item evidence on the reachable path (keep-strategy.ts:455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "749",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 315,
+          "column": 7
+        },
+        "end": {
+          "line": 315,
+          "column": 12
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The recommendation returns before this fallback when recommendation evidence reports missing members; the helper receives complete item evidence on the reachable path (keep-strategy.ts:455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "752",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 318,
+          "column": 5
+        },
+        "end": {
+          "line": 321,
+          "column": 20
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "(!Number.isFinite(resWidth) || !Number.isFinite(resHeight) || resWidth! <= 0) && resHeight! <= 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "753",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 318,
+          "column": 5
+        },
+        "end": {
+          "line": 320,
+          "column": 19
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "754",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 318,
+          "column": 5
+        },
+        "end": {
+          "line": 320,
+          "column": 19
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "(!Number.isFinite(resWidth) || !Number.isFinite(resHeight)) && resWidth! <= 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "755",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 318,
+          "column": 5
+        },
+        "end": {
+          "line": 319,
+          "column": 32
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "756",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 318,
+          "column": 5
+        },
+        "end": {
+          "line": 319,
+          "column": 32
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "!Number.isFinite(resWidth) && !Number.isFinite(resHeight)",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "759",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 320,
+          "column": 5
+        },
+        "end": {
+          "line": 320,
+          "column": 19
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "760",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 320,
+          "column": 5
+        },
+        "end": {
+          "line": 320,
+          "column": 19
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "resWidth! < 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "762",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 321,
+          "column": 5
+        },
+        "end": {
+          "line": 321,
+          "column": 20
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "763",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 321,
+          "column": 5
+        },
+        "end": {
+          "line": 321,
+          "column": 20
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "resHeight! < 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining dimension checks and final finite, positive area check reject invalid or nonpositive dimensions (keep-strategy.ts:314-326).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "794",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 351,
+          "column": 7
+        },
+        "end": {
+          "line": 351,
+          "column": 12
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The strategy score is evaluated only after the recommendation returns early for missing members; this missing-item fallback is unreachable through the selector (keep-strategy.ts:351, 455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "795",
+      "file": "lib/keep-strategy.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 351,
+          "column": 21
+        },
+        "end": {
+          "line": 351,
+          "column": 37
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "This missing-item object literal is bypassed by the recommendation early return when evidence reports unavailable members (keep-strategy.ts:351, 455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "798",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 354,
+          "column": 14
+        },
+        "end": {
+          "line": 362,
+          "column": 8
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The Best Quality primary-score mutation is recovered by the identical first quality fallback in the default comparator (keep-strategy.ts:347-362, 412-438).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "799",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 356,
+          "column": 11
+        },
+        "end": {
+          "line": 356,
+          "column": 42
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The Best Quality primary-score mutation is recovered by the identical first quality fallback in the default comparator (keep-strategy.ts:347-362, 412-438).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "803",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 358,
+          "column": 15
+        },
+        "end": {
+          "line": 358,
+          "column": 47
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The Best Quality primary-score mutation is recovered by the identical first quality fallback in the default comparator (keep-strategy.ts:347-362, 412-438).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "804",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 358,
+          "column": 15
+        },
+        "end": {
+          "line": 358,
+          "column": 47
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The Best Quality primary-score mutation is recovered by the identical first quality fallback in the default comparator (keep-strategy.ts:347-362, 412-438).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "806",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 358,
+          "column": 42
+        },
+        "end": {
+          "line": 358,
+          "column": 47
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "true",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The Best Quality primary-score mutation is recovered by the identical first quality fallback in the default comparator (keep-strategy.ts:347-362, 412-438).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "834",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 392,
+          "column": 7
+        },
+        "end": {
+          "line": 392,
+          "column": 50
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "(!leftKnown || !rightKnown) && left === right",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparator receives only finite numeric values or undefined from normalized strategy, resolution, file-size, and timestamp signals. Mixed-knownness returns at the preceding guard. For two undefined values, the mutant expression `(!leftKnown || !rightKnown) && left === right` is true and returns zero; equal finite values return zero and unequal finite values still subtract (keep-strategy.ts:305-394).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "835",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 392,
+          "column": 7
+        },
+        "end": {
+          "line": 392,
+          "column": 32
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparator receives only finite numeric values or undefined from normalized strategy, resolution, file-size, and timestamp signals. Mixed-knownness returns at the preceding guard. This mutant changes only the first `!leftKnown || !rightKnown` subexpression to false; the `left === right` disjunct remains, so two undefined values and equal finite values return zero, while unequal finite values still subtract (keep-strategy.ts:305-394).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "836",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 392,
+          "column": 7
+        },
+        "end": {
+          "line": 392,
+          "column": 32
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "!leftKnown && !rightKnown",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparator receives only finite numeric values or undefined from normalized strategy, resolution, file-size, and timestamp signals. Mixed-knownness returns at the preceding guard. For two undefined values, the mutant expression `!leftKnown && !rightKnown || left === right` is true and returns zero; equal finite values return zero and unequal finite values still subtract (keep-strategy.ts:305-394).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "839",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 392,
+          "column": 36
+        },
+        "end": {
+          "line": 392,
+          "column": 50
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparator receives only finite numeric values or undefined from normalized strategy, resolution, file-size, and timestamp signals. Mixed-knownness returns at the preceding guard, and for two undefined values the earlier `!leftKnown || !rightKnown` terms still return zero. This mutant removes only `left === right`; equal finite values then subtract to zero, while unequal finite values still subtract (keep-strategy.ts:305-394).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "852",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 418,
+          "column": 7
+        },
+        "end": {
+          "line": 418,
+          "column": 30
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "left.isOriginalQuality",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The optional-chain mutation differs only when comparator items are missing; recommendation evidence exits before comparison for groups with missing members (keep-strategy.ts:418, 455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "857",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 420,
+          "column": 11
+        },
+        "end": {
+          "line": 420,
+          "column": 34
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "left.isOriginalQuality",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The optional-chain mutation differs only when comparator items are missing; recommendation evidence exits before comparison for groups with missing members (keep-strategy.ts:420, 455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "862",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 423,
+          "column": 7
+        },
+        "end": {
+          "line": 423,
+          "column": 31
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "right.isOriginalQuality",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The optional-chain mutation differs only when comparator items are missing; recommendation evidence exits before comparison for groups with missing members (keep-strategy.ts:423, 455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "867",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 425,
+          "column": 11
+        },
+        "end": {
+          "line": 425,
+          "column": 35
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "right.isOriginalQuality",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The optional-chain mutation differs only when comparator items are missing; recommendation evidence exits before comparison for groups with missing members (keep-strategy.ts:425, 455-468).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "881",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 442,
+          "column": 10
+        },
+        "end": {
+          "line": 442,
+          "column": 28
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "leftKey <= rightKey",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The public selector deduplicates media keys with `Set`, so the changed equality comparison cannot observe duplicate keys (keep-strategy.ts:442, 475-485).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "884",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 442,
+          "column": 36
+        },
+        "end": {
+          "line": 442,
+          "column": 54
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparison result changes only for distinct lexical keys where positive versus zero both leave the current incumbent unchanged at the sole `< 0` consumer; the reverse lexical order still returns -1 (keep-strategy.ts:442, 477-486).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "885",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 442,
+          "column": 36
+        },
+        "end": {
+          "line": 442,
+          "column": 54
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparison result changes only for distinct lexical keys where positive versus zero both leave the current incumbent unchanged at the sole `< 0` consumer; the reverse lexical order still returns -1 (keep-strategy.ts:442, 477-486).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "886",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 442,
+          "column": 36
+        },
+        "end": {
+          "line": 442,
+          "column": 54
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "leftKey >= rightKey",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparison result changes only for distinct lexical keys where positive versus zero both leave the current incumbent unchanged at the sole `< 0` consumer; the reverse lexical order still returns -1 (keep-strategy.ts:442, 477-486).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "887",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 442,
+          "column": 36
+        },
+        "end": {
+          "line": 442,
+          "column": 54
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "leftKey <= rightKey",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The comparison result changes only for distinct lexical keys where positive versus zero both leave the current incumbent unchanged at the sole `< 0` consumer; the reverse lexical order still returns -1 (keep-strategy.ts:442, 477-486).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "906",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 477,
+          "column": 30
+        },
+        "end": {
+          "line": 477,
+          "column": 52
+        }
+      },
+      "mutatorName": "MethodExpression",
+      "replacement": "candidateKeys",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Adding the initial keeper to its own comparison leaves the comparator result zero, which does not replace the incumbent; candidate keys are unique after `Set` construction (keep-strategy.ts:475-485).",
+      "reviewer": "Independent source/model audit"
+    },
+    {
+      "id": "910",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 479,
+          "column": 7
+        },
+        "end": {
+          "line": 484,
+          "column": 12
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "compareDefaultCandidate(candidateKey, keptMediaKey, mediaItems, strategy) <= 0",
+      "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Distinct keys from the `Set` receive a nonzero final lexical tie-break, so changing `< 0` to `<= 0` has no effect at this comparison (keep-strategy.ts:442, 475-485).",
+      "reviewer": "Independent source/model audit"
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { buildDeleteReport, type DeleteReport } from "./delete-report"
 import { classifyDuplicateGroup } from "./duplicate-classifier"
 import {
+  isUsableMediaItemForKey,
   recommendDefaultKeepForGroup,
   type KeepRecommendation,
   type KeepStrategy
@@ -107,6 +108,50 @@ function sameMediaKeySet(left: Set<string>, right: Set<string>): boolean {
   return left.size === right.size && [...left].every((key) => right.has(key))
 }
 
+function isNonblankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+function validatedUniqueGroups(value: unknown): DuplicateGroup[] {
+  if (!Array.isArray(value)) return []
+
+  const idCounts = new Map<string, number>()
+  for (const candidate of value) {
+    if (!isRecord(candidate) || !isNonblankString(candidate.id)) continue
+    idCounts.set(candidate.id, (idCounts.get(candidate.id) ?? 0) + 1)
+  }
+
+  return value.filter((candidate): candidate is DuplicateGroup => {
+    if (!isRecord(candidate) || !isNonblankString(candidate.id)) return false
+    if (
+      typeof candidate.similarity !== "number" ||
+      !Number.isFinite(candidate.similarity) ||
+      candidate.similarity < 0 ||
+      candidate.similarity > 1
+    ) {
+      return false
+    }
+    if (idCounts.get(candidate.id) !== 1 || !Array.isArray(candidate.mediaKeys)) {
+      return false
+    }
+    const memberKeys = candidate.mediaKeys
+    if (memberKeys.length < 2) return false
+    for (let index = 0; index < memberKeys.length; index += 1) {
+      if (
+        !Object.prototype.hasOwnProperty.call(memberKeys, index) ||
+        !isNonblankString(memberKeys[index])
+      ) {
+        return false
+      }
+    }
+    return new Set(memberKeys).size === memberKeys.length
+  })
+}
+
 function defaultSelections(): DuplicateReviewSelections {
   return {
     selectedGroupIds: new Set(),
@@ -127,10 +172,10 @@ export class DuplicateReviewSession {
   private readonly defaultStrategy: KeepStrategy
 
   constructor(params: DuplicateReviewSessionParams) {
-    this.groups = params.groups
+    this.groups = validatedUniqueGroups(params.groups)
     this.mediaItems = params.mediaItems
     this.defaultStrategy = params.defaultStrategy ?? "best_quality"
-    this.groupsById = new Map(params.groups.map((group) => [group.id, group]))
+    this.groupsById = new Map(this.groups.map((group) => [group.id, group]))
     this.selectionState = this.sanitize(
       params.selections ?? defaultSelections()
     )
@@ -180,7 +225,16 @@ export class DuplicateReviewSession {
         break
       case "toggle_kept": {
         const group = this.groupsById.get(action.groupId)
-        if (!group || !group.mediaKeys.includes(action.mediaKey)) break
+        if (
+          !group ||
+          !group.mediaKeys.includes(action.mediaKey) ||
+          !isUsableMediaItemForKey(
+            this.mediaItems[action.mediaKey],
+            action.mediaKey
+          )
+        ) {
+          break
+        }
         const kept = new Set(this.resolveKept(group))
         if (kept.has(action.mediaKey) && kept.size === 1) {
           current.selectedGroupIds.add(group.id)
@@ -306,8 +360,10 @@ export class DuplicateReviewSession {
     // Trash through one row while another row acts as its apparent keeper.
     for (const candidateGroup of this.groups) {
       const candidateItems = candidateGroup.mediaKeys
-        .map((mediaKey) => this.mediaItems[mediaKey])
-        .filter((item): item is GpdMediaItem => Boolean(item))
+        .flatMap((mediaKey) => {
+          const item = this.mediaItems[mediaKey]
+          return isUsableMediaItemForKey(item, mediaKey) ? [item] : []
+        })
       for (const item of candidateItems) {
         dedupKeyCounts.set(
           item.dedupKey,
@@ -316,16 +372,23 @@ export class DuplicateReviewSession {
       }
     }
 
-    for (const group of groups) {
+    for (const candidate of validatedUniqueGroups(groups)) {
+      const group = this.groupsById.get(candidate.id)
+      if (!group) continue
       if (!this.selectionState.selectedGroupIds.has(group.id)) continue
       const kept = this.keptFor(group)
       const classification = classifyDuplicateGroup(group, this.mediaItems)
+      const hasMissingMediaItem = group.mediaKeys.some(
+        (mediaKey) =>
+          !isUsableMediaItemForKey(this.mediaItems[mediaKey], mediaKey)
+      )
       for (const mediaKey of group.mediaKeys) {
         if (kept.has(mediaKey)) continue
         const item = this.mediaItems[mediaKey]
         if (!item?.dedupKey) continue
 
         const blocked =
+          hasMissingMediaItem ||
           isConfirmedFavorite(item) ||
           !classification.canProposeTrash ||
           (dedupKeyCounts.get(item.dedupKey) ?? 0) > 1
@@ -432,11 +495,15 @@ export class DuplicateReviewSession {
     for (const [groupId, keys] of Object.entries(suppliedOverrides)) {
       const group = this.groupsById.get(groupId)
       if (!group) continue
-      const validMediaKeys = new Set(group.mediaKeys)
+      const validMediaKeys = new Set(
+        group.mediaKeys.filter((key) =>
+          isUsableMediaItemForKey(this.mediaItems[key], key)
+        )
+      )
       const filtered = [...keys].filter((key) => validMediaKeys.has(key))
       const provenance = this.normalizeProvenance(suppliedProvenance[groupId])
       if (provenance?.source === "stale_fallback") {
-        keptOverrides[groupId] = new Set(group.mediaKeys)
+        keptOverrides[groupId] = validMediaKeys
         keepDecisionProvenance[groupId] = provenance
       } else if (keys.size === 0) {
         keptOverrides[groupId] = new Set()
@@ -447,10 +514,10 @@ export class DuplicateReviewSession {
         keepDecisionProvenance[groupId] =
           provenance ?? { source: "legacy_preserved" }
       } else {
-        // A saved choice whose keys no longer exist must fail safe. Keeping
-        // every current member preserves review intent without authorizing a
-        // new single-copy Trash proposal.
-        keptOverrides[groupId] = new Set(group.mediaKeys)
+        // A saved choice whose keys are unavailable must fail safe. Keeping
+        // every current usable member preserves review intent without
+        // authorizing a new single-copy Trash proposal.
+        keptOverrides[groupId] = validMediaKeys
         keepDecisionProvenance[groupId] = { source: "stale_fallback" }
       }
       // Review completion is explicit persisted state. A manual or legacy
@@ -474,9 +541,13 @@ export class DuplicateReviewSession {
         continue
       }
       // Provenance without a validated keeper list cannot authorize a new
-      // Trash proposal. Keep all current members until the user makes a new
-      // choice, while leaving ordinary legacy no-override snapshots intact.
-      keptOverrides[group.id] = new Set(group.mediaKeys)
+      // Trash proposal. Keep all current usable members until the user makes
+      // a new choice, while leaving ordinary legacy no-override snapshots intact.
+      keptOverrides[group.id] = new Set(
+        group.mediaKeys.filter((key) =>
+          isUsableMediaItemForKey(this.mediaItems[key], key)
+        )
+      )
       keepDecisionProvenance[group.id] = { source: "stale_fallback" }
     }
 

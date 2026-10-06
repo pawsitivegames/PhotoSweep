@@ -389,6 +389,111 @@ describe("keep strategy", () => {
     })
   })
 
+  it.each([
+    {
+      label: "a mis-keyed record",
+      invalidRecord: item("different-key", { isOriginalQuality: true })
+    },
+    {
+      label: "a record without a dedup key",
+      invalidRecord: {
+        ...item("a", { isOriginalQuality: true }),
+        dedupKey: undefined
+      } as unknown as GpdMediaItem
+    },
+    {
+      label: "a record with a blank dedup key",
+      invalidRecord: item("a", {
+        dedupKey: " \t",
+        isOriginalQuality: true
+      })
+    },
+    {
+      label: "a truthy non-object value",
+      invalidRecord: "corrupt-record" as unknown as GpdMediaItem
+    }
+  ])("treats $label as missing recommendation evidence", ({ invalidRecord }) => {
+    const mediaItems = {
+      a: invalidRecord,
+      b: item("b", { isOriginalQuality: false })
+    } as unknown as Record<string, GpdMediaItem>
+    const recommendation = recommendKeepForGroup(
+      pairGroup,
+      mediaItems,
+      "best_quality"
+    )
+    const defaultRecommendation = recommendDefaultKeepForGroup(
+      pairGroup,
+      mediaItems,
+      "best_quality"
+    )
+
+    expect(recommendation).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      keptMediaKeys: ["a", "b"],
+      evidence: {
+        comparedMediaKeys: ["b"],
+        missingMediaKeys: ["a"]
+      }
+    })
+    expect(defaultRecommendation).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      keptMediaKeys: ["b"]
+    })
+  })
+
+  it("treats a whitespace group key as missing even when a record echoes it", () => {
+    const whitespaceKeyGroup: DuplicateGroup = {
+      ...pairGroup,
+      mediaKeys: [" ", "b"]
+    }
+    const recommendation = recommendDefaultKeepForGroup(
+      whitespaceKeyGroup,
+      {
+        " ": item(" ", {
+          dedupKey: "dedup-space",
+          isOriginalQuality: true
+        }),
+        b: item("b", { isOriginalQuality: false })
+      },
+      "best_quality"
+    )
+
+    expect(recommendation).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      keptMediaKeys: ["b"],
+      evidence: {
+        comparedMediaKeys: ["b"],
+        missingMediaKeys: [" "]
+      }
+    })
+  })
+
+  it("treats non-string group member keys as missing recommendation evidence", () => {
+    const malformedGroup = {
+      ...pairGroup,
+      mediaKeys: [null, 17, "b"]
+    } as unknown as DuplicateGroup
+
+    const recommendation = recommendKeepForGroup(
+      malformedGroup,
+      { b: item("b", { isOriginalQuality: false }) },
+      "best_quality"
+    )
+
+    expect(recommendation).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      evidence: {
+        comparedMediaKeys: ["b"],
+        missingMediaKeys: [null, 17]
+      }
+    })
+  })
+
   it("treats zero resolution dimensions as invalid evidence", () => {
     for (const dimensions of [
       { resWidth: 0, resHeight: 1000 },
@@ -469,7 +574,7 @@ describe("keep strategy", () => {
     expect(permuted.keptMediaKeys).toEqual(["b"])
   })
 
-  it("chooses one deterministic default keeper from ties and incomplete metadata", () => {
+  it("keeps all present members when a group is missing an item", () => {
     const tiedGroup: DuplicateGroup = {
       ...pairGroup,
       mediaKeys: ["z", "missing", "a"]
@@ -494,9 +599,9 @@ describe("keep strategy", () => {
     )
 
     expect(recommendation).toMatchObject({
-      status: "recommended",
-      reasonCode: "deterministic_tiebreak",
-      keptMediaKeys: ["a"]
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      keptMediaKeys: ["z", "a"]
     })
   })
 

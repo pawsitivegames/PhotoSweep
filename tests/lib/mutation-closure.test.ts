@@ -607,7 +607,7 @@ describe("mutation closure: duplicate review session", () => {
     ).toEqual(new Set(["b"]))
   })
 
-  it("plans iCloud trash with exact asset references and filters missing identities", () => {
+  it("blocks incomplete iCloud trash plans and preserves complete asset references", () => {
     const g = group("icloud", "keep", "trash", "noAsset", "missing")
     const mediaItems: Record<string, GpdMediaItem> = {
       keep: item("keep", { provider: "icloud", isOriginalQuality: true }),
@@ -635,7 +635,24 @@ describe("mutation closure: duplicate review session", () => {
         keptOverrides: { [g.id]: new Set(["keep"]) }
       }
     })
-    expect(review.trashPlan()).toEqual({
+    expect(review.trashPlan()).toMatchObject({
+      dedupKeys: [],
+      mediaKeysToTrash: [],
+      blockedMediaKeys: ["trash", "noAsset"],
+      blockedGroupIds: [g.id]
+    })
+
+    const completeGroup = group("icloud-complete", "keep", "trash", "noAsset")
+    const completeReview = new DuplicateReviewSession({
+      groups: [completeGroup],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set([completeGroup.id]),
+        reviewedGroupIds: new Set([completeGroup.id]),
+        keptOverrides: { [completeGroup.id]: new Set(["keep"]) }
+      }
+    })
+    expect(completeReview.trashPlan()).toEqual({
       dedupKeys: ["dedup-trash", "dedup-noAsset"],
       mediaKeysToTrash: ["trash", "noAsset"],
       blockedMediaKeys: [],
@@ -709,7 +726,7 @@ describe("mutation closure: duplicate review session", () => {
     })
   })
 
-  it("never emits a trash identity for a non-keeper without a dedup key", () => {
+  it("blocks the group when a member has no usable dedup key", () => {
     const g = group("missing-dedup", "keep", "unknown", "trash")
     const mediaItems = {
       keep: item("keep", { isOriginalQuality: true }),
@@ -730,10 +747,10 @@ describe("mutation closure: duplicate review session", () => {
     })
 
     expect(review.trashPlan()).toEqual({
-      dedupKeys: ["dedup-trash"],
-      mediaKeysToTrash: ["trash"],
-      blockedMediaKeys: [],
-      blockedGroupIds: [],
+      dedupKeys: [],
+      mediaKeysToTrash: [],
+      blockedMediaKeys: ["trash"],
+      blockedGroupIds: [g.id],
       provider: "google"
     })
   })

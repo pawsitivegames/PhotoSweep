@@ -10,6 +10,8 @@ CONSTANTS
   \* @type: Set(Str);
   Members,
   \* @type: Set(Str);
+  MissingMembers,
+  \* @type: Set(Str);
   Strategies,
   \* @type: Str;
   BestQuality,
@@ -79,6 +81,12 @@ GroupMembers ==
     ELSE IF group = Group2 THEN {AssetD, AssetE}
     ELSE {AssetF}]
 
+(* MissingMembers abstracts keys with no usable current record, including an
+   absent mapping or a row whose mediaKey/dedupKey identity is invalid. *)
+PresentMembers(group) == GroupMembers[group] \ MissingMembers
+
+IncompleteGroup(group) == GroupMembers[group] \cap MissingMembers # {}
+
 StableKeyOrder(member) ==
   IF member = AssetA THEN 1
   ELSE IF member = AssetB THEN 2
@@ -130,12 +138,15 @@ BestMember(strategy, group) ==
       other = member \/ Preferred(strategy, member, other)
 
 StrategyKeepers(strategy) ==
-  [group \in Groups |-> {BestMember(strategy, group)}]
+  [group \in Groups |->
+    IF IncompleteGroup(group)
+    THEN PresentMembers(group)
+    ELSE {BestMember(strategy, group)}]
 
 ExpectedTrashTargets(included, currentKeepers) ==
   [group \in Groups |->
-    IF group \in included
-    THEN GroupMembers[group] \ currentKeepers[group]
+    IF group \in included /\ ~IncompleteGroup(group)
+    THEN PresentMembers(group) \ currentKeepers[group]
     ELSE {}]
 
 PassiveDefaultKeeper(group, strategy) ==
@@ -157,8 +168,8 @@ PassiveDefaultSources ==
 BulkChangedPlanGroups(strategy) ==
   {group \in EligibleGroups :
     group \notin includedGroups \/
-      (GroupMembers[group] \ keepers[group] #
-        (GroupMembers[group] \ StrategyKeepers(strategy)[group]))}
+      (ExpectedTrashTargets(includedGroups, keepers)[group] #
+        ExpectedTrashTargets(EligibleGroups, StrategyKeepers(strategy))[group])}
 
 HasProposedTrash ==
   \E group \in EligibleGroups: trashTargets[group] # {}
@@ -170,14 +181,14 @@ vars == <<selectedStrategy, keepers, decisionSource, manualKeepers,
 
 Init ==
   /\ selectedStrategy = BestQuality
-  /\ keepers = [group \in Groups |-> {BestMember(BestQuality, group)}]
+  /\ keepers = StrategyKeepers(BestQuality)
   /\ decisionSource = [group \in Groups |-> "automatic"]
   /\ manualKeepers = [group \in Groups |-> {}]
   /\ includedGroups = {Group1}
   /\ reviewedGroups = {Group1}
   /\ trashTargets = ExpectedTrashTargets(
        {Group1},
-       [group \in Groups |-> {BestMember(BestQuality, group)}]
+       StrategyKeepers(BestQuality)
      )
   /\ dispatchCount = 0
   /\ confirmedDispatchCount = 0
@@ -205,7 +216,7 @@ BulkApplyStrategy(strategy) ==
 
 ManualChoose(group, keptSet) ==
   /\ group \in EligibleGroups
-  /\ keptSet \subseteq GroupMembers[group]
+  /\ keptSet \subseteq PresentMembers(group)
   /\ keptSet # {}
   /\ dispatchCount = 0
   /\ keepers' = [keepers EXCEPT ![group] = keptSet]
@@ -239,7 +250,7 @@ ManualTrashAll(group) ==
 
 RestoreValidLegacyChoice(group, keptSet) ==
   /\ group \in EligibleGroups
-  /\ keptSet \subseteq GroupMembers[group]
+  /\ keptSet \subseteq PresentMembers(group)
   /\ keptSet # {}
   /\ dispatchCount = 0
   /\ keepers' = [keepers EXCEPT ![group] = keptSet]
@@ -259,16 +270,16 @@ RestoreValidLegacyChoice(group, keptSet) ==
 RestoreStaleKeeperFallback(group) ==
   /\ group \in EligibleGroups
   /\ dispatchCount = 0
-  /\ keepers' = [keepers EXCEPT ![group] = GroupMembers[group]]
+  /\ keepers' = [keepers EXCEPT ![group] = PresentMembers(group)]
   /\ decisionSource' = [decisionSource EXCEPT ![group] = "stale-fallback"]
   /\ manualKeepers' = [manualKeepers EXCEPT ![group] = {}]
   /\ reviewedGroups' =
        reviewedGroups \ {g \in EligibleGroups :
          g = group /\ g \in includedGroups /\
-           keepers[g] # GroupMembers[g]}
+           keepers[g] # PresentMembers(g)}
   /\ trashTargets' = ExpectedTrashTargets(
        includedGroups,
-       [keepers EXCEPT ![group] = GroupMembers[group]]
+       [keepers EXCEPT ![group] = PresentMembers(group)]
      )
   /\ bulkDispatchOccurred' = FALSE
   /\ UNCHANGED <<selectedStrategy, includedGroups, dispatchCount,
@@ -362,6 +373,7 @@ Next ==
 
 TypeOK ==
   /\ selectedStrategy \in Strategies
+  /\ MissingMembers \subseteq Members
   /\ keepers \in [Groups -> SUBSET Members]
   /\ decisionSource \in [Groups -> SourceKinds]
   /\ manualKeepers \in [Groups -> SUBSET Members]
@@ -377,7 +389,9 @@ TypeOK ==
 InvExactlyOneKeeper ==
   \A group \in Groups:
     IF decisionSource[group] = "automatic"
-    THEN Cardinality(keepers[group]) = 1
+    THEN IF IncompleteGroup(group)
+      THEN keepers[group] = PresentMembers(group)
+      ELSE Cardinality(keepers[group]) = 1
     ELSE IF decisionSource[group] = "manual"
       THEN keepers[group] # {}
       ELSE IF decisionSource[group] = "manual-trash-all"
@@ -386,6 +400,9 @@ InvExactlyOneKeeper ==
 
 InvKeeperBelongsToGroup ==
   \A group \in Groups: keepers[group] \subseteq GroupMembers[group]
+
+InvKeeperKeysPresent ==
+  \A group \in Groups: keepers[group] \subseteq PresentMembers(group)
 
 InvGroupsHaveDisjointMembers ==
   \A left \in Groups:
@@ -411,32 +428,33 @@ InvStrictRanking ==
 InvAutomaticKeeperIsBest ==
   \A group \in Groups:
     decisionSource[group] = "automatic" =>
-      keepers[group] = {BestMember(selectedStrategy, group)}
+      keepers[group] = StrategyKeepers(selectedStrategy)[group]
 
 InvDecisionProvenanceConsistent ==
   \A group \in Groups:
     IF decisionSource[group] = "manual"
     THEN /\ manualKeepers[group] # {}
+         /\ manualKeepers[group] \subseteq PresentMembers(group)
          /\ keepers[group] = manualKeepers[group]
     ELSE IF decisionSource[group] = "manual-trash-all"
       THEN /\ manualKeepers[group] = {}
            /\ keepers[group] = {}
       ELSE IF decisionSource[group] = "automatic"
-        THEN /\ manualKeepers[group] = {}
-             /\ keepers[group] = {BestMember(selectedStrategy, group)}
+      THEN /\ manualKeepers[group] = {}
+             /\ keepers[group] = StrategyKeepers(selectedStrategy)[group]
         ELSE IF decisionSource[group] = "legacy-valid"
           THEN /\ manualKeepers[group] = {}
                /\ keepers[group] # {}
-               /\ keepers[group] \subseteq GroupMembers[group]
+               /\ keepers[group] \subseteq PresentMembers(group)
           ELSE IF decisionSource[group] = "stale-fallback"
             THEN /\ manualKeepers[group] = {}
-                 /\ keepers[group] = GroupMembers[group]
+                 /\ keepers[group] = PresentMembers(group)
             ELSE FALSE
 
 InvStaleFallbackKeepsAllCurrentMembers ==
   \A group \in Groups:
     decisionSource[group] = "stale-fallback" =>
-      keepers[group] = GroupMembers[group]
+      keepers[group] = PresentMembers(group)
 
 InvStaleFallbackProposesNoTrash ==
   \A group \in Groups:
@@ -448,10 +466,14 @@ InvNoLockedGroupProposal ==
   /\ \A group \in Groups \ EligibleGroups:
        trashTargets[group] = {}
 
+InvIncompleteGroupProposesNoTrash ==
+  \A group \in Groups:
+    IncompleteGroup(group) => trashTargets[group] = {}
+
 InvLockedGroupImmutable ==
   /\ decisionSource[Group3] = "automatic"
   /\ manualKeepers[Group3] = {}
-  /\ keepers[Group3] = {BestMember(selectedStrategy, Group3)}
+  /\ keepers[Group3] = StrategyKeepers(selectedStrategy)[Group3]
 
 InvProposedTrashTargetsAreExact ==
   trashTargets = ExpectedTrashTargets(includedGroups, keepers)
@@ -459,7 +481,9 @@ InvProposedTrashTargetsAreExact ==
 InvEveryIncludedNonKeeperIsProposed ==
   \A group \in EligibleGroups:
     group \in includedGroups =>
-      trashTargets[group] = GroupMembers[group] \ keepers[group]
+      IF IncompleteGroup(group)
+      THEN trashTargets[group] = {}
+      ELSE trashTargets[group] = PresentMembers(group) \ keepers[group]
 
 InvNoKeeperIsProposedForTrash ==
   \A group \in Groups:
@@ -469,7 +493,9 @@ InvManualTrashAllTargetsAllMedia ==
   \A group \in Groups:
     decisionSource[group] = "manual-trash-all" =>
       trashTargets[group] =
-        IF group \in includedGroups THEN GroupMembers[group] ELSE {}
+        IF group \in includedGroups /\ ~IncompleteGroup(group)
+        THEN PresentMembers(group)
+        ELSE {}
 
 InvBulkStrategyDoesNotDispatchTrash == ~bulkDispatchOccurred
 
@@ -481,6 +507,7 @@ InvSelectionSafety ==
   /\ TypeOK
   /\ InvExactlyOneKeeper
   /\ InvKeeperBelongsToGroup
+  /\ InvKeeperKeysPresent
   /\ InvGroupsHaveDisjointMembers
   /\ InvTotalRanking
   /\ InvStrictRanking
@@ -489,6 +516,7 @@ InvSelectionSafety ==
   /\ InvStaleFallbackKeepsAllCurrentMembers
   /\ InvStaleFallbackProposesNoTrash
   /\ InvNoLockedGroupProposal
+  /\ InvIncompleteGroupProposesNoTrash
   /\ InvLockedGroupImmutable
   /\ InvProposedTrashTargetsAreExact
   /\ InvEveryIncludedNonKeeperIsProposed
@@ -541,7 +569,7 @@ PropPassiveDefaultPreservesStaleFallback ==
           \A group \in Groups:
             decisionSource[group] = "stale-fallback" =>
               /\ decisionSource'[group] = "stale-fallback"
-              /\ keepers'[group] = GroupMembers[group]
+              /\ keepers'[group] = PresentMembers(group)
               /\ trashTargets'[group] = {}]_vars
 
 PropPassiveDefaultRecomputesValidLegacyChoice ==

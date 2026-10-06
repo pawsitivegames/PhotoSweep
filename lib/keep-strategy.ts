@@ -20,6 +20,24 @@ export function isKeepStrategy(value: unknown): value is KeepStrategy {
   return KEEP_STRATEGIES.includes(value as KeepStrategy)
 }
 
+export function isUsableMediaItemForKey(
+  value: unknown,
+  mediaKey: string
+): value is GpdMediaItem {
+  if (typeof mediaKey !== "string" || mediaKey.trim().length === 0) {
+    return false
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false
+  }
+  const item = value as Partial<GpdMediaItem>
+  return (
+    item.mediaKey === mediaKey &&
+    typeof item.dedupKey === "string" &&
+    item.dedupKey.trim().length > 0
+  )
+}
+
 export type KeepRecommendationField =
   | "isOriginalQuality"
   | "resolutionPixels"
@@ -141,8 +159,12 @@ function recommendationEvidence(
   comparisons: Map<string, ComparisonValue>
 } {
   const mediaKeys = [...new Set(group.mediaKeys)]
-  const missingMediaKeys = mediaKeys.filter((key) => !mediaItems[key])
-  const comparedMediaKeys = mediaKeys.filter((key) => Boolean(mediaItems[key]))
+  const missingMediaKeys = mediaKeys.filter(
+    (key) => !isUsableMediaItemForKey(mediaItems[key], key)
+  )
+  const comparedMediaKeys = mediaKeys.filter((key) =>
+    isUsableMediaItemForKey(mediaItems[key], key)
+  )
   const comparisons = new Map<string, ComparisonValue>()
   const values: Record<string, number | boolean | null> = {}
   const provenanceByMediaKey: Record<string, string | null> = {}
@@ -435,7 +457,18 @@ export function recommendDefaultKeepForGroup(
     mediaItems,
     strategy
   )
-  if (group.mediaKeys.length === 0 || strictRecommendation.status === "recommended") {
+  if (group.mediaKeys.length === 0) {
+    return strictRecommendation
+  }
+
+  if (strictRecommendation.evidence.missingMediaKeys.length > 0) {
+    return {
+      ...strictRecommendation,
+      keptMediaKeys: [...strictRecommendation.evidence.comparedMediaKeys]
+    }
+  }
+
+  if (strictRecommendation.status === "recommended") {
     return strictRecommendation
   }
 

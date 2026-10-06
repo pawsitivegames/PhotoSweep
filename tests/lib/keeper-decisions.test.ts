@@ -66,6 +66,496 @@ function hydrateSelections(
 }
 
 describe("keeper decision contract", () => {
+  it("fails closed for missing members while keeping normal Best Quality behavior", () => {
+    const incompleteGroup = group(
+      "incomplete",
+      "0-missing",
+      "b-visible",
+      "z-visible"
+    )
+    const completeGroup = group("complete", "a-best", "z-copy")
+    const groups = [incompleteGroup, completeGroup]
+    const items = {
+      "b-visible": item("b-visible", {
+        isOriginalQuality: null,
+        resWidth: undefined,
+        resHeight: undefined
+      }),
+      "z-visible": item("z-visible", {
+        isOriginalQuality: null,
+        resWidth: undefined,
+        resHeight: undefined
+      }),
+      "a-best": item("a-best", { isOriginalQuality: true }),
+      "z-copy": item("z-copy", { isOriginalQuality: false })
+    }
+    const initial = new DuplicateReviewSession({ groups, mediaItems: items })
+    const selected = initial.update({
+      type: "select_groups",
+      groupIds: groups.map(({ id }) => id)
+    })
+    const restored = new DuplicateReviewSession({
+      groups,
+      mediaItems: items,
+      selections: selected
+    })
+
+    expect(restored.decisionFor(incompleteGroup).recommendation).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      keptMediaKeys: ["b-visible", "z-visible"]
+    })
+    expect(restored.keptFor(incompleteGroup)).toEqual(
+      new Set(["b-visible", "z-visible"])
+    )
+    expect(restored.decisionFor(completeGroup).recommendation).toMatchObject({
+      status: "recommended",
+      reasonCode: "unique_best_value",
+      keptMediaKeys: ["a-best"]
+    })
+    expect(restored.keptFor(completeGroup)).toEqual(new Set(["a-best"]))
+    expect(restored.trashPlan().mediaKeysToTrash).toEqual(["z-copy"])
+
+    const malformedSnapshot = new DuplicateReviewSession({
+      groups: [incompleteGroup],
+      mediaItems: items,
+      selections: {
+        selectedGroupIds: new Set([incompleteGroup.id]),
+        reviewedGroupIds: new Set([incompleteGroup.id]),
+        keptOverrides: {
+          [incompleteGroup.id]: new Set(["0-missing"])
+        },
+        keepDecisionProvenance: {
+          [incompleteGroup.id]: { source: "manual" }
+        }
+      }
+    })
+    expect(malformedSnapshot.keptFor(incompleteGroup)).toEqual(
+      new Set(["b-visible", "z-visible"])
+    )
+    expect(malformedSnapshot.trashPlan().mediaKeysToTrash).toEqual([])
+
+    const incompleteTrashAll = new DuplicateReviewSession({
+      groups: [incompleteGroup],
+      mediaItems: items,
+      selections: {
+        selectedGroupIds: new Set([incompleteGroup.id]),
+        reviewedGroupIds: new Set([incompleteGroup.id]),
+        keptOverrides: { [incompleteGroup.id]: new Set() },
+        keepDecisionProvenance: {
+          [incompleteGroup.id]: { source: "manual" }
+        }
+      }
+    })
+    expect(incompleteTrashAll.trashPlan()).toMatchObject({
+      mediaKeysToTrash: [],
+      blockedMediaKeys: ["b-visible", "z-visible"],
+      blockedGroupIds: [incompleteGroup.id]
+    })
+  })
+
+  it.each([
+    {
+      label: "a mis-keyed record",
+      invalidRecord: item("different-key", { isOriginalQuality: true })
+    },
+    {
+      label: "a record without a dedup key",
+      invalidRecord: {
+        ...item("unusable", { isOriginalQuality: true }),
+        dedupKey: undefined
+      } as unknown as GpdMediaItem
+    },
+    {
+      label: "a record with a blank dedup key",
+      invalidRecord: item("unusable", {
+        dedupKey: " \t",
+        isOriginalQuality: true
+      })
+    },
+    {
+      label: "a truthy non-object value",
+      invalidRecord: "corrupt-record" as unknown as GpdMediaItem
+    },
+    {
+      label: "an explicit null record",
+      invalidRecord: null as unknown as GpdMediaItem
+    }
+  ])("fails closed for $label in review selection and Trash planning", ({ invalidRecord }) => {
+    const incompleteGroup = group(
+      "unusable-member",
+      "unusable",
+      "keep",
+      "trash"
+    )
+    const items = {
+      unusable: invalidRecord,
+      keep: item("keep", { isOriginalQuality: false }),
+      trash: item("trash", { isOriginalQuality: false })
+    } as unknown as Record<string, GpdMediaItem>
+    const automatic = new DuplicateReviewSession({
+      groups: [incompleteGroup],
+      mediaItems: items
+    })
+
+    expect(automatic.decisionFor(incompleteGroup).recommendation).toMatchObject({
+      status: "no_confident_recommendation",
+      reasonCode: "missing_member",
+      evidence: {
+        comparedMediaKeys: ["keep", "trash"],
+        missingMediaKeys: ["unusable"]
+      }
+    })
+    expect(automatic.keptFor(incompleteGroup)).toEqual(
+      new Set(["keep", "trash"])
+    )
+    expect(
+      automatic.update({
+        type: "toggle_kept",
+        groupId: incompleteGroup.id,
+        mediaKey: "unusable"
+      }).keptOverrides[incompleteGroup.id]
+    ).toBeUndefined()
+
+    const malformedOverride = new DuplicateReviewSession({
+      groups: [incompleteGroup],
+      mediaItems: items,
+      selections: {
+        selectedGroupIds: new Set([incompleteGroup.id]),
+        reviewedGroupIds: new Set([incompleteGroup.id]),
+        keptOverrides: {
+          [incompleteGroup.id]: new Set(["unusable"])
+        },
+        keepDecisionProvenance: {
+          [incompleteGroup.id]: { source: "manual" }
+        }
+      }
+    })
+    expect(malformedOverride.keptFor(incompleteGroup)).toEqual(
+      new Set(["keep", "trash"])
+    )
+    expect(
+      malformedOverride.selections.keepDecisionProvenance?.[
+        incompleteGroup.id
+      ]?.source
+    ).toBe("stale_fallback")
+
+    const reviewedWithKeeper = new DuplicateReviewSession({
+      groups: [incompleteGroup],
+      mediaItems: items,
+      selections: {
+        selectedGroupIds: new Set([incompleteGroup.id]),
+        reviewedGroupIds: new Set([incompleteGroup.id]),
+        keptOverrides: {
+          [incompleteGroup.id]: new Set(["keep"])
+        },
+        keepDecisionProvenance: {
+          [incompleteGroup.id]: { source: "manual" }
+        }
+      }
+    })
+    expect(reviewedWithKeeper.trashPlan()).toMatchObject({
+      mediaKeysToTrash: [],
+      blockedMediaKeys: expect.arrayContaining(["trash"]),
+      blockedGroupIds: [incompleteGroup.id]
+    })
+
+    const provenanceOnlyFallback = new DuplicateReviewSession({
+      groups: [incompleteGroup],
+      mediaItems: items,
+      selections: {
+        selectedGroupIds: new Set([incompleteGroup.id]),
+        reviewedGroupIds: new Set([incompleteGroup.id]),
+        keptOverrides: {},
+        keepDecisionProvenance: {
+          [incompleteGroup.id]: { source: "stale_fallback" }
+        }
+      }
+    })
+    expect(provenanceOnlyFallback.keptFor(incompleteGroup)).toEqual(
+      new Set(["keep", "trash"])
+    )
+    expect(provenanceOnlyFallback.trashPlan().mediaKeysToTrash).toEqual([])
+  })
+
+  it.each([
+    { label: "a missing id", id: undefined },
+    { label: "a whitespace-only id", id: " \t" }
+  ])("excludes a group with $label from selection and Trash planning", ({ id }) => {
+    const invalidGroup = {
+      ...group("placeholder", "orphan-keep", "orphan-trash"),
+      id
+    } as unknown as DuplicateGroup
+    const selections = {
+      selectedGroupIds: new Set([id as unknown as string]),
+      reviewedGroupIds: new Set([id as unknown as string]),
+      keptOverrides: {},
+      keepDecisionProvenance: {}
+    }
+    const review = new DuplicateReviewSession({
+      groups: [invalidGroup],
+      mediaItems: {
+        "orphan-keep": item("orphan-keep", { isOriginalQuality: true }),
+        "orphan-trash": item("orphan-trash", { isOriginalQuality: false })
+      },
+      selections
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+  })
+
+  it("excludes every group in a duplicate group-id collision", () => {
+    const first = group("collision", "first-keep", "first-trash")
+    const second = group("collision", "second-keep", "second-trash")
+    const review = new DuplicateReviewSession({
+      groups: [first, second],
+      mediaItems: {
+        "first-keep": item("first-keep", { isOriginalQuality: true }),
+        "first-trash": item("first-trash", { isOriginalQuality: false }),
+        "second-keep": item("second-keep", { isOriginalQuality: true }),
+        "second-trash": item("second-trash", { isOriginalQuality: false })
+      },
+      selections: {
+        selectedGroupIds: new Set(["collision"]),
+        reviewedGroupIds: new Set(["collision"]),
+        keptOverrides: { collision: new Set(["first-keep"]) },
+        keepDecisionProvenance: { collision: { source: "manual" } }
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+  })
+
+  it.each([
+    {
+      label: "blank member keys",
+      memberKeys: ["member-keep", " \t", "member-trash"]
+    },
+    {
+      label: "non-string member keys",
+      memberKeys: ["member-keep", 7, "member-trash"]
+    },
+    {
+      label: "duplicate member keys",
+      memberKeys: ["member-keep", "member-trash", "member-trash"]
+    }
+  ])("excludes groups with $label", ({ memberKeys }) => {
+    const invalidGroup = {
+      ...group("invalid-members", "member-keep", "member-trash"),
+      mediaKeys: [...memberKeys]
+    } as unknown as DuplicateGroup
+    const validGroup = group("valid-members", "valid-keep", "valid-trash")
+    const review = new DuplicateReviewSession({
+      groups: [invalidGroup, validGroup],
+      mediaItems: {
+        "member-keep": item("member-keep", { isOriginalQuality: true }),
+        "member-trash": item("member-trash", { isOriginalQuality: false }),
+        "valid-keep": item("valid-keep", { isOriginalQuality: true }),
+        "valid-trash": item("valid-trash", { isOriginalQuality: false })
+      },
+      selections: {
+        selectedGroupIds: new Set(["invalid-members", "valid-members"]),
+        reviewedGroupIds: new Set(["invalid-members", "valid-members"]),
+        keptOverrides: {
+          "invalid-members": new Set(["member-keep"]),
+          "valid-members": new Set(["valid-keep"])
+        },
+        keepDecisionProvenance: {
+          "invalid-members": { source: "manual" },
+          "valid-members": { source: "manual" }
+        }
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set(["valid-members"]))
+    expect(review.trashPlan().mediaKeysToTrash).toEqual(["valid-trash"])
+    expect(review.trashPlan().blockedGroupIds).toEqual([])
+  })
+
+  it("does not propose a shared provider identity from one group while another group keeps it", () => {
+    const firstGroup = group("shared-first", "keep-first", "trash-shared")
+    const secondGroup = group("shared-second", "keep-shared", "trash-second")
+    const items = {
+      "keep-first": item("keep-first", { isOriginalQuality: true }),
+      "trash-shared": item("trash-shared", {
+        dedupKey: "provider-shared-identity",
+        isOriginalQuality: false
+      }),
+      "keep-shared": item("keep-shared", {
+        dedupKey: "provider-shared-identity",
+        isOriginalQuality: true
+      }),
+      "trash-second": item("trash-second", { isOriginalQuality: false })
+    }
+    const review = new DuplicateReviewSession({
+      groups: [firstGroup, secondGroup],
+      mediaItems: items,
+      selections: {
+        selectedGroupIds: new Set([firstGroup.id, secondGroup.id]),
+        reviewedGroupIds: new Set([firstGroup.id, secondGroup.id]),
+        keptOverrides: {
+          [firstGroup.id]: new Set(["keep-first"]),
+          [secondGroup.id]: new Set(["keep-shared"])
+        }
+      }
+    })
+
+    expect(review.trashPlan()).toMatchObject({
+      dedupKeys: ["dedup-trash-second"],
+      mediaKeysToTrash: ["trash-second"],
+      blockedMediaKeys: ["trash-shared"],
+      blockedGroupIds: [firstGroup.id]
+    })
+  })
+
+  it("excludes singleton groups with a persisted empty keeper override", () => {
+    const singletonGroup = group("singleton", "only-member")
+    const review = new DuplicateReviewSession({
+      groups: [singletonGroup],
+      mediaItems: {
+        "only-member": item("only-member", { isOriginalQuality: true })
+      },
+      selections: {
+        selectedGroupIds: new Set(["singleton"]),
+        reviewedGroupIds: new Set(["singleton"]),
+        keptOverrides: { singleton: new Set() },
+        keepDecisionProvenance: { singleton: { source: "manual" } }
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+    expect(review.trashPlan([singletonGroup]).mediaKeysToTrash).toEqual([])
+  })
+
+  it("excludes sparse member arrays before a persisted keeper can propose Trash", () => {
+    const mediaKeys = new Array<string>(3)
+    mediaKeys[1] = "sparse-keep"
+    mediaKeys[2] = "sparse-trash"
+    const sparseGroup = {
+      ...group("sparse", "sparse-keep", "sparse-trash"),
+      mediaKeys
+    }
+    const review = new DuplicateReviewSession({
+      groups: [sparseGroup],
+      mediaItems: {
+        "sparse-keep": item("sparse-keep", { isOriginalQuality: true }),
+        "sparse-trash": item("sparse-trash", { isOriginalQuality: false })
+      },
+      selections: {
+        selectedGroupIds: new Set(["sparse"]),
+        reviewedGroupIds: new Set(["sparse"]),
+        keptOverrides: { sparse: new Set(["sparse-keep"]) },
+        keepDecisionProvenance: { sparse: { source: "manual" } }
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+  })
+
+  it.each([
+    { label: "missing", similarity: undefined, omitted: true },
+    { label: "NaN", similarity: Number.NaN },
+    { label: "positive Infinity", similarity: Number.POSITIVE_INFINITY },
+    { label: "negative Infinity", similarity: Number.NEGATIVE_INFINITY },
+    { label: "below zero", similarity: -0.01 },
+    { label: "above one", similarity: 1.01 }
+  ])("excludes groups with $label similarity before keep/Trash state", ({
+    similarity,
+    omitted
+  }) => {
+    const invalidGroup = group(
+      "invalid-similarity",
+      "similarity-keep",
+      "similarity-trash"
+    )
+    if (omitted) delete (invalidGroup as Partial<DuplicateGroup>).similarity
+    else invalidGroup.similarity = similarity as number
+
+    const review = new DuplicateReviewSession({
+      groups: [invalidGroup],
+      mediaItems: {
+        "similarity-keep": item("similarity-keep", {
+          isOriginalQuality: true
+        }),
+        "similarity-trash": item("similarity-trash", {
+          isOriginalQuality: false
+        })
+      },
+      selections: {
+        selectedGroupIds: new Set(["invalid-similarity"]),
+        reviewedGroupIds: new Set(["invalid-similarity"]),
+        keptOverrides: {
+          "invalid-similarity": new Set(["similarity-keep"])
+        },
+        keepDecisionProvenance: {
+          "invalid-similarity": { source: "manual" }
+        }
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+  })
+
+  it("accepts similarity values at both inclusive bounds", () => {
+    const zeroSimilarity = group("similarity-zero", "zero-keep", "zero-trash")
+    const fullSimilarity = group("similarity-one", "one-keep", "one-trash")
+    zeroSimilarity.similarity = 0
+    fullSimilarity.similarity = 1
+    const review = new DuplicateReviewSession({
+      groups: [zeroSimilarity, fullSimilarity],
+      mediaItems: {
+        "zero-keep": item("zero-keep", { isOriginalQuality: true }),
+        "zero-trash": item("zero-trash", { isOriginalQuality: false }),
+        "one-keep": item("one-keep", { isOriginalQuality: true }),
+        "one-trash": item("one-trash", { isOriginalQuality: false })
+      },
+      selections: {
+        selectedGroupIds: new Set([zeroSimilarity.id, fullSimilarity.id]),
+        reviewedGroupIds: new Set(),
+        keptOverrides: {},
+        keepDecisionProvenance: {}
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(
+      new Set([zeroSimilarity.id, fullSimilarity.id])
+    )
+  })
+
+  it("ignores non-object group entries without throwing", () => {
+    const review = new DuplicateReviewSession({
+      groups: [null, "truthy"] as unknown as DuplicateGroup[],
+      mediaItems: {}
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+  })
+
+  it("ignores valid groups that do not belong to this review session", () => {
+    const review = new DuplicateReviewSession({
+      groups: [g1],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set([g1.id]),
+        reviewedGroupIds: new Set([g1.id]),
+        keptOverrides: { [g1.id]: new Set(["b"]) },
+        keepDecisionProvenance: { [g1.id]: { source: "manual" } }
+      }
+    })
+    const foreignGroup = group("foreign", "a", "c")
+
+    const plan = review.trashPlan([foreignGroup])
+
+    expect(plan.mediaKeysToTrash).toEqual([])
+    expect(plan.dedupKeys).toEqual([])
+  })
+
   it("uses deterministic fallback metadata when automatic quality evidence is insufficient", () => {
     const uncertainItems = {
       a: item("a", { isOriginalQuality: null }),
@@ -211,6 +701,39 @@ describe("keeper decision contract", () => {
       "c",
       "d"
     ])
+  })
+
+  it("retains review when an explicit strategy preserves an empty keeper set", () => {
+    const unavailableGroup = group("unavailable-manual-trash", "missing-a", "missing-b")
+    const manuallyReviewed = new DuplicateReviewSession({
+      groups: [unavailableGroup],
+      mediaItems: {},
+      selections: {
+        selectedGroupIds: new Set([unavailableGroup.id]),
+        reviewedGroupIds: new Set([unavailableGroup.id]),
+        keptOverrides: { [unavailableGroup.id]: new Set() },
+        keepDecisionProvenance: {
+          [unavailableGroup.id]: { source: "manual" }
+        }
+      }
+    })
+
+    const applied = new DuplicateReviewSession(
+      {
+        groups: [unavailableGroup],
+        mediaItems: {},
+        selections: manuallyReviewed.update({
+          type: "apply_keep_strategy",
+          groupIds: [unavailableGroup.id],
+          strategy: "best_quality",
+          overrideManualChoices: true
+        })
+      }
+    )
+
+    expect(applied.keptFor(unavailableGroup)).toEqual(new Set())
+    expect(applied.reviewedGroupIds).toEqual(new Set([unavailableGroup.id]))
+    expect(applied.trashPlan().mediaKeysToTrash).toEqual([])
   })
 
   it("preserves only explicit manual-empty overrides across hydration and default reapplication", () => {
@@ -632,7 +1155,7 @@ describe("keeper decision contract", () => {
     expect(updated.decisionFor(g1).source).toBe("automatic")
   })
 
-  it("preserves exact empty-set equality for an empty legacy group", () => {
+  it("excludes empty groups before restoring persisted review state", () => {
     const emptyGroup = group("empty")
     const initial = new DuplicateReviewSession({
       groups: [emptyGroup],
@@ -655,11 +1178,13 @@ describe("keeper decision contract", () => {
       })
     })
 
-    expect(updated.reviewedGroupIds).toEqual(new Set(["empty"]))
-    expect(updated.decisionFor(emptyGroup).source).toBe("legacy_preserved")
+    expect(updated.selectedGroupIds).toEqual(new Set())
+    expect(updated.reviewedGroupIds).toEqual(new Set())
+    expect(updated.keptByGroupId.has("empty")).toBe(false)
+    expect(updated.trashPlan([emptyGroup]).mediaKeysToTrash).toEqual([])
   })
 
-  it("keeps empty groups reviewed when a strategy leaves keeper and trash sets empty", () => {
+  it("excludes empty groups from keeper, review, and Trash state", () => {
     const emptyGroup = group("empty")
     const initial = new DuplicateReviewSession({
       groups: [emptyGroup],
@@ -680,8 +1205,9 @@ describe("keeper decision contract", () => {
       })
     })
 
-    expect(updated.reviewedGroupIds).toEqual(new Set(["empty"]))
-    expect(updated.keptFor(emptyGroup)).toEqual(new Set())
+    expect(updated.selectedGroupIds).toEqual(new Set())
+    expect(updated.reviewedGroupIds).toEqual(new Set())
+    expect(updated.keptByGroupId.has("empty")).toBe(false)
     expect(updated.trashPlan([emptyGroup]).mediaKeysToTrash).toEqual([])
 
     const automatic = new DuplicateReviewSession({
@@ -706,11 +1232,9 @@ describe("keeper decision contract", () => {
       })
     })
 
-    expect(reapplied.reviewedGroupIds).toEqual(new Set(["empty"]))
-    expect(reapplied.decisionFor(emptyGroup)).toMatchObject({
-      source: "automatic",
-      strategy: "largest_resolution"
-    })
+    expect(reapplied.selectedGroupIds).toEqual(new Set())
+    expect(reapplied.reviewedGroupIds).toEqual(new Set())
+    expect(reapplied.keepDecisionByGroupId.has("empty")).toBe(false)
   })
 
   it("recomputes nonempty groups with an empty legacy keeper override", () => {
