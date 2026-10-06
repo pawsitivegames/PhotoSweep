@@ -2,22 +2,23 @@
 
 ## Current source and release-gate status — 2026-10-06
 
-The latest `main` source SHA bound to CI and Fast in this snapshot is `e5eabd118b243ff9f39d716c0bc4101d2d3eb2c3` (application-source SHA `08e48880384becd33944de93cf5a080c6210785b`; target Chrome version `2.3.0.3`). Nightly passed on that application-source SHA. These automation results do not establish live-provider, installed-package, payment, or store behavior.
+The latest `main` commit with CI and Fast evidence in this snapshot is `3728569769add25f654c9858b10a0d38b43f44ef` (application-source SHA `08e48880384becd33944de93cf5a080c6210785b`; target Chrome version `2.3.0.3`). Nightly passed on the same application-source SHA. These automation results do not establish live-provider, installed-package, payment, or store behavior.
 
 | Gate | Status | Current evidence and boundary |
 | --- | --- | --- |
-| GitHub CI | **PASS** | [CI run 37530260356](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37530260356) passed on source SHA `e5eabd118b243ff9f39d716c0bc4101d2d3eb2c3`. |
-| Fast Verification | **PASS - scoped** | [Fast run 37530260238](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37530260238) passed 40/40 evidence entries on source SHA `e5eabd118b243ff9f39d716c0bc4101d2d3eb2c3`. Registered-source fingerprint: `a88332ae…`. This is scoped verification, not live-provider or exact-package behavior. |
+| GitHub CI | **PASS** | [CI run 37535574130](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37535574130) passed on main commit `3728569769add25f654c9858b10a0d38b43f44ef`. |
+| Fast Verification | **PASS - scoped** | [Verification Scopes run 37535574123](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37535574123) passed its Fast verification job on main commit `3728569769add25f654c9858b10a0d38b43f44ef`. Artifact `verification-fast-37535574123`: 40/40 evidence entries across 7 commands, `sourceDrift=false`, fingerprint `a88332ae810fe22e4b08a1b7413452d347e0149ac8a356d7341919d334d144a1` across 297 files. This is scoped verification, not live-provider or exact-package behavior. |
 | Nightly verification | **PASS - scoped** | [Nightly run 37524353441](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37524353441) passed on application-source SHA `08e48880384becd33944de93cf5a080c6210785b`: 1,150 tests passed; TLC, SAFE-01, and SAFE-12 passed; mutation score 94.66% with mutation policy **VALID**. |
 | Amazon video playback across claimed/configured regions | **BLOCKER** | The user requires support in every claimed region. No supported playback routes have been proven across the configured regions outside Canada; do not claim all-region parity without exact-package evidence. |
 | GitHub release-key configuration | **BLOCKED** | GitHub secret `PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY` is absent. The public-key derivation path has been provided to the user; no secret values are recorded here. |
 | Exact-package provider, video, and mutation evidence | **UNVERIFIED** | Live provider round trips, Trash/Undo mutations, video playback, and mutation evidence have not been demonstrated against the exact release package. |
 | Completed-results runtime selection | **UNREPRODUCED / BLOCKED** | The Chrome profile has no PhotoSweep extension installed, and the user's installed-version response is pending. Runtime selection behavior therefore remains unverified. |
-| Public Site Privacy page | **PASS - deployment only** | Privacy page v9 is deployed at [photosweep.pawsitivegames.chatgpt.site](https://photosweep.pawsitivegames.chatgpt.site) from Site commit `b08eec8a9e85abf0ddaa0472d6f6d833f6e42bda`. The repository policy and public Site page are separate artifacts; a change to one does not update the other. |
+| Public Site Privacy page | **PASS - deployment/content checked** | Privacy page v10 is deployed at [photosweep.pawsitivegames.chatgpt.site](https://photosweep.pawsitivegames.chatgpt.site) from Site source commit `536819407ccc5bb4cb839bb249927e6dfdb5c157`. A Chrome hard reload confirmed the page says server-side analytics events are stored in Firestore and no fixed retention/deletion period is defined. The repository policy and public Site page are separate artifacts; a change to one does not update the other. |
+| Analytics retention and deletion | **OPEN / OWNER DECISION** | The current Firestore TTL list is empty and application source defines no analytics deletion policy. The user has been asked to choose 90 days, 180 days, or to leave the policy open. No TTL or deletion behavior is implemented by this status update. |
 | Chrome Web Store listing, dashboard, and review | **BLOCKER / UNVERIFIED** | The public listing remains at version `2.3.0.2` while the target is `2.3.0.3`. Dashboard declarations, submission of the target package, and review/approval remain unverified. A deployed Site page does not establish those CWS gates. |
 | Paid checkout, refund, and store transactions | **UNVERIFIED** | No exact-candidate production checkout/refund lifecycle or store transaction evidence has been established. |
 
-Overall status: **NOT READY**. CI, Fast, and Nightly passes do not close the exact-package, provider/video, runtime-selection, signing-key, billing, CWS dashboard, submission, or review blockers above.
+Overall status: **NOT READY**. CI, Fast, and Nightly passes do not close the exact-package, provider/video, runtime-selection, signing-key, analytics-retention, billing, CWS dashboard, submission, or review blockers above.
 
 ### Historical/intermediate run sets — earlier source snapshots
 
