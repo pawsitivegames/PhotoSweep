@@ -10,7 +10,11 @@ import {
   type TrashUndoData
 } from "../../lib/trash-lifecycle"
 import type { TrashResultReport } from "../../lib/trash-result-report"
-import type { DuplicateGroup, GpdMediaItem } from "../../lib/types"
+import type {
+  DuplicateGroup,
+  GpdMediaItem,
+  MutationOutcome
+} from "../../lib/types"
 
 function fixture() {
   const mediaItems: Record<string, GpdMediaItem> = {
@@ -2134,6 +2138,11 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
 
   const fact = (operation: "trash" | "restore", targetKey: string, status: "confirmed" | "failed" | "unknown") =>
     ({ operation, targetKey, status })
+  const callableFact = (
+    operation: "trash" | "restore",
+    targetKey: string,
+    status: "confirmed" | "failed" | "unknown"
+  ) => Object.assign(() => undefined, fact(operation, targetKey, status))
 
   it("partitions an out-of-order terminal into moved, failed, unknown and never-dispatched identities", async () => {
     const { lifecycle, audit, requestId } = await setupTrash()
@@ -2364,6 +2373,23 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     const result = await lifecycle.reconcile({ requestId, success: true, data: { outcomes: [candidate] } })
     expect(result).toMatchObject({ kind: "unknown", movedDedupKeys: [], unknownDedupKeys: ["d-a"],
       notDispatchedDedupKeys: [], undo: null })
+  })
+
+  it("quarantines callable terminal outcome candidates even when their own fields are valid", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    const candidate = callableFact("trash", "d-a", "confirmed")
+    const result = await lifecycle.reconcile({
+      requestId,
+      success: true,
+      data: { outcomes: [candidate as unknown as MutationOutcome] }
+    })
+
+    expect(result).toMatchObject({
+      kind: "unknown",
+      movedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      undo: null
+    })
   })
 
   it.each([
@@ -2679,6 +2705,32 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     expect(lifecycle.recordProgress({ requestId, data: { outcomes: [] } })).toBe(false)
   })
 
+  it("does not retain callable Trash progress candidates even when their own fields are valid", async () => {
+    const { lifecycle, requestId, audit } = await setupTrash(["a"])
+    const candidate = callableFact("trash", "d-a", "confirmed")
+
+    expect(
+      lifecycle.recordProgress({
+        requestId,
+        data: {
+          outcomes: [candidate as unknown as MutationOutcome]
+        }
+      })
+    ).toBe(true)
+    expect(await lifecycle.timeout({ requestId })).toMatchObject({
+      kind: "unknown",
+      movedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      undo: null
+    })
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      {
+        ...fact("trash", "d-a", "unknown"),
+        reason: "provider-timeout-before-target-outcome"
+      }
+    ])
+  })
+
   it("keeps an isolated wrong-operation confirmation unknown when trash times out", async () => {
     const { lifecycle, requestId } = await setupTrash(["a"])
     expect(lifecycle.recordProgress({
@@ -2866,6 +2918,17 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     const { lifecycle, requestId } = setupRestore()
     const before = lifecycle.restoreProgressSnapshot(requestId)
     expect(lifecycle.recordRestoreProgress({ requestId, outcomes: [fact("restore", "d-a", "confirmed"), badFact] })).toBe(false)
+    expect(lifecycle.restoreProgressSnapshot(requestId)).toEqual(before)
+  })
+
+  it("rejects callable restore progress candidates atomically even when their own fields are valid", () => {
+    const { lifecycle, requestId } = setupRestore(["d-a"])
+    const before = lifecycle.restoreProgressSnapshot(requestId)
+    const candidate = callableFact("restore", "d-a", "confirmed")
+
+    expect(
+      lifecycle.recordRestoreProgress({ requestId, outcomes: [candidate] })
+    ).toBe(false)
     expect(lifecycle.restoreProgressSnapshot(requestId)).toEqual(before)
   })
 

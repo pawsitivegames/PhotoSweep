@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "sourceFingerprint": "43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab",
-  "rawReportSha256": "04bfb7337640e431851b9153169465c52c18c00bed709361c1b04fc1a8f5ebbb",
+  "sourceFingerprint": "034418f9048e33ec9487c124f3836c66d05aa6429b6797b17768b94cd13e5fa6",
+  "rawReportSha256": "08bdf4d7f0d87893fc261d8f4b310016591f221b535f1655a6640fd223b274ab",
   "entries": [
     {
       "id": "307",
@@ -220,7 +220,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Invalid-width cases remain rejected by the height guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "evidence": "Removing or relaxing the width boundary cannot admit invalid resolution: the independent height guard rejects a nonpositive height and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -242,7 +242,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Invalid-width cases remain rejected by the height guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "evidence": "Removing or relaxing the width boundary cannot admit invalid resolution: the independent height guard rejects a nonpositive height and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -264,7 +264,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Invalid-height cases remain rejected by the width guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "evidence": "Removing or relaxing the height boundary cannot admit invalid resolution: the independent width guard rejects a nonpositive width and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -286,7 +286,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Invalid-height cases remain rejected by the width guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "evidence": "Removing or relaxing the height boundary cannot admit invalid resolution: the independent width guard rejects a nonpositive width and the area check rejects zero, negative, or nonfinite products. Regression cases cover zero and both-negative dimensions (lib/keep-strategy.ts:98-111; tests/lib/keep-strategy.test.ts:392-430).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -330,7 +330,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -352,7 +352,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -374,7 +374,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -396,7 +396,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -418,7 +418,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -440,7 +440,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -462,7 +462,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -484,7 +484,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -506,7 +506,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "evidence": "The remaining dimension guard and the final finite, positive area check reject invalid values that pass the mutated predicate. The default resolution regressions cover negative dimensions, underflow, and nonfinite metadata (lib/keep-strategy.ts:292-305; tests/lib/keep-strategy.test.ts:779-843).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -550,7 +550,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "When the primary quality signal ties, the fallback repeats the same best-quality signal and restores the same comparison (keep-strategy.ts:994-1048).",
+      "evidence": "For best_quality, the primary score maps true to 2, false to 1, and unknown to undefined; its first fallback repeats that mapping. When the primary score ties, the fallback preserves the same quality ordering. Tests cover known true and false values against unknown quality, plus resolution when both are unknown (lib/keep-strategy.ts:331-342, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -572,7 +572,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "When the primary quality signal ties, the fallback repeats the same best-quality signal and restores the same comparison (keep-strategy.ts:994-1048).",
+      "evidence": "For best_quality, the primary score maps true to 2, false to 1, and unknown to undefined; its first fallback repeats that mapping. When the primary score ties, the fallback preserves the same quality ordering. Tests cover known true and false values against unknown quality, plus resolution when both are unknown (lib/keep-strategy.ts:331-342, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -594,7 +594,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "The mutated boolean primary value is unknown to Number.isFinite; the quality fallback restores the original ordering (keep-strategy.ts:994-1048).",
+      "evidence": "A boolean substituted into the primary numeric score is unknown to Number.isFinite; comparison ties and the explicit numeric quality fallback preserves the ordering (lib/keep-strategy.ts:362-371, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -616,7 +616,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "The mutated boolean primary value is unknown to Number.isFinite; the quality fallback restores the original ordering (keep-strategy.ts:994-1048).",
+      "evidence": "A boolean substituted into the primary numeric score is unknown to Number.isFinite; comparison ties and the explicit numeric quality fallback preserves the ordering (lib/keep-strategy.ts:362-371, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -638,7 +638,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Explicit false quality is an unknown boolean primary value; the fallback compares the normal numeric quality score (keep-strategy.ts:1027-1048).",
+      "evidence": "A boolean substituted for the explicit false score is unknown to Number.isFinite. The primary comparison ties, then the fallback maps false to 1 and retains the ordering (lib/keep-strategy.ts:331-342, 362-371, 390-408; tests/lib/keep-strategy.test.ts:994-1071).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -748,7 +748,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "UNREACHABLE",
-      "evidence": "The changed tie behavior requires equal keys or a zero comparator result. The public caller deduplicates keys with Set, and the final code-unit comparison orders distinct tied keys (keep-strategy.ts:894-930).",
+      "evidence": "The public selector removes duplicate media keys with Set before comparing candidates, so compared keys are distinct. The final comparator uses code-unit ordering and returns zero only for equal keys; changing the strict comparison boundary therefore cannot change the selected candidate (lib/keep-strategy.ts:414-420, 442-455; tests/lib/keep-strategy.test.ts:894-930).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -814,7 +814,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "UNREACHABLE",
-      "evidence": "The changed tie behavior requires equal keys or a zero comparator result. The public caller deduplicates keys with Set, and the final code-unit comparison orders distinct tied keys (keep-strategy.ts:894-930).",
+      "evidence": "The public selector removes duplicate media keys with Set before comparing candidates, so compared keys are distinct. The final comparator uses code-unit ordering and returns zero only for equal keys; changing the strict comparison boundary therefore cannot change the selected candidate (lib/keep-strategy.ts:414-420, 442-455; tests/lib/keep-strategy.test.ts:894-930).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -880,7 +880,7 @@
       "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
       "critical": true,
       "classification": "UNREACHABLE",
-      "evidence": "The changed tie behavior requires equal keys or a zero comparator result. The public caller deduplicates keys with Set, and the final code-unit comparison orders distinct tied keys (keep-strategy.ts:894-930).",
+      "evidence": "The public selector removes duplicate media keys with Set before comparing candidates, so compared keys are distinct. The final comparator uses code-unit ordering and returns zero only for equal keys; changing the strict comparison boundary therefore cannot change the selected candidate (lib/keep-strategy.ts:414-420, 442-455; tests/lib/keep-strategy.test.ts:894-930).",
       "reviewer": "Independent review: keep-strategy"
     },
     {
@@ -1258,28 +1258,6 @@
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
-      "id": "1284",
-      "file": "lib/trash-lifecycle.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 321,
-          "column": 27
-        },
-        "end": {
-          "line": 321,
-          "column": 56
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "!candidate still catches null; other primitive candidates fail target-key validation before producing an outcome.",
-      "reviewer": "Independent review: trash-lifecycle"
-    },
-    {
       "id": "1296",
       "file": "lib/trash-lifecycle.ts",
       "status": "Survived",
@@ -1563,28 +1541,6 @@
       "critical": true,
       "classification": "EQUIVALENT",
       "evidence": "This reason is local to repeated-timeout parsing and is not returned or consumed by output.",
-      "reviewer": "Independent review: trash-lifecycle"
-    },
-    {
-      "id": "1909",
-      "file": "lib/trash-lifecycle.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 1081,
-          "column": 25
-        },
-        "end": {
-          "line": 1081,
-          "column": 54
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "!candidate still catches null; other primitive candidates fail target-key validation before producing an outcome.",
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
@@ -1893,28 +1849,6 @@
       "critical": true,
       "classification": "EQUIVALENT",
       "evidence": "The extra parsed entry has no requested key and is never read by requested-key mapping.",
-      "reviewer": "Independent review: trash-lifecycle"
-    },
-    {
-      "id": "2097",
-      "file": "lib/trash-lifecycle.ts",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 1231,
-          "column": 25
-        },
-        "end": {
-          "line": 1231,
-          "column": 54
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "false",
-      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
-      "critical": true,
-      "classification": "EQUIVALENT",
-      "evidence": "The requested-key Set contains strings only, so membership rejects nonstring candidate keys at the same guard.",
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
@@ -2684,7 +2618,7 @@
       "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "The status-equality guard remains, and the final string check omits an undefined reason, so the candidate reason cannot change output.",
+      "evidence": "The mutant replaces only the typeof prior.reason check; the status equality guard remains. recordRestoreProgress normalizes prior.reason to a string or omits it. When the status guard passes with no prior reason, the mutation selects undefined and the outer string check omits it; when a prior string exists, both versions emit the same string (lib/trash-lifecycle.ts:1245-1251, 1412-1421).",
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
@@ -2816,7 +2750,7 @@
       "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
       "critical": true,
       "classification": "EQUIVALENT",
-      "evidence": "Locally inferred confirmations cannot survive final malformed-response cleanup; valid identities must also match the request.",
+      "evidence": "The Stryker Babel mutation changes only the first &&, yielding (!malformed || reportedStrings.length === undo.dedupKeys.length) && undo.dedupKeys.every(...); the trailing membership conjunct keeps a valid partial list from being exact-complete (lib/trash-lifecycle.ts:1462-1465). If malformed input makes the mutated condition true, cleanup resets outcomes to prior confirmed or unknown and clears not-dispatched state before returning, so no new confirmation escapes (lib/trash-lifecycle.ts:1490-1504).",
       "reviewer": "Independent review: trash-lifecycle"
     },
     {
