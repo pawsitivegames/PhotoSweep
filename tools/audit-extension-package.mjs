@@ -11,9 +11,11 @@ import {
   isCwsBuildId,
   validateCwsArtifactMetadata
 } from "./cws-artifact.mjs"
+import { auditZipEntitlementPublicKey } from "./cws-entitlement-key-audit.mjs"
 
 const buildDir =
   process.env.PHOTOSWEEP_EXTENSION_BUILD_DIR ?? "build/chrome-mv3-prod"
+const packageZipPath = path.resolve("build/chrome-mv3-prod.zip")
 const expectedApiBase =
   process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL
 const expectedHostPermission =
@@ -263,7 +265,6 @@ if (expectedBuildId !== undefined) {
     fail("built JavaScript does not contain the expected package build ID")
   }
 } else {
-  const packageZipPath = path.resolve("build/chrome-mv3-prod.zip")
   if (!fs.existsSync(packageZipPath)) {
     fail("package build ID is required and the packaged ZIP is missing")
   } else {
@@ -336,6 +337,25 @@ if (expectedBuildId !== undefined) {
     )
   }
 }
+let entitlementPublicKeyAudit
+if (expectedPublicKey) {
+  if (!fs.existsSync(packageZipPath)) {
+    if (expectedBuildId !== undefined) {
+      fail("final extension ZIP is missing")
+    }
+  } else {
+    try {
+      entitlementPublicKeyAudit = auditZipEntitlementPublicKey(
+        fs.readFileSync(packageZipPath),
+        expectedPublicKey,
+        auditedBuildId
+      )
+    } catch (error) {
+      fail(error instanceof Error ? error.message : String(error))
+    }
+  }
+}
+
 if (
   jsText.includes("photoSweepDevEntitlement") &&
   process.env.PHOTOSWEEP_AUDIT_STRICT_DEV_KEY_ABSENCE === "1"
@@ -367,6 +387,9 @@ console.log(
       chromeVersion: manifest.version,
       sidePanel: manifest.side_panel?.default_path,
       backendHostPermission: expectedHostPermission,
+      entitlementPublicKeySha256: entitlementPublicKeyAudit?.sha256,
+      entitlementPublicKeyFiles:
+        entitlementPublicKeyAudit?.matchingJavaScriptFiles,
       hostPermissionCount: hostPermissions.length,
       jsFileCount: jsFiles.length,
       ...(auditedBuildId ? { buildId: auditedBuildId } : {})
