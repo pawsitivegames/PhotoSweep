@@ -2456,6 +2456,7 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       status: "unknown",
       failedCount: 0,
       failedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
       notDispatchedCount: 1,
       notDispatchedDedupKeys: ["d-b"]
     })

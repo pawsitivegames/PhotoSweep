@@ -735,6 +735,50 @@ describe("keeper decision contract", () => {
     expect(updated.trashPlan([g1]).mediaKeysToTrash).toEqual(["a", "c"])
   })
 
+  it("treats a malformed kept-override root as absent saved state", () => {
+    const review = new DuplicateReviewSession({
+      groups: [g1],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: null
+      } as unknown as DuplicateReviewSelections
+    })
+
+    expect(review.keptFor(g1)).toEqual(new Set(["b"]))
+    expect(review.selections.keptOverrides).toEqual({})
+
+    const numericGroup = group("0", "a", "b")
+    const arrayRoot = new DuplicateReviewSession({
+      groups: [numericGroup],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: [[]]
+      } as unknown as DuplicateReviewSelections
+    })
+    expect(arrayRoot.keptFor(numericGroup)).toEqual(new Set(["b"]))
+    expect(arrayRoot.selections.keptOverrides).toEqual({})
+
+    const stringGroup = group("0", "s", "t")
+    const stringRoot = new DuplicateReviewSession({
+      groups: [stringGroup],
+      mediaItems: {
+        s: item("s", { isOriginalQuality: false }),
+        t: item("t", { isOriginalQuality: true })
+      },
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: "s"
+      } as unknown as DuplicateReviewSelections
+    })
+    expect(stringRoot.keptFor(stringGroup)).toEqual(new Set(["t"]))
+    expect(stringRoot.selections.keptOverrides).toEqual({})
+  })
+
   it("does not mark automatically selected keeper sets as reviewed after hydration", () => {
     const restored = session({
       selectedGroupIds: new Set(["g1"]),
