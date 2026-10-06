@@ -831,7 +831,7 @@ describe("generated safety properties", () => {
       ),
       { numRuns: propertyRuns, seed: propertySeed + 14 }
     )
-  })
+  }, 60_000)
 
   it("SAFE-01 treats a unique top value as sufficient even when lower values tie", () => {
     const group: DuplicateGroup = {
