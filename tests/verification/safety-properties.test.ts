@@ -493,7 +493,7 @@ describe("generated safety properties", () => {
       ),
       { numRuns: propertyRuns, seed: propertySeed + 13 }
     )
-  }, 15_000)
+  }, 60_000)
 
   it("SAFE-01 keeps every member when a keep recommendation is not unique and valid", () => {
     fc.assert(

@@ -101,6 +101,9 @@ importers:
       fast-check:
         specifier: 3.23.2
         version: 3.23.2
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       framer-api:
         specifier: ^0.1.17
         version: 0.1.30(csstype@3.2.3)

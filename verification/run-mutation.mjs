@@ -127,6 +127,15 @@ function canonicalMutationReport(report) {
     canonical.config.tempDirName = "<stryker-tmp>"
   }
   if (canonical.projectRoot) canonical.projectRoot = "<project-root>"
+  if (
+    canonical.config?.testRunner === "vitest" &&
+    canonical.framework?.dependencies
+  ) {
+    // Stryker can report an optional Mocha dependency from the local install
+    // even when this mutation run uses Vitest. It is not part of this report's
+    // mutation set, so keep it out of the triage binding.
+    delete canonical.framework.dependencies.mocha
+  }
   canonical.files = Object.fromEntries(
     Object.entries(canonical.files ?? {}).sort(([a], [b]) => a.localeCompare(b))
   )

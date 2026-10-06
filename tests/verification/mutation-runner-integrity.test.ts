@@ -87,6 +87,12 @@ function canonicalMutationReportHash(report: unknown) {
   }
   if (canonical.config?.tempDirName) canonical.config.tempDirName = "<stryker-tmp>"
   if (canonical.projectRoot) canonical.projectRoot = "<project-root>"
+  if (
+    canonical.config?.testRunner === "vitest" &&
+    canonical.framework?.dependencies
+  ) {
+    delete canonical.framework.dependencies.mocha
+  }
   canonical.files = Object.fromEntries(Object.entries(canonical.files ?? {}).sort(([a], [b]) => a.localeCompare(b)))
   canonical.testFiles = Object.fromEntries(Object.entries(canonical.testFiles ?? {}).sort(([a], [b]) => a.localeCompare(b)))
   function sortCanonicalKeys(value: unknown): unknown {
@@ -334,6 +340,34 @@ describe("mutation runner integrity", () => {
         sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/)
       })
     }
+  })
+
+  it("keeps Vitest triage bindings stable without optional Mocha metadata", () => {
+    const reportWithoutMocha = {
+      ...mutationReport(["Killed"]),
+      config: { testRunner: "vitest" },
+      framework: { dependencies: { typescript: "5.3.3" } }
+    }
+    const reportWithMocha = JSON.parse(JSON.stringify(reportWithoutMocha))
+    reportWithMocha.framework.dependencies.mocha = "10.3.0"
+    const triagePolicy = triagePolicyFor(reportWithoutMocha, "UNREACHABLE")
+
+    const withoutMocha = invokeMutationRunner({
+      report: reportWithoutMocha,
+      triagePolicy
+    })
+    const withMocha = invokeMutationRunner({
+      report: reportWithMocha,
+      triagePolicy
+    })
+
+    expect(withoutMocha.child.status).toBe(0)
+    expect(withMocha.child.status).toBe(0)
+    expect(withMocha.triage.rawReportSha256).toBe(
+      withoutMocha.triage.rawReportSha256
+    )
+    expect(withoutMocha.triage.policyStatus).toBe("VALID")
+    expect(withMocha.triage.policyStatus).toBe("VALID")
   })
 
   it("never reports PASS when the child exits nonzero with a passing raw report", () => {
