@@ -1,33 +1,30 @@
 # Remaining gate status
 
-## Current candidate status — 2026-10-06 (pushed main commit)
+## Current candidate status — 2026-10-06 (CI-bound source candidate)
 
-The tested source candidate is commit
-`1b6ba99761890326d57169fb000e2668caf03013`, which was on `origin/main` for
-the verification runs below. Its registered-source fingerprint from
-Verification Scopes run `37402818422`, artifact
-`verification-fast-37402818422`, is
-`917fe1828d17d485172ec6a8808bcbe710a6f7b44b559d6aff4d7e1f51c59bfe`
-(295 files); before and after match with no source drift. See the [2026-10-06
-evidence note](../verification/evidence/release-readiness-2026-10-06.md).
+The application source candidate tested by CI was commit
+`3a453656d7c21affd2fa40d9a7c77b22093f41dc`, which was `origin/main` when the CI
+runs below executed. This ledger refresh is a documentation-only follow-up; it
+does not change that source candidate. Its npm version is `2.3.0` and Chrome
+version is `2.3.0.3`. The registered-source fingerprint for that candidate is
+`06ff1a61bb7975cce4c18e3d7d5c09fc49b1e754ca4336fae747faa501b23eaa`
+(297 files).
 
 | Gate | Status | Current evidence and boundary |
 | --- | --- | --- |
-| Fast registered-source verification | **PASS — scoped** | Exact-commit Verification Scopes artifact: 7 commands and 40/40 evidence entries passed. Supported TypeScript trace replay: 256 traces, 5,926 passes, 0 failures, 0 unsupported. Unsupported model actions and whole-application refinement remain outside this proof. |
-| Focused selection integration | **PASS — scoped** | Separate local selection integration passed 2/2 tests. This does not establish production-package or provider-runtime behavior. |
-| GitHub CI | **PASS — workflows only** | [CI run 37402818488](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37402818488) and [Verification Scopes run 37402818422](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37402818422) completed successfully on the pushed commit. The Nightly verification job was skipped. |
-| Exact-commit production package and strict audit | **BLOCKED / NOT REVALIDATED** | No exact-commit production package/audit was produced. Repository-scoped `gh secret list --json name` and `gh variable list --json name` both returned `[]` (names only); the package workflow requires repository secret `PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY`. Strict audit requires the production license API base URL, host permission, entitlement public key, and `PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=0`. |
-| Current CWS listing and privacy disclosure | **FAIL** | The live [Chrome Web Store listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) remains version `2.3.0.2` (updated September 29, 2026) and states album scope is Google Photos only; the pushed `2.3.0.3` source candidate declares personal-album scope for all three providers. The live [privacy page](https://photosweep.pawsitivegames.chatgpt.site/privacy) describes Google Photos only and lacks the affirmative Limited Use statement and licensing-recovery/original-byte disclosures. |
-| Exact-candidate Google/iCloud/Amazon round trips and video playback | **BLOCKED** | No current candidate ZIP/runtime/fixture binding establishes live round trips or cross-provider video playback. The fast scope and CI jobs do not provide that runtime proof. |
-| Production billing lifecycle and exact-candidate store submission/review | **UNVERIFIED** | No current production billing lifecycle or exact-candidate submission/review evidence is established. |
+| Fast registered-source verification | **PASS — scoped** | [Verification Scopes run 37407949109](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37407949109) artifact `verification-fast-37407949109`: 7 commands, 40/40 evidence entries passed, `sourceDrift=false`; before/after fingerprint is `06ff1a61bb7975cce4c18e3d7d5c09fc49b1e754ca4336fae747faa501b23eaa` (297 files). |
+| GitHub CI | **PASS — scoped** | [CI run 37407949095](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37407949095) and Verification Scopes run 37407949109 completed successfully on this exact SHA. CI logs report 103 Vitest files / 1,941 unit tests and 64 Playwright integration tests passed. Selection assertions cover deferred-persistence drift rejection, reload persistence, stale selection clearing on rescan, explicit Auto Keep / Include all / Skip all controls, and malformed saved-selection handling. The Nightly verification job was skipped; these CI tests do not prove live provider behavior. |
+| Bounded TLC selection model | **PASS — bounded** | The fast artifact records `KeeperSelection.cfg` at depth 7: 9,456 states explored, 291,697 generated, 19 configured invariants, and coverage counts for 10 modeled actions; its negative control detected the expected unsafe bulk-trash counterexample. This exhausts the graph reachable from `Init` for the declared finite constants. It does not check arbitrary safe initial valuations, TypeScript refinement, or whole-application behavior. |
+| TLC trace replay | **PASS — bounded** | The supported projection replayed 256 TLC traces (seed `20260915`, depth 24): 5,926 passes, 0 failures, 0 unsupported actions. Crossed-pair seams remain outside the abstraction; this is not an unbounded refinement or whole-application theorem. |
+| Provider source-level parity | **PASS — scoped to source** | The [current capability matrix](PLATFORM_PARITY_PLAN.md#current-capability-matrix) covers source paths for scans, date and personal-album scopes, photos/videos, and Trash/restore across the three providers; this is not exact-package or live-provider proof. Amazon and iCloud adapters set `isOriginalQuality: null` ([Amazon](../scripts/amazon-photos-commands.js#L1514), [iCloud](../scripts/icloud-photos-commands.js#L1589)); Best quality falls back to resolution, file size, trusted dates, and stable key order, so actual original-quality classification remains unknown. |
+| Production package and strict audit | **UNVERIFIED** | [Production package workflow run 37409897304](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37409897304) on this SHA failed at `Configure extension release environment` because repository secret `PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY` is required. Dependency install, typecheck, tests, package build, audit, and upload were skipped; no exact production ZIP or signing proof resulted. This missing-credential stop leaves the package gate UNVERIFIED, not audited. Repository-scoped secret, variable, and environment name lists returned `[]`; the organization-secret listing returned HTTP 404, so organization-level key state is unknown. A separate code-level package/key audit passed only with a dummy key and `.invalid` API; it does not establish production configuration/signing. |
+| Current CWS listing and privacy disclosure | **FAIL** | The live [Chrome Web Store listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) is version `2.3.0.2` (updated September 29, 2026) and says album scope is Google Photos only, while this `2.3.0.3` source candidate declares personal-album scope across all three providers. The live [privacy page](https://photosweep.pawsitivegames.chatgpt.site/privacy) is headed “PhotoSweep and your Google Photos library,” describes Google only, lacks the affirmative statement required by the [Chrome Web Store Limited Use policy](https://developer.chrome.com/docs/webstore/program-policies/limited-use/), and omits current iCloud/Amazon data paths plus licensing-recovery and original-byte disclosures. |
+| Exact-candidate provider round trips and video playback | **UNVERIFIED** | No exact production ZIP/runtime/fixture binding establishes current Google, iCloud, or Amazon round trips or cross-provider video playback. |
+| Production billing and exact-candidate store submission/review | **UNVERIFIED** | No production billing lifecycle or exact-candidate store submission, review, or approval proof is established. |
 
-The pushed commit has npm version `2.3.0` and Chrome version `2.3.0.3`.
-The local fast folder `tmp/verification/runs/fast-tlc-pin-refresh-20261006b`
-started before the pushed commit and reports a different 296-file fingerprint;
-it is retained as pre-commit evidence and is not attributed to this commit.
-The 2026-10-05 status snapshot and its evidence note remain preserved below.
-Overall status: **NOT READY**. These scoped passes do not establish an overall
-formal-verification **PASS** or release readiness.
+No owner/legal attestation is established. No exact production ZIP, live-provider round trip or video playback, production billing lifecycle, or exact-candidate store review proof is established.
+
+Overall status: **NOT READY**. The 2026-10-05 status snapshot and its evidence note remain preserved below.
 
 ## Preserved candidate status — 2026-10-05 (official registered-source run)
 
