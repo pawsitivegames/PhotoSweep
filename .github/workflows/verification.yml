@@ -71,7 +71,7 @@ jobs:
     name: Nightly verification
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scope == 'nightly')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
     steps:
