@@ -4,23 +4,27 @@
 
 The application-source candidate is commit
 `2930de8d43fb4656583111303fbf7512d7508fcb` (npm version `2.3.0`, Chrome
-version `2.3.0.3`). Pushed `main` HEAD is the docs-only commit
-`2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c`, whose parent is that
-application-source commit. The CI and Fast runs below are bound to pushed HEAD
-`2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c`.
+version `2.3.0.3`). The tested pushed candidate is docs-only commit
+`a0880059318edbf4155fa67d75464b43aa150cc9`, which was `main` HEAD when the
+CI, Fast, and workflow-dispatch Nightly runs below were started. It follows
+docs-only commit `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c` over the
+application-source candidate.
 
 | Gate | Status | Current evidence and boundary |
 | --- | --- | --- |
-| Fast registered-source verification | **PASS — scoped** | [Fast run 37416059915](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37416059915) passed on pushed HEAD `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c`: 7 commands and 40 evidence entries passed, `sourceDrift=false`, registered-source fingerprint `a86245dfbc93fc3dbe2cb7fcc7c69a851b368796bcffc7de0684e2da64f4529e` over 297 files. `PARITY-01..09` passed 299/299 assertions and `VIDEO-PLAYBACK` passed 37/37; these are not provider-runtime results. |
-| Nightly / `MUTATION-01` | **UNVERIFIED** | The current [Fast run 37416059915](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37416059915) succeeded, but its Nightly verification job was skipped; no mutation result is bound to pushed HEAD `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c`. The last recorded `MUTATION-01` PASS is bound to older source `b90bd56d893d2ccf701abc69a496b98f13842258` ([2026-10-05 evidence](../verification/evidence/release-readiness-2026-10-05.md)). The mandatory nightly requirement in [verification/requirements.json](../verification/requirements.json) sets `minimumKilledPercent: 90` and `maximumCriticalSurvivors: 0`; the older pass does not establish this candidate's status. |
-| GitHub CI | **PASS — scoped** | [CI run 37416059977](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37416059977) passed on pushed HEAD `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c`: 103 Vitest files / 1,941 unit tests, 64 integration tests, and benchmark regression checks passed. These checks do not establish live-provider behavior. |
-| Bounded SAFE-01 selection model | **PASS — bounded** | The current Fast artifact checked the finite graph reachable from its declared constants to depth 7: 9,456 states explored, 291,697 generated, and 19 invariants. The expected unsafe bulk-trash negative control was detected. This does not prove arbitrary `InvSelectionSafety` initial valuations, TypeScript refinement, or whole-application behavior. |
-| TLC trace replay | **PASS — bounded** | The supported projection replayed 256 traces to depth 24: 5,926 passes, 0 failures, and 0 unsupported actions. The generated trace manifest records `source.git.dirty=true` even though the Fast aggregate reports `sourceDrift=false`; the manifest's Git cleanliness flag is not clean. The replay is bounded projection evidence, not an unbounded or whole-application proof. |
+| Fast registered-source verification | **PASS — scoped** | [Fast run 37417795927](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37417795927) passed on pushed HEAD `a0880059318edbf4155fa67d75464b43aa150cc9`: 7 commands and 40 evidence entries passed, `sourceDrift=false`, registered-source fingerprint `93475908d75fa1a8026b0b6e37296319c49c579acbba8f5f154d7b33379f3a0c` over 297 files. `PARITY-01..09` passed 299/299 assertions and `VIDEO-PLAYBACK` passed 37/37; these are not provider-runtime results. |
+| Nightly / `MUTATION-01` | **UNVERIFIED — CANCELED** | Push-triggered [Fast run 37417795927](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37417795927) skipped Nightly. Workflow-dispatch [Nightly run 37417842543](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37417842543) targeted exact pushed HEAD `a0880059318edbf4155fa67d75464b43aa150cc9` and concluded **cancelled**: its nightly verification command ran from 05:18:40 to 06:03:22 UTC before cancellation. The workflow uploaded a partial artifact bound to the Fast registered-source fingerprint `93475908d75fa1a8026b0b6e37296319c49c579acbba8f5f154d7b33379f3a0c`, but it contains no completed mutation outcome/report. The mandatory nightly requirement in [verification/requirements.json](../verification/requirements.json) sets `minimumKilledPercent: 90` and `maximumCriticalSurvivors: 0`. The last recorded `MUTATION-01` PASS is bound to older source `b90bd56d893d2ccf701abc69a496b98f13842258` ([2026-10-05 evidence](../verification/evidence/release-readiness-2026-10-05.md)) and does not establish this candidate's result. |
+| Nightly property evidence / `SAFE-13` | **UNRESOLVED — NOT REPRODUCED LOCALLY** | In the partial exact-candidate Nightly artifact, `pnpm test:properties` had one selected `SAFE-13` failure (22.8 seconds); the raw Vitest stack is generic `STACK_TRACE_ERROR` and contains no counterexample. The other 25 of 26 property evidence rows selected zero failed assertions, but their row statuses inherit the shared command exit code 1. On exact candidate `a0880059318edbf4155fa67d75464b43aa150cc9`, a local `SAFE-13` rerun at seed `20260915` / 10,000 cases passed (1 test), and the full properties command at the same setting passed (1,168/1,168). The Nightly failure remains unresolved and is not a clean formal PASS. A supplemental local raw report is untracked at `tmp/release-gate/safe13-recheck-raw.json`. |
+| GitHub CI | **PASS — scoped** | [CI run 37417796001](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37417796001) passed on pushed HEAD `a0880059318edbf4155fa67d75464b43aa150cc9`: 103 Vitest files / 1,941 unit tests, 64 integration tests, and performance benchmarks passed. These checks do not establish live-provider behavior. |
+| Bounded SAFE-01 selection model | **PASS — bounded** | The current Fast artifact checked the finite graph for its declared constants to depth 7: 9,456 states explored, 291,697 generated, and 19 invariants. The expected unsafe bulk-trash negative control was detected. This does not prove arbitrary `InvSelectionSafety` initial valuations, TypeScript refinement, or whole-application behavior. |
+| TLC trace replay | **PASS — bounded** | The supported projection replayed 256 traces to depth 24: 5,926 passes, 0 failures, and 0 unsupported actions. Its trace manifest records `source.git.dirty=true` even though the Fast aggregate reports `sourceDrift=false`; the manifest's Git cleanliness flag is not clean. The replay is bounded projection evidence, not an unbounded or whole-application proof. |
 | Provider source-level parity | **PASS — scoped to source** | The [current capability matrix](PLATFORM_PARITY_PLAN.md#current-capability-matrix) covers source paths across Google, iCloud, and Amazon; it is not exact-package or live-provider proof. Amazon and iCloud set `isOriginalQuality: null` ([Amazon](../scripts/amazon-photos-commands.js#L1514), [iCloud](../scripts/icloud-photos-commands.js#L1589)), so actual original-quality classification remains unknown. |
-| Local production package and format audit | **PASS — scoped** | On exact pushed HEAD `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c`, package inclusion/format audit passed (`packageExitCode=0`, `strictAuditExitCode=0`, `strictAuditOk=true`). Its sidecar records `sourceDirty=false`, package fingerprint `94bc3434ac46c091031ac1fbc165c832971fb7a7918a5d7fa72514202b530099` over 298 package-source files, and ZIP SHA-256 `011f5d8abb68eac0e177d2335fff24c7317bf3ac4d11b07b6d84f872522dc637`. This package fingerprint has a different scope from Fast's 297-file registered-source fingerprint. The earlier clean app-source package on `2930de8d` (`d59a09a0…`, ZIP `f1d74bfb…`) remains prior source-candidate context, not the exact-head package result. |
-| Production entitlement signer pairing | **BLOCKED** | The audited local package embeds verifier fingerprint `8d9f3017…`; no evidence verifies that it matches the private signing key `photosweep-entitlement-private-key-live` in production Cloud Run Secret Manager. Pairing remains blocked pending owner confirmation or safe production/test lifecycle proof. Package inclusion/format audit does not establish this key match. |
-| GitHub production package input | **BLOCKED** | The GitHub production-package workflow requires `PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY`, which is absent from the repository Actions secrets. No setting was changed. The local package used a recovered public key ephemerally; no GitHub production-key package was verified. |
-| Current CWS listing and privacy disclosure | **FAIL** | The live [Chrome Web Store listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) remains version `2.3.0.2` and says album scope is Google Photos only, while candidate `2.3.0.3` declares personal-album scope across three providers. The live [privacy page](https://photosweep.pawsitivegames.chatgpt.site/privacy) is Google-only, lacks the affirmative statement required by the [Chrome Web Store Limited Use policy](https://developer.chrome.com/docs/webstore/program-policies/limited-use/), and omits current iCloud/Amazon paths, original-byte verification, and license-recovery disclosures. |
+| Local verification and quality gates | **PASS — scoped after reruns** | The local gate run on exact candidate `a0880059318edbf4155fa67d75464b43aa150cc9` passed installs, diff check, typecheck, production and signature audits, benchmarks, and integration build. Its initial test run lacked the pinned TLC 1.8.0 JAR; the corrected `npm test` rerun passed 103/103 files and 1,941/1,941 tests. The initial direct integration command lacked test-only license settings and had checkout timeouts; the first CI-wrapper rerun passed 63/64, and the unchanged-candidate second rerun passed 64/64. The gate's tracked source diff was empty. Restoration matched 8/9 pre-existing ignored-output fingerprints; the repository-root `node_modules` tree differed from its pre-run fingerprint and could not be recovered, so it remains preserved in its measured post-run state. Both fingerprints and restoration records are retained under `tmp/release-gate/20261006T052355Z/`. |
+| Selection symptom audit — completed-results integration | **PASS — synthetic integration only** | The candidate integration suite covers all six keep strategies and applies Best quality independently across two completed sets; it checks selected keepers, non-keepers proposed for Trash, persistence after reload, and no provider Trash dispatch ([six strategies](../tests/e2e/integration/app-tab.test.ts#L2097), [two-set Best quality](../tests/e2e/integration/app-tab.test.ts#L2296)). CI and the unchanged-candidate local wrapper passed 64/64 integration tests. This does not reproduce the reported live session: installed extension version is unknown, and the CWS serves `2.3.0.2` while the candidate declares `2.3.0.3`. No cause or fix is established. |
+| Exact-candidate local production package and strict audit | **UNVERIFIED** | The local gate on `a0880059318edbf4155fa67d75464b43aa150cc9` did not build a ZIP because `PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL`, `PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION`, and `PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY` were missing. A separate package inclusion/format audit passed on parent `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c` with `sourceDirty=false`, fingerprint `94bc3434ac46c091031ac1fbc165c832971fb7a7918a5d7fa72514202b530099` over 298 package-source files, and ZIP SHA-256 `011f5d8abb68eac0e177d2335fff24c7317bf3ac4d11b07b6d84f872522dc637`. This is prior-commit package evidence and its fingerprint scope differs from Fast's 297-file registered-source scope. |
+| Production entitlement signer pairing | **BLOCKED** | The prior audited package on `2f8a83e4d9ad4f1e7c0b5297915a0c906f5a1b1c` embeds verifier fingerprint `8d9f3017…`; no evidence verifies that it matches the private signing key `photosweep-entitlement-private-key-live` in production Cloud Run Secret Manager. Pairing remains blocked pending owner confirmation or safe production/test lifecycle proof. Package inclusion/format audit does not establish this key match. |
+| GitHub production package input | **BLOCKED** | The GitHub production-package workflow requires `PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY`; the current repository Actions secret-name list is empty. No setting was changed. The local `a088` run also lacked the production public configuration listed above, so no exact-candidate GitHub or local production package was verified. |
+| Current CWS listing and privacy disclosure | **FAIL** | The live [Chrome Web Store listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) remains version `2.3.0.2` (updated September 29, 2026). It describes iCloud/Amazon signed-in sessions but says album scope is Google Photos only, while candidate `2.3.0.3` declares personal-album scope across three providers. The linked [privacy page](https://photosweep.pawsitivegames.chatgpt.site/privacy) is still Google-only; it omits current iCloud/Amazon paths, original-byte verification, license-recovery disclosures, and the affirmative statement required by the [Chrome Web Store Limited Use policy](https://developer.chrome.com/docs/webstore/program-policies/limited-use/). |
 | Exact-candidate provider round trips and video playback | **UNVERIFIED** | No exact-candidate Google, iCloud, or Amazon provider round trips, provider Trash/Undo, or cross-provider video playback are established. |
 | Production billing and exact-candidate store submission/review | **UNVERIFIED** | No production billing lifecycle or exact-candidate store submission, review, or approval proof is established. |
 
@@ -100,16 +104,26 @@ registered fingerprint returned to `43d2c232…` across 296 files. The local
 [privacy publication draft](PRIVACY_POLICY_PUBLICATION_DRAFT_2026-10-05.md) is
 prepared but unpublished. Overall release status: **NOT READY**.
 
-The older snapshots below are retained for traceability and do not override
-this status.
+## Historical prior-candidate evidence — not bound to current `main`
 
-Last verified: 2026-09-20T08:06:37Z (fresh release formal verification, final CWS artifact, and current-candidate provider round trips; payment and store evidence remain separately scoped); current release run: `release-formal-20260919T0135Z`; current-candidate live evidence: `tmp/verification-live-current-candidate-20260920T080000Z/`
+The sections below are preserved for traceability. They describe older source,
+package, release-run, and loaded-browser candidates from September 2026; none
+is evidence for pushed HEAD `a0880059318edbf4155fa67d75464b43aa150cc9`, and
+none overrides the current status above.
 
-This ledger is for the current uncommitted PhotoSweep candidate. A local test,
-package, or browser stub does not close a provider, device, payment, account,
-store, or production gate.
+### Historical snapshot last verified — 2026-09-20T08:06:37Z
 
-## Implemented and locally verified
+This snapshot recorded release run `release-formal-20260919T0135Z`, the then
+current-candidate live evidence under
+`tmp/verification-live-current-candidate-20260920T080000Z/`, and separately
+scoped payment/store evidence.
+
+The ledger below originally described an uncommitted PhotoSweep candidate
+loaded at that time. A local test, package, or browser stub does not close a
+provider, device, payment, account, store, or production gate for the current
+candidate.
+
+### Implemented and locally verified (historical prior candidate)
 
 | Slice                            | Local result   | Evidence                                                                                                                                                                                                                                     |
 | -------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -126,7 +140,7 @@ store, or production gate.
 | Production artifact hygiene      | PASS           | Fresh CWS ZIP audit: 40 files; ZIP SHA-256 and manifest SHA-256 are recorded in the matching sidecar; development entitlement markers are absent.                                                                                           |
 | Dependency install/security      | PASS with note | npm lockfile is synchronized and `npm ci --dry-run` passes; npm production audit reports zero vulnerabilities; pnpm production audit has no high-severity findings but still reports two moderate transitive advisories.                     |
 
-### Current release-scope aggregate — PASS
+#### Release-scope aggregate — PASS (2026-09-19; historical)
 
 The current full release run completed 29 evidence entries across 13 commands
 with `sourceDrift=false`; all 29 entries passed, including Google, iCloud, and
@@ -144,7 +158,7 @@ The latest external read-only refresh is recorded in
 [`CLOUD_TEST_PREPAYMENT.md`](../tmp/verification-live-payment-20260918T074901/CLOUD_TEST_PREPAYMENT.md)
 and [`store-readonly-check-20260918T080804Z.md`](../tmp/verification-live-payment-20260918T074901/store-readonly-check-20260918T080804Z.md).
 
-### Current-candidate provider round trips — PASS (scoped)
+#### Provider round trips — PASS (2026-09-20 loaded candidate; historical)
 
 On 2026-09-20, the current loaded PhotoSweep candidate was exercised in Aside
 against the user's disposable `pawsitivegames@gmail.com` test account/session:
@@ -167,9 +181,9 @@ These are current-candidate, account/session-scoped passes. They do not prove
 permanent deletion, every provider account or region, device coverage, payment
 activation, or Chrome Web Store publication.
 
-## Separately gated and not closed
+### Separately gated and not closed (historical prior-candidate evidence)
 
-### Google Photos live Trash/restore — PASS (scoped)
+#### Google Photos live Trash/restore — PASS (historical scoped run)
 
 Aside was used with the disposable `pawsitivegames@gmail.com` account and the
 dedicated six-fixture album. The current PhotoSweep runtime completed an
@@ -186,7 +200,7 @@ and the downloaded review/delete reports linked from the round-trip ledger.
 This is a provider/account/album-specific PASS. It does not establish iCloud,
 device, payment, store, or production behavior.
 
-### iCloud live Trash/restore — PASS (scoped)
+#### iCloud live Trash/restore — PASS (historical scoped runs)
 
 The disposable six-item synthetic fixture was exercised in iCloud through
 Aside. PhotoSweep completed the review, moved exactly one Pair A target to
@@ -231,7 +245,7 @@ This closes the signed-in test-account/provider round trip for that bounded
 range. An unbounded paid full-library scan remains license-gated and is not
 claimed by this scoped PASS.
 
-### Amazon live Trash/restore — PASS (scoped)
+#### Amazon live Trash/restore — PASS (historical scoped run)
 
 The disposable six-item Amazon Photos batch completed one-item Trash,
 provider-side observation of the synthetic Pair A target, PhotoSweep Undo,
@@ -250,7 +264,7 @@ the observed account-region routing but is not independent India or US library
 evidence. No permanent delete was performed. The route record is
 [`amazon-regional-route-smoke-20260918T211902Z.md`](../tmp/verification/20260918T210708Z/amazon-regional-route-smoke-20260918T211902Z.md).
 
-### Device testing — NOT APPLICABLE TO THIS REPOSITORY
+#### Device testing — NOT APPLICABLE TO THIS REPOSITORY
 
 PhotoSweep in this checkout is a Chrome Manifest V3 extension with a side panel;
 there is no Android/iOS project, APK, AAB, or mobile runtime to install. The
@@ -258,7 +272,7 @@ Chromium Playwright suite is browser integration evidence, not physical-device
 evidence. Android Play Console metrics must be handled in the Android product
 repository/release gate, not this checkout.
 
-### Payment/license lifecycle — PARTIALLY VERIFIED; paid action remains externally gated
+#### Payment/license lifecycle — PARTIALLY VERIFIED (historical test deployment; paid action remains externally gated)
 
 The isolated test deployment `photosweep-license-api-test` uses Firestore and
 test-only Secret Manager bindings; the production `photosweep-license-api`
@@ -282,7 +296,7 @@ The latest production-shaped read-only route recheck returned `200`, `200`,
 and unauthenticated `401` for `/checkout/success`, `/checkout/cancel`, and
 `/entitlement`, respectively: [`api-readonly-recheck-20260918T220342Z.md`](../tmp/verification-live-payment-20260918T074901/api-readonly-recheck-20260918T220342Z.md).
 
-### Chrome Web Store public listing — PASS (scoped); prior candidate artifact historical; next candidate upload/publication — UNVERIFIED
+#### Chrome Web Store checks (historical; publication remained unverified)
 
 The prior locally verified candidate is distinct from the earlier saved Chrome
 draft: app version `2.3.0`, Chrome Web Store version `2.3.0.1`. Its ZIP is
@@ -354,7 +368,7 @@ account. No account login, upload, edit, submission, or publication was
 attempted. See
 [`cws-dashboard-readonly-20260918T220443Z.md`](../tmp/verification/20260918T215309Z/cws-dashboard-readonly-20260918T220443Z.md).
 
-## Commands used for this status
+### Commands used for the historical status
 
 ```bash
 npm run typecheck
