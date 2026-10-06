@@ -1047,6 +1047,56 @@ describe("keep strategy", () => {
     ).toEqual(["a-known-non-original"])
   })
 
+  it("uses resolution when best-quality evidence is unknown for both candidates", () => {
+    const candidates = {
+      "a-lower-resolution": item("a-lower-resolution", {
+        isOriginalQuality: null,
+        resWidth: 1000,
+        resHeight: 1000
+      }),
+      "z-higher-resolution": item("z-higher-resolution", {
+        isOriginalQuality: null,
+        resWidth: 4000,
+        resHeight: 3000
+      })
+    }
+
+    expect(
+      recommendDefaultKeepForGroup(
+        { mediaKeys: ["a-lower-resolution", "z-higher-resolution"] },
+        candidates,
+        "best_quality"
+      ).keptMediaKeys
+    ).toEqual(["z-higher-resolution"])
+  })
+
+  it("preserves timestamp ordering when finite values span the numeric range", () => {
+    const highestTimestamp = Number.MAX_VALUE
+    const lowestTimestamp = -Number.MAX_VALUE
+    const candidates = {
+      "z-high-one": item("z-high-one", {
+        timestamp: highestTimestamp,
+        timestampProvenance: "capture"
+      }),
+      "a-low": item("a-low", {
+        timestamp: lowestTimestamp,
+        timestampProvenance: "capture"
+      }),
+      "y-high-two": item("y-high-two", {
+        timestamp: highestTimestamp,
+        timestampProvenance: "capture"
+      })
+    }
+
+    expect(
+      recommendDefaultKeepForGroup(
+        { mediaKeys: ["z-high-one", "a-low", "y-high-two"] },
+        candidates,
+        "newest_taken"
+      ).keptMediaKeys
+    ).toEqual(["y-high-two"])
+  })
+
   it("uses resolution before file size when best-quality evidence ties", () => {
     const tiedQualityGroup = {
       mediaKeys: ["a-larger-file", "z-higher-resolution"]

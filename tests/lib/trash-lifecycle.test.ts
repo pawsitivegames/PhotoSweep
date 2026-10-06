@@ -853,6 +853,56 @@ describe("TrashLifecycle", () => {
     })
   })
 
+  it("does not bind iCloud progress refs when the optional dedup identity list is malformed", async () => {
+    const { audit, lifecycle, groups, mediaItems, reviewSession, assetRef } =
+      icloudFixture()
+    const targetKey = "Stryker was here"
+    mediaItems.trash!.dedupKey = targetKey
+    const targetReview = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: reviewSession.selections
+    })
+    const command = await lifecycle.begin({
+      plan: targetReview.trashPlan(groups),
+      reviewSession: targetReview,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      requestId: "icloud-malformed-progress-identities",
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 0,
+        retryCount: 0,
+        retryBackoffMs: 0
+      }
+    })
+    const freshRef = assetRef("asset-trash", "fresh-after-trash")
+
+    expect(lifecycle.recordProgress({
+      requestId: command.requestId,
+      data: {
+        trashedDedupKeys: "not-an-identity-array" as never,
+        icloudAssetRefs: [freshRef],
+        outcomes: [
+          { operation: "trash", targetKey, status: "confirmed" }
+        ]
+      }
+    })).toBe(true)
+
+    const outcome = await lifecycle.timeout({ requestId: command.requestId })
+
+    expect(outcome).toMatchObject({
+      kind: "partial",
+      movedDedupKeys: [targetKey],
+      undo: { dedupKeys: [targetKey] }
+    })
+    if (outcome.kind !== "partial") {
+      throw new Error("expected retained confirmed Trash progress")
+    }
+    expect(outcome.undo.icloudAssetRefs).toBeUndefined()
+    expect(audit.resultContexts[0]?.confirmedIcloudAssetRefs).toBeUndefined()
+  })
+
   it("rejects incomplete fresh iCloud refs when multiple Trash targets are confirmed", async () => {
     const {
       audit,
@@ -2649,6 +2699,15 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       { ...fact("trash", "d-a", "failed"), reason: "x".repeat(400) },
       { ...fact("trash", "d-b", "failed"), reason: { private: "not text" } }
     ] } })
+    const retainedProgressReason = (
+      lifecycle as unknown as {
+        pending: {
+          progressOutcomes: Map<string, { reason?: string }>
+        } | null
+      }
+    ).pending?.progressOutcomes.get("d-a")?.reason
+    expect(retainedProgressReason).toHaveLength(300)
+
     await lifecycle.reconcile({ requestId, success: false })
     expect(audit.resultReports[0]?.outcomes).toEqual([
       { ...fact("trash", "d-a", "failed"), reason: "x".repeat(300) }, fact("trash", "d-b", "failed")
@@ -3170,6 +3229,53 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       outcomes: [fact("restore", "d-a", "unknown")]
     })
   })
+
+  it.each(["per-target", "legacy"] as const)(
+    "omits a not-dispatched reason from a confirmed terminal without metadata (%s)",
+    (protocol) => {
+      const { lifecycle, requestId } = setupRestore(["d-a"])
+      const result = protocol === "per-target"
+        ? lifecycle.reconcileRestore({
+            requestId,
+            success: true,
+            outcomes: [fact("restore", "d-a", "confirmed")]
+          })
+        : lifecycle.reconcileRestore({
+            requestId,
+            success: true,
+            restoredDedupKeys: ["d-a"]
+          })
+
+      expect(result?.outcomes).toEqual([fact("restore", "d-a", "confirmed")])
+      expect(Object.hasOwn(result?.outcomes?.[0] ?? {}, "reason")).toBe(false)
+    }
+  )
+
+  it.each(["per-target", "legacy"] as const)(
+    "omits an absent prior reason from a same-status confirmed terminal (%s)",
+    (protocol) => {
+      const { lifecycle, requestId } = setupRestore(["d-a"])
+      expect(lifecycle.recordRestoreProgress({
+        requestId,
+        outcomes: [fact("restore", "d-a", "confirmed")]
+      })).toBe(true)
+
+      const result = protocol === "per-target"
+        ? lifecycle.reconcileRestore({
+            requestId,
+            success: true,
+            outcomes: [fact("restore", "d-a", "confirmed")]
+          })
+        : lifecycle.reconcileRestore({
+            requestId,
+            success: true,
+            restoredDedupKeys: ["d-a"]
+          })
+
+      expect(result?.outcomes).toEqual([fact("restore", "d-a", "confirmed")])
+      expect(Object.hasOwn(result?.outcomes?.[0] ?? {}, "reason")).toBe(false)
+    }
+  )
 
   it("preserves a prior same-status restore reason when the terminal omits one", () => {
     const { lifecycle, requestId } = setupRestore(["d-a"])

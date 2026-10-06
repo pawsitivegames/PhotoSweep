@@ -390,6 +390,29 @@ function reviewSessionFixture() {
 }
 
 describe("mutation closure: duplicate review session", () => {
+  it("fails closed for malformed keeper override roots at the session boundary", () => {
+    const numericGroup = group("0", "a", "b")
+    const mediaItems = {
+      a: item("a", { isOriginalQuality: false }),
+      b: item("b", { isOriginalQuality: true })
+    }
+    const fromRoot = (keptOverrides: unknown) =>
+      new DuplicateReviewSession({
+        groups: [numericGroup],
+        mediaItems,
+        selections: {
+          selectedGroupIds: new Set(),
+          reviewedGroupIds: new Set(),
+          keptOverrides
+        } as unknown as DuplicateReviewSelections
+      })
+
+    for (const malformedRoot of [undefined, null, [["a"]], "a"]) {
+      expect(fromRoot(malformedRoot).decisionFor(numericGroup).keptMediaKeys)
+        .toEqual(new Set(["b"]))
+    }
+  })
+
   it("handles unknown actions and replace/clear through the public update seam", () => {
     const { groups, session } = reviewSessionFixture()
     const initial = session()
@@ -538,6 +561,32 @@ describe("mutation closure: duplicate review session", () => {
     })
     expect(automatic.keptOverrides.g1).toEqual(new Set(["c"]))
     expect(automatic.keepDecisionProvenance?.g1).toEqual({
+      source: "automatic",
+      strategy: "largest_resolution"
+    })
+  })
+
+  it("replaces an empty legacy keeper override for a nonempty group", () => {
+    const { groups, mediaItems } = reviewSessionFixture()
+    const initial = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(["g1"]),
+        reviewedGroupIds: new Set(["g1"]),
+        keptOverrides: { g1: new Set() },
+        keepDecisionProvenance: { g1: { source: "legacy_preserved" } }
+      }
+    })
+
+    const updated = initial.update({
+      type: "apply_keep_strategy",
+      groupIds: ["g1"],
+      strategy: "largest_resolution"
+    })
+
+    expect(updated.keptOverrides.g1).toEqual(new Set(["c"]))
+    expect(updated.keepDecisionProvenance?.g1).toEqual({
       source: "automatic",
       strategy: "largest_resolution"
     })
@@ -824,6 +873,26 @@ describe("mutation closure: duplicate review session", () => {
     expect(invalidStrategy.serialize().keepDecisionProvenance).toEqual({
       g1: { source: "manual" }
     })
+
+    const invalidAutomaticStrategy = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: { g1: new Set(["a"]) },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "invalid" as never }
+        }
+      }
+    })
+    expect(invalidAutomaticStrategy.decisionFor(groups[0])).toMatchObject({
+      source: "legacy_preserved",
+      keptMediaKeys: new Set(["a"])
+    })
+    expect(
+      invalidAutomaticStrategy.serialize().keepDecisionProvenance
+    ).toEqual({ g1: { source: "legacy_preserved" } })
 
     const legacyWithStrategy = new DuplicateReviewSession({
       groups,

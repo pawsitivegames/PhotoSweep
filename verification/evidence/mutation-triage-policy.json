@@ -1,0 +1,4319 @@
+{
+  "schemaVersion": 1,
+  "sourceFingerprint": "43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab",
+  "rawReportSha256": "04bfb7337640e431851b9153169465c52c18c00bed709361c1b04fc1a8f5ebbb",
+  "entries": [
+    {
+      "id": "307",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 517,
+          "column": 39
+        },
+        "end": {
+          "line": 517,
+          "column": 57
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The constructor sanitizes selections before resolveDecision runs. sanitize() stores normalized or synthesized legacy_preserved/stale_fallback provenance alongside every accepted keptOverrides entry (lines 423-483); when no override exists, resolveDecision skips this override branch. Therefore the nullish fallback at line 517 cannot be taken for a decision that reaches this return. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "95",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 228,
+          "column": 13
+        },
+        "end": {
+          "line": 228,
+          "column": 41
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "sanitize() makes an empty legacy_preserved group carry an empty override; absent or invalid nonempty overrides become stale_fallback (duplicate-review-session.ts:432-455, 462-480). Thus the changed condition cannot matter for a reachable accepted state.",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "100",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 229,
+          "column": 13
+        },
+        "end": {
+          "line": 229,
+          "column": 39
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "existingProvenance.source",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The direct existingProvenance.source read follows the empty-override check; sanitize() assigns provenance to every accepted override, and absent overrides short-circuit (duplicate-review-session.ts:437-455).",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "288",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 497,
+          "column": 24
+        },
+        "end": {
+          "line": 497,
+          "column": 78
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "this.selectionState.keepDecisionProvenance[group.id]",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "sanitize() initializes keepDecisionProvenance as an object and always returns it (duplicate-review-session.ts:423-424, 483-488), so removing optional chaining preserves behavior.",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "296",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 505,
+          "column": 21
+        },
+        "end": {
+          "line": 505,
+          "column": 39
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "provenance.source",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Each provenance.source read is guarded by a truthy override, and sanitize() assigns provenance to every accepted override (duplicate-review-session.ts:432-455, 514).",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "306",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 517,
+          "column": 17
+        },
+        "end": {
+          "line": 517,
+          "column": 35
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "provenance.source",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Each provenance.source read is guarded by a truthy override, and sanitize() assigns provenance to every accepted override (duplicate-review-session.ts:432-455, 514).",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "335",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 543,
+          "column": 9
+        },
+        "end": {
+          "line": 543,
+          "column": 42
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Disabling the undefined-strategy condition falls through to the invalid-strategy guard, which handles undefined identically and returns the same normalization (duplicate-review-session.ts:543-551).",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "337",
+      "file": "lib/duplicate-review-session.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 543,
+          "column": 44
+        },
+        "end": {
+          "line": 547,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "4df4f30868034defce4120445d2156a9330abef78e8e2d8aee3d0b8cc7017456",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Removing this undefined-strategy branch has the same fallthrough as mutant 335: the next invalid-strategy guard produces the same result with no side effects (duplicate-review-session.ts:543-551).",
+      "reviewer": "Independent review: duplicate-session"
+    },
+    {
+      "id": "547",
+      "file": "lib/keep-strategy.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 224,
+          "column": 11
+        },
+        "end": {
+          "line": 224,
+          "column": 16
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "true",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "recommendationEvidence populates provenanceByMediaKey only for newest_taken/oldest_taken or newest_upload (lines 139-165). For those strategies the corresponding requiresCaptureProvenance or requiresCreationProvenance condition is true, so the final false arm at line 224 is not selected. Other strategies leave provenanceByMediaKey empty, so its callback is not invoked. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "431",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 104,
+          "column": 9
+        },
+        "end": {
+          "line": 104,
+          "column": 19
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Invalid-width cases remain rejected by the height guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "432",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 104,
+          "column": 9
+        },
+        "end": {
+          "line": 104,
+          "column": 19
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "width < 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Invalid-width cases remain rejected by the height guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "434",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 105,
+          "column": 9
+        },
+        "end": {
+          "line": 105,
+          "column": 20
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Invalid-height cases remain rejected by the width guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "435",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 105,
+          "column": 9
+        },
+        "end": {
+          "line": 105,
+          "column": 20
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "height < 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Invalid-height cases remain rejected by the width guard or produce nonpositive area rejected later (keep-strategy.ts:392-429).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "533",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 216,
+          "column": 38
+        },
+        "end": {
+          "line": 216,
+          "column": 66
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "provenanceByMediaKey is populated only for date strategies; upload dates already require creation provenance, while other strategies leave the map empty.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "607",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 296,
+          "column": 5
+        },
+        "end": {
+          "line": 299,
+          "column": 20
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "(!Number.isFinite(resWidth) || !Number.isFinite(resHeight) || resWidth! <= 0) && resHeight! <= 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "608",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 296,
+          "column": 5
+        },
+        "end": {
+          "line": 298,
+          "column": 19
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "609",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 296,
+          "column": 5
+        },
+        "end": {
+          "line": 298,
+          "column": 19
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "(!Number.isFinite(resWidth) || !Number.isFinite(resHeight)) && resWidth! <= 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "610",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 296,
+          "column": 5
+        },
+        "end": {
+          "line": 297,
+          "column": 32
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "611",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 296,
+          "column": 5
+        },
+        "end": {
+          "line": 297,
+          "column": 32
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "!Number.isFinite(resWidth) && !Number.isFinite(resHeight)",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "614",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 298,
+          "column": 5
+        },
+        "end": {
+          "line": 298,
+          "column": 19
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "615",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 298,
+          "column": 5
+        },
+        "end": {
+          "line": 298,
+          "column": 19
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "resWidth! < 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "617",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 299,
+          "column": 5
+        },
+        "end": {
+          "line": 299,
+          "column": 20
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "618",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 299,
+          "column": 5
+        },
+        "end": {
+          "line": 299,
+          "column": 20
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "resHeight! < 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Remaining width/height checks and later area validation reject nonpositive, zero, or nonfinite dimensions; the changed resolution predicate accepts no new input (keep-strategy.ts:779-843).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "650",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 329,
+          "column": 21
+        },
+        "end": {
+          "line": 329,
+          "column": 37
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "An empty comparison still has value undefined; omitted direction is undefined and activates compareSignal's default direction of 1.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "653",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 332,
+          "column": 14
+        },
+        "end": {
+          "line": 340,
+          "column": 8
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "When the primary quality signal ties, the fallback repeats the same best-quality signal and restores the same comparison (keep-strategy.ts:994-1048).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "654",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 334,
+          "column": 11
+        },
+        "end": {
+          "line": 334,
+          "column": 42
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "When the primary quality signal ties, the fallback repeats the same best-quality signal and restores the same comparison (keep-strategy.ts:994-1048).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "658",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 336,
+          "column": 15
+        },
+        "end": {
+          "line": 336,
+          "column": 47
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The mutated boolean primary value is unknown to Number.isFinite; the quality fallback restores the original ordering (keep-strategy.ts:994-1048).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "659",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 336,
+          "column": 15
+        },
+        "end": {
+          "line": 336,
+          "column": 47
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The mutated boolean primary value is unknown to Number.isFinite; the quality fallback restores the original ordering (keep-strategy.ts:994-1048).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "661",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 336,
+          "column": 42
+        },
+        "end": {
+          "line": 336,
+          "column": 47
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "true",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Explicit false quality is an unknown boolean primary value; the fallback compares the normal numeric quality score (keep-strategy.ts:1027-1048).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "689",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 370,
+          "column": 7
+        },
+        "end": {
+          "line": 370,
+          "column": 50
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "(!leftKnown || !rightKnown) && left === right",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Mixed-knownness cases return earlier. Equal finite inputs subtract to zero, and helper-produced unknowns are undefined on both sides, satisfying equality.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "690",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 370,
+          "column": 7
+        },
+        "end": {
+          "line": 370,
+          "column": 32
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Mixed-knownness cases return earlier. Equal finite inputs subtract to zero, and helper-produced unknowns are undefined on both sides, satisfying equality.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "691",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 370,
+          "column": 7
+        },
+        "end": {
+          "line": 370,
+          "column": 32
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "!leftKnown && !rightKnown",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Mixed-knownness cases return earlier. Equal finite inputs subtract to zero, and helper-produced unknowns are undefined on both sides, satisfying equality.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "694",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 370,
+          "column": 36
+        },
+        "end": {
+          "line": 370,
+          "column": 50
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The earlier missing-value check remains; equal finite inputs reach subtraction and yield zero.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "736",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 420,
+          "column": 10
+        },
+        "end": {
+          "line": 420,
+          "column": 28
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "leftKey <= rightKey",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The changed tie behavior requires equal keys or a zero comparator result. The public caller deduplicates keys with Set, and the final code-unit comparison orders distinct tied keys (keep-strategy.ts:894-930).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "739",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 420,
+          "column": 36
+        },
+        "end": {
+          "line": 420,
+          "column": 54
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "For distinct greater keys, comparator outcomes differ only among positive/zero values and all fail the caller's < 0 check; equal keys are excluded by Set deduplication.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "740",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 420,
+          "column": 36
+        },
+        "end": {
+          "line": 420,
+          "column": 54
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "For distinct greater keys, comparator outcomes differ only among positive/zero values and all fail the caller's < 0 check; equal keys are excluded by Set deduplication.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "741",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 420,
+          "column": 36
+        },
+        "end": {
+          "line": 420,
+          "column": 54
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "leftKey >= rightKey",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The changed tie behavior requires equal keys or a zero comparator result. The public caller deduplicates keys with Set, and the final code-unit comparison orders distinct tied keys (keep-strategy.ts:894-930).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "742",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 420,
+          "column": 36
+        },
+        "end": {
+          "line": 420,
+          "column": 54
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "leftKey <= rightKey",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "For distinct greater keys, comparator outcomes differ only among positive/zero values and all fail the caller's < 0 check; equal keys are excluded by Set deduplication.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "754",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 444,
+          "column": 30
+        },
+        "end": {
+          "line": 444,
+          "column": 52
+        }
+      },
+      "mutatorName": "MethodExpression",
+      "replacement": "candidateKeys",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The added self-comparison of the initial keeper returns zero, which fails the loop's < 0 check; other candidates are still compared normally.",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "758",
+      "file": "lib/keep-strategy.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 446,
+          "column": 7
+        },
+        "end": {
+          "line": 451,
+          "column": 12
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "compareDefaultCandidate(candidateKey, keptMediaKey, mediaItems, strategy) <= 0",
+      "sourceHash": "3467fd1af1887c5e3e922b3ed0c853eba780a9eb3e0808b24990b5b2b92f1433",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The changed tie behavior requires equal keys or a zero comparator result. The public caller deduplicates keys with Set, and the final code-unit comparison orders distinct tied keys (keep-strategy.ts:894-930).",
+      "reviewer": "Independent review: keep-strategy"
+    },
+    {
+      "id": "1221",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 211,
+          "column": 32
+        },
+        "end": {
+          "line": 211,
+          "column": 34
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "unknownOutcome is private; all internal call sites at lines 932, 987, and 1059 pass the unknownMediaKeys array explicitly. The default array initializer at line 211 is unreachable in the current source. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1222",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 212,
+          "column": 32
+        },
+        "end": {
+          "line": 212,
+          "column": 34
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "unknownOutcome is private; all internal call sites at lines 932, 987, and 1059 pass the unknownDedupKeys array explicitly. The default array initializer at line 212 is unreachable in the current source. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1223",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 213,
+          "column": 31
+        },
+        "end": {
+          "line": 213,
+          "column": 33
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "unknownOutcome is private; all internal call sites at lines 932, 987, and 1059 pass the failedMediaKeys array explicitly. The default array initializer at line 213 is unreachable in the current source. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1224",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 214,
+          "column": 31
+        },
+        "end": {
+          "line": 214,
+          "column": 33
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "unknownOutcome is private; all internal call sites at lines 932, 987, and 1059 pass the failedDedupKeys array explicitly. The default array initializer at line 214 is unreachable in the current source. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1225",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 215,
+          "column": 38
+        },
+        "end": {
+          "line": 215,
+          "column": 40
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "unknownOutcome is private; all internal call sites at lines 932, 987, and 1059 pass the notDispatchedMediaKeys array explicitly. The default array initializer at line 215 is unreachable in the current source. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1226",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 216,
+          "column": 38
+        },
+        "end": {
+          "line": 216,
+          "column": 40
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "unknownOutcome is private; all internal call sites at lines 932, 987, and 1059 pass the notDispatchedDedupKeys array explicitly. The default array initializer at line 216 is unreachable in the current source. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1665",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 691,
+          "column": 44
+        },
+        "end": {
+          "line": 691,
+          "column": 46
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "begin() rejects trash plans unless dedupKeys and mediaKeysToTrash have equal lengths, every identity is a nonempty string, and each list has unique keys (lines 634-648). currentUnknownFavoriteKeys is filtered from that validated mediaKeysToTrash list (lines 660-661), then the map is built by pairing those same lists by index (lines 682-690). Thus every queried mediaKey maps to a nonempty dedupKey and the empty-array fallback at line 691 cannot be selected. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1828",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 934,
+          "column": 11
+        },
+        "end": {
+          "line": 934,
+          "column": 116
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The fallback error literal is passed only when unknownDedupKeys is nonempty (lines 932-940). For a non-dry-run operation that implies fewer moved media keys than attempted or no identity confirmation, making incompleteSuccess true and responseError nonempty (lines 831-840); dry-run returns before this branch. Therefore responseError ?? fallback cannot evaluate the fallback literal at line 934. Bound to this report and source by the enclosing policy.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "2005",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 1144,
+          "column": 66
+        },
+        "end": {
+          "line": 1144,
+          "column": 68
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "This empty-array fallback only populates the legacy trashedKeys field of pending.progressResult. That object always includes outcomes (lines 1142-1153); confirmedTrashKeys switches to outcomes whenever that property exists (lines 272-330), and finish synthesizes outcomes for missing outcome replies when progress exists (lines 788-820). The fallback array value therefore cannot affect the resolved trash set.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "2374",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 1404,
+          "column": 67
+        },
+        "end": {
+          "line": 1408,
+          "column": 10
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "Before the resolvedOutcomes loop, the code sets malformed=true if any notDispatched key lacks exactly one failed outcome (lines 1385-1389). When this condition is met, the earlier malformed branch in the loop handles the key (lines 1395-1399); otherwise status is failed and the later `status !== failed` branch at line 1404 cannot run. The mutated branch is unreachable.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "2375",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 1405,
+          "column": 23
+        },
+        "end": {
+          "line": 1405,
+          "column": 27
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The `malformed = true` statement is in the same branch as mutant #2374. Earlier validation at lines 1385-1389 guarantees malformed is already true for a notDispatched key whose status is not failed, so the prior malformed branch consumes it before this branch.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "2376",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 1406,
+          "column": 20
+        },
+        "end": {
+          "line": 1406,
+          "column": 29
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The `status = \"unknown\"` statement is in the same branch as mutant #2374. Earlier validation at lines 1385-1389 guarantees malformed is already true for a notDispatched key whose status is not failed, so the prior malformed branch consumes it before this branch.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "1237",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 288,
+          "column": 41
+        },
+        "end": {
+          "line": 288,
+          "column": 43
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The audit sentinel is filtered from outcome results; result sets come from validated inputs.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1238",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 289,
+          "column": 29
+        },
+        "end": {
+          "line": 289,
+          "column": 34
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Both parser paths overwrite the initial value before it is observed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1260",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 307,
+          "column": 22
+        },
+        "end": {
+          "line": 307,
+          "column": 50
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "data.notDispatchedDedupKeys",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A truthy parsed array requires data; the absent-data branch does not read this value.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1274",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 317,
+          "column": 41
+        },
+        "end": {
+          "line": 317,
+          "column": 55
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "data.outcomes",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The own-property/hasOutcomes guard requires data to exist before the changed access can execute.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1277",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 319,
+          "column": 23
+        },
+        "end": {
+          "line": 319,
+          "column": 37
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "data.outcomes",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The own-property/hasOutcomes guard requires data to exist before the changed access can execute.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1284",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 321,
+          "column": 27
+        },
+        "end": {
+          "line": 321,
+          "column": 56
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "!candidate still catches null; other primitive candidates fail target-key validation before producing an outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1296",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 327,
+          "column": 11
+        },
+        "end": {
+          "line": 327,
+          "column": 44
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The requested-key Set contains strings only, so membership rejects nonstring candidate keys at the same guard.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1321",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 339,
+          "column": 22
+        },
+        "end": {
+          "line": 339,
+          "column": 29
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The mutated operation is on an internal candidate unused after raw validation; normalized output reconstructs operation 'trash' separately (trash-lifecycle.ts:361).",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1330",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 350,
+          "column": 50
+        },
+        "end": {
+          "line": 350,
+          "column": 52
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The sentinel candidate has no usable status or reason, so the target remains unknown.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1365",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 370,
+          "column": 55
+        },
+        "end": {
+          "line": 372,
+          "column": 8
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Re-adding a key already present in the Set has no effect.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1511",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 515,
+          "column": 14
+        },
+        "end": {
+          "line": 515,
+          "column": 43
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "outcomeByKey.get(key).status",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The private undo helper's internal callers provide one outcome for every undo key; its missing-outcome fallback is unreachable.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1518",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 518,
+          "column": 14
+        },
+        "end": {
+          "line": 518,
+          "column": 43
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "outcomeByKey.get(key).status",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The private undo helper's internal callers provide one outcome for every undo key; its missing-outcome fallback is unreachable.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1525",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 521,
+          "column": 14
+        },
+        "end": {
+          "line": 521,
+          "column": 43
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "outcomeByKey.get(key).status",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The private undo helper's internal callers provide one outcome for every undo key; its missing-outcome fallback is unreachable.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1566",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 585,
+          "column": 7
+        },
+        "end": {
+          "line": 585,
+          "column": 34
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "Both callers invoke undoForPending only when moved count is positive, so the changed empty-moved fallback is unreachable.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1659",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 688,
+          "column": 7
+        },
+        "end": {
+          "line": 688,
+          "column": 50
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A nonempty unknown-favorite target requires acknowledgement earlier; without acknowledgement the mapped target list is empty.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1693",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 735,
+          "column": 17
+        },
+        "end": {
+          "line": 735,
+          "column": 29
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The initial pending status is only checked for 'ambiguous' later; changing this local check does not alter returned state.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1749",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 818,
+          "column": 37
+        },
+        "end": {
+          "line": 818,
+          "column": 39
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Dry-run returns hard-coded empty moved arrays and supplies explicit failed audit outcomes.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1871",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 979,
+          "column": 56
+        },
+        "end": {
+          "line": 984,
+          "column": 14
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A missing fallback outcome still resolves to unknown, so target status is unchanged.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1872",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 983,
+          "column": 23
+        },
+        "end": {
+          "line": 983,
+          "column": 53
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "This reason is local to repeated-timeout parsing and is not returned or consumed by output.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1909",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1081,
+          "column": 25
+        },
+        "end": {
+          "line": 1081,
+          "column": 54
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "!candidate still catches null; other primitive candidates fail target-key validation before producing an outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1922",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1085,
+          "column": 9
+        },
+        "end": {
+          "line": 1085,
+          "column": 42
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The requested-key Set contains strings only, so membership rejects nonstring candidate keys at the same guard.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1943",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1098,
+          "column": 53
+        },
+        "end": {
+          "line": 1102,
+          "column": 10
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Conflict state remains unknown when reparsed; malformed identity also resolves to unknown.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1944",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1099,
+          "column": 22
+        },
+        "end": {
+          "line": 1099,
+          "column": 29
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "An invalid operation is discarded during parsing and the target remains unknown.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1945",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1101,
+          "column": 19
+        },
+        "end": {
+          "line": 1101,
+          "column": 28
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "An invalid status is discarded during parsing and the target remains unknown.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1988",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1129,
+          "column": 10
+        },
+        "end": {
+          "line": 1129,
+          "column": 65
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The prior-terminal guard remains; a prior-terminal then unknown outcome already exits through the earlier branch.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "1999",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1133,
+          "column": 53
+        },
+        "end": {
+          "line": 1137,
+          "column": 10
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Conflict state remains unknown when reparsed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2000",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1134,
+          "column": 22
+        },
+        "end": {
+          "line": 1134,
+          "column": 29
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The invalid operation is discarded during parsing and the target remains unknown.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2001",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1136,
+          "column": 19
+        },
+        "end": {
+          "line": 1136,
+          "column": 28
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The invalid status is discarded during parsing and the target remains unknown.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2003",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1144,
+          "column": 11
+        },
+        "end": {
+          "line": 1144,
+          "column": 70
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Timeout supplies explicit per-target outcomes, so cached legacy keys are ignored.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2004",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1144,
+          "column": 26
+        },
+        "end": {
+          "line": 1144,
+          "column": 68
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "stringArray(params.data.trashedKeys) && []",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Timeout supplies explicit per-target outcomes, so cached legacy keys are ignored.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2010",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1152,
+          "column": 63
+        },
+        "end": {
+          "line": 1155,
+          "column": 8
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Timeout call sites replace cached outcomes before they are consumed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2011",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1154,
+          "column": 26
+        },
+        "end": {
+          "line": 1154,
+          "column": 35
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Timeout call sites replace cached outcomes before they are consumed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2012",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1154,
+          "column": 38
+        },
+        "end": {
+          "line": 1154,
+          "column": 40
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Timeout call sites replace cached outcomes before they are consumed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2091",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1229,
+          "column": 39
+        },
+        "end": {
+          "line": 1229,
+          "column": 41
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The extra parsed entry has no requested key and is never read by requested-key mapping.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2097",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1231,
+          "column": 25
+        },
+        "end": {
+          "line": 1231,
+          "column": 54
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The requested-key Set contains strings only, so membership rejects nonstring candidate keys at the same guard.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2113",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1235,
+          "column": 9
+        },
+        "end": {
+          "line": 1235,
+          "column": 42
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The requested-key Set contains strings only, so membership rejects nonstring candidate keys at the same guard.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2176",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1269,
+          "column": 9
+        },
+        "end": {
+          "line": 1270,
+          "column": 40
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Earlier branches handle unknowns and conflicts; the remaining confirmed case retains confirmed status.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2177",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1269,
+          "column": 9
+        },
+        "end": {
+          "line": 1270,
+          "column": 40
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "prior?.status === \"confirmed\" && incoming.status === \"confirmed\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Where the stricter condition differs, incoming confirmed status is retained by default.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2178",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1269,
+          "column": 9
+        },
+        "end": {
+          "line": 1269,
+          "column": 38
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The incoming-confirmed clause covers the remaining case; prior-confirmed conflicts were handled earlier.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2181",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1269,
+          "column": 27
+        },
+        "end": {
+          "line": 1269,
+          "column": 38
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The incoming-confirmed clause covers the remaining case; prior-confirmed conflicts were handled earlier.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2182",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1270,
+          "column": 9
+        },
+        "end": {
+          "line": 1270,
+          "column": 40
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Without the assignment, incoming status is already confirmed in this branch.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2184",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1270,
+          "column": 29
+        },
+        "end": {
+          "line": 1270,
+          "column": 40
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Without the assignment, incoming status is already confirmed in this branch.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2185",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1271,
+          "column": 9
+        },
+        "end": {
+          "line": 1273,
+          "column": 8
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "This assignment only reassigns the already-confirmed incoming status.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2222",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1337,
+          "column": 9
+        },
+        "end": {
+          "line": 1339,
+          "column": 10
+        }
+      },
+      "mutatorName": "MethodExpression",
+      "replacement": "params.notDispatchedDedupKeys",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Each malformed case remains rejected by preceding validation: invalid metadata, nonstring entries, or unrequested entries set malformed state, whose cleanup removes retry authority.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2224",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1338,
+          "column": 35
+        },
+        "end": {
+          "line": 1338,
+          "column": 58
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Each malformed case remains rejected by preceding validation: invalid metadata, nonstring entries, or unrequested entries set malformed state, whose cleanup removes retry authority.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2229",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1342,
+          "column": 7
+        },
+        "end": {
+          "line": 1342,
+          "column": 59
+        }
+      },
+      "mutatorName": "MethodExpression",
+      "replacement": "notDispatchedRaw",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Each malformed case remains rejected by preceding validation: invalid metadata, nonstring entries, or unrequested entries set malformed state, whose cleanup removes retry authority.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2261",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1355,
+          "column": 29
+        },
+        "end": {
+          "line": 1355,
+          "column": 58
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "!candidate still catches null; other primitive candidates fail target-key validation before producing an outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2276",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1362,
+          "column": 13
+        },
+        "end": {
+          "line": 1362,
+          "column": 46
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The requested-key Set contains strings only, so membership rejects nonstring candidate keys at the same guard.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2298",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1373,
+          "column": 24
+        },
+        "end": {
+          "line": 1373,
+          "column": 33
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The validated internal operation is unused; the returned outcome is rebuilt with operation 'restore'.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2305",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1382,
+          "column": 14
+        },
+        "end": {
+          "line": 1384,
+          "column": 8
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A nonarray response fails the later map-size check and is marked malformed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2306",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1383,
+          "column": 21
+        },
+        "end": {
+          "line": 1383,
+          "column": 25
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A nonarray response fails the later map-size check and is marked malformed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2328",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1389,
+          "column": 44
+        },
+        "end": {
+          "line": 1389,
+          "column": 72
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Global map validation already catches missing and duplicate keys.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2333",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1389,
+          "column": 76
+        },
+        "end": {
+          "line": 1389,
+          "column": 103
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "byKey.get(key)?.[0].status",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The preceding length check short-circuits unless exactly one value exists.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2334",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1389,
+          "column": 76
+        },
+        "end": {
+          "line": 1389,
+          "column": 95
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "byKey.get(key)[0]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "For a missing entry, the preceding optional length check short-circuits before this access.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2340",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1393,
+          "column": 42
+        },
+        "end": {
+          "line": 1393,
+          "column": 44
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Malformed-response cleanup discards this candidate before it affects returned outcomes.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2341",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1394,
+          "column": 27
+        },
+        "end": {
+          "line": 1394,
+          "column": 46
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Malformed-response cleanup discards this candidate before it affects returned outcomes.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2346",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1397,
+          "column": 32
+        },
+        "end": {
+          "line": 1397,
+          "column": 41
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The fallback applies only when no candidate exists, marking the response malformed and routing through cleanup.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2348",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1398,
+          "column": 13
+        },
+        "end": {
+          "line": 1398,
+          "column": 43
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2349",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1398,
+          "column": 13
+        },
+        "end": {
+          "line": 1398,
+          "column": 43
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "malformed && values.length > 1",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2350",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1398,
+          "column": 26
+        },
+        "end": {
+          "line": 1398,
+          "column": 43
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2353",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1398,
+          "column": 45
+        },
+        "end": {
+          "line": 1401,
+          "column": 10
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2354",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1399,
+          "column": 20
+        },
+        "end": {
+          "line": 1399,
+          "column": 49
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2355",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1399,
+          "column": 20
+        },
+        "end": {
+          "line": 1399,
+          "column": 49
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2356",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1399,
+          "column": 20
+        },
+        "end": {
+          "line": 1399,
+          "column": 49
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "prior?.status !== \"confirmed\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2358",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1399,
+          "column": 38
+        },
+        "end": {
+          "line": 1399,
+          "column": 49
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2359",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1399,
+          "column": 52
+        },
+        "end": {
+          "line": 1399,
+          "column": 63
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2360",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1399,
+          "column": 66
+        },
+        "end": {
+          "line": 1399,
+          "column": 75
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Global validation marks the response malformed; final cleanup repeats the local status/reason reset for the affected outcome.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2369",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1404,
+          "column": 20
+        },
+        "end": {
+          "line": 1404,
+          "column": 65
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "The not-dispatched/status conflict is detected earlier; final cleanup removes retry authority again.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2380",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1410,
+          "column": 11
+        },
+        "end": {
+          "line": 1410,
+          "column": 30
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A key remains in notDispatched here only if its status is failed.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2399",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1414,
+          "column": 45
+        },
+        "end": {
+          "line": 1414,
+          "column": 77
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The status-equality guard remains, and the final string check omits an undefined reason, so the candidate reason cannot change output.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2434",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1449,
+          "column": 11
+        },
+        "end": {
+          "line": 1449,
+          "column": 13
+        }
+      },
+      "mutatorName": "ArrayDeclaration",
+      "replacement": "[\"Stryker was here\"]",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Nonarray restored keys mark the response malformed; final cleanup resets outcomes.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2435",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1450,
+          "column": 31
+        },
+        "end": {
+          "line": 1452,
+          "column": 8
+        }
+      },
+      "mutatorName": "MethodExpression",
+      "replacement": "reported",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Nonstring or foreign restored entries are detected by malformed checks and sanitized.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2437",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1451,
+          "column": 33
+        },
+        "end": {
+          "line": 1451,
+          "column": 56
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A nonstring identity fails requested-key membership and triggers cleanup.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2465",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1463,
+          "column": 9
+        },
+        "end": {
+          "line": 1465,
+          "column": 69
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "!malformed && reportedStrings.length === undo.dedupKeys.length || undo.dedupKeys.every(key => reportedStrings.includes(key))",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Locally inferred confirmations cannot survive final malformed-response cleanup; valid identities must also match the request.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2466",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1463,
+          "column": 9
+        },
+        "end": {
+          "line": 1464,
+          "column": 57
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Locally inferred confirmations cannot survive final malformed-response cleanup; valid identities must also match the request.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2467",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1463,
+          "column": 9
+        },
+        "end": {
+          "line": 1464,
+          "column": 57
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "!malformed || reportedStrings.length === undo.dedupKeys.length",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Locally inferred confirmations cannot survive final malformed-response cleanup; valid identities must also match the request.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2469",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1464,
+          "column": 9
+        },
+        "end": {
+          "line": 1464,
+          "column": 57
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Locally inferred confirmations cannot survive final malformed-response cleanup; valid identities must also match the request.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2471",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1465,
+          "column": 9
+        },
+        "end": {
+          "line": 1465,
+          "column": 69
+        }
+      },
+      "mutatorName": "MethodExpression",
+      "replacement": "undo.dedupKeys.some(key => reportedStrings.includes(key))",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "For valid unique keys, equal lengths plus membership proves the full set; malformed cases are reset by cleanup.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2508",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1483,
+          "column": 15
+        },
+        "end": {
+          "line": 1483,
+          "column": 60
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "status === \"failed\" || notDispatched.has(key)",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Nonfailed keys are removed from notDispatched; remaining Set membership preserves the failed-only condition.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2509",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1483,
+          "column": 15
+        },
+        "end": {
+          "line": 1483,
+          "column": 34
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Nonfailed keys are removed from notDispatched; remaining Set membership preserves the failed-only condition.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2525",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1490,
+          "column": 11
+        },
+        "end": {
+          "line": 1490,
+          "column": 20
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Legacy outcome construction already supplies prior-confirmed or unknown status and filters retry authority, repeating this cleanup.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2526",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1490,
+          "column": 22
+        },
+        "end": {
+          "line": 1504,
+          "column": 8
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Legacy outcome construction already supplies prior-confirmed or unknown status and filters retry authority, repeating this cleanup.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2527",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1491,
+          "column": 49
+        },
+        "end": {
+          "line": 1502,
+          "column": 10
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Legacy outcome construction already supplies prior-confirmed or unknown status and filters retry authority, repeating this cleanup.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2544",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1497,
+          "column": 13
+        },
+        "end": {
+          "line": 1499,
+          "column": 12
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Legacy outcome construction already omits absent or nonstring reasons, duplicating this sanitation.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2545",
+      "file": "lib/trash-lifecycle.ts",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1499,
+          "column": 18
+        },
+        "end": {
+          "line": 1501,
+          "column": 12
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "0c6e09ea1627c10e55ca9e88a36df37156844397bcf44bfe9c349562c7b45248",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "Legacy outcome construction already omits absent or nonstring reasons, duplicating this sanitation.",
+      "reviewer": "Independent review: trash-lifecycle"
+    },
+    {
+      "id": "2747",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "NoCoverage",
+      "location": {
+        "start": {
+          "line": 269,
+          "column": 58
+        },
+        "end": {
+          "line": 269,
+          "column": 71
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "policyError is called internally only at lines 370, 377, 384, 391, 400, 404, 410, 413, and 420, each with a literal code that is a key in the local messages object at lines 253-268. Thus messages[code] is always defined and the stale-scope fallback at line 269 cannot be selected.",
+      "reviewer": "Independent policy audit"
+    },
+    {
+      "id": "2615",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 76,
+          "column": 21
+        },
+        "end": {
+          "line": 76,
+          "column": 68
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "providerSessionWindow().sessionStorage.getItem",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "sessionStorage.getItem is enclosed in try/catch; absent/throwing storage follows the same fallback session-id path.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2616",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 79,
+          "column": 14
+        },
+        "end": {
+          "line": 79,
+          "column": 48
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Storage returns string or null; the raw result preserves the later nonempty-digest comparison.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2618",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 79,
+          "column": 14
+        },
+        "end": {
+          "line": 79,
+          "column": 48
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "typeof value === \"string\" || value",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "For Storage.getItem()'s string-or-null result, the changed logical fallback returns the same string or falsey fallback.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2619",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 79,
+          "column": 14
+        },
+        "end": {
+          "line": 79,
+          "column": 39
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Storage.getItem() returns string or null, making the removed type check redundant.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2622",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 79,
+          "column": 59
+        },
+        "end": {
+          "line": 79,
+          "column": 61
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"Stryker was here!\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The changed string is used only for a falsey stored value and cannot equal the generated nonempty SHA-256 fingerprint.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2623",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 80,
+          "column": 13
+        },
+        "end": {
+          "line": 82,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "After storage-read failure, implicit undefined and explicit empty string both mismatch a nonempty digest; an empty digest rotates independently.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2624",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 81,
+          "column": 14
+        },
+        "end": {
+          "line": 81,
+          "column": 16
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"Stryker was here!\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "After storage-read failure, implicit undefined and explicit empty string both mismatch a nonempty digest; an empty digest rotates independently.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2630",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 89,
+          "column": 9
+        },
+        "end": {
+          "line": 89,
+          "column": 46
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "sessionWindow.sessionStorage.setItem",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "sessionStorage.setItem is enclosed in try/catch; optional chaining does not alter caught absent/throwing-storage behavior.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2632",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 94,
+          "column": 9
+        },
+        "end": {
+          "line": 94,
+          "column": 49
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "sessionWindow.sessionStorage.removeItem",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "sessionStorage.removeItem is enclosed in try/catch; optional chaining does not alter caught storage failures.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2639",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 110,
+          "column": 13
+        },
+        "end": {
+          "line": 112,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Digest failure returning undefined instead of empty string preserves the falsey check and persistence behavior.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2650",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 132,
+          "column": 13
+        },
+        "end": {
+          "line": 134,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "A caught storage error leaves storedSessionId undefined, as the removed assignment did.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2777",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 298,
+          "column": 11
+        },
+        "end": {
+          "line": 298,
+          "column": 29
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Map.delete(key) is harmless when absent and performs the same refresh when present.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2918",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 428,
+          "column": 9
+        },
+        "end": {
+          "line": 428,
+          "column": 55
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "WeakMap.get() returns undefined for primitive keys, so the object guard is redundant at this lookup.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2920",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 428,
+          "column": 9
+        },
+        "end": {
+          "line": 428,
+          "column": 55
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "reservation || typeof reservation === \"object\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These lookups have the same WeakMap behavior as #2918 for both object and primitive keys.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2921",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 428,
+          "column": 24
+        },
+        "end": {
+          "line": 428,
+          "column": 55
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These lookups have the same WeakMap behavior as #2918 for both object and primitive keys.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2949",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 438,
+          "column": 9
+        },
+        "end": {
+          "line": 438,
+          "column": 41
+        }
+      },
+      "mutatorName": "ArithmeticOperator",
+      "replacement": "state.bytesConsumed - byteLength",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Reservation accounting and the preceding byteLength <= reservedBytes check already bound cumulative consumption.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2958",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 447,
+          "column": 11
+        },
+        "end": {
+          "line": 447,
+          "column": 29
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "On the overrun path the earlier charge has reduced reservedBytes to zero, so this cleanup changes nothing.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2959",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 447,
+          "column": 31
+        },
+        "end": {
+          "line": 453,
+          "column": 8
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "This removes the same ineffective zero-reservedBytes cleanup as #2958.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2961",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 450,
+          "column": 11
+        },
+        "end": {
+          "line": 450,
+          "column": 53
+        }
+      },
+      "mutatorName": "ArithmeticOperator",
+      "replacement": "budget.bytesReserved + state.reservedBytes",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "This changes arithmetic inside the cleanup where reservedBytes is already zero.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2963",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 459,
+          "column": 9
+        },
+        "end": {
+          "line": 459,
+          "column": 55
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "WeakMap.get() returns undefined for primitive keys, so the object guard is redundant at this lookup.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2965",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 459,
+          "column": 9
+        },
+        "end": {
+          "line": 459,
+          "column": 55
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "reservation || typeof reservation === \"object\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These lookups repeat #2963's effective WeakMap behavior for primitive keys.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2966",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 459,
+          "column": 24
+        },
+        "end": {
+          "line": 459,
+          "column": 55
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These lookups repeat #2963's effective WeakMap behavior for primitive keys.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2984",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 468,
+          "column": 9
+        },
+        "end": {
+          "line": 468,
+          "column": 42
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "byteLength < state.reservedBytes",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "At equality the fallback arm returns reservedBytes, equal to byteLength.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2991",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 482,
+          "column": 9
+        },
+        "end": {
+          "line": 482,
+          "column": 55
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "WeakMap.get() returns undefined for primitive keys, so the object guard is redundant at this lookup.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2993",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 482,
+          "column": 9
+        },
+        "end": {
+          "line": 482,
+          "column": 55
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "reservation || typeof reservation === \"object\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These lookups repeat #2991's effective WeakMap behavior for primitive keys.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2994",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 482,
+          "column": 24
+        },
+        "end": {
+          "line": 482,
+          "column": 55
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These lookups repeat #2991's effective WeakMap behavior for primitive keys.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3096",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 614,
+          "column": 34
+        },
+        "end": {
+          "line": 614,
+          "column": 37
+        }
+      },
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Valid base64url signatures decode without trailing padding in supported atob behavior.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3099",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 614,
+          "column": 51
+        },
+        "end": {
+          "line": 614,
+          "column": 68
+        }
+      },
+      "mutatorName": "ArithmeticOperator",
+      "replacement": "padded.length * 4",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "The replacement makes the padding count zero, also removing padding as #3096 does.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3138",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 659,
+          "column": 13
+        },
+        "end": {
+          "line": 661,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "After JSON parse failure parsed remains undefined, and the following falsy check returns the same result.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3168",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 664,
+          "column": 7
+        },
+        "end": {
+          "line": 664,
+          "column": 33
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Primitive parsed JSON cannot satisfy required fields or the exact canonical-payload comparison.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3171",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 665,
+          "column": 7
+        },
+        "end": {
+          "line": 665,
+          "column": 28
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The exact canonical-payload comparison independently binds this field, so removing the individual check does not broaden accepted payloads.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3173",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 666,
+          "column": 7
+        },
+        "end": {
+          "line": 666,
+          "column": 38
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The exact canonical-payload comparison independently binds this field, so removing the individual check does not broaden accepted payloads.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3176",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 667,
+          "column": 7
+        },
+        "end": {
+          "line": 667,
+          "column": 41
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The exact canonical-payload comparison independently binds this field, so removing the individual check does not broaden accepted payloads.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3178",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 668,
+          "column": 7
+        },
+        "end": {
+          "line": 668,
+          "column": 45
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The exact canonical-payload comparison independently binds this field, so removing the individual check does not broaden accepted payloads.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3180",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 669,
+          "column": 7
+        },
+        "end": {
+          "line": 669,
+          "column": 57
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The exact canonical-payload comparison independently binds this field, so removing the individual check does not broaden accepted payloads.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3214",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 693,
+          "column": 13
+        },
+        "end": {
+          "line": 693,
+          "column": 18
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Nonce eviction runs only when the set exceeds 512, so the first entry necessarily exists.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3217",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 696,
+          "column": 13
+        },
+        "end": {
+          "line": 698,
+          "column": 6
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Implicit undefined after verifier failure is falsy at the dispatch gate, and finally still clears the pending nonce.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3319",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 793,
+          "column": 49
+        },
+        "end": {
+          "line": 793,
+          "column": 63
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "withAbort/delay explicitly remove abort listeners on completion; AbortSignal dispatches abort once.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3320",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 793,
+          "column": 57
+        },
+        "end": {
+          "line": 793,
+          "column": 61
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These listener removals duplicate cleanup already performed by the paired abort-listener path.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3329",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 809,
+          "column": 16
+        },
+        "end": {
+          "line": 809,
+          "column": 23
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "ms < 0",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The full guard is !ms || ms <= 0; at zero !ms already returns, so changing <= to < has no effect.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3339",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 822,
+          "column": 50
+        },
+        "end": {
+          "line": 822,
+          "column": 64
+        }
+      },
+      "mutatorName": "ObjectLiteral",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "withAbort/delay explicitly remove abort listeners on completion; AbortSignal dispatches abort once.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3340",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 822,
+          "column": 58
+        },
+        "end": {
+          "line": 822,
+          "column": 62
+        }
+      },
+      "mutatorName": "BooleanLiteral",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "DUPLICATE",
+      "evidence": "These listener removals duplicate cleanup already performed by the paired abort-listener path.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3366",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 840,
+          "column": 7
+        },
+        "end": {
+          "line": 841,
+          "column": 38
+        }
+      },
+      "mutatorName": "LogicalOperator",
+      "replacement": "date.getFullYear() !== year && date.getMonth() !== month - 1",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Month overflow changes year/month; day overflow or skipped local dates are caught by the following day comparison.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3367",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 840,
+          "column": 7
+        },
+        "end": {
+          "line": 840,
+          "column": 34
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining year/month/day checks reject the same invalid ranges; this component comparison adds no independent rejection.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3369",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 841,
+          "column": 9
+        },
+        "end": {
+          "line": 841,
+          "column": 38
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "false",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The remaining year/month/day checks reject the same invalid ranges; this component comparison adds no independent rejection.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3389",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 857,
+          "column": 35
+        },
+        "end": {
+          "line": 857,
+          "column": 49
+        }
+      },
+      "mutatorName": "EqualityOperator",
+      "replacement": "fromMs < toMs",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "localDateBoundary produces start-of-day timestamps for from and end-of-day timestamps for to, so a valid two-sided range never has equal bounds; invalid dates produce NaN and one-sided ranges use infinities. Thus fromMs < toMs has the same validity result as fromMs <= toMs for every bound shape this function produces.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3511",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 925,
+          "column": 11
+        },
+        "end": {
+          "line": 925,
+          "column": 26
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "args.requestId",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Reaching this access implies args exists because the earlier optional provider-session check short-circuits when args is absent.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3514",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 926,
+          "column": 18
+        },
+        "end": {
+          "line": 926,
+          "column": 44
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "args.scanScopeFingerprint",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Reaching this access implies args exists because the earlier optional provider-session check short-circuits when args is absent.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3520",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 928,
+          "column": 11
+        },
+        "end": {
+          "line": 928,
+          "column": 26
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "args.userOptIn",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Reaching this access implies args exists because the earlier optional provider-session check short-circuits when args is absent.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3602",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 993,
+          "column": 11
+        },
+        "end": {
+          "line": 993,
+          "column": 46
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "The malformed-ID lookup cannot match a scan, and the later string check still prevents cancellation.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3612",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 999,
+          "column": 15
+        },
+        "end": {
+          "line": 999,
+          "column": 41
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "clearTimeout(undefined) is a no-op when there is no pending timer.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3665",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1039,
+          "column": 11
+        },
+        "end": {
+          "line": 1039,
+          "column": 56
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Session rotation aborts active requests before changing the ID; a stale entry is already aborted, so cancellation remains false.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3712",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1093,
+          "column": 13
+        },
+        "end": {
+          "line": 1093,
+          "column": 20
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Deleting an absent request ID from the pending-cancellation map is a no-op.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "3784",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 1189,
+          "column": 11
+        },
+        "end": {
+          "line": 1191,
+          "column": 4
+        }
+      },
+      "mutatorName": "BlockStatement",
+      "replacement": "{}",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "Implicit undefined on public-key parse/access failure matches the explicit fallback.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2554",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 9,
+          "column": 5
+        },
+        "end": {
+          "line": 9,
+          "column": 46
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The production caller passes the global Window to isLocalTestEnvironment; a Window always has a Location object, so this guard is truthy and replacing it with true selects the same protocol read. The missing-location case is unreachable through the production caller.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2560",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 13,
+          "column": 5
+        },
+        "end": {
+          "line": 13,
+          "column": 46
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "UNREACHABLE",
+      "evidence": "The production caller passes the global Window to isLocalTestEnvironment; a Window always has a Location object, so this guard is truthy and replacing it with true selects the same hostname read. The missing-location case is unreachable through the production caller.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2612",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 65,
+          "column": 7
+        },
+        "end": {
+          "line": 65,
+          "column": 44
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "sessionWindow.sessionStorage.setItem",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "sessionStorage.setItem is enclosed in try/catch; optional chaining does not alter caught absent/throwing-storage behavior.",
+      "reviewer": "Independent review: command-host"
+    },
+    {
+      "id": "2649",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Survived",
+      "location": {
+        "start": {
+          "line": 129,
+          "column": 25
+        },
+        "end": {
+          "line": 129,
+          "column": 62
+        }
+      },
+      "mutatorName": "OptionalChaining",
+      "replacement": "sessionWindow.sessionStorage.getItem",
+      "sourceHash": "8a28a8c57d505b8bf624dfff111eec210499d3ca45b6fd7ba06f39656154f219",
+      "critical": true,
+      "classification": "EQUIVALENT",
+      "evidence": "sessionStorage.getItem is enclosed in try/catch; absent/throwing storage follows the same fallback session-id path.",
+      "reviewer": "Independent review: command-host"
+    }
+  ]
+}

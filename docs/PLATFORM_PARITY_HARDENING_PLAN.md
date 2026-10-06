@@ -1,5 +1,86 @@
 # Provider parity hardening plan
 
+## Current candidate status — 2026-10-05 (official registered-source run)
+
+The official candidate is source commit `b90bd56d893d2ccf701abc69a496b98f13842258`,
+registered fingerprint `43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab`
+(296 files). The [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md) records matching before/after fingerprints and **PASS** for source drift. The official
+release result is **FAIL**: 53 evidence entries across 17 commands comprise 48
+**PASS**, one **FAIL**, and four **BLOCKED**. Details and local log hashes are in [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md).
+
+| Gate | Status | Evidence boundary |
+| --- | --- | --- |
+| Registered-source properties, model, boundary, corpus, performance, browser, and mock gates | **PASS** | Bound to the `43d2c232…` fingerprint in the official run. The shared main flow is supported by source/property evidence; this does not establish provider-runtime behavior. |
+| `MUTATION-01` and triage | **PASS** | Triage policy **VALID**; 196 reviewed/resolved, 94.84% closure, 0 critical survivors; official mutation raw report SHA-256 `00d9504c4ce9507706c28688f80b3d33ef652145778e8036b177b8dba57ccb00`. The mutation result and policy triage status are summarized in the [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md). |
+| `SAFE-09-package` | **FAIL** | The package restore attempt failed strict audit: the three production license variables are missing and `PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT` must be `0`. No valid candidate package/audit resulted. |
+| Google, iCloud, and Amazon disposable round trips | **BLOCKED** | No current candidate ZIP hash, runtime identity, or fixture inventory binds a live session to this source. |
+| Exact-candidate video playback across providers | **BLOCKED** | No playback evidence is bound to an exact candidate package. |
+| Connected Chrome UI (external observation) | **BLOCKED** | The current view shows the CWS page only; no installed PhotoSweep extension or provider tabs were present. This observation is outside the official 53 evidence entries. |
+
+### Supplemental clean-install results (outside the official release aggregate)
+
+- `npm ci`: **PASS**, 899 packages; `npm --prefix Google-Photos-Toolkit ci`:
+  **PASS**, 195 packages. `npm run typecheck`: **PASS**. `npm test`: **PASS**,
+  102 files and 1,936 tests.
+- The test entitlement flag temporarily changed the registered 296-file source
+  fingerprint to `1d54ab1bdaaf21f9dd2d3f4fb68c0b0f9f9d39dfe26220b488492ee0011c8e03`.
+  The production build flag `0` was restored immediately afterward, and the
+  official candidate fingerprint returned to `43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab`.
+  The clean-install unit result is not an exact-fingerprint candidate package
+  or runtime result.
+- Root and GPTK `npm audit --omit=dev --audit-level=high`: **PASS**, zero
+  production vulnerabilities. `npm audit signatures`: **PASS** (root 899
+  packages / 143 attestations; GPTK 195 / 32).
+- `npx vitest bench --run --dir tests/perf --outputJson bench-output.json`:
+  **PASS**. `node tools/check-bench.mjs`: **BLOCKED / SKIPPED** because no
+  benchmark history was found; the baseline regression gate is not **PASS**.
+  CI's main-branch cache may provide the baseline after push.
+
+Supplemental command logs and their hashes are listed in [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md). These results do not change the official release result: **FAIL**.
+
+A separate focused integration command passed:
+`pnpm test:integration -- --grep "applies Best quality independently across two completed duplicate sets"`
+(1 passed). It verifies independent best keepers in two completed duplicate
+sets, other items proposed for Trash, persisted selection, and no provider-Trash
+command. Its harness fingerprint was
+`547c037ab1b3aeb4b26fc88fc84c2253320c9b1ebeccb5baf8a96dfa60774842`; it is
+local focused evidence and does not identify the official `43d2c232…` package
+or runtime.
+
+The all-six-strategies toolbar UI test also passed (1 test): it checks each
+keeper and cleanup proposal, persists the resulting selection through reload,
+and records no Trash/delete/remove provider command. It used the dev integration
+harness fingerprint `547c037ab1b3aeb4b26fc88fc84c2253320c9b1ebeccb5baf8a96dfa60774842`,
+so it is not evidence for the official candidate package/runtime. The local integration-log hash is listed in the [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md).
+
+Approximate parity is accepted for the common main flow. Current source and
+property evidence retain these exceptions: iCloud-only conditional delta scan;
+provider metadata and Undo differences; Amazon original-byte and video limits
+by region; shared albums unsupported across all providers; and paired Live
+Photos unsupported across all providers.
+
+The production process environment had these names **absent** (values were not
+recorded): `PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL`,
+`PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION`,
+`PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY`,
+`PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT`, `STRIPE_SECRET_KEY`, and
+`STRIPE_WEBHOOK_SECRET`. The fresh package restore attempt
+failed strict audit because those license variables were missing and the dev
+entitlement flag was not `0`. The manifest was restored to `2.3.0.3`; the
+registered fingerprint returned to `43d2c232…` across 296 files.
+
+Public disclosure is a release blocker. The live [Chrome Web Store listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo)
+is `2.3.0.2` and says album scope is Google-only; candidate source declares
+Google, iCloud, and Amazon album scope. The live [privacy page](https://photosweep.pawsitivegames.chatgpt.site/privacy)
+is Google-only and lacks the affirmative [Limited Use statement](https://developer.chrome.com/docs/webstore/program-policies/limited-use/)
+and licensing recovery/original-byte disclosures. The local
+[publication draft](PRIVACY_POLICY_PUBLICATION_DRAFT_2026-10-05.md) is prepared
+but unpublished. Production billing and exact-candidate store submission are
+**UNVERIFIED**. Overall status: **NOT READY**.
+
+Older status sections below are preserved as historical evidence and do not
+supersede this entry.
+
 **Current status (2026-10-04):** `main` is at source commit `3596547fdb4d52ba2157fc1e72f1086acf512564`; registered source fingerprint `6acadf90f378505696932fe73431a384777f947305f3ce1b5ea03eafa82a3589` (291 files; documentation excluded). On this source, full Vitest is **PASS** (101/101 files, 1,903/1,903 tests), `pnpm run verify:all` is **PASS** (7 commands, 40 evidence entries, no drift), and TypeScript is **PASS**. The clean exact-source package has `sourceDirty=false`, ZIP SHA-256 `9b78ff5118089db64f98fdbdca4dfd49feb34bd8f769d358de19b485ccac6e41`, build ID `3d3c13d6-5264-4783-a8a7-633daa2f1f3b`, and strict package audit **PASS**. Current-source mutation verification is **BLOCKED** with no PASS: no valid mutation outcome is bound to this fingerprint. The historical #1413–#1416 gap is **UNVERIFIED** against this source; raw records showing those IDs as `Survived` use stale digest `dcb4c01…`, and other stale reports map the numeric IDs differently. The v2 four-test patch is not integrated into this candidate as a whole. Exact-source completed-results Chrome Stable E2E is **BLOCKED / NOT RUN** because Chrome DevTools MCP was unresponsive and no install/attach authorization was available; the previous synthetic E2E is stale. Overall parity and release readiness remain **BLOCKED / NOT RELEASE-READY**: live-provider behavior, store/distribution, and billing are unverified; favorite protection is best-effort and cannot prevent a provider-side favorite change racing with Trash. The 2026-10-03 [12/12 local gate report](../tmp/release-gate/20261003-orchestration-post-dryrun/20261003T173206Z/results.md) is historical and unbound to the current fingerprint; do not carry its aggregate result forward as current-source evidence.
 
 | Current scorecard | Status | Evidence and scope |

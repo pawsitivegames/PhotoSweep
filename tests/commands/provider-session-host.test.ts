@@ -1072,6 +1072,14 @@ describe("PARITY-02 provider command host session binding", () => {
             "Original media retrieval must match the most recent scan scope in this provider page session. Scan again and review the current items."
           )
         }
+        if (
+          _label === "a missing scan scope" ||
+          _label === "an empty scan scope"
+        ) {
+          expect(response?.error).toBe(
+            "Original media retrieval requires explicit opt-in and a current provider session, request, and scan scope."
+          )
+        }
       } finally {
         postMessage.mockRestore()
       }
@@ -2214,8 +2222,10 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     const first = cache.reserveBudget(reservationInput(host, "amazon", scope, { maxBytes: 4, aggregateBudgetBytes: 8 }))
     const second = cache.reserveBudget(reservationInput(host, "amazon", scope, { maxBytes: 4, aggregateBudgetBytes: 8 }))
 
+    expect(first.budget.limitBytes).toBe(8)
     expect(cache.consumeChunk(first, 2)).toBe(true)
     expect(cache.consumeChunk(first, 2)).toBe(true)
+    expect(first.budget.limitBytes).toBe(8)
     expect(first.budget).toMatchObject({ bytesRead: 4, bytesReserved: 4 })
     cache.releaseBudget(first)
     expect(first.budget.bytesReserved).toBe(4)
@@ -2303,6 +2313,46 @@ describe("provider command-host retrieval cache and budget oracles", () => {
       })
     )
 
+    const budgetView = reservation.budget
+    expect(reservation.key).toBe(
+      JSON.stringify(["amazon", host.providerSessionId, scope])
+    )
+    expect(reservation.budget).toBe(budgetView)
+    expect(protectedReservation.budget).toBe(budgetView)
+    expect(Object.keys(reservation)).toEqual([
+      "key",
+      "budget",
+      "maxBytes",
+      "reservedBytes",
+      "bytesConsumed"
+    ])
+    for (const property of [
+      "key",
+      "budget",
+      "maxBytes",
+      "reservedBytes",
+      "bytesConsumed"
+    ]) {
+      expect(Object.getOwnPropertyDescriptor(reservation, property)).toMatchObject({
+        configurable: false,
+        enumerable: true,
+        get: expect.any(Function),
+        set: undefined
+      })
+    }
+    expect(Object.keys(budgetView)).toEqual([
+      "limitBytes",
+      "bytesRead",
+      "bytesReserved"
+    ])
+    for (const property of ["limitBytes", "bytesRead", "bytesReserved"]) {
+      expect(Object.getOwnPropertyDescriptor(budgetView, property)).toMatchObject({
+        configurable: false,
+        enumerable: true,
+        get: expect.any(Function),
+        set: undefined
+      })
+    }
     expect(Object.isFrozen(reservation)).toBe(true)
     expect(Object.isFrozen(reservation.budget)).toBe(true)
     expect(Reflect.set(reservation, "reservedBytes", 100)).toBe(false)

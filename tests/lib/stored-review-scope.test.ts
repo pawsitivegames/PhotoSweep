@@ -606,6 +606,53 @@ describe("StoredReviewScope", () => {
     })
   })
 
+  it("preserves an automatic saved keeper when hydration finds no strategy", async () => {
+    const subject = adapter({
+      settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
+      scanResults: {
+        mediaItems: {
+          keep: { ...mediaItems.keep, isOriginalQuality: false, resWidth: 100 },
+          trash: { ...mediaItems.trash, isOriginalQuality: true, resWidth: 200 }
+        },
+        groups,
+        scanDate: 1,
+        totalItems: 2,
+        accountEmail: "buyer@example.com",
+        sourceProvider: "google"
+      },
+      selections: {
+        version: 2,
+        selectedGroupIds: ["group"],
+        reviewedGroupIds: ["group"],
+        keptOverrides: { group: ["keep"] },
+        keepDecisionProvenance: { group: { source: "automatic" } }
+      }
+    })
+
+    const restored = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS,
+      identityProvider: "google",
+      accountEmail: "buyer@example.com"
+    })
+    const selections = restored.selections!
+    const review = new DuplicateReviewSession({
+      groups,
+      mediaItems: restored.scanResults!.mediaItems,
+      selections
+    })
+
+    expect(selections.keepDecisionProvenance?.group).toEqual({
+      source: "legacy_preserved"
+    })
+    expect(subject.values.selections).toMatchObject({
+      keepDecisionProvenance: { group: { source: "legacy_preserved" } }
+    })
+    expect(review.decisionFor(groups[0])).toMatchObject({
+      source: "legacy_preserved",
+      keptMediaKeys: new Set(["keep"])
+    })
+  })
+
   it.each([[null], ["keep", null]] as const)(
     "fails closed when saved keeper identities contain non-strings: %j",
     async (savedKeys) => {

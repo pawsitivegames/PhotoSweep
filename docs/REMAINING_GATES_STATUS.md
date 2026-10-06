@@ -1,5 +1,82 @@
 # Remaining gate status
 
+## Current candidate status — 2026-10-05 (official registered-source run)
+
+The official candidate is source commit `b90bd56d893d2ccf701abc69a496b98f13842258`,
+registered fingerprint `43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab`
+(296 files). The [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md) records matching before/after fingerprints with no source drift. The official
+release result is **FAIL**: 53 evidence entries across 17 commands, with 48
+**PASS**, one **FAIL**, and four **BLOCKED**. Details and local log hashes are in [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md).
+
+| Gate | Status | Current evidence |
+| --- | --- | --- |
+| Registered-source properties, model, boundary, corpus, performance, browser, and mock gates | **PASS** | Current official run bound to fingerprint `43d2c232…`. Common main-flow support is source/property proof, not provider-runtime proof. |
+| `MUTATION-01` | **PASS** | Policy **VALID**; 196 reviewed/resolved, 94.84% closure, 0 critical survivors; official mutation raw report SHA-256 `00d9504c4ce9507706c28688f80b3d33ef652145778e8036b177b8dba57ccb00`. The mutation result and policy triage status are summarized in the [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md). |
+| `SAFE-09-package` | **FAIL** | The package restore attempt failed strict audit: the three production license variables are missing and `PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT` must be `0`. No valid candidate package/audit resulted. |
+| Google, iCloud, and Amazon disposable round trips | **BLOCKED** | No current candidate ZIP hash, runtime identity, or fixture inventory binds the sessions. |
+| Exact-candidate video playback across providers | **BLOCKED** | No exact-package playback evidence. |
+| Connected Chrome UI (external observation) | **BLOCKED** | The current view shows only the CWS page; no installed PhotoSweep extension or provider tabs were present. This observation is outside the official 53 evidence entries. |
+| Public disclosure compliance (external status) | **FAIL** | Outside the official 53 entries, the live listing is `2.3.0.2` and says albums are Google-only; source declares Chrome version `2.3.0.3` and album scope for all three providers. The live privacy page is Google-only, lacks the affirmative [Limited Use statement](https://developer.chrome.com/docs/webstore/program-policies/limited-use/), and omits licensing recovery and original-byte disclosures. |
+| Production billing lifecycle and exact-candidate store submission | **UNVERIFIED** | No production billing lifecycle or current candidate submission/review evidence is established. |
+
+### Supplemental clean-install results (outside the official release aggregate)
+
+- `npm ci`: **PASS**, 899 packages; `npm --prefix Google-Photos-Toolkit ci`:
+  **PASS**, 195 packages. `npm run typecheck`: **PASS**. `npm test`: **PASS**,
+  102 files and 1,936 tests.
+- The test entitlement flag temporarily changed the registered 296-file source
+  fingerprint to `1d54ab1bdaaf21f9dd2d3f4fb68c0b0f9f9d39dfe26220b488492ee0011c8e03`.
+  The production build flag `0` was restored immediately afterward, and the
+  official candidate fingerprint returned to `43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab`.
+  The clean-install unit result is not an exact-fingerprint candidate package
+  or runtime result.
+- Root and GPTK `npm audit --omit=dev --audit-level=high`: **PASS**, zero
+  production vulnerabilities. `npm audit signatures`: **PASS** (root 899
+  packages / 143 attestations; GPTK 195 / 32).
+- `npx vitest bench --run --dir tests/perf --outputJson bench-output.json`:
+  **PASS**. `node tools/check-bench.mjs`: **BLOCKED / SKIPPED** because no
+  benchmark history was found; the baseline regression gate is not **PASS**.
+  CI's main-branch cache may provide the baseline after push.
+
+Supplemental command logs and their hashes are listed in [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md). These results do not change the official release result: **FAIL**.
+
+The focused integration command
+`pnpm test:integration -- --grep "applies Best quality independently across two completed duplicate sets"`
+passed (1 test): it checks independent best keepers in two completed sets,
+proposes other items for Trash, persists the selection, and issues no
+provider-Trash command. The harness fingerprint was
+`547c037ab1b3aeb4b26fc88fc84c2253320c9b1ebeccb5baf8a96dfa60774842`; this is
+scoped local behavior evidence, not the official `43d2c232…` candidate package
+or runtime. After packaging, the manifest was restored to `2.3.0.3` and the
+registered fingerprint remained `43d2c232…`.
+
+The all-six-strategies toolbar UI test also passed (1 test): it checks each
+keeper and cleanup proposal, persists the resulting selection through reload,
+and records no Trash/delete/remove provider command. It used the dev integration
+harness fingerprint `547c037ab1b3aeb4b26fc88fc84c2253320c9b1ebeccb5baf8a96dfa60774842`,
+so it is not evidence for the official candidate package/runtime. The local integration-log hash is listed in the [tracked evidence note](../verification/evidence/release-readiness-2026-10-05.md).
+
+Approximate parity is accepted for the common main flow. Current source and
+property evidence retain these differences: iCloud-only conditional delta
+scan; provider metadata and Undo differences; Amazon original-byte/video limits
+by region; shared albums unsupported across all providers; and paired Live
+Photos unsupported across all providers.
+
+The process environment had these names **absent**; no values are recorded:
+`PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL`,
+`PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION`,
+`PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY`,
+`PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT`, `STRIPE_SECRET_KEY`, and
+`STRIPE_WEBHOOK_SECRET`. The package restore attempt
+failed strict audit because the three production license variables were
+missing and the dev entitlement flag was not `0`; after restoration, the
+registered fingerprint returned to `43d2c232…` across 296 files. The local
+[privacy publication draft](PRIVACY_POLICY_PUBLICATION_DRAFT_2026-10-05.md) is
+prepared but unpublished. Overall release status: **NOT READY**.
+
+The older snapshots below are retained for traceability and do not override
+this status.
+
 Last verified: 2026-09-20T08:06:37Z (fresh release formal verification, final CWS artifact, and current-candidate provider round trips; payment and store evidence remain separately scoped); current release run: `release-formal-20260919T0135Z`; current-candidate live evidence: `tmp/verification-live-current-candidate-20260920T080000Z/`
 
 This ledger is for the current uncommitted PhotoSweep candidate. A local test,
