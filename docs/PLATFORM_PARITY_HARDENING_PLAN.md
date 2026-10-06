@@ -1,6 +1,25 @@
 # Provider parity hardening plan
 
-## Current candidate status — 2026-10-05 (official registered-source run)
+## Current candidate status — 2026-10-06 (CI-bound application source)
+
+The application source candidate is `3a453656d7c21affd2fa40d9a7c77b22093f41dc` (app `2.3.0`, Chrome `2.3.0.3`). CI ran at `c8ad95499bfcc86ab6592a4d2962323cad085feb`, a documentation-only follow-up to that source candidate; the CI-bound application source is unchanged.
+
+| Gate | Status | Evidence boundary |
+| --- | --- | --- |
+| CI unit, integration, and benchmark | **PASS** | [Run 37410557290](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37410557290): 103 files / 1,941 unit tests, 64 integration tests, and performance benchmark job passed. |
+| Fast verification | **PASS** | [Run 37410557304](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37410557304): 7 commands / 40 evidence entries; fingerprint `06ff1a61bb7975cce4c18e3d7d5c09fc49b1e754ca4336fae747faa501b23eaa` across 297 files; before/after match and no drift. `PARITY-01`–`PARITY-09`: 299 assertions passed; `VIDEO-PLAYBACK`: 37 passed. These are scoped source/test checks. |
+| SAFE-01 TLC model | **PASS (BOUNDED)** | Finite configured graph checked to depth 7: 291,697 states generated / 9,456 explored. This is not an unbounded proof or TypeScript refinement proof. |
+| Imported TLC trace replay | **PASS (BOUNDED)** | 256 traces, seed `20260915`, depth 24: 5,926 passes, 0 failures, 0 unsupported actions. The runner verifies a bounded supported projection; request-bound timeout, late/stale replies, cancellation, and crossed-pair seams remain outside the abstraction. |
+| Completed-results Best quality proposal | **PASS (SYNTHETIC)** | Test selects one keeper per synthetic duplicate set, proposes the other items for Trash, and dispatches no Trash. This verifies selection/proposal wiring only; Amazon/iCloud actual-original classification remains **UNKNOWN** because their adapters provide no affirmative original-quality flag. |
+| Current-package Google/iCloud/Amazon scenarios and provider Trash/Undo | **UNVERIFIED** | No live provider scenario or Trash/Undo round trip is bound to an exact production package. Plan completion remains **BLOCKED**. |
+| Exact-candidate video playback | **UNVERIFIED** | The 37 assertions above are source/test evidence, not exact-package provider playback evidence. |
+| Production package and signing | **UNVERIFIED** | [Workflow 37409897304](https://github.com/pawsitivegames/PhotoSweep/actions/runs/37409897304) stopped at environment configuration because `PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY` was required but unavailable to that repository run; it stopped before install, typecheck, tests, package build, or audit. No production ZIP/signing proof resulted. |
+| Public listing/privacy disclosure | **FAIL** | [Live CWS listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) is `2.3.0.2` (updated 2026-09-29) and says album scope is Google-only. The [privacy page](https://photosweep.pawsitivegames.chatgpt.site/privacy) describes Google only, lacks an affirmative [Limited Use statement](https://developer.chrome.com/docs/webstore/program-policies/limited-use/), and omits current iCloud/Amazon data paths. |
+| Billing, store review, owner/legal attestation | **UNVERIFIED** | Exact-candidate billing lifecycle and store-review evidence are absent; no owner/legal attestation is recorded. |
+
+The accepted approximate-parity exception remains Google/Amazon `full_refresh` versus iCloud `provider_delta`. Shared albums and paired Live Photos remain excluded. Overall status: **NOT READY**.
+
+## Preserved candidate status — 2026-10-05 (historical registered-source run)
 
 The official candidate is source commit `b90bd56d893d2ccf701abc69a496b98f13842258`,
 registered fingerprint `43d2c2321e702126a80041282662ffb3e34d4ee8996fd53a0adc02f8927f47ab`
@@ -79,11 +98,11 @@ but unpublished. Production billing and exact-candidate store submission are
 **UNVERIFIED**. Overall status: **NOT READY**.
 
 Older status sections below are preserved as historical evidence and do not
-supersede this entry.
+supersede the 2026-10-06 entry above.
 
-**Current status (2026-10-04):** `main` is at source commit `3596547fdb4d52ba2157fc1e72f1086acf512564`; registered source fingerprint `6acadf90f378505696932fe73431a384777f947305f3ce1b5ea03eafa82a3589` (291 files; documentation excluded). On this source, full Vitest is **PASS** (101/101 files, 1,903/1,903 tests), `pnpm run verify:all` is **PASS** (7 commands, 40 evidence entries, no drift), and TypeScript is **PASS**. The clean exact-source package has `sourceDirty=false`, ZIP SHA-256 `9b78ff5118089db64f98fdbdca4dfd49feb34bd8f769d358de19b485ccac6e41`, build ID `3d3c13d6-5264-4783-a8a7-633daa2f1f3b`, and strict package audit **PASS**. Current-source mutation verification is **BLOCKED** with no PASS: no valid mutation outcome is bound to this fingerprint. The historical #1413–#1416 gap is **UNVERIFIED** against this source; raw records showing those IDs as `Survived` use stale digest `dcb4c01…`, and other stale reports map the numeric IDs differently. The v2 four-test patch is not integrated into this candidate as a whole. Exact-source completed-results Chrome Stable E2E is **BLOCKED / NOT RUN** because Chrome DevTools MCP was unresponsive and no install/attach authorization was available; the previous synthetic E2E is stale. Overall parity and release readiness remain **BLOCKED / NOT RELEASE-READY**: live-provider behavior, store/distribution, and billing are unverified; favorite protection is best-effort and cannot prevent a provider-side favorite change racing with Trash. The 2026-10-03 [12/12 local gate report](../tmp/release-gate/20261003-orchestration-post-dryrun/20261003T173206Z/results.md) is historical and unbound to the current fingerprint; do not carry its aggregate result forward as current-source evidence.
+**Preserved status (2026-10-04; historical):** `main` was at source commit `3596547fdb4d52ba2157fc1e72f1086acf512564`; registered source fingerprint `6acadf90f378505696932fe73431a384777f947305f3ce1b5ea03eafa82a3589` (291 files; documentation excluded). Its local verification, package identity, mutation status, browser status, and provider gaps below are preserved for historical context and do not describe the 2026-10-06 candidate. The 2026-10-03 [12/12 local gate report](../tmp/release-gate/20261003-orchestration-post-dryrun/20261003T173206Z/results.md) remains historical and unbound to the new candidate.
 
-| Current scorecard | Status | Evidence and scope |
+| Preserved scorecard (2026-10-04; historical) | Status | Evidence and scope |
 | --- | --- | --- |
 | Current source identity | **BOUND** | `main` source commit `3596547fdb4d52ba2157fc1e72f1086acf512564`; registered source fingerprint `6acadf90f378505696932fe73431a384777f947305f3ce1b5ea03eafa82a3589` (291 files). Documentation is excluded from registered roots. |
 | Full Vitest suite | **PASS** | Current-source result: 101/101 files and 1,903/1,903 tests. |
