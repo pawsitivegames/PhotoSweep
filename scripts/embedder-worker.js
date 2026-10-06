@@ -1,5 +1,5 @@
 (() => {
-  // node_modules/.pnpm/@mediapipe+tasks-vision@0.10.35/node_modules/@mediapipe/tasks-vision/vision_bundle.mjs
+  // node_modules/@mediapipe/tasks-vision/vision_bundle.mjs
   var t = "undefined" != typeof self ? self : {};
   function e(e2, n2) {
     t: {
