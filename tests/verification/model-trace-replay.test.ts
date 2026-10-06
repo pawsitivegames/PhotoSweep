@@ -3,6 +3,7 @@ import { join, resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
 import {
+  PINNED_TLC_SHA256,
   exportTraceBundle,
   sha256File,
   verifyTraceBundle
@@ -23,6 +24,12 @@ const traceRunId =
   process.env.MODEL_TRACE_REPLAY_RUN_ID ?? "model-trace-replay-20260915"
 
 describe("bounded TLC to TypeScript trace replay", () => {
+  it("pins the official TLC 1.8.0 jar checksum", () => {
+    expect(PINNED_TLC_SHA256).toBe(
+      "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d"
+    )
+  })
+
   it("replays real TLC modules with provenance, coverage, and a detected negative divergence", async () => {
     const configuredOutputPath = process.env.MODEL_TRACE_REPLAY_OUTPUT
     const ownedOutputDirectory = configuredOutputPath

@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
 
 const TLC_VERSION = "1.8.0"
-const TLC_SHA256 = "c2fe4e56e43bde19f213b4a7e441d037297fda733e503579623e859b79348239"
+const TLC_SHA256 = "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d"
 const MODULE_PATH = "verification/model/KeeperSelection.tla"
 const CONFIG_PATH = "verification/model/KeeperSelection.cfg"
 const CLOSURE_CONFIG_PATH = "verification/model/KeeperSelection.closure.cfg"

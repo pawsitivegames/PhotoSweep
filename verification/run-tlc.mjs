@@ -13,7 +13,7 @@ import { computeSourceFingerprint } from "./source-fingerprint.mjs"
 
 const PINNED_TLC_VERSION = "1.8.0"
 const PINNED_TLC_SHA256 =
-  "c2fe4e56e43bde19f213b4a7e441d037297fda733e503579623e859b79348239"
+  "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d"
 
 function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex")
