@@ -75,9 +75,28 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
 
+      # Ubuntu 24.04 runners can select an unresponsive HTTP Azure mirror.
+      # Prefer the HTTPS Ubuntu archive for Playwright's apt dependencies.
+      - name: Prefer HTTPS Ubuntu archive mirror
+        run: |
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' /etc/apt/apt-mirrors.txt
+          fi
+
       # System deps (apt) must be installed on every run; they aren't cached.
+      # Bound each attempt so a mirror stall can't consume the whole job timeout.
       - name: Install Playwright system deps
-        run: npx playwright install-deps chromium
+        run: |
+          for attempt in 1 2; do
+            echo "::group::Playwright system dependencies (attempt $attempt)"
+            if timeout 300 npx playwright install-deps chromium; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "Attempt $attempt timed out or failed; retrying..."
+          done
+          exit 1
 
       # Download the browser only on a cache miss. Wrap in timeout + retry:
       # the CDN download intermittently stalls at 100%, which previously hung
