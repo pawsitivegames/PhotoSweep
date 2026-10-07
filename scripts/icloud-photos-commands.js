@@ -28,6 +28,8 @@ function sleep(ms) {
 
 const ICLOUD_PAGE_SIZE = 100
 const ICLOUD_API_TIMEOUT_MS = 30000
+const ICLOUD_MEDIA_MAX_CURSOR_PAGES = 100
+const ICLOUD_MEDIA_MAX_CURSOR_RECORDS = 20000
 const ICLOUD_CHANGE_PAGE_SIZE = 200
 const ICLOUD_MAX_INCREMENTAL_CHANGE_PAGES = 10
 const ICLOUD_MAX_INCREMENTAL_CHANGE_RECORDS = 2000
@@ -826,7 +828,12 @@ function normalizeFavoriteValue(value) {
   return undefined
 }
 
-function iCloudQueryBody(offset, albumId, direction = "ASCENDING") {
+function iCloudQueryBody(
+  offset,
+  albumId,
+  direction = "ASCENDING",
+  continuationMarker = null
+) {
   const filterBy = [
     {
       fieldName: "startRank",
@@ -861,7 +868,8 @@ function iCloudQueryBody(offset, albumId, direction = "ASCENDING") {
     // of each 100-item album page in the live 216-item fixture.
     resultsLimit: albumId ? ICLOUD_PAGE_SIZE * 3 : ICLOUD_PAGE_SIZE * 2,
     desiredKeys: ICLOUD_DESIRED_KEYS,
-    zoneID: { zoneName: "PrimarySync" }
+    zoneID: { zoneName: "PrimarySync" },
+    ...(continuationMarker ? { continuationMarker } : {})
   }
 }
 
@@ -871,7 +879,8 @@ async function fetchCloudKitPage(
   offset,
   externalSignal,
   albumId,
-  direction = "ASCENDING"
+  direction = "ASCENDING",
+  continuationMarker = null
 ) {
   commandHost.throwIfAborted(externalSignal)
   const controller = new AbortController()
@@ -890,7 +899,9 @@ async function fetchCloudKitPage(
       method: "POST",
       credentials: "include",
       headers: { "content-type": "text/plain" },
-      body: JSON.stringify(iCloudQueryBody(offset, albumId, direction)),
+      body: JSON.stringify(
+        iCloudQueryBody(offset, albumId, direction, continuationMarker)
+      ),
       signal: controller.signal
     })
     if (!response.ok) {
@@ -911,6 +922,16 @@ function isValidCloudKitSyncToken(value) {
     typeof value === "string" &&
     value.length > 0 &&
     value.length <= 4096 &&
+    value.trim() === value &&
+    !/[\u0000-\u001f\u007f]/.test(value)
+  )
+}
+
+function isValidCloudKitContinuationMarker(value) {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 8192 &&
     value.trim() === value &&
     !/[\u0000-\u001f\u007f]/.test(value)
   )
@@ -2220,6 +2241,8 @@ async function getCloudKitMediaItems(requestId, args, coverageContext, signal) {
   let emptyPages = 0
   const seenPageSignatures = new Set()
   const pageSizes = []
+  let physicalPagesRead = 0
+  let cursorPaginationUsed = false
   coverageContext.mediaTypesCovered = { photos: true, videos: true }
   let stopReason = "exhausted"
   let duplicateRecord = false
@@ -2236,54 +2259,117 @@ async function getCloudKitMediaItems(requestId, args, coverageContext, signal) {
       emptyScopeProbePending)
   ) {
     commandHost.throwIfAborted(signal)
-    await assertIcloudProviderSession(args)
-    const page = await fetchCloudKitPage(
-      requestId,
-      queryUrl,
-      offset,
-      signal,
-      albumId
-    )
-    await assertIcloudProviderSession(args)
-    if (!usableCloudKitResponse(page) || !Array.isArray(page.records)) {
-      stopReason = "coverage_unknown"
-      break
+    const records = []
+    const seenContinuationMarkers = new Set()
+    let continuationMarker = null
+    let cursorPagesRead = 0
+    let cursorFailed = false
+
+    while (true) {
+      if (cursorPagesRead >= ICLOUD_MEDIA_MAX_CURSOR_PAGES) {
+        stopReason = "pagination_error"
+        cursorFailed = true
+        break
+      }
+      commandHost.throwIfAborted(signal)
+      await assertIcloudProviderSession(args)
+      const page = await fetchCloudKitPage(
+        requestId,
+        queryUrl,
+        offset,
+        signal,
+        albumId,
+        "ASCENDING",
+        continuationMarker
+      )
+      await assertIcloudProviderSession(args)
+      physicalPagesRead += 1
+      cursorPagesRead += 1
+      if (!usableCloudKitResponse(page) || !Array.isArray(page.records)) {
+        stopReason = "coverage_unknown"
+        cursorFailed = true
+        break
+      }
+      if (physicalPagesRead === 1) {
+        querySyncToken = page.syncToken
+      } else if (page.syncToken !== querySyncToken) {
+        querySyncTokenStable = false
+      }
+      if (!isValidCloudKitSyncToken(page.syncToken)) {
+        querySyncTokenStable = false
+      }
+      if (
+        (page.moreComing !== undefined && typeof page.moreComing !== "boolean") ||
+        (page.continuationMarker !== undefined &&
+          page.continuationMarker !== null &&
+          page.continuationMarker !== "" &&
+          !isValidCloudKitContinuationMarker(page.continuationMarker))
+      ) {
+        stopReason = "pagination_error"
+        cursorFailed = true
+        break
+      }
+      const hasContinuationMarker =
+        page.continuationMarker !== undefined &&
+        page.continuationMarker !== null &&
+        page.continuationMarker !== ""
+      if (
+        (page.moreComing === true && !hasContinuationMarker) ||
+        (page.moreComing === false && hasContinuationMarker) ||
+        (hasContinuationMarker &&
+          (page.records.length === 0 ||
+            seenContinuationMarkers.has(page.continuationMarker)))
+      ) {
+        stopReason = "pagination_error"
+        cursorFailed = true
+        break
+      }
+      if (hasContinuationMarker) cursorPaginationUsed = true
+      if (
+        (cursorPagesRead > 1 || hasContinuationMarker) &&
+        records.length + page.records.length > ICLOUD_MEDIA_MAX_CURSOR_RECORDS
+      ) {
+        stopReason = "pagination_error"
+        cursorFailed = true
+        break
+      }
+      if (
+        emptyScopeProbePending &&
+        (page.records.length > 0 || hasContinuationMarker)
+      ) {
+        stopReason = "pagination_error"
+        cursorFailed = true
+        break
+      }
+      records.push(...page.records)
+      if (!hasContinuationMarker) break
+      seenContinuationMarkers.add(page.continuationMarker)
+      continuationMarker = page.continuationMarker
+      postProgress(
+        requestId,
+        coverageContext.itemsVisited,
+        `Fetching the next iCloud Photos page after ${coverageContext.itemsVisited.toLocaleString()} scanned items...`
+      )
+      await commandHost.delay(250, signal)
     }
-    if (pageSizes.length === 0) {
-      querySyncToken = page.syncToken
-    } else if (page.syncToken !== querySyncToken) {
-      querySyncTokenStable = false
-    }
-    if (!isValidCloudKitSyncToken(page.syncToken)) {
-      querySyncTokenStable = false
-    }
-    const records = page.records
+    if (cursorFailed) break
+
     const mapped = mapCloudKitRecords(records, offset, albumId)
     if (!mapped) {
       stopReason = "coverage_unknown"
       break
     }
     pageSizes.push(mapped.length)
-    const hasContinuationMarker =
-      page.continuationMarker !== undefined &&
-      page.continuationMarker !== null &&
-      page.continuationMarker !== ""
-    // This adapter traverses the rank index. A cursor response is a different,
-    // unconsumed pagination contract and cannot prove rank-index exhaustion.
     if (
-      (page.moreComing !== undefined && typeof page.moreComing !== "boolean") ||
-      hasContinuationMarker ||
-      (totalCount !== null && offset + mapped.length > totalCount) ||
-      (page.moreComing === true &&
-        totalCount !== null &&
-        offset + mapped.length >= totalCount)
+      totalCount !== null &&
+      offset + mapped.length > totalCount
     ) {
       stopReason = "pagination_error"
       break
     }
     if (emptyScopeProbePending) {
       emptyScopeProbePending = false
-      if (records.length > 0 || page.moreComing === true) {
+      if (records.length > 0) {
         stopReason = "pagination_error"
       }
       break
@@ -2322,11 +2408,13 @@ async function getCloudKitMediaItems(requestId, args, coverageContext, signal) {
       }
       if (isTimestampInDateRange(item.timestamp, dateRange)) mediaItems.push(item)
     }
-    // CloudKit's album query result limit is a record limit, while
-    // startRank is an item rank. The provider may cap a requested 300-record
-    // window at 200, yielding 66 mapped album items. Advance by the number
-    // of items actually mapped so a capped response cannot skip ranks.
-    offset += albumId ? Math.max(mapped.length, 1) : ICLOUD_PAGE_SIZE
+    // startRank is an item rank while the query limit counts records. Album
+    // queries can be capped at 200 records, so advance by their mapped count.
+    // Normal library scans keep the 100-rank stride for short pages, but a
+    // cursor chain may return more than 100 items and must not overlap them.
+    offset += albumId
+      ? Math.max(mapped.length, 1)
+      : Math.max(mapped.length, ICLOUD_PAGE_SIZE)
     postProgress(
       requestId,
       coverageContext.itemsVisited,
@@ -2382,8 +2470,9 @@ async function getCloudKitMediaItems(requestId, args, coverageContext, signal) {
       ...(totalCount !== null && !dateRange
         ? { totalItems: totalCount }
         : {}),
-      ...(pageSizes.length > 0
-        ? { pagesRead: pageSizes.length, pageSizes: pageSizes.slice() }
+      ...(physicalPagesRead > 0 ? { pagesRead: physicalPagesRead } : {}),
+      ...(!cursorPaginationUsed && pageSizes.length > 0
+        ? { pageSizes: pageSizes.slice() }
         : {}),
       mediaTypesCovered: { photos: true, videos: true },
       canResume: false

@@ -114,10 +114,14 @@ function isPlainObject(value) {
 }
 
 function normalizeGoogleContinuationCursor(value) {
-  if (value === undefined || value === null) return { valid: true, cursor: null }
+  // GPTK uses an empty string for a terminal page in the live Photos API.
+  // Treat that sentinel the same as null/undefined so the final nonempty page
+  // is still counted and returned to the scanner.
+  if (value === undefined || value === null || value === "") {
+    return { valid: true, cursor: null }
+  }
   if (
     typeof value !== "string" ||
-    value.length === 0 ||
     value.length > 8192 ||
     value.trim() !== value ||
     /[\u0000-\u001f\u007f]/.test(value)
