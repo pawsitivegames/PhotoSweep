@@ -171,6 +171,8 @@ describe("verification runner integrity", () => {
         // This test created the file only to model a stale artifact.
         unlinkSync(stalePath)
       }
+      rmSync(runDirectory, { recursive: true, force: true })
+      rmSync(archiveDirectory, { recursive: true, force: true })
     }
   }, 60_000)
 
@@ -209,20 +211,24 @@ describe("verification runner integrity", () => {
     mkdirSync(runDirectory, { recursive: true })
     const marker = join(runDirectory, "stale-marker.json")
     writeFileSync(marker, '{"status":"PASS"}\n')
-    const result = spawnSync(
-      process.execPath,
-      [
-        "verification/verification-runner.mjs",
-        "--scope",
-        "fast",
-        "--out-dir",
-        runDirectory
-      ],
-      { cwd: root, encoding: "utf8" }
-    )
-    expect(result.status).toBe(1)
-    expect(`${result.stdout}${result.stderr}`).toContain("not empty")
-    expect(readFileSync(marker, "utf8")).toBe('{"status":"PASS"}\n')
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          "verification/verification-runner.mjs",
+          "--scope",
+          "fast",
+          "--out-dir",
+          runDirectory
+        ],
+        { cwd: root, encoding: "utf8" }
+      )
+      expect(result.status).toBe(1)
+      expect(`${result.stdout}${result.stderr}`).toContain("not empty")
+      expect(readFileSync(marker, "utf8")).toBe('{"status":"PASS"}\n')
+    } finally {
+      rmSync(runDirectory, { recursive: true, force: true })
+    }
   })
 
   it("keeps the source fingerprint stable across generated manifest entry order", () => {
