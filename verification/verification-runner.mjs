@@ -1748,6 +1748,20 @@ if (scope === "release") {
     (item) => item.id === "VIDEO-PLAYBACK-live"
   )
   if (videoPlaybackObligation) {
+    const artifact = makeBlockedArtifact(
+      videoPlaybackObligation,
+      "Exact-current-package video playback evidence for all three providers is missing. Local mock tests and provider scan coverage do not prove playback in the packaged extension.",
+      videoPlaybackObligation.command
+    )
+    const artifactPath = runPath("video-playback.json")
+    writeEvidenceArtifact(artifactPath, artifact)
+    evidenceEntries.push(buildEntry(artifactPath, artifact))
+  }
+
+  const amazonVideoPlaybackObligation = activeObligations().find(
+    (item) => item.id === "AMAZON-VIDEO-PLAYBACK-live"
+  )
+  if (amazonVideoPlaybackObligation) {
     const suppliedEvidencePath =
       args["amazon-video-playback-evidence"] ??
       process.env.PHOTOSWEEP_AMAZON_VIDEO_PLAYBACK_EVIDENCE
@@ -1766,14 +1780,14 @@ if (scope === "release") {
     })
     const artifact = {
       schemaVersion: 1,
-      id: videoPlaybackObligation.id,
-      requirementId: videoPlaybackObligation.requirementId,
-      proofClass: videoPlaybackObligation.proofClass,
-      kind: videoPlaybackObligation.kind,
+      id: amazonVideoPlaybackObligation.id,
+      requirementId: amazonVideoPlaybackObligation.requirementId,
+      proofClass: amazonVideoPlaybackObligation.proofClass,
+      kind: amazonVideoPlaybackObligation.kind,
       status: validation.status,
       exitCode: validation.exitCode,
       checksRun: validation.checksRun,
-      command: videoPlaybackObligation.command,
+      command: amazonVideoPlaybackObligation.command,
       sourceFingerprint: sourceBefore.digest,
       message: validation.message,
       problems: validation.problems,
@@ -1783,7 +1797,7 @@ if (scope === "release") {
       validatedMarketplaces: validation.validatedMarketplaces ?? 0,
       captures: validation.captures ?? []
     }
-    const artifactPath = runPath("video-playback.json")
+    const artifactPath = runPath("amazon-video-playback.json")
     writeEvidenceArtifact(artifactPath, artifact)
     evidenceEntries.push(buildEntry(artifactPath, artifact))
   }

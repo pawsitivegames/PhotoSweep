@@ -1,15 +1,20 @@
 # Amazon regional video playback evidence
 
-`VIDEO-PLAYBACK-live` is a release gate for successful playback on every host
-listed in `AMAZON_MARKETPLACE_HOSTS` in `lib/provider-sites.ts`. The runner
-derives that list from source at run time; the current declaration contains 22
-marketplaces.
+`AMAZON-VIDEO-PLAYBACK-live` is a separate release gate for successful
+playback on every host listed in `AMAZON_MARKETPLACE_HOSTS` in
+`lib/provider-sites.ts`. The runner derives that list from source at run time;
+the current declaration contains 22 marketplaces. The existing
+`VIDEO-PLAYBACK-live` obligation remains in place for exact-package playback
+across Google Photos, iCloud Photos, and Amazon Photos.
 
 The release runner builds the production package first and calculates its
 `buildDigest` from the complete packaged file tree. Playback evidence must name
 that exact digest. The runner does not discover Amazon routes, contact Amazon,
-create capture records, or turn mock tests into live evidence. With no supplied
-manifest, the live obligation remains `BLOCKED`.
+create capture records, or turn mock tests into live evidence. This manifest
+feeds only `AMAZON-VIDEO-PLAYBACK-live`; it does not satisfy the separate
+all-provider `VIDEO-PLAYBACK-live` obligation. Without a manifest, the Amazon
+obligation stays `BLOCKED`, and the current runner also keeps the all-provider
+obligation `BLOCKED` pending its own exact-package evidence.
 
 ## Supplying evidence
 
@@ -26,7 +31,8 @@ package before capturing playback, run the release runner once without the
 manifest and read `buildDigest` from that run's `verification-summary.json`.
 That run is expected to leave the video obligation `BLOCKED`. Capture playback
 against that package, then run the release gate again with the manifest. The
-second build must produce the same digest.
+second build must produce the same digest. The runner records the two gates in
+separate `video-playback.json` and `amazon-video-playback.json` artifacts.
 
 The manifest is JSON with exactly these top-level fields:
 
@@ -41,8 +47,10 @@ The manifest is JSON with exactly these top-level fields:
 Each `captures` record contains exactly `marketplaceHost`, `captureId`,
 `captureArtifact`, and `captureSha256`. `captureArtifact` is a relative path
 from the manifest to one sanitized JSON sidecar. Paths must stay under the
-manifest directory, point to regular files, and be unique. `captureSha256` is
-the SHA-256 of the sidecar's exact bytes.
+manifest directory, point to regular files, and be unique. Symbolic links are
+rejected in any sidecar path component, and the manifest itself must be a
+regular, non-symlink file. `captureSha256` is the SHA-256 of the sidecar's
+exact bytes.
 
 Each sidecar contains exactly:
 
@@ -54,7 +62,7 @@ Each sidecar contains exactly:
 | `captureId` | The same unique ID as its manifest record |
 | `marketplaceHost` | The exact source-declared host for this capture |
 | `packageDigest` | The same digest as the freshly built release package |
-| `capturedAt` | An ISO timestamp within the last 7 days; at most 5 minutes in the future |
+| `capturedAt` | A full ISO-8601 timestamp with `Z` or a numeric timezone offset; within the last 7 days and at most 5 minutes in the future |
 | `browser` | `Chrome Stable` |
 | `playback` | The successful observation described below |
 
@@ -67,7 +75,8 @@ include account identifiers, media identifiers, page URLs, signed URLs, or
 credentials. The strict field allowlists reject additional fields.
 
 The validator checks the source list, package digest, capture hashes, per-market
-uniqueness and completeness, timestamp freshness, and playback observations.
+uniqueness and completeness, strict timezone-bearing timestamp freshness, and
+playback observations.
 It only accepts sidecars produced by the declared independent capture source;
 the runner itself never generates them. The file hashes detect changes after
 the manifest was prepared. They do not cryptographically authenticate the
