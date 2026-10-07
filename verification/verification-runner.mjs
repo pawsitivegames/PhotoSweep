@@ -25,6 +25,7 @@ import {
   validateMutationOutcomeModelEvidence
 } from "./mutation-outcome-model-evidence.mjs"
 import { validateAmazonVideoPlaybackEvidence } from "./amazon-video-playback-evidence.mjs"
+import { parseArgs } from "./parse-args.mjs"
 import {
   expectedRecoveryAuthorityBinding,
   RECOVERY_AUTHORITY_REQUIRED_ACTIONS,
@@ -37,17 +38,6 @@ const root = resolve(process.env.VERIFICATION_ROOT ?? process.cwd())
 const scopeOrder = ["fast", "nightly", "release"]
 const browserExecutablePath =
   process.env.PHOTOSWEEP_E2E_EXECUTABLE_PATH ?? chromium.executablePath()
-
-function parseArgs(argv) {
-  const args = {}
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index]
-    if (!value.startsWith("--")) continue
-    const key = value.slice(2)
-    args[key] = argv[index + 1]?.startsWith("--") ? true : argv[++index]
-  }
-  return args
-}
 
 const args = parseArgs(process.argv.slice(2))
 const scope = args.scope ?? process.env.VERIFICATION_SCOPE ?? "fast"

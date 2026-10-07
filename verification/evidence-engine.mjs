@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { resolve } from "node:path"
 
+import { parseArgs } from "./parse-args.mjs"
 import {
   computeSourceFingerprint,
   isSafeRelativePath
@@ -329,17 +330,6 @@ export function validateEvidence({
     evidenceCount: evidence.entries.length,
     errors
   }
-}
-
-function parseArgs(argv) {
-  const args = {}
-  for (let index = 0; index < argv.length; index++) {
-    const value = argv[index]
-    if (!value.startsWith("--")) continue
-    const key = value.slice(2)
-    args[key] = argv[index + 1]?.startsWith("--") ? true : argv[++index]
-  }
-  return args
 }
 
 export function runCli(argv = process.argv.slice(2)) {

@@ -9,6 +9,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { join, relative, resolve } from "node:path"
+import { parseArgs } from "../parse-args.mjs"
 
 export const TRACE_SCHEMA_VERSION = 1
 export const PINNED_TLC_VERSION = "1.8.0"
@@ -67,6 +68,7 @@ export const TRACE_REPLAY_SOURCE_PATHS = [
   "lib/trash-lifecycle.ts",
   "lib/trash-dispatch-guard.ts",
   "lib/review-preflight.ts",
+  "verification/parse-args.mjs",
   "verification/model/export-trace.mjs",
   "verification/trace-replay.ts",
   "verification/trace-replay-runner.mjs",
@@ -986,17 +988,6 @@ export function verifyTraceBundle(manifestPath, { root = process.cwd() } = {}) {
     manifest,
     traces: parsedBundle?.traces ?? []
   }
-}
-
-function parseArgs(argv) {
-  const args = {}
-  for (let index = 0; index < argv.length; index++) {
-    const value = argv[index]
-    if (!value.startsWith("--")) continue
-    const key = value.slice(2)
-    args[key] = argv[index + 1]?.startsWith("--") ? true : argv[++index]
-  }
-  return args
 }
 
 if (process.argv[1]?.endsWith("/verification/model/export-trace.mjs")) {

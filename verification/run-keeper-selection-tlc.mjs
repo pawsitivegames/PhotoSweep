@@ -9,6 +9,7 @@ import {
 } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
+import { parseArgs } from "./parse-args.mjs"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
 
 const TLC_VERSION = "1.8.0"
@@ -91,17 +92,6 @@ function newestLocalJar(root) {
     }
   }
   return candidates.sort().at(-1) ?? null
-}
-
-function parseArgs(argv) {
-  const args = {}
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index]
-    if (!value.startsWith("--")) continue
-    const key = value.slice(2)
-    args[key] = argv[index + 1]?.startsWith("--") ? true : argv[++index]
-  }
-  return args
 }
 
 function parseSummary(output) {

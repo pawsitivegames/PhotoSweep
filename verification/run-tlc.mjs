@@ -5,9 +5,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   writeFileSync
 } from "node:fs"
 import { join, relative, resolve } from "node:path"
+import { parseArgs } from "./parse-args.mjs"
 import { runKeeperSelectionTlc } from "./run-keeper-selection-tlc.mjs"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
 
@@ -17,6 +19,14 @@ const PINNED_TLC_SHA256 =
 
 function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex")
+}
+
+function isRegularFile(path) {
+  try {
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
 }
 
 function newestLocalJar(root) {
@@ -33,17 +43,6 @@ function newestLocalJar(root) {
     if (existsSync(candidate)) candidates.push(candidate)
   }
   return candidates.sort().at(-1) ?? null
-}
-
-function parseArgs(argv) {
-  const args = {}
-  for (let index = 0; index < argv.length; index++) {
-    const value = argv[index]
-    if (!value.startsWith("--")) continue
-    const key = value.slice(2)
-    args[key] = argv[index + 1]?.startsWith("--") ? true : argv[++index]
-  }
-  return args
 }
 
 function parseSummary(output) {
@@ -129,17 +128,22 @@ export function runTlc({
 } = {}) {
   const outputDirectoryAbsolute = resolve(root, outputDirectory)
   mkdirSync(outputDirectoryAbsolute, { recursive: true })
-  const resolvedJar = resolve(root, jarPath ?? newestLocalJar(root) ?? "")
+  const configuredJar =
+    typeof jarPath === "string" && jarPath.trim()
+      ? resolve(root, jarPath)
+      : newestLocalJar(root)
+  const resolvedJar = configuredJar
   const logPath = join(outputDirectoryAbsolute, "model-tlc.log")
   const resultPath = join(outputDirectoryAbsolute, "model.json")
-  if (!existsSync(resolvedJar)) {
+  if (!resolvedJar || !isRegularFile(resolvedJar)) {
+    const jarDescription = resolvedJar ?? "no pinned local jar was found"
     const result = {
       status: "BLOCKED",
       runId,
       modelComplete: false,
       checksRun: 0,
       statesExplored: 0,
-      message: `Pinned TLC ${PINNED_TLC_VERSION} jar is unavailable: ${resolvedJar}`,
+      message: `Pinned TLC ${PINNED_TLC_VERSION} jar is unavailable or is not a regular file: ${jarDescription}`,
       artifact: logPath
     }
     writeFileSync(logPath, `${result.message}\n`)
