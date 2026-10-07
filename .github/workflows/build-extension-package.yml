@@ -77,6 +77,21 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Exclude retained CI verification diagnostics from source status
+        run: |
+          set -euo pipefail
+          exclude_file="$(git rev-parse --git-path info/exclude)"
+          mkdir -p "$(dirname "${exclude_file}")"
+          touch "${exclude_file}"
+          for pattern in \
+            '/tmp/verification/runner-corruption-*/' \
+            '/tmp/verification/runner-reuse-*/'
+          do
+            if ! grep -Fqx "${pattern}" "${exclude_file}"; then
+              printf '%s\n' "${pattern}" >> "${exclude_file}"
+            fi
+          done
+
       - name: Run release tests
         run: npm test
 
