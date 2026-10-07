@@ -7,19 +7,22 @@ permissions:
   contents: read
 
 jobs:
-  submit:
-    name: Build and publish extension
+  build:
+    name: Build and verify extension package
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL: https://photosweep-license-api-206538169327.us-west1.run.app
       PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION: https://photosweep-license-api-206538169327.us-west1.run.app/*
       PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
       PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
-
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           submodules: recursive
+          persist-credentials: false
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
@@ -45,8 +48,34 @@ jobs:
       - name: Audit extension package
         run: npm run audit:extension-package
 
+      - name: Upload extension package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: photosweep-cws-${{ github.sha }}
+          path: build/chrome-mv3-prod.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish extension to Chrome Web Store
+    needs: build
+    if: github.ref == 'refs/heads/main' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    # The repository owner must configure this environment with a required
+    # reviewer and restrict deployment branches to main in repository settings.
+    # Workflow YAML can name the environment but cannot create those protections.
+    environment:
+      name: chrome-web-store-production
+    steps:
+      - name: Download verified package
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: photosweep-cws-${{ github.sha }}
+          path: cws-package
+
       - name: Publish to Chrome Web Store
         uses: PlasmoHQ/bpp@c15984c0a74f452851c605cab46f34d9fd6cb158
         with:
           keys: ${{ secrets.SUBMIT_KEYS }}
-          artifact: build/chrome-mv3-prod.zip
+          artifact: cws-package/chrome-mv3-prod.zip
