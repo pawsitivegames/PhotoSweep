@@ -15,6 +15,12 @@ export function getOriginalContentVerificationUnavailableMessage(
 ): string | null {
   if (item.originalContentVerificationCapability === "available") return null
   if (
+    item.provider === "google" &&
+    item.originalContentVerificationCapability === "unknown"
+  ) {
+    return null
+  }
+  if (
     item.provider === "amazon" &&
     item.originalContentVerificationCapability === "unsupported-region"
   ) {

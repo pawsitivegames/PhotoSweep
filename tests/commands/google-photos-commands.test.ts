@@ -437,7 +437,7 @@ describe("getAllMediaItems — field mapping", () => {
     delete (window as any).gptkApi
   })
 
-  it("declares original-byte verification only for supported Google media kinds", async () => {
+  it("marks original verification unknown when Google scan rows lack a verified resource", async () => {
     setupGptkApi([
       {
         mediaKey: "google-hash-photo",
@@ -445,6 +445,20 @@ describe("getAllMediaItems — field mapping", () => {
         thumb: "https://thumb/google-hash-photo",
         mimeType: "image/jpeg",
         isVideo: false
+      },
+      {
+        mediaKey: "google-hash-video",
+        dedupKey: "google-hash-video",
+        thumb: "https://thumb/google-hash-video",
+        mimeType: "video/mp4",
+        isVideo: true
+      },
+      {
+        mediaKey: "google-hash-live-photo",
+        dedupKey: "google-hash-live-photo",
+        thumb: "https://thumb/google-hash-live-photo",
+        mimeType: "image/jpeg",
+        isLivePhoto: true
       },
       {
         mediaKey: "google-hash-unknown",
@@ -466,7 +480,15 @@ describe("getAllMediaItems — field mapping", () => {
     expect(result?.data).toMatchObject([
       {
         mediaKey: "google-hash-photo",
-        originalContentVerificationCapability: "available"
+        originalContentVerificationCapability: "unknown"
+      },
+      {
+        mediaKey: "google-hash-video",
+        originalContentVerificationCapability: "unknown"
+      },
+      {
+        mediaKey: "google-hash-live-photo",
+        originalContentVerificationCapability: "unknown"
       },
       {
         mediaKey: "google-hash-unknown",

@@ -430,6 +430,43 @@ describe("[ORIGINAL-HASH] PhotoViewerModal — provider capability", () => {
     await screen.findByText(new RegExp(`SHA-256 ${originalHash}`))
     expect(onVerifyOriginal).toHaveBeenCalledOnce()
   })
+
+  it("allows an on-demand Google verification attempt when scan eligibility is unknown", async () => {
+    const originalHash = "d".repeat(64)
+    const item = makeItem("google-unknown-hash", {
+      provider: "google",
+      originalContentVerificationCapability: "unknown"
+    })
+    const onVerifyOriginal = vi.fn().mockResolvedValue({
+      mediaKey: item.mediaKey,
+      scopeFingerprint: "google-unknown-scope",
+      contentHash: {
+        value: originalHash,
+        algorithm: "sha256",
+        provenance: "original-content",
+        verificationSource: "local-original-bytes"
+      },
+      byteLength: 1200,
+      mimeType: "image/jpeg"
+    })
+
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[item]}
+        onVerifyOriginal={onVerifyOriginal}
+      />
+    )
+
+    const verifyButton = screen.getByRole("button", { name: "Verify original bytes" })
+    expect(verifyButton).toBeEnabled()
+    expect(
+      screen.queryByRole("button", { name: "Original bytes verified" })
+    ).not.toBeInTheDocument()
+    fireEvent.click(verifyButton)
+    await screen.findByText(new RegExp(`SHA-256 ${originalHash}`))
+    expect(onVerifyOriginal).toHaveBeenCalledOnce()
+  })
 })
 
 describe("PhotoViewerModal — original-byte verification", () => {

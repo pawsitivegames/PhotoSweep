@@ -36,6 +36,21 @@ describe("original content verification capability", () => {
       })
     ).toBeNull()
   })
+
+  it("permits Google's unknown capability for on-demand validation only", () => {
+    expect(
+      getOriginalContentVerificationUnavailableMessage({
+        provider: "google",
+        originalContentVerificationCapability: "unknown"
+      })
+    ).toBeNull()
+    expect(
+      getOriginalContentVerificationUnavailableMessage({
+        provider: "icloud",
+        originalContentVerificationCapability: "unknown"
+      })
+    ).toBe("Original-byte verification is unavailable for this item.")
+  })
 })
 
 describe("provider retrieval result boundary", () => {

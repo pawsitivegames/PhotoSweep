@@ -569,7 +569,7 @@ export function PhotoViewerModal({
   const currentHash = originalHashes[item.mediaKey] ?? retainedOriginalHash(item)
   const originalVerificationUnavailableMessage =
     getOriginalContentVerificationUnavailableMessage(item)
-  const originalVerificationAvailable =
+  const originalVerificationAttemptAllowed =
     originalVerificationUnavailableMessage === null
   const matchingHashCount = currentHash
     ? items.filter(
@@ -811,7 +811,7 @@ export function PhotoViewerModal({
               borderTop: `1px solid ${photoSweepColors.viewerBorder}`
             }}>
             {onVerifyOriginal &&
-              (originalVerificationAvailable || currentHash) && (
+              (originalVerificationAttemptAllowed || currentHash) && (
                 <Button
                   size="small"
                   variant="outlined"
@@ -829,7 +829,7 @@ export function PhotoViewerModal({
                 </Button>
               )}
             {onVerifyOriginal &&
-              !originalVerificationAvailable &&
+              !originalVerificationAttemptAllowed &&
               !currentHash && (
                 <Typography role="status" variant="body2" sx={{ color: photoSweepColors.viewerMuted }}>
                   {originalVerificationUnavailableMessage}

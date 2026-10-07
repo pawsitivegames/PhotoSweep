@@ -669,9 +669,12 @@ function mapMediaItem(item, accountUrlPrefix = "/") {
       : "unknown",
     favoriteSource: favoriteKnown ? "provider-metadata" : "unavailable",
     mediaKind,
+    // Google scan rows do not include a verified original resource URL. The
+    // on-demand retrieval path validates one before fetching, so scan-time
+    // eligibility is unknown for supported media kinds.
     originalContentVerificationCapability:
       mediaKind === "photo" || mediaKind === "video" || mediaKind === "live-photo"
-        ? "available"
+        ? "unknown"
         : "unavailable",
     ...(mimeType ? { mimeType } : {}),
     // Google Photos Toolkit maps these from opaque provider tuple positions.
