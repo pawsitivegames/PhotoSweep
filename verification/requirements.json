@@ -900,7 +900,8 @@
         "tests/lib/provider-retrieval.test.ts",
         "tests/components/photo-viewer-modal.test.tsx",
         "verification/run-properties.mjs",
-        "verification/verification-runner.mjs"
+        "verification/verification-runner.mjs",
+        "verification/amazon-video-playback-evidence.mjs"
       ],
       "obligations": [
         {
@@ -917,8 +918,30 @@
           "scope": "release",
           "proofClass": "live-provider",
           "kind": "provider-fixture",
-          "command": "Externally captured exact-package Amazon video playback evidence for every marketplace host declared in lib/provider-sites.ts",
+          "command": "Exact-current-candidate disposable video playback across Google Photos, iCloud Photos, and Amazon Photos",
           "artifact": "tmp/verification/current/video-playback.json",
+          "mandatory": true
+        }
+      ]
+    },
+    {
+      "id": "AMAZON-VIDEO-PLAYBACK",
+      "requirement": "Successful playback in the exact current package is independently captured in every marketplace host declared by AMAZON_MARKETPLACE_HOSTS in lib/provider-sites.ts. Every market has a fresh Chrome Stable playback observation bound to the package digest, with an advancing video timeline and no playback error. Missing, stale, incomplete, duplicate, mismatched, or failed market evidence cannot pass.",
+      "seams": [
+        "lib/provider-sites.ts",
+        "scripts/amazon-photos-commands.js",
+        "verification/verification-runner.mjs",
+        "verification/amazon-video-playback-evidence.mjs",
+        "tests/verification/amazon-video-playback-evidence.test.ts"
+      ],
+      "obligations": [
+        {
+          "id": "AMAZON-VIDEO-PLAYBACK-live",
+          "scope": "release",
+          "proofClass": "live-provider",
+          "kind": "provider-fixture",
+          "command": "Externally captured exact-package Amazon video playback evidence for every marketplace host declared in lib/provider-sites.ts",
+          "artifact": "tmp/verification/current/amazon-video-playback.json",
           "mandatory": true
         }
       ]

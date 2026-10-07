@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto"
-import { lstatSync, readFileSync } from "node:fs"
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
+import { lstatSync, readFileSync, realpathSync } from "node:fs"
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep
+} from "node:path"
 
 export const AMAZON_VIDEO_PLAYBACK_EVIDENCE_TYPE =
   "photosweep.amazon-video-playback"
@@ -26,7 +33,50 @@ function hasExactKeys(value, keys) {
 }
 
 function parseTimestamp(value) {
-  if (typeof value !== "string" || value.length === 0) return null
+  if (typeof value !== "string") return null
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/
+  )
+  if (!match) return null
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, zone] =
+    match
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  const hour = Number(hourText)
+  const minute = Number(minuteText)
+  const second = Number(secondText)
+  const daysInMonth = [
+    31,
+    year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31
+  ]
+  if (
+    year === 0 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth[month - 1] ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return null
+  }
+  if (zone !== "Z") {
+    const [offsetHour, offsetMinute] = zone.slice(1).split(":").map(Number)
+    if (offsetHour > 23 || offsetMinute > 59) return null
+  }
   const parsed = Date.parse(value)
   return Number.isFinite(parsed) ? parsed : null
 }
@@ -95,6 +145,21 @@ function capturePathFor(manifestDirectory, relativePath) {
   return path
 }
 
+function hasSymlinkedPathComponent(directory, path) {
+  const pathFromDirectory = relative(directory, path)
+  let current = directory
+  for (const component of pathFromDirectory.split(sep)) {
+    current = resolve(current, component)
+    try {
+      if (lstatSync(current).isSymbolicLink()) return true
+    } catch (error) {
+      if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return false
+      throw error
+    }
+  }
+  return false
+}
+
 /**
  * Validate externally captured, sanitized Amazon video playback evidence.
  * The runner never creates capture manifests or sidecars; it only consumes an
@@ -129,12 +194,10 @@ export function validateAmazonVideoPlaybackEvidence({
     }
   }
 
-  let manifestBytes
-  let manifest
+  const suppliedManifestPath = resolve(evidencePath)
+  let manifestStat
   try {
-    const read = readJsonFile(evidencePath)
-    manifestBytes = read.bytes
-    manifest = read.value
+    manifestStat = lstatSync(suppliedManifestPath)
   } catch {
     return {
       status: "BLOCKED",
@@ -144,6 +207,37 @@ export function validateAmazonVideoPlaybackEvidence({
       message:
         "Amazon regional video playback is BLOCKED because the supplied external evidence manifest could not be read."
     }
+  }
+  if (!manifestStat.isFile() || manifestStat.isSymbolicLink()) {
+    return failResult([
+      "The supplied evidence manifest must be a regular, non-symlink file."
+    ])
+  }
+
+  let manifestBytes
+  let manifest
+  let manifestDirectory
+  try {
+    manifestDirectory = realpathSync(dirname(suppliedManifestPath))
+    const actualManifestPath = resolve(
+      manifestDirectory,
+      basename(suppliedManifestPath)
+    )
+    manifestBytes = readFileSync(actualManifestPath)
+  } catch {
+    return {
+      status: "BLOCKED",
+      exitCode: 2,
+      checksRun: 0,
+      problems: ["The supplied evidence manifest is unavailable or unreadable."],
+      message:
+        "Amazon regional video playback is BLOCKED because the supplied external evidence manifest could not be read."
+    }
+  }
+  try {
+    manifest = JSON.parse(manifestBytes.toString("utf8"))
+  } catch {
+    return failResult(["The supplied evidence manifest is not valid JSON."])
   }
 
   let expectedHosts
@@ -192,7 +286,6 @@ export function validateAmazonVideoPlaybackEvidence({
   const seenIds = new Set()
   const seenPaths = new Set()
   const validated = []
-  const manifestDirectory = dirname(resolve(evidencePath))
 
   for (const capture of captures) {
     const host = capture?.marketplaceHost
@@ -241,6 +334,17 @@ export function validateAmazonVideoPlaybackEvidence({
       `Capture file reference for ${safeHost} is unsafe or invalid.`
     )
     if (!capturePath) continue
+    try {
+      if (hasSymlinkedPathComponent(manifestDirectory, capturePath)) {
+        problems.push(
+          `Capture file path traverses a symlink for ${safeHost}.`
+        )
+        continue
+      }
+    } catch {
+      problems.push(`Capture file path could not be inspected for ${safeHost}.`)
+      continue
+    }
     const captureRelativePath = relative(manifestDirectory, capturePath)
     if (seenPaths.has(captureRelativePath)) {
       problems.push(`Capture file is reused for marketplace ${safeHost}.`)
