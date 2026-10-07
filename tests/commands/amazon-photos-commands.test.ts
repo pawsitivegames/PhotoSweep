@@ -807,6 +807,7 @@ function amazonVideoNode(id: string) {
   return {
     id,
     ownerId: "owner-1",
+    isShared: false,
     name: `${id}.mp4`,
     createdDate: "2026-06-28T12:00:00.000Z",
     contentProperties: {
@@ -1556,6 +1557,7 @@ describe("Amazon getAllMediaItems", () => {
       resHeight: 1080,
       duration: 12345,
       mediaKind: "video",
+      originalContentVerificationCapability: "available",
       videoPlaybackCapability: "available",
       mimeType: "video/mp4",
       timestampProvenance: "unknown",
@@ -1565,6 +1567,84 @@ describe("Amazon getAllMediaItems", () => {
       size: 123456
     })
     restore()
+  })
+
+  it("offers original-byte verification only for confirmed personal items", () => {
+    const originalUrl = window.location.href
+    ;(window as any).happyDOM.setURL("https://www.amazon.ca/photos?sf=1")
+    const api = (window as any).__GPD_AMAZON_COMMAND_TEST_API__ as {
+      mapAmazonNode: (node: object, index: number) => {
+        originalContentVerificationCapability?: string
+      } | null
+    }
+    const baseNode = {
+      ...amazonNode("amazon-shared-status-capability"),
+      contentProperties: {
+        ...amazonNode("amazon-shared-status-capability").contentProperties,
+        size: 321
+      }
+    }
+
+    try {
+      expect(
+        api.mapAmazonNode({ ...baseNode, isShared: false }, 0)
+          ?.originalContentVerificationCapability
+      ).toBe("available")
+      expect(
+        api.mapAmazonNode({ ...baseNode, isShared: true }, 0)
+          ?.originalContentVerificationCapability
+      ).toBe("unavailable")
+      expect(
+        api.mapAmazonNode(baseNode, 0)?.originalContentVerificationCapability
+      ).toBe("unavailable")
+      expect(
+        api.mapAmazonNode({ ...baseNode, isShared: "false" }, 0)
+          ?.originalContentVerificationCapability
+      ).toBe("unavailable")
+    } finally {
+      ;(window as any).happyDOM.setURL(originalUrl)
+    }
+  })
+
+  it("keeps Canada Live Photo hash verification unavailable even with an original resource", async () => {
+    const originalUrl = window.location.href
+    ;(window as any).happyDOM.setURL("https://www.amazon.ca/photos?sf=1")
+    const { messages, restore } = collectMessages()
+    const livePhoto = {
+      ...amazonNode("live-photo-original-route"),
+      isLivePhoto: true,
+      contentProperties: {
+        ...amazonNode("live-photo-original-route").contentProperties,
+        size: 321
+      }
+    }
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ count: 1, data: [livePhoto] })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    try {
+      sendCommand("getAllMediaItems", "amazon-live-photo-hash-capability", { limit: 1 })
+      await flush()
+      await flush()
+
+      const result = messages.find(
+        (message) =>
+          message.action === "gptkResult" &&
+          message.command === "getAllMediaItems" &&
+          message.requestId === "amazon-live-photo-hash-capability"
+      )
+      expect(result?.data?.[0]).toMatchObject({
+        mediaKey: "amazon-live-photo-original-route",
+        provider: "amazon",
+        mediaKind: "live-photo",
+        originalContentVerificationCapability: "unavailable"
+      })
+    } finally {
+      restore()
+      ;(window as any).happyDOM.setURL(originalUrl)
+    }
   })
 
   it("marks Amazon video playback unavailable outside Canada and fails original retrieval closed", async () => {
@@ -1600,6 +1680,7 @@ describe("Amazon getAllMediaItems", () => {
         data: [
           {
             mediaKey: "amazon-regional-video",
+            originalContentVerificationCapability: "unsupported-region",
             videoPlaybackCapability: "unavailable"
           }
         ]

@@ -437,6 +437,45 @@ describe("getAllMediaItems — field mapping", () => {
     delete (window as any).gptkApi
   })
 
+  it("declares original-byte verification only for supported Google media kinds", async () => {
+    setupGptkApi([
+      {
+        mediaKey: "google-hash-photo",
+        dedupKey: "google-hash-photo",
+        thumb: "https://thumb/google-hash-photo",
+        mimeType: "image/jpeg",
+        isVideo: false
+      },
+      {
+        mediaKey: "google-hash-unknown",
+        dedupKey: "google-hash-unknown",
+        thumb: "https://thumb/google-hash-unknown"
+      }
+    ])
+    const { messages, restore } = collectMessages()
+
+    sendCommand("getAllMediaItems", "google-hash-capability", {})
+    await waitForMessage(messages, "google-hash-capability")
+
+    const result = messages.find(
+      (message: any) =>
+        message.action === "gptkResult" &&
+        message.command === "getAllMediaItems" &&
+        message.requestId === "google-hash-capability"
+    ) as any
+    expect(result?.data).toMatchObject([
+      {
+        mediaKey: "google-hash-photo",
+        originalContentVerificationCapability: "available"
+      },
+      {
+        mediaKey: "google-hash-unknown",
+        originalContentVerificationCapability: "unavailable"
+      }
+    ])
+    restore()
+  })
+
   it("reports coverage when GPTK is unavailable", async () => {
     delete (window as any).gptkApi
     const { messages, restore } = collectMessages()

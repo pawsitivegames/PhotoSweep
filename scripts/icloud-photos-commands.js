@@ -1535,6 +1535,11 @@ function mapCloudKitItem(master, asset, index) {
   const originalFileName =
     decodeBase64Text(fieldValue(master, "filenameEnc")) ||
     decodeBase64Text(fieldValue(asset, "filenameEnc"))
+  const originalHashResourceUrl = originalResource && originalFileName
+    ? allowlistedIcloudResourceUrl(
+        resourceUrl(originalResource, originalFileName)
+      )
+    : ""
   const assetRecordName = asset.recordName || master.recordName
   const recordName = master.recordName || assetRecordName
   const mediaKey = `icloud-${recordName}`
@@ -1588,6 +1593,11 @@ function mapCloudKitItem(master, asset, index) {
     takesUpSpace: null,
     isOriginalQuality: null,
     mediaKind,
+    originalContentVerificationCapability:
+      originalHashResourceUrl &&
+      (mediaKind === "photo" || mediaKind === "video")
+        ? "available"
+        : "unavailable",
     ...(mimeType ? { mimeType } : {}),
     ...(favoriteValue === undefined
       ? { favoriteStatus: "unknown", favoriteSource: "unavailable" }

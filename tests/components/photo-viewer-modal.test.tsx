@@ -57,6 +57,7 @@ function makeItem(mediaKey: string, overrides: Partial<GpdMediaItem> = {}): GpdM
     resHeight: 4032,
     fileName: `${mediaKey}.jpg`,
     isOwned: true,
+    originalContentVerificationCapability: "available",
     ...overrides,
   }
 }
@@ -372,6 +373,62 @@ describe("[VIDEO-PLAYBACK] PhotoViewerModal — video playback", () => {
       "href",
       "https://photos.google.com/photo/vid1"
     )
+  })
+})
+
+describe("[ORIGINAL-HASH] PhotoViewerModal — provider capability", () => {
+  it("shows an unavailable state and never requests hashes for unsupported Amazon regions", async () => {
+    const item = makeItem("amazon-region-hash", {
+      provider: "amazon",
+      originalContentVerificationCapability: "unsupported-region"
+    })
+    const onVerifyOriginal = vi.fn()
+
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[item]}
+        onVerifyOriginal={onVerifyOriginal}
+      />
+    )
+
+    expect(
+      await screen.findByText(/original-byte verification is unavailable on this amazon photos region/i)
+    ).toHaveAttribute("role", "status")
+    expect(screen.queryByRole("button", { name: "Verify original bytes" })).not.toBeInTheDocument()
+    expect(onVerifyOriginal).not.toHaveBeenCalled()
+  })
+
+  it("keeps original-byte verification available for supported Amazon Canada items", async () => {
+    const originalHash = "c".repeat(64)
+    const item = makeItem("amazon-canada-hash", {
+      provider: "amazon",
+      originalContentVerificationCapability: "available"
+    })
+    const onVerifyOriginal = vi.fn().mockResolvedValue({
+      mediaKey: item.mediaKey,
+      scopeFingerprint: "amazon-canada-scope",
+      contentHash: {
+        value: originalHash,
+        algorithm: "sha256",
+        provenance: "original-content",
+        verificationSource: "local-original-bytes"
+      },
+      byteLength: 1200,
+      mimeType: "image/jpeg"
+    })
+
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[item]}
+        onVerifyOriginal={onVerifyOriginal}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Verify original bytes" }))
+    await screen.findByText(new RegExp(`SHA-256 ${originalHash}`))
+    expect(onVerifyOriginal).toHaveBeenCalledOnce()
   })
 })
 

@@ -947,6 +947,68 @@ describe("keep strategy", () => {
     })
   })
 
+  it("uses valid resolution before file size in the best-quality default fallback", () => {
+    const mediaKeys = ["z-negative", "a-valid"]
+    const mediaItems = {
+      "z-negative": item("z-negative", {
+        isOriginalQuality: null,
+        resWidth: -100,
+        resHeight: -100,
+        size: 1
+      }),
+      "a-valid": item("a-valid", {
+        isOriginalQuality: null,
+        resWidth: 10,
+        resHeight: 10,
+        size: 100
+      })
+    }
+
+    expect(
+      recommendKeepForGroup({ mediaKeys }, mediaItems, "best_quality")
+    ).toMatchObject({
+      status: "no_confident_recommendation"
+    })
+    expect(
+      recommendDefaultKeepForGroup({ mediaKeys }, mediaItems, "best_quality")
+    ).toMatchObject({
+      status: "recommended",
+      reasonCode: "deterministic_tiebreak",
+      keptMediaKeys: ["a-valid"],
+      evidence: { winnerMediaKey: "a-valid" }
+    })
+  })
+
+  it("does not rank malformed numeric-string dimensions in the best-quality default fallback", () => {
+    const mediaKeys = ["z-string-width", "a-valid"]
+    const mediaItems = {
+      "z-string-width": item("z-string-width", {
+        isOriginalQuality: null,
+        resWidth: "100" as unknown as number,
+        resHeight: 100,
+        size: 1
+      }),
+      "a-valid": item("a-valid", {
+        isOriginalQuality: null,
+        resWidth: 10,
+        resHeight: 10,
+        size: 100
+      })
+    }
+
+    expect(
+      recommendKeepForGroup({ mediaKeys }, mediaItems, "best_quality").status
+    ).toBe("no_confident_recommendation")
+    expect(
+      recommendDefaultKeepForGroup({ mediaKeys }, mediaItems, "best_quality")
+    ).toMatchObject({
+      status: "recommended",
+      reasonCode: "deterministic_tiebreak",
+      keptMediaKeys: ["a-valid"],
+      evidence: { winnerMediaKey: "a-valid" }
+    })
+  })
+
   it.each([
     {
       label: "capture dates",

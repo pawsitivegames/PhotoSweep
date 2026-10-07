@@ -3261,6 +3261,51 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
       error: "The provider restore response did not contain a valid identity for every requested item; ambiguous targets will not be retried." })
   })
 
+  it("ignores foreign-string Trash progress when no terminal outcome arrives", async () => {
+    const { lifecycle, audit, requestId } = await setupTrash(["a"])
+
+    expect(lifecycle.recordProgress({
+      requestId,
+      data: { outcomes: [fact("trash", "foreign", "confirmed")] }
+    })).toBe(true)
+
+    await expect(lifecycle.reconcile({ requestId, success: true })).resolves.toMatchObject({
+      kind: "unknown",
+      movedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      error: "Trash provider response did not confirm every requested item."
+    })
+    expect(audit.resultReports[0]?.outcomes).toEqual([
+      {
+        operation: "trash",
+        targetKey: "d-a",
+        status: "unknown",
+        reason: "legacy-response-did-not-confirm-target"
+      }
+    ])
+  })
+
+  it("rejects a foreign-only restore terminal as malformed", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a"])
+
+    expect(lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      outcomes: [fact("restore", "foreign", "confirmed")]
+    })).toMatchObject({
+      kind: "unknown",
+      restoredDedupKeys: [],
+      unknownDedupKeys: ["restore-a"],
+      failedDedupKeys: [],
+      notDispatchedDedupKeys: [],
+      undo: { dedupKeys: [], count: 0 },
+      outcomes: [fact("restore", "restore-a", "unknown")],
+      error: "The provider restore response did not contain a valid identity for every requested item; ambiguous targets will not be retried."
+    })
+  })
+
   it("uses the default error for a valid terminal that confirms no restore targets", () => {
     const { lifecycle, requestId } = setupRestore(["d-a"])
 

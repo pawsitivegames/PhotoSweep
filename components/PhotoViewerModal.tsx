@@ -19,7 +19,10 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { buildThumbUrl } from "../lib/photo-url"
 import { isTrustedContentHash } from "../lib/duplicate-classifier"
-import { isVideoForPlayback } from "../lib/provider-retrieval"
+import {
+  getOriginalContentVerificationUnavailableMessage,
+  isVideoForPlayback
+} from "../lib/provider-retrieval"
 import { photoSweepColors } from "../lib/theme"
 import type {
   OriginalContentHashResult,
@@ -476,7 +479,12 @@ export function PhotoViewerModal({
     : null
 
   const handleVerifyOriginal = async () => {
-    if (!onVerifyOriginal || originalHashes[item.mediaKey] || retrievalPending) {
+    if (
+      !onVerifyOriginal ||
+      getOriginalContentVerificationUnavailableMessage(item) !== null ||
+      originalHashes[item.mediaKey] ||
+      retrievalPending
+    ) {
       return
     }
     const controller = new AbortController()
@@ -559,6 +567,10 @@ export function PhotoViewerModal({
   }
 
   const currentHash = originalHashes[item.mediaKey] ?? retainedOriginalHash(item)
+  const originalVerificationUnavailableMessage =
+    getOriginalContentVerificationUnavailableMessage(item)
+  const originalVerificationAvailable =
+    originalVerificationUnavailableMessage === null
   const matchingHashCount = currentHash
     ? items.filter(
         (candidate) => {
@@ -798,23 +810,31 @@ export function PhotoViewerModal({
               pt: 1,
               borderTop: `1px solid ${photoSweepColors.viewerBorder}`
             }}>
-            {onVerifyOriginal && (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => void handleVerifyOriginal()}
-                disabled={Boolean(currentHash) || retrievalPending}
-                startIcon={
-                  hashPendingMediaKey === item.mediaKey ? (
-                    <CircularProgress size={14} color="inherit" />
-                  ) : undefined
-                }
-                aria-label={
-                  currentHash ? "Original bytes verified" : "Verify original bytes"
-                }>
-                {currentHash ? "Original verified" : "Verify original bytes"}
-              </Button>
-            )}
+            {onVerifyOriginal &&
+              (originalVerificationAvailable || currentHash) && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => void handleVerifyOriginal()}
+                  disabled={Boolean(currentHash) || retrievalPending}
+                  startIcon={
+                    hashPendingMediaKey === item.mediaKey ? (
+                      <CircularProgress size={14} color="inherit" />
+                    ) : undefined
+                  }
+                  aria-label={
+                    currentHash ? "Original bytes verified" : "Verify original bytes"
+                  }>
+                  {currentHash ? "Original verified" : "Verify original bytes"}
+                </Button>
+              )}
+            {onVerifyOriginal &&
+              !originalVerificationAvailable &&
+              !currentHash && (
+                <Typography role="status" variant="body2" sx={{ color: photoSweepColors.viewerMuted }}>
+                  {originalVerificationUnavailableMessage}
+                </Typography>
+              )}
             {onLoadVideo && isVideoItem(item) && item.videoPlaybackCapability !== "unavailable" && (
               videoPlayback?.mediaKey === item.mediaKey ? (
                 <Button

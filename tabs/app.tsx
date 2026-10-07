@@ -147,6 +147,7 @@ import { providerScanCancellationTarget } from "../lib/provider-scan-cancellatio
 import {
   MAX_ORIGINAL_BYTES_PER_ITEM,
   MAX_ORIGINAL_BYTES_PER_REVIEW,
+  getOriginalContentVerificationUnavailableMessage,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   isVideoForPlayback,
@@ -3759,6 +3760,13 @@ export default function App() {
     ): Promise<OriginalContentHashResult | VideoPlaybackResult> => {
       const current = stateRef.current
       const provider = settingsRef.current.sourceProvider ?? "google"
+      if (command === "getOriginalContentHash") {
+        const unavailableMessage =
+          getOriginalContentVerificationUnavailableMessage(item)
+        if (unavailableMessage) {
+          return Promise.reject(new Error(unavailableMessage))
+        }
+      }
       const providerSessionId =
         currentIdentityProviderRef.current === provider
           ? currentProviderSessionIdRef.current

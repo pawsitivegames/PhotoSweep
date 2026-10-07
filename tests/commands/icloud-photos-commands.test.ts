@@ -3980,6 +3980,7 @@ describe("iCloud trashItems dry-run", () => {
             verificationSource: "provider-fingerprint"
           },
           provider: "icloud",
+          originalContentVerificationCapability: "available",
           mediaKind: "video",
           mimeType: "video/quicktime",
           timestamp: 1000,

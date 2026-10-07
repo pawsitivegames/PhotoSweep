@@ -194,6 +194,10 @@ export type FavoriteSource =
   | "provider-lookup"
   | "unavailable"
 export type VideoPlaybackCapability = "available" | "unavailable" | "unknown"
+export type OriginalContentVerificationCapability =
+  | "available"
+  | "unavailable"
+  | "unsupported-region"
 
 /** Exact per-target effect state returned by Trash/restore adapters. */
 export interface MutationOutcome {
@@ -522,6 +526,8 @@ export interface GpdMediaItem {
   isOriginalQuality?: boolean | null
   /** Canonical video duration in milliseconds; absent for photos or unknown units. */
   duration?: number
+  /** Whether this exact scanned item has a supported original-byte hash route. */
+  originalContentVerificationCapability?: OriginalContentVerificationCapability
   videoPlaybackCapability?: VideoPlaybackCapability
   /** Provider-stable link only; never derive from adjacency or isLivePhoto alone. */
   livePhotoAssociationId?: string

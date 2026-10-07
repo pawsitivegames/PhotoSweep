@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   MAX_ORIGINAL_BYTES_PER_ITEM,
+  getOriginalContentVerificationUnavailableMessage,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   isVideoForPlayback,
@@ -13,6 +14,29 @@ import {
 
 const expected = { mediaKey: "item-a", scopeFingerprint: "scope-a" }
 const sha256 = "a".repeat(64)
+
+describe("original content verification capability", () => {
+  it("returns a fail-closed message before requests for unsupported items or regions", () => {
+    expect(
+      getOriginalContentVerificationUnavailableMessage({
+        provider: "amazon",
+        originalContentVerificationCapability: "unsupported-region"
+      })
+    ).toBe("Original-byte verification is unavailable on this Amazon Photos region.")
+    expect(
+      getOriginalContentVerificationUnavailableMessage({
+        provider: "icloud",
+        originalContentVerificationCapability: "unavailable"
+      })
+    ).toBe("Original-byte verification is unavailable for this item.")
+    expect(
+      getOriginalContentVerificationUnavailableMessage({
+        provider: "amazon",
+        originalContentVerificationCapability: "available"
+      })
+    ).toBeNull()
+  })
+})
 
 describe("provider retrieval result boundary", () => {
   it("[VIDEO-PLAYBACK] binds each result to the pending provider and command", () => {

@@ -185,7 +185,8 @@
     window.__GPD_AMAZON_COMMAND_TEST_API__ = Object.freeze({
       isAmazonPhotosHost,
       isAmazonPhotosLocation,
-      amazonThumbnailOrigin
+      amazonThumbnailOrigin,
+      mapAmazonNode
     })
   }
 
@@ -1493,6 +1494,11 @@
           : isPhoto
             ? "photo"
             : "unknown",
+      originalContentVerificationCapability: !isAmazonCanadaMediaRoute()
+        ? "unsupported-region"
+        : hasOriginalResource && node.isShared === false && !isLivePhoto
+          ? "available"
+          : "unavailable",
       ...(mimeType ? { mimeType } : {}),
       ...(favoriteValue !== undefined
         ? {

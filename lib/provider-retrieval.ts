@@ -7,6 +7,22 @@ import type {
 export const MAX_ORIGINAL_BYTES_PER_ITEM = 25 * 1024 * 1024
 export const MAX_ORIGINAL_BYTES_PER_REVIEW = 100 * 1024 * 1024
 
+export function getOriginalContentVerificationUnavailableMessage(
+  item: Pick<
+    GpdMediaItem,
+    "provider" | "originalContentVerificationCapability"
+  >
+): string | null {
+  if (item.originalContentVerificationCapability === "available") return null
+  if (
+    item.provider === "amazon" &&
+    item.originalContentVerificationCapability === "unsupported-region"
+  ) {
+    return "Original-byte verification is unavailable on this Amazon Photos region."
+  }
+  return "Original-byte verification is unavailable for this item."
+}
+
 export function isVideoForPlayback(
   item: Pick<GpdMediaItem, "mediaKind" | "duration">
 ): boolean {
