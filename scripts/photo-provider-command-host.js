@@ -2,6 +2,9 @@
 // Provider scripts keep their media behavior; this host owns the envelope and
 // dispatch contract they all satisfy.
 
+{
+const providerSessionIds = new WeakMap()
+
 function isLocalTestEnvironment(targetWindow) {
   const protocol =
     typeof targetWindow.location === "object" && targetWindow.location
@@ -26,7 +29,6 @@ function createCommandHost(targetWindow, publicKey) {
     return targetWindow.__GPD_COMMAND_HOST__
   }
 
-  const providerSessionIds = new WeakMap()
   const APP_ID = "GPD"
   const CAPABILITY_TTL_MS = 60 * 1000
   const PROVIDER_HEALTH_SCHEMA_VERSION = 1
@@ -1205,4 +1207,5 @@ if (typeof window !== "undefined") {
       // Ignore a page-defined non-configurable property and fail closed later.
     }
   }
+}
 }
