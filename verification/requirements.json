@@ -917,7 +917,7 @@
           "scope": "release",
           "proofClass": "live-provider",
           "kind": "provider-fixture",
-          "command": "Exact-current-candidate disposable video playback across Google Photos, iCloud Photos, and Amazon Photos",
+          "command": "Externally captured exact-package Amazon video playback evidence for every marketplace host declared in lib/provider-sites.ts",
           "artifact": "tmp/verification/current/video-playback.json",
           "mandatory": true
         }

@@ -24,6 +24,7 @@ import {
   MUTATION_OUTCOME_REQUIRED_ACTIONS,
   validateMutationOutcomeModelEvidence
 } from "./mutation-outcome-model-evidence.mjs"
+import { validateAmazonVideoPlaybackEvidence } from "./amazon-video-playback-evidence.mjs"
 import {
   expectedRecoveryAuthorityBinding,
   RECOVERY_AUTHORITY_REQUIRED_ACTIONS,
@@ -1747,11 +1748,41 @@ if (scope === "release") {
     (item) => item.id === "VIDEO-PLAYBACK-live"
   )
   if (videoPlaybackObligation) {
-    const artifact = makeBlockedArtifact(
-      videoPlaybackObligation,
-      "Exact-current-package video playback evidence for all three providers is missing. Local mock tests and provider scan coverage do not prove playback in the packaged extension.",
-      videoPlaybackObligation.command
-    )
+    const suppliedEvidencePath =
+      args["amazon-video-playback-evidence"] ??
+      process.env.PHOTOSWEEP_AMAZON_VIDEO_PLAYBACK_EVIDENCE
+    const validation = validateAmazonVideoPlaybackEvidence({
+      evidencePath:
+        typeof suppliedEvidencePath === "string" &&
+        suppliedEvidencePath.length > 0
+          ? resolve(root, suppliedEvidencePath)
+          : suppliedEvidencePath,
+      expectedPackageDigest:
+        buildResult?.exitCode === 0 ? buildDigest : null,
+      sourceText: readFileSync(
+        resolve(root, "lib/provider-sites.ts"),
+        "utf8"
+      )
+    })
+    const artifact = {
+      schemaVersion: 1,
+      id: videoPlaybackObligation.id,
+      requirementId: videoPlaybackObligation.requirementId,
+      proofClass: videoPlaybackObligation.proofClass,
+      kind: videoPlaybackObligation.kind,
+      status: validation.status,
+      exitCode: validation.exitCode,
+      checksRun: validation.checksRun,
+      command: videoPlaybackObligation.command,
+      sourceFingerprint: sourceBefore.digest,
+      message: validation.message,
+      problems: validation.problems,
+      evidenceFileSha256: validation.evidenceFileSha256 ?? null,
+      packageDigest: validation.packageDigest ?? null,
+      expectedMarketplaces: validation.expectedMarketplaces ?? null,
+      validatedMarketplaces: validation.validatedMarketplaces ?? 0,
+      captures: validation.captures ?? []
+    }
     const artifactPath = runPath("video-playback.json")
     writeEvidenceArtifact(artifactPath, artifact)
     evidenceEntries.push(buildEntry(artifactPath, artifact))
