@@ -29,6 +29,7 @@ function checkout({
 }) {
   return {
     id,
+    livemode: true,
     created: createdAt,
     payment_status: "paid",
     payment_intent: paymentIntentId,
@@ -60,6 +61,7 @@ function paymentIntent({
 }) {
   return {
     id,
+    livemode: true,
     created: createdAt,
     status: "succeeded",
     amount,
@@ -89,6 +91,7 @@ function charge({
 }) {
   return {
     id,
+    livemode: true,
     created: createdAt,
     payment_intent: paymentIntentId,
     paid: true,
@@ -126,6 +129,421 @@ function ledgerRow({
 }
 
 describe("reconcileStripeLedger", () => {
+  it("rejects Stripe input without an explicit source mode", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          checkoutSessions: [
+            {
+              id: "cs_unmarked",
+              created,
+              payment_status: "paid"
+            }
+          ],
+          paymentIntents: [],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("Stripe evidence is unverified")
+  })
+
+  it("rejects unmarked Stripe objects even when the source envelope is live", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [
+            {
+              id: "cs_missing_mode",
+              created,
+              payment_status: "paid"
+            }
+          ],
+          paymentIntents: [],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("Stripe object must include a boolean livemode field")
+  })
+
+  it("requires a source mode marker when there are no Stripe objects", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          checkoutSessions: [],
+          paymentIntents: [],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("empty Stripe data requires an explicit source livemode marker")
+  })
+
+  it("accepts an explicitly marked empty collection", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: [],
+      stripe: {
+        livemode: true,
+        checkoutSessions: [],
+        paymentIntents: [],
+        charges: [],
+        refunds: []
+      }
+    })
+
+    expect(evidence).toMatchObject({
+      stripeMode: "live",
+      livemode: true,
+      liveOnly: true
+    })
+  })
+
+  it("derives schema-faithful Refund mode from its linked PaymentIntent", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: [],
+      stripe: {
+        checkoutSessions: [],
+        paymentIntents: [paymentIntent({ id: "pi_refund_parent" })],
+        charges: [],
+        refunds: [
+          {
+            id: "re_schema_faithful",
+            object: "refund",
+            amount: 125,
+            charge: null,
+            created,
+            currency: "usd",
+            payment_intent: "pi_refund_parent",
+            status: "succeeded"
+          }
+        ]
+      }
+    })
+
+    expect(evidence).toMatchObject({
+      stripeMode: "live",
+      livemode: true,
+      liveOnly: true,
+      metrics: { net_revenue: { refundAmountMinorByCurrency: { usd: 125 } } }
+    })
+  })
+
+  it("rejects a Refund with an unknown parent when no source mode is available", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          checkoutSessions: [],
+          paymentIntents: [],
+          charges: [],
+          refunds: [
+            {
+              id: "re_unknown_parent",
+              object: "refund",
+              amount: 125,
+              charge: "ch_not_collected",
+              created,
+              currency: "usd",
+              payment_intent: null,
+              status: "succeeded"
+            }
+          ]
+        }
+      })
+    ).toThrow("refund requires a mode-matched Charge or PaymentIntent parent")
+  })
+
+  it("does not trust a non-schema Refund livemode field without a parent or source marker", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          checkoutSessions: [],
+          paymentIntents: [],
+          charges: [],
+          refunds: [
+            {
+              id: "re_fabricated_mode",
+              object: "refund",
+              livemode: true,
+              charge: "ch_not_collected",
+              created,
+              amount: 125,
+              currency: "usd",
+              status: "succeeded"
+            }
+          ]
+        }
+      })
+    ).toThrow("refund requires a mode-matched Charge or PaymentIntent parent")
+  })
+
+  it("rejects refund Charge and PaymentIntent parents that disagree on mode", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          checkoutSessions: [],
+          paymentIntents: [paymentIntent({ id: "pi_live_parent" })],
+          charges: [],
+          refunds: [
+            {
+              id: "re_conflicting_parents",
+              object: "refund",
+              amount: 125,
+              charge: {
+                id: "ch_test_parent",
+                object: "charge",
+                livemode: false,
+                amount: 499,
+                currency: "usd"
+              },
+              created,
+              currency: "usd",
+              payment_intent: "pi_live_parent",
+              status: "succeeded"
+            }
+          ]
+        }
+      })
+    ).toThrow("refund Charge and PaymentIntent parents disagree on mode")
+  })
+
+  it("rejects a sandbox expanded PaymentIntent inside a live Checkout Session", () => {
+    const session = {
+      ...checkout({ id: "cs_expanded_test_pi", paymentIntentId: "pi_test" }),
+      payment_intent: {
+        id: "pi_test",
+        object: "payment_intent",
+        livemode: false,
+        amount: 499,
+        currency: "usd",
+        metadata: { planId: "cleanup_pass" }
+      }
+    }
+
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [session],
+          paymentIntents: [],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("mixes live and sandbox modes in expanded PaymentIntent data")
+  })
+
+  it("rejects a sandbox expanded Charge inside a live PaymentIntent", () => {
+    const intent = {
+      ...paymentIntent({ id: "pi_expanded_test_charge" }),
+      latest_charge: {
+        id: "ch_test_expanded",
+        object: "charge",
+        livemode: false,
+        amount: 499,
+        currency: "usd"
+      }
+    }
+
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [],
+          paymentIntents: [intent],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("mixes live and sandbox modes in expanded Charge data")
+  })
+
+  it("rejects a sandbox expanded Customer used by a live payment", () => {
+    const intent = {
+      ...paymentIntent({ id: "pi_expanded_test_customer" }),
+      customer: {
+        id: "cus_test_expanded",
+        object: "customer",
+        livemode: false
+      }
+    }
+
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [],
+          paymentIntents: [intent],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("mixes live and sandbox modes in expanded customer data")
+  })
+
+  it("anchors Stripe's deleted Customer tombstone to its validated payment mode", () => {
+    const intent = {
+      ...paymentIntent({ id: "pi_deleted_customer" }),
+      customer: {
+        id: "cus_deleted",
+        object: "customer",
+        deleted: true
+      }
+    }
+
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      ledger: [],
+      stripe: {
+        livemode: true,
+        checkoutSessions: [],
+        paymentIntents: [intent],
+        charges: [],
+        refunds: []
+      }
+    })
+
+    expect(evidence).toMatchObject({
+      stripeMode: "live",
+      livemode: true,
+      liveOnly: true,
+      metrics: { paid_customers: 1 }
+    })
+  })
+
+  it("does not relax mode checks for a non-deleted expanded Customer", () => {
+    const intent = {
+      ...paymentIntent({ id: "pi_unmarked_customer" }),
+      customer: {
+        id: "cus_unmarked",
+        object: "customer"
+      }
+    }
+
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [],
+          paymentIntents: [intent],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("expanded customer must include a boolean livemode field")
+  })
+
+  it("rejects fabricated fields on a deleted Customer tombstone", () => {
+    const intent = {
+      ...paymentIntent({ id: "pi_fabricated_tombstone" }),
+      customer: {
+        id: "cus_deleted_with_mode",
+        object: "customer",
+        deleted: true,
+        livemode: false
+      }
+    }
+
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [],
+          paymentIntents: [intent],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow(
+      "deleted Customer tombstone must contain only id, object, and deleted"
+    )
+  })
+
+  it("rejects mixed live and sandbox Stripe objects", () => {
+    expect(() =>
+      reconcileStripeLedger({
+        fromMs,
+        toMs,
+        ledger: [],
+        stripe: {
+          livemode: true,
+          checkoutSessions: [
+            {
+              ...checkout({ id: "cs_live", paymentIntentId: "pi_live" }),
+              livemode: true
+            }
+          ],
+          paymentIntents: [
+            { ...paymentIntent({ id: "pi_test" }), livemode: false }
+          ],
+          charges: [],
+          refunds: []
+        }
+      })
+    ).toThrow("mixes live and sandbox")
+  })
+
+  it("retains explicitly selected sandbox evidence and marks it non-live", () => {
+    const evidence = reconcileStripeLedger({
+      fromMs,
+      toMs,
+      stripeMode: "sandbox",
+      ledger: [],
+      stripe: {
+        livemode: false,
+        checkoutSessions: [],
+        paymentIntents: [],
+        charges: [],
+        refunds: []
+      }
+    })
+
+    expect(evidence).toMatchObject({
+      stripeMode: "sandbox",
+      livemode: false,
+      liveOnly: false
+    })
+  })
+
   it("reports a purchase row missing its checkout id without losing payment reconciliation", () => {
     const evidence = reconcileStripeLedger({
       fromMs,
@@ -144,6 +562,7 @@ describe("reconcileStripeLedger", () => {
         }
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_1",
@@ -155,6 +574,7 @@ describe("reconcileStripeLedger", () => {
         charges: [
           {
             id: "ch_1",
+            livemode: true,
             created,
             payment_intent: "pi_1",
             paid: true,
@@ -257,6 +677,7 @@ describe("reconcileStripeLedger", () => {
         )
       },
       stripe: {
+        livemode: true,
         checkoutSessions: upgradeCases.flatMap(
           ({ licenseSessionId, customerId, earlier, current }) => [
             checkout({ ...earlier, customerId, licenseSessionId }),
@@ -347,6 +768,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_customer",
@@ -397,6 +819,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_guest",
@@ -415,6 +838,7 @@ describe("reconcileStripeLedger", () => {
         refunds: [
           {
             id: "re_guest",
+            object: "refund",
             created: created + 10,
             payment_intent: "pi_guest_refunded",
             amount: 499,
@@ -467,9 +891,11 @@ describe("reconcileStripeLedger", () => {
         }
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           {
             id: "cs_historical",
+            livemode: true,
             created,
             payment_status: "paid",
             payment_intent: "pi_historical",
@@ -553,9 +979,11 @@ describe("reconcileStripeLedger", () => {
         }
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           {
             id: "cs_shared",
+            livemode: true,
             created,
             payment_status: "paid",
             payment_intent: "pi_shared",
@@ -616,6 +1044,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [],
         paymentIntents: [
           paymentIntent({
@@ -626,6 +1055,7 @@ describe("reconcileStripeLedger", () => {
         charges: [
           {
             id: "ch_second",
+            livemode: true,
             created,
             payment_intent: "pi_second",
             paid: true,
@@ -664,6 +1094,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_refund",
@@ -682,6 +1113,7 @@ describe("reconcileStripeLedger", () => {
         charges: [
           {
             id: "ch_refund",
+            livemode: true,
             created,
             payment_intent: "pi_refund",
             paid: true,
@@ -694,6 +1126,7 @@ describe("reconcileStripeLedger", () => {
         refunds: [
           {
             id: "re_part_1",
+            object: "refund",
             created: created + 10,
             payment_intent: "pi_refund",
             charge: "ch_refund",
@@ -703,6 +1136,7 @@ describe("reconcileStripeLedger", () => {
           },
           {
             id: "re_part_2",
+            object: "refund",
             created: created + 20,
             payment_intent: "pi_refund",
             charge: "ch_refund",
@@ -712,6 +1146,7 @@ describe("reconcileStripeLedger", () => {
           },
           {
             id: "re_orphan",
+            object: "refund",
             created: created + 30,
             payment_intent: "pi_missing",
             amount: 100,
@@ -720,6 +1155,7 @@ describe("reconcileStripeLedger", () => {
           },
           {
             id: "re_part_2",
+            object: "refund",
             created: created + 20,
             payment_intent: "pi_refund",
             charge: "ch_refund",
@@ -766,6 +1202,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_aggregate",
@@ -780,6 +1217,7 @@ describe("reconcileStripeLedger", () => {
         charges: [
           {
             id: "ch_aggregate",
+            livemode: true,
             created,
             payment_intent: "pi_aggregate",
             paid: true,
@@ -821,6 +1259,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_usd",
@@ -886,6 +1325,7 @@ describe("reconcileStripeLedger", () => {
         ]
       },
       stripe: {
+        livemode: true,
         checkoutSessions: [
           checkout({
             id: "cs_currency_refund",
@@ -902,6 +1342,7 @@ describe("reconcileStripeLedger", () => {
         refunds: [
           {
             id: "re_currency_mismatch",
+            object: "refund",
             created: created + 10,
             payment_intent: "pi_currency_refund",
             amount: 100,

@@ -13,7 +13,7 @@ function usage() {
   return `Usage:
   npm run stripe:reconcile -- --from <ISO> --to <ISO> \\
     --ledger-export <path> --stripe-export <path> [--output <path>] \\
-    [--enrich-report <path>]
+    [--enrich-report <path>] [--stripe-mode <live|sandbox>]
 
 Live sources:
   --live-firestore       Read the Firestore license snapshot using ADC.
@@ -25,6 +25,11 @@ Offline sources:
                          charges, and refunds arrays.
   --enrich-report <path> Optional read-only dry-run report of uniquely
                          matchable purchase rows. It never writes Firestore.
+  --stripe-mode <mode>   Require live Stripe evidence (default) or explicitly
+                         select sandbox evidence. Checkout Sessions,
+                         PaymentIntents, Charges, and expanded Stripe objects
+                         are mode-checked. Refund mode comes from a related
+                         Charge or PaymentIntent, or an explicit source marker.
 
 Required:
   --from <ISO>           Inclusive window start.
@@ -75,6 +80,24 @@ function requiredSecret(env) {
     )
   }
   return secret
+}
+
+function stripeLivemodeFromSecret(secret) {
+  const match = /^(?:sk|rk)_(live|test)_/i.exec(secret)
+  if (!match) {
+    throw new Error(
+      "STRIPE_SECRET must be a Stripe live or test secret key before evidence mode can be verified."
+    )
+  }
+  return match[1].toLowerCase() === "live"
+}
+
+function parseStripeMode(value) {
+  const mode = value ?? "live"
+  if (mode !== "live" && mode !== "sandbox") {
+    throw new Error('--stripe-mode must be "live" or "sandbox".')
+  }
+  return mode
 }
 
 function pricePlanMap(env) {
@@ -135,8 +158,18 @@ export async function fetchStripeLedgerObjects({
   fromMs,
   toMs,
   secret,
-  fetchImpl = fetch
+  fetchImpl = fetch,
+  stripeMode = undefined
 }) {
+  const livemode = stripeLivemodeFromSecret(secret)
+  if (
+    stripeMode !== undefined &&
+    livemode !== (parseStripeMode(stripeMode) === "live")
+  ) {
+    throw new Error(
+      `STRIPE_SECRET is ${livemode ? "live" : "sandbox"}, but the requested mode is ${stripeMode}.`
+    )
+  }
   const [checkoutSessions, paymentIntents, charges, refunds] =
     await Promise.all([
       listStripeCollection({
@@ -189,7 +222,7 @@ export async function fetchStripeLedgerObjects({
         ]
       })
     ])
-  return { checkoutSessions, paymentIntents, charges, refunds }
+  return { livemode, checkoutSessions, paymentIntents, charges, refunds }
 }
 
 async function loadLedger(args, env) {
@@ -206,14 +239,15 @@ async function loadLedger(args, env) {
   return store.snapshot()
 }
 
-async function loadStripe(args, { fromMs, toMs, env, fetchImpl }) {
+async function loadStripe(args, { fromMs, toMs, env, fetchImpl, stripeMode }) {
   const stripePath = args["stripe-export"] ?? args.stripe
   if (stripePath) return readJson(stripePath)
   return fetchStripeLedgerObjects({
     fromMs,
     toMs,
     secret: requiredSecret(env),
-    fetchImpl
+    fetchImpl,
+    stripeMode
   })
 }
 
@@ -251,20 +285,40 @@ export async function runStripeLedgerEvidenceExport({
   const fromMs = parseTimestamp(args.from, "--from")
   const toMs = parseTimestamp(args.to, "--to")
   if (toMs <= fromMs) throw new Error("--to must be after --from.")
+  const stripeMode = parseStripeMode(args["stripe-mode"])
   assertOutputPathsAreSafe(args)
   const ledger = await loadLedger(args, env)
-  const stripe = await loadStripe(args, { fromMs, toMs, env, fetchImpl })
+  const stripe = await loadStripe(args, {
+    fromMs,
+    toMs,
+    env,
+    fetchImpl,
+    stripeMode
+  })
   const evidence = reconcileStripeLedger({
     ledger,
     stripe,
     fromMs,
     toMs,
+    stripeMode,
     pricePlanMap: pricePlanMap(env),
     generatedAt: now.toISOString(),
     includeEnrichmentReport: Boolean(args["enrich-report"])
   })
   const enrichmentReport = evidence.enrichmentReport
-  const evidenceForOutput = { ...evidence }
+  const stripeExportPath = args["stripe-export"] ?? args.stripe
+  const evidenceForOutput = {
+    ...evidence,
+    modeProvenance: stripeExportPath
+      ? {
+          source: "offline_export",
+          modeFrom: "object_fields_or_explicit_collection_marker"
+        }
+      : {
+          source: "stripe_api",
+          modeFrom: "secret_key_mode_prefix"
+        }
+  }
   delete evidenceForOutput.enrichmentReport
   const outputPath = args.output ? path.resolve(args.output) : undefined
   const enrichmentReportPath = args["enrich-report"]

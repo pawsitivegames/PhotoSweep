@@ -37,9 +37,11 @@ describe("Stripe ledger evidence exporter", () => {
     await fs.writeFile(
       stripePath,
       JSON.stringify({
+        livemode: true,
         checkoutSessions: [
           {
             id: "cs_cli",
+            livemode: true,
             created: 1788220860,
             payment_status: "paid",
             payment_intent: "pi_cli",
@@ -53,6 +55,7 @@ describe("Stripe ledger evidence exporter", () => {
         paymentIntents: [
           {
             id: "pi_cli",
+            livemode: true,
             created: 1788220860,
             status: "succeeded",
             amount: 1499,
@@ -91,6 +94,13 @@ describe("Stripe ledger evidence exporter", () => {
     const evidence = JSON.parse(output)
     expect(evidence).toMatchObject({
       generatedAt: "2026-10-01T00:00:00.000Z",
+      stripeMode: "live",
+      livemode: true,
+      liveOnly: true,
+      modeProvenance: {
+        source: "offline_export",
+        modeFrom: "object_fields_or_explicit_collection_marker"
+      },
       metrics: {
         paid_checkouts: 1,
         paid_customers: 1,
@@ -142,6 +152,7 @@ describe("Stripe ledger evidence exporter", () => {
     })
 
     expect(result).toMatchObject({
+      livemode: false,
       checkoutSessions: [],
       paymentIntents: [],
       charges: [],
@@ -166,6 +177,134 @@ describe("Stripe ledger evidence exporter", () => {
     expect(expandsByPath.get("/v1/refunds")).toEqual(
       expect.arrayContaining(["data.charge.customer"])
     )
+  })
+
+  it("records that live-read mode provenance comes from the Stripe key prefix", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "photosweep-stripe-api-provenance-")
+    )
+    const ledgerPath = path.join(directory, "ledger.json")
+    await fs.writeFile(ledgerPath, JSON.stringify({ purchases: [] }))
+
+    const result = await runStripeLedgerEvidenceExport({
+      argv: [
+        "--from",
+        "2026-09-01T00:00:00.000Z",
+        "--to",
+        "2026-10-01T00:00:00.000Z",
+        "--ledger-export",
+        ledgerPath
+      ],
+      env: { NODE_ENV: "development", STRIPE_SECRET: "sk_live_not_written" },
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          async json() {
+            return { data: [], has_more: false }
+          }
+        }) as Response
+    })
+
+    expect(result).toMatchObject({
+      evidence: {
+        stripeMode: "live",
+        livemode: true,
+        liveOnly: true,
+        modeProvenance: {
+          source: "stripe_api",
+          modeFrom: "secret_key_mode_prefix"
+        }
+      }
+    })
+    if (!("serialized" in result)) {
+      throw new Error("Expected serialized evidence output.")
+    }
+    expect(result.serialized).not.toContain("sk_live_not_written")
+  })
+
+  it("rejects a Stripe key from the wrong mode before making API requests", async () => {
+    let requestMade = false
+    await expect(
+      fetchStripeLedgerObjects({
+        fromMs: Date.parse("2026-09-01T00:00:00.000Z"),
+        toMs: Date.parse("2026-10-01T00:00:00.000Z"),
+        secret: "sk_test_not_written",
+        stripeMode: "live",
+        fetchImpl: async () => {
+          requestMade = true
+          return {
+            ok: true,
+            async json() {
+              return { data: [], has_more: false }
+            }
+          } as Response
+        }
+      })
+    ).rejects.toThrow(
+      "STRIPE_SECRET is sandbox, but the requested mode is live"
+    )
+    expect(requestMade).toBe(false)
+  })
+
+  it("requires an explicit sandbox mode and labels empty sandbox evidence", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "photosweep-stripe-sandbox-evidence-")
+    )
+    const ledgerPath = path.join(directory, "ledger.json")
+    const stripePath = path.join(directory, "stripe.json")
+    await fs.writeFile(ledgerPath, JSON.stringify({ purchases: [] }))
+    await fs.writeFile(
+      stripePath,
+      JSON.stringify({
+        livemode: false,
+        checkoutSessions: [],
+        paymentIntents: [],
+        charges: [],
+        refunds: []
+      })
+    )
+
+    await expect(
+      runStripeLedgerEvidenceExport({
+        argv: [
+          "--from",
+          "2026-09-01T00:00:00.000Z",
+          "--to",
+          "2026-10-01T00:00:00.000Z",
+          "--ledger-export",
+          ledgerPath,
+          "--stripe-export",
+          stripePath
+        ]
+      })
+    ).rejects.toThrow("requested mode is live")
+
+    const result = await runStripeLedgerEvidenceExport({
+      argv: [
+        "--from",
+        "2026-09-01T00:00:00.000Z",
+        "--to",
+        "2026-10-01T00:00:00.000Z",
+        "--ledger-export",
+        ledgerPath,
+        "--stripe-export",
+        stripePath,
+        "--stripe-mode",
+        "sandbox"
+      ]
+    })
+
+    expect(result).toMatchObject({
+      evidence: {
+        stripeMode: "sandbox",
+        livemode: false,
+        liveOnly: false,
+        modeProvenance: {
+          source: "offline_export",
+          modeFrom: "object_fields_or_explicit_collection_marker"
+        }
+      }
+    })
   })
 
   it("rejects output paths that would overwrite read-only inputs", async () => {
