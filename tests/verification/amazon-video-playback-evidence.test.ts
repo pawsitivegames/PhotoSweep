@@ -172,6 +172,9 @@ describe("Amazon regional video playback evidence", () => {
       })
 
       expect(result.status).toBe("PASS")
+      if (!("validatedMarketplaces" in result) || !("captures" in result)) {
+        throw new Error("Expected complete marketplace evidence to pass")
+      }
       expect(result.exitCode).toBe(0)
       expect(result.checksRun).toBe(22)
       expect(result.validatedMarketplaces).toBe(22)
