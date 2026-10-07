@@ -483,6 +483,17 @@ export async function openGptkStubPage(
   const page = await context.newPage()
   await page.goto("https://photos.google.com/")
 
+  // `page.goto()` can finish before the extension's document_idle content
+  // script has injected the provider toolkit. Wait for that bridge dependency
+  // before opening the app tab so healthCheck cannot race script injection.
+  await page.waitForFunction(
+    () =>
+      typeof (window as unknown as { gptkCore?: unknown }).gptkCore !==
+      "undefined",
+    undefined,
+    { timeout: 10_000 }
+  )
+
   // Inject overrides so the stub responds as configured
   if (Object.keys(overrides).length > 0) {
     await page.evaluate((ov) => {

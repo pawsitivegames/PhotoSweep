@@ -659,6 +659,121 @@ describe("keeper decision contract", () => {
     expect(updated.decisionFor(emptyGroup).source).toBe("legacy_preserved")
   })
 
+  it("recomputes an empty legacy override for a nonempty group and accepts unsaved empty groups", () => {
+    const legacyEmptyKeeper = new DuplicateReviewSession({
+      groups: [g1],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(["g1"]),
+        reviewedGroupIds: new Set(["g1"]),
+        keptOverrides: { g1: new Set<string>() },
+        keepDecisionProvenance: { g1: { source: "legacy_preserved" } }
+      }
+    })
+    const recomputed = new DuplicateReviewSession({
+      groups: [g1],
+      mediaItems,
+      selections: legacyEmptyKeeper.update({
+        type: "apply_keep_strategy",
+        groupIds: ["g1"],
+        strategy: "best_quality"
+      })
+    })
+
+    expect(recomputed.keptFor(g1)).toEqual(new Set(["b"]))
+    expect(recomputed.decisionFor(g1).source).toBe("automatic")
+    expect(recomputed.reviewedGroupIds).toEqual(new Set())
+
+    const emptyGroup = group("empty")
+    const unsavedEmptyGroup = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {}
+    })
+    const updatedEmptyGroup = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: unsavedEmptyGroup.update({
+        type: "apply_keep_strategy",
+        groupIds: ["empty"],
+        strategy: "best_quality"
+      })
+    })
+    expect(updatedEmptyGroup.keptFor(emptyGroup)).toEqual(new Set())
+
+    const automaticEmptyGroup = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: {
+        selectedGroupIds: new Set(["empty"]),
+        reviewedGroupIds: new Set(["empty"]),
+        keptOverrides: { empty: new Set<string>() },
+        keepDecisionProvenance: {
+          empty: { source: "automatic", strategy: "best_quality" }
+        }
+      }
+    })
+    const changedEmptyStrategy = new DuplicateReviewSession({
+      groups: [emptyGroup],
+      mediaItems: {},
+      selections: automaticEmptyGroup.update({
+        type: "apply_keep_strategy",
+        groupIds: ["empty"],
+        strategy: "newest_upload"
+      })
+    })
+    expect(changedEmptyStrategy.decisionFor(emptyGroup).strategy).toBe(
+      "newest_upload"
+    )
+    expect(changedEmptyStrategy.reviewedGroupIds).toEqual(new Set(["empty"]))
+    expect(changedEmptyStrategy.trashPlan([emptyGroup]).mediaKeysToTrash).toEqual(
+      []
+    )
+  })
+
+  it("treats a malformed kept-override root as absent saved state", () => {
+    const review = new DuplicateReviewSession({
+      groups: [g1],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: null
+      } as unknown as DuplicateReviewSelections
+    })
+
+    expect(review.keptFor(g1)).toEqual(new Set(["b"]))
+    expect(review.selections.keptOverrides).toEqual({})
+
+    const numericGroup = group("0", "a", "b")
+    const arrayRoot = new DuplicateReviewSession({
+      groups: [numericGroup],
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: [[]]
+      } as unknown as DuplicateReviewSelections
+    })
+    expect(arrayRoot.keptFor(numericGroup)).toEqual(new Set(["b"]))
+    expect(arrayRoot.selections.keptOverrides).toEqual({})
+
+    const stringGroup = group("0", "s", "t")
+    const stringRoot = new DuplicateReviewSession({
+      groups: [stringGroup],
+      mediaItems: {
+        s: item("s", { isOriginalQuality: false }),
+        t: item("t", { isOriginalQuality: true })
+      },
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: "s"
+      } as unknown as DuplicateReviewSelections
+    })
+    expect(stringRoot.keptFor(stringGroup)).toEqual(new Set(["t"]))
+    expect(stringRoot.selections.keptOverrides).toEqual({})
+  })
+
   it("does not mark automatically selected keeper sets as reviewed after hydration", () => {
     const restored = session({
       selectedGroupIds: new Set(["g1"]),

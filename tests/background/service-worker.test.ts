@@ -729,6 +729,53 @@ describe("launch flow", () => {
     })
   })
 
+  it("reuses an existing provider tab before repurposing the side-panel host", async () => {
+    const amazonHostTab = {
+      id: 52,
+      url: "https://www.amazon.ca/photos"
+    }
+    const icloudTab = {
+      id: 63,
+      url: "https://www.icloud.com/photos"
+    }
+    mockChrome.tabs.get.mockResolvedValue(amazonHostTab)
+    mockChrome.tabs.query.mockImplementation((query: unknown) => {
+      const filter = query as { url?: string; currentWindow?: boolean }
+      if (filter.url?.includes("icloud.com")) {
+        return Promise.resolve([icloudTab])
+      }
+      if (filter.currentWindow) {
+        return Promise.resolve([amazonHostTab, icloudTab])
+      }
+      return Promise.resolve([])
+    })
+    mockChrome.tabs.update.mockResolvedValue(icloudTab)
+
+    const response = await dispatchMessageWithResponse(
+      {
+        app: APP_ID,
+        action: "launchProvider",
+        provider: "icloud",
+        hostTabId: amazonHostTab.id
+      },
+      { url: "chrome-extension://test/tabs/scanner-panel.html" }
+    )
+
+    expect(mockChrome.tabs.update).toHaveBeenCalledWith(icloudTab.id, {
+      active: true
+    })
+    expect(mockChrome.tabs.update).not.toHaveBeenCalledWith(amazonHostTab.id, {
+      url: "https://www.icloud.com/photos",
+      active: true
+    })
+    expect(response).toMatchObject({
+      success: true,
+      provider: "icloud",
+      tabId: icloudTab.id,
+      alreadyOpen: true
+    })
+  })
+
   it("focuses the active main tab without reloading when it already matches the selected provider", async () => {
     mockChrome.tabs.query.mockResolvedValue([
       { id: 12, url: "https://www.amazon.ca/photos?sf=1" }

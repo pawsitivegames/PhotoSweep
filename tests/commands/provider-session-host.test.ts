@@ -1072,6 +1072,11 @@ describe("PARITY-02 provider command host session binding", () => {
             "Original media retrieval must match the most recent scan scope in this provider page session. Scan again and review the current items."
           )
         }
+        if (_label === "an empty scan scope") {
+          expect(response?.error).toBe(
+            "Original media retrieval requires explicit opt-in and a current provider session, request, and scan scope."
+          )
+        }
       } finally {
         postMessage.mockRestore()
       }
@@ -2305,6 +2310,24 @@ describe("provider command-host retrieval cache and budget oracles", () => {
 
     expect(Object.isFrozen(reservation)).toBe(true)
     expect(Object.isFrozen(reservation.budget)).toBe(true)
+    const budget = reservation.budget
+    expect(reservation.budget).toBe(budget)
+    expect(budget.limitBytes).toBe(8)
+    expect(Object.keys(budget).sort()).toEqual([
+      "bytesRead",
+      "bytesReserved",
+      "limitBytes"
+    ])
+    expect(reservation.key).toBe(
+      JSON.stringify(["amazon", host.providerSessionId, scope])
+    )
+    expect(Object.keys(reservation).sort()).toEqual([
+      "budget",
+      "bytesConsumed",
+      "key",
+      "maxBytes",
+      "reservedBytes"
+    ])
     expect(Reflect.set(reservation, "reservedBytes", 100)).toBe(false)
     expect(Reflect.set(reservation, "maxBytes", 100)).toBe(false)
     expect(Reflect.set(reservation.budget, "bytesReserved", 0)).toBe(false)

@@ -62,6 +62,29 @@ test.afterAll(async () => {
 
 // ============================================================
 
+test("sets the app document language for assistive technology", async () => {
+  const page = await openAppTab(context, extensionId)
+
+  await expect(page.locator("html")).toHaveAttribute("lang", "en")
+
+  await page.close()
+})
+
+test("gives the compact provider selector an accessible name", async () => {
+  const page = await context.newPage()
+  await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+  const providerSelector = page.locator(
+    '[role="combobox"][aria-label="Photo source"]'
+  )
+
+  await expect(providerSelector).toBeVisible()
+  await expect(providerSelector).toHaveAttribute("role", "combobox")
+  await expect(providerSelector).toHaveAttribute("aria-label", "Photo source")
+  await expect(providerSelector).not.toHaveAttribute("aria-labelledby")
+
+  await page.close()
+})
+
 test("restores saved scan results from storage on load", async () => {
   await clearStorage(context)
   await injectScanResults(
@@ -1005,9 +1028,12 @@ test("keeps the free-results exit clickable after an unverified checkout return"
       page.getByRole("alert").filter({ hasText: /Checkout opened/i })
     ).not.toBeVisible()
 
+    const entitlementRefreshesBeforeReturn = entitlementRefreshes
     await page.bringToFront()
     await page.evaluate(() => window.dispatchEvent(new Event("focus")))
-    await expect.poll(() => entitlementRefreshes).toBeGreaterThan(0)
+    await expect
+      .poll(() => entitlementRefreshes)
+      .toBeGreaterThan(entitlementRefreshesBeforeReturn)
     await expect(
       page.getByText(
         /Payment is still being confirmed|Payment could not be verified yet/i
@@ -2963,7 +2989,7 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
   ).toBeVisible()
   await expect(
     page.getByRole("button", {
-      name: /Keep key1\.jpg \(currently moves to Trash; favorite status unknown/
+      name: /Keep key1\.jpg \(not in the current Trash proposal; click to change the decision\)/
     })
   ).toHaveAttribute("aria-pressed", "false")
   await expect(
@@ -3485,6 +3511,9 @@ test("uses a deterministic tie-break for unknown quality in the compact scanner 
   await stub.bringToFront()
   try {
     await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+    await expect(page.getByText("Connected", { exact: true })).toBeVisible({
+      timeout: 10_000
+    })
     await expect(
       page.getByText("Suggested keep: Best quality (deterministic tie-break)", {
         exact: true

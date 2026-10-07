@@ -780,6 +780,22 @@ async function openProviderInCurrentTab(
   const senderTabResult = await tryOpenCandidate(tab)
   if (senderTabResult) return senderTabResult
 
+  // A side-panel provider switch should return to an already-open tab for
+  // that provider before reusing the current host tab. This keeps other
+  // provider sessions open when the user moves between providers.
+  const existingProviderTabs = (
+    await Promise.all(
+      providerTabPatterns(provider).map((url) => chrome.tabs.query({ url }))
+    )
+  ).flat()
+
+  if (!tab) {
+    for (const providerTab of existingProviderTabs) {
+      const providerResult = await tryOpenCandidate(providerTab)
+      if (providerResult) return providerResult
+    }
+  }
+
   if (preferredTabId !== undefined && preferredTabId !== null) {
     const preferredTab = await chrome.tabs
       .get(preferredTabId)
@@ -788,11 +804,6 @@ async function openProviderInCurrentTab(
     if (preferredResult) return preferredResult
   }
 
-  const existingProviderTabs = (
-    await Promise.all(
-      providerTabPatterns(provider).map((url) => chrome.tabs.query({ url }))
-    )
-  ).flat()
   for (const providerTab of existingProviderTabs) {
     const providerResult = await tryOpenCandidate(providerTab)
     if (providerResult) return providerResult

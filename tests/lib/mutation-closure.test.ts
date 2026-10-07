@@ -769,6 +769,26 @@ describe("mutation closure: duplicate review session", () => {
       g1: { source: "legacy_preserved" }
     })
 
+    const invalidStrategyAutomatic = new DuplicateReviewSession({
+      groups,
+      mediaItems,
+      selections: {
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: { g1: new Set(["a"]) },
+        keepDecisionProvenance: {
+          g1: { source: "automatic", strategy: "invalid" as never }
+        }
+      }
+    })
+    expect(invalidStrategyAutomatic.decisionFor(groups[0])).toMatchObject({
+      source: "legacy_preserved",
+      keptMediaKeys: new Set(["a"])
+    })
+    expect(invalidStrategyAutomatic.serialize().keepDecisionProvenance).toEqual({
+      g1: { source: "legacy_preserved" }
+    })
+
     const invalid = new DuplicateReviewSession({
       groups,
       mediaItems,

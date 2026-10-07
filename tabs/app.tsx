@@ -983,7 +983,12 @@ function SidePanelSourceBar({
         size="small"
         fullWidth
         value={provider}
-        aria-label="Photo source"
+        SelectProps={{
+          SelectDisplayProps: {
+            "aria-label": "Photo source",
+            "aria-labelledby": undefined
+          }
+        }}
         sx={{
           minWidth: 0,
           "& .MuiInputBase-root": {
@@ -1049,6 +1054,51 @@ function SidePanelSourceBar({
   )
 }
 
+function PhotoSweepBrandMark({ size = 34 }: { size?: number }) {
+  const iconPath =
+    typeof chrome === "undefined"
+      ? undefined
+      : chrome.runtime.getManifest?.().icons?.["128"]
+  const iconUrl =
+    iconPath && typeof chrome !== "undefined"
+      ? chrome.runtime.getURL(iconPath)
+      : undefined
+
+  if (iconUrl) {
+    return (
+      <Box
+        component="img"
+        src={iconUrl}
+        alt=""
+        aria-hidden="true"
+        sx={{
+          width: size,
+          height: size,
+          borderRadius: 1,
+          display: "block",
+          flexShrink: 0,
+          objectFit: "contain"
+        }}
+      />
+    )
+  }
+
+  return (
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: 1,
+        display: "grid",
+        placeItems: "center",
+        color: photoSweepColors.surface,
+        bgcolor: photoSweepColors.primary
+      }}>
+      <PhotoLibraryRoundedIcon sx={{ fontSize: size * 0.56 }} />
+    </Box>
+  )
+}
+
 function SidePanelBrandHeader() {
   return (
     <Box
@@ -1059,19 +1109,7 @@ function SidePanelBrandHeader() {
         px: 0.35,
         py: 0.2
       }}>
-      <Box
-        sx={{
-        width: 34,
-        height: 34,
-        borderRadius: 1,
-          display: "grid",
-          placeItems: "center",
-          color: photoSweepColors.surface,
-          bgcolor: photoSweepColors.primary,
-        boxShadow: "none"
-      }}>
-        <PhotoLibraryRoundedIcon sx={{ fontSize: 19 }} />
-      </Box>
+      <PhotoSweepBrandMark />
       <Typography
         variant="subtitle1"
         fontWeight={850}
@@ -1343,6 +1381,10 @@ type UpgradePromptState = {
 }
 
 export default function App() {
+  useEffect(() => {
+    document.documentElement.lang = "en"
+  }, [])
+
   const isSidePanel =
     typeof window !== "undefined" &&
     (window.location.pathname.includes("sidepanel") ||
@@ -6401,18 +6443,7 @@ export default function App() {
               mx: "auto",
               px: { xs: 2, md: 3 }
             }}>
-            <Box
-              sx={{
-                width: 34,
-                height: 34,
-                borderRadius: 1,
-                display: "grid",
-                placeItems: "center",
-                bgcolor: "primary.main",
-                color: "primary.contrastText"
-              }}>
-              <PhotoLibraryRoundedIcon fontSize="small" />
-            </Box>
+            <PhotoSweepBrandMark />
             <Typography
               variant="h6"
               fontWeight={700}
