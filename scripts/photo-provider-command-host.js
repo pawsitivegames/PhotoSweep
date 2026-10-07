@@ -2,6 +2,7 @@
 // Provider scripts keep their media behavior; this host owns the envelope and
 // dispatch contract they all satisfy.
 
+{
 const providerSessionIds = new WeakMap()
 
 function isLocalTestEnvironment(targetWindow) {
@@ -1206,4 +1207,5 @@ if (typeof window !== "undefined") {
       // Ignore a page-defined non-configurable property and fail closed later.
     }
   }
+}
 }
