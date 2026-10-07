@@ -26,13 +26,56 @@ node verification/verification-runner.mjs --scope release \
 ```
 
 The same path can be supplied through
-`PHOTOSWEEP_AMAZON_VIDEO_PLAYBACK_EVIDENCE`. To learn the digest for the exact
-package before capturing playback, run the release runner once without the
-manifest and read `buildDigest` from that run's `verification-summary.json`.
-That run is expected to leave the video obligation `BLOCKED`. Capture playback
-against that package, then run the release gate again with the manifest. The
-second build must produce the same digest. The runner records the two gates in
-separate `video-playback.json` and `amazon-video-playback.json` artifacts.
+`PHOTOSWEEP_AMAZON_VIDEO_PLAYBACK_EVIDENCE`.
+
+Use two release runs so the captures and final gate refer to the same package:
+
+1. Freeze the source tree, then run once without a candidate or playback
+   manifest:
+
+   ```sh
+   node verification/verification-runner.mjs --scope release
+   ```
+
+   The Amazon obligation is expected to be `BLOCKED`. The runner packages more
+   than once during this run, and `package:cws` assigns a fresh random build ID
+   to each package operation. Use only the final candidate reported in this
+   run's `command-production-package-final.log`: its JSON output has an
+   `artifactFile` field naming the hash-named ZIP under `build/`. The matching
+   Chrome Web Store metadata sidecar is next to that ZIP with the same basename
+   and a `.json` extension. Use that `artifactFile` path for the next run.
+
+   Read `buildDigest` from this run's `verification-summary.json`. This digest
+   identifies the final compiled package file tree and is the value required
+   for the manifest's `packageDigest`. It is distinct from the ZIP SHA-256 in
+   the package metadata sidecar.
+
+2. Install that exact ZIP in Chrome Stable and capture all source-declared
+   markets. Bind the manifest and every capture sidecar to the `buildDigest`
+   from step 1.
+
+3. Run release verification again with the unchanged candidate ZIP and the
+   external playback manifest:
+
+   ```sh
+   node verification/verification-runner.mjs --scope release \
+     --candidate-package build/photosweep-cws-v<version>-sha256-<zip-sha-prefix>.zip \
+     --amazon-video-playback-evidence /absolute/path/to/amazon-video-playback.json
+   ```
+
+   `--candidate-package` is release-only and must name a hash-named ZIP in
+   `build/`. The runner passes it to `verification/release-candidate.mjs`, which
+   checks its matching metadata sidecar, ZIP hash, compiled package contents,
+   and current source fingerprint. The frozen-candidate path preserves this
+   package instead of creating another random build ID. The second run's
+   `buildDigest` must match step 1, and its source fingerprint must still match
+   the candidate sidecar.
+
+Any source-root or package change after step 1 invalidates the frozen
+candidate's source/package binding. Repackage and capture all markets again
+before running the gate. The runner records `VIDEO-PLAYBACK-live` and
+`AMAZON-VIDEO-PLAYBACK-live` in separate `video-playback.json` and
+`amazon-video-playback.json` artifacts.
 
 The manifest is JSON with exactly these top-level fields:
 
@@ -76,12 +119,15 @@ credentials. The strict field allowlists reject additional fields.
 
 The validator checks the source list, package digest, capture hashes, per-market
 uniqueness and completeness, strict timezone-bearing timestamp freshness, and
-playback observations.
-It only accepts sidecars produced by the declared independent capture source;
-the runner itself never generates them. The file hashes detect changes after
-the manifest was prepared. They do not cryptographically authenticate the
-capture tool, so the person supplying the evidence remains responsible for
-confirming that each sidecar was recorded from the installed exact package.
+the playback observations reported in the sidecars. Browser, capture method,
+and playback fields are self-reported; the validator does not authenticate that
+Chrome DevTools recorded them or prove that playback occurred. Sidecar hashes
+detect changes after the manifest was prepared, but do not authenticate the
+capture tool or the sidecars' original contents. A passing gate therefore means
+the submitted evidence passes schema and consistency checks. Before relying on
+it for release, establish trusted evidence custody or authenticated provenance
+that ties the sidecars to independent captures from the installed exact
+package.
 
 Missing manifest or package binding stays `BLOCKED`. A supplied manifest with
 stale, mismatched, duplicate, missing, malformed, or failed market evidence is
