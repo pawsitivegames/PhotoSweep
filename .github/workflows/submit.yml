@@ -62,9 +62,11 @@ jobs:
     if: github.ref == 'refs/heads/main' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions: {}
-    # The repository owner must configure this environment with a required
-    # reviewer and restrict deployment branches to main in repository settings.
-    # Workflow YAML can name the environment but cannot create those protections.
+    # Owner setup in GitHub repository settings is required before this gate is
+    # complete: create this environment, scope SUBMIT_KEYS as an environment
+    # secret, require a reviewer, and restrict deployment branches to main.
+    # Remove any repository- or organization-level SUBMIT_KEYS secret; a branch
+    # can change its own YAML guard. Workflow YAML cannot create these controls.
     environment:
       name: chrome-web-store-production
     steps:
