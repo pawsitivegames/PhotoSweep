@@ -71,6 +71,303 @@ function collection(input, ...keys) {
   return []
 }
 
+function stripeModeObjects(input, ...keys) {
+  const values = collection(input, ...keys)
+  if (values.some((value) => !isRecord(value))) {
+    throw new Error("Stripe evidence contains a malformed object collection.")
+  }
+  return values
+}
+
+function requireStripeLivemode(object, label) {
+  if (typeof object?.livemode !== "boolean") {
+    throw new Error(
+      `Stripe evidence is unverified: ${label} must include a boolean livemode field.`
+    )
+  }
+  return object.livemode
+}
+
+function stripeObjectIndex(objects) {
+  const index = new Map()
+  for (const object of objects) {
+    const id = objectId(object)
+    if (id) index.set(id, object)
+  }
+  return index
+}
+
+function expandedStripeObjectMode(
+  value,
+  expectedObject,
+  index,
+  label,
+  ownerMode = undefined
+) {
+  const id = objectId(value)
+  if (!id) {
+    throw new Error(`Stripe evidence has an expanded ${label} without an ID.`)
+  }
+  if (value.object !== undefined && value.object !== expectedObject) {
+    throw new Error(
+      `Stripe evidence has an expanded ${label} with the wrong object type.`
+    )
+  }
+  if (
+    expectedObject === "customer" &&
+    value.object === "customer" &&
+    value.deleted === true
+  ) {
+    const keys = Object.keys(value).sort()
+    if (
+      keys.length !== 3 ||
+      keys[0] !== "deleted" ||
+      keys[1] !== "id" ||
+      keys[2] !== "object"
+    ) {
+      throw new Error(
+        "Stripe deleted Customer tombstone must contain only id, object, and deleted."
+      )
+    }
+    if (typeof ownerMode !== "boolean") {
+      throw new Error(
+        "Stripe deleted Customer tombstone has no validated owning mode."
+      )
+    }
+    return ownerMode
+  }
+  const expandedMode = requireStripeLivemode(value, `expanded ${label}`)
+  const indexed = index?.get(id)
+  if (indexed) {
+    const indexedMode = requireStripeLivemode(indexed, `${label} parent`)
+    if (indexedMode !== expandedMode) {
+      throw new Error(
+        `Stripe evidence has conflicting livemode values for expanded ${label}.`
+      )
+    }
+  }
+  return expandedMode
+}
+
+function relatedStripeObjectMode(value, expectedObject, index, label) {
+  if (isRecord(value)) {
+    return expandedStripeObjectMode(value, expectedObject, index, label)
+  }
+  const id = objectId(value)
+  const indexed = id ? index?.get(id) : undefined
+  return indexed ? requireStripeLivemode(indexed, `${label} parent`) : undefined
+}
+
+function validateExpandedStripeModes(
+  object,
+  ownerMode,
+  indexes,
+  label,
+  visited = new Set()
+) {
+  if (!isRecord(object) || visited.has(object)) return
+  visited.add(object)
+  const relationships = [
+    ["customer", "customer", undefined, "customer"],
+    [
+      "payment_intent",
+      "payment_intent",
+      indexes.paymentIntents,
+      "PaymentIntent"
+    ],
+    ["latest_charge", "charge", indexes.charges, "Charge"],
+    ["charge", "charge", indexes.charges, "Charge"]
+  ]
+
+  for (const [field, expectedObject, index, childLabel] of relationships) {
+    const value = object[field]
+    if (isRecord(value)) {
+      const childMode = expandedStripeObjectMode(
+        value,
+        expectedObject,
+        index,
+        childLabel,
+        ownerMode
+      )
+      if (childMode !== ownerMode) {
+        throw new Error(
+          `Stripe evidence mixes live and sandbox modes in expanded ${childLabel} data.`
+        )
+      }
+      validateExpandedStripeModes(
+        value,
+        childMode,
+        indexes,
+        `expanded ${childLabel}`,
+        visited
+      )
+      continue
+    }
+
+    if (typeof value === "string" && index?.has(value)) {
+      const childMode = requireStripeLivemode(
+        index.get(value),
+        `${childLabel} parent`
+      )
+      if (childMode !== ownerMode) {
+        throw new Error(
+          `Stripe evidence mixes live and sandbox modes in linked ${childLabel} data.`
+        )
+      }
+    }
+  }
+}
+
+function assertStripeEvidenceMode(input, requestedMode) {
+  if (requestedMode !== "live" && requestedMode !== "sandbox") {
+    throw new Error('Stripe evidence mode must be "live" or "sandbox".')
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(input, "livemode") &&
+    typeof input.livemode !== "boolean"
+  ) {
+    throw new Error("Stripe source livemode marker must be a boolean.")
+  }
+
+  const checkoutSessions = stripeModeObjects(
+    input,
+    "checkoutSessions",
+    "checkout_sessions",
+    "sessions"
+  )
+  const paymentIntents = stripeModeObjects(
+    input,
+    "paymentIntents",
+    "payment_intents"
+  )
+  const charges = stripeModeObjects(input, "charges")
+  const refunds = stripeModeObjects(input, "refunds", "refundsList")
+  const ordinaryObjects = [...checkoutSessions, ...paymentIntents, ...charges]
+  const ordinaryModes = ordinaryObjects.map((object) =>
+    requireStripeLivemode(object, "Stripe object")
+  )
+  const indexes = {
+    paymentIntents: stripeObjectIndex(paymentIntents),
+    charges: stripeObjectIndex(charges)
+  }
+
+  for (const [label, objects] of [
+    ["Checkout Session", checkoutSessions],
+    ["PaymentIntent", paymentIntents],
+    ["Charge", charges]
+  ]) {
+    for (const object of objects) {
+      validateExpandedStripeModes(
+        object,
+        requireStripeLivemode(object, `${label} object`),
+        indexes,
+        label
+      )
+    }
+  }
+
+  if (new Set(ordinaryModes).size > 1) {
+    throw new Error("Stripe evidence mixes live and sandbox Stripe objects.")
+  }
+
+  if (
+    typeof input.livemode === "boolean" &&
+    ordinaryModes.some((mode) => mode !== input.livemode)
+  ) {
+    throw new Error("Stripe source livemode marker does not match its objects.")
+  }
+
+  const refundModes = refunds.map((refund) => {
+    const chargeMode = relatedStripeObjectMode(
+      refund.charge ?? refund.chargeId,
+      "charge",
+      indexes.charges,
+      "refund Charge"
+    )
+    const paymentIntentMode = relatedStripeObjectMode(
+      refund.payment_intent ?? refund.paymentIntentId,
+      "payment_intent",
+      indexes.paymentIntents,
+      "refund PaymentIntent"
+    )
+    const parentModes = [chargeMode, paymentIntentMode].filter(
+      (mode) => typeof mode === "boolean"
+    )
+    if (new Set(parentModes).size > 1) {
+      throw new Error(
+        "Stripe refund Charge and PaymentIntent parents disagree on mode."
+      )
+    }
+    const parentMode = parentModes[0]
+    if (
+      typeof input.livemode === "boolean" &&
+      typeof parentMode === "boolean" &&
+      parentMode !== input.livemode
+    ) {
+      throw new Error(
+        "Stripe source livemode marker does not match a refund parent object."
+      )
+    }
+    const mode = typeof parentMode === "boolean" ? parentMode : input.livemode
+    if (typeof mode !== "boolean") {
+      throw new Error(
+        "Stripe evidence is unverified: a refund requires a mode-matched Charge or PaymentIntent parent, or an explicit source livemode marker."
+      )
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(refund, "livemode") &&
+      typeof refund.livemode !== "boolean"
+    ) {
+      throw new Error(
+        "Stripe Refund livemode extension must be a boolean when present."
+      )
+    }
+    if (typeof refund.livemode === "boolean" && refund.livemode !== mode) {
+      throw new Error(
+        "Stripe Refund livemode extension conflicts with its mode provenance."
+      )
+    }
+    validateExpandedStripeModes(refund, mode, indexes, "Refund")
+    return mode
+  })
+
+  if (
+    typeof input.livemode === "boolean" &&
+    refundModes.some((mode) => mode !== input.livemode)
+  ) {
+    throw new Error("Stripe source livemode marker does not match its refunds.")
+  }
+
+  const observedModes = new Set([
+    ...ordinaryModes,
+    ...refundModes,
+    ...(typeof input.livemode === "boolean" ? [input.livemode] : [])
+  ])
+  if (observedModes.size > 1) {
+    throw new Error("Stripe evidence mixes live and sandbox Stripe objects.")
+  }
+
+  const observedLivemode = observedModes.values().next().value
+  if (typeof observedLivemode !== "boolean") {
+    throw new Error(
+      "Stripe evidence is unverified: empty Stripe data requires an explicit source livemode marker."
+    )
+  }
+
+  const requestedLivemode = requestedMode === "live"
+  if (observedLivemode !== requestedLivemode) {
+    throw new Error(
+      `Stripe evidence is ${observedLivemode ? "live" : "sandbox"}, but the requested mode is ${requestedMode}.`
+    )
+  }
+
+  return {
+    stripeMode: observedLivemode ? "live" : "sandbox",
+    livemode: observedLivemode,
+    liveOnly: observedLivemode
+  }
+}
+
 function uniqueObjects(objects, fallbackPrefix) {
   const result = []
   const seen = new Set()
@@ -882,6 +1179,7 @@ export function reconcileStripeLedger({
   stripe,
   fromMs,
   toMs,
+  stripeMode = "live",
   pricePlanMap = {},
   generatedAt = undefined,
   includeEnrichmentReport = false
@@ -892,6 +1190,7 @@ export function reconcileStripeLedger({
   })
   const ledgerRows = ledgerRowContexts.map(({ row }) => row)
   const stripeInput = isRecord(stripe) ? stripe : {}
+  const stripeModeEvidence = assertStripeEvidenceMode(stripeInput, stripeMode)
   const checkoutSessionObjects = uniqueObjects(
     collection(
       stripeInput,
@@ -1303,6 +1602,7 @@ export function reconcileStripeLedger({
 
   const result = {
     schemaVersion: 1,
+    ...stripeModeEvidence,
     ...(generatedAt ? { generatedAt } : {}),
     window: {
       from: fromMs === undefined ? null : new Date(fromMs).toISOString(),
