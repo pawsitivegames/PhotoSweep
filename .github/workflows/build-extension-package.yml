@@ -65,17 +65,29 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jre-headless
           fi
-          mkdir -p tmp/verification/ci-tlc/tooling
+          jar_path="${RUNNER_TEMP}/photosweep-tlc-1.8.0.jar"
           curl --fail --location --retry 3 \
-            --output tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar \
+            --output "${jar_path}" \
             https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-          echo "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
+          printf '%s  %s\n' \
+            '7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d' \
+            "${jar_path}" | sha256sum --check
+          echo "TLA_TOOLS_JAR=${jar_path}" >> "$GITHUB_ENV"
 
       - name: Typecheck
         run: npm run typecheck
 
       - name: Run release tests
         run: npm test
+
+      - name: Assert clean source before packaging
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain=v1 --untracked-files=normal)" ]]; then
+            git status --short
+            echo "Refusing to package a dirty source checkout." >&2
+            exit 1
+          fi
 
       - name: Build and package extension
         run: npm run package
