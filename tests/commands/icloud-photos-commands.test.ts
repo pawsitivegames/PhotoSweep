@@ -1352,8 +1352,7 @@ describe("iCloud album scans", () => {
           itemsReturned: 0,
           itemsSkipped: 0,
           totalItems: 0,
-          pagesRead: 1,
-          pageSizes: [1]
+          pagesRead: 1
         }
       })
       expect(membershipRequests).toHaveLength(1)
@@ -3500,11 +3499,17 @@ describe("iCloud metadata and pagination evidence", () => {
   async function scanFixture(
     masterFields: Record<string, unknown> = {},
     assetFields: Record<string, unknown> = {},
-    pageEnvelope: Record<string, unknown> = {},
+    pageEnvelope:
+      | Record<string, unknown>
+      | ((pageCall: number) => Record<string, unknown>) = {},
     indexedCount = 1,
     scanArgs: Record<string, unknown> = {},
     recordCopies = 1,
-    transformRecords: (records: any[]) => any[] = (records) => records
+    transformRecords: (
+      records: any[],
+      pageCall: number,
+      requestBody: Record<string, any>
+    ) => any[] = (records) => records
   ) {
     const requestId = `icloud-evidence-${++requestSequence}`
     const { messages, restore } = collectMessages()
@@ -3544,25 +3549,37 @@ describe("iCloud metadata and pagination evidence", () => {
       }
     ]).flat()
     let pageCalls = 0
-    const fetchSpy = vi.spyOn(window, "fetch").mockImplementation(async (url) => {
-      if (String(url).includes("/internal/records/query/batch?")) {
+    const mediaRequestBodies: Record<string, unknown>[] = []
+    const fetchSpy = vi
+      .spyOn(window, "fetch")
+      .mockImplementation(async (url, init) => {
+        if (String(url).includes("/internal/records/query/batch?")) {
+          return {
+            ok: true,
+            json: async () => ({
+              batch: [{ records: [{ fields: { itemCount: { value: indexedCount } } }] }]
+            })
+          } as Response
+        }
+        pageCalls += 1
+        const requestBody = JSON.parse(String(init?.body || "{}"))
+        mediaRequestBodies.push(requestBody)
+        const envelope =
+          typeof pageEnvelope === "function"
+            ? pageEnvelope(pageCalls)
+            : pageEnvelope
         return {
           ok: true,
           json: async () => ({
-            batch: [{ records: [{ fields: { itemCount: { value: indexedCount } } }] }]
+            records: transformRecords(records, pageCalls, requestBody),
+            ...envelope
           })
         } as Response
-      }
-      pageCalls += 1
-      return {
-        ok: true,
-        json: async () => ({ records: transformRecords(records), ...pageEnvelope })
-      } as Response
-    })
+      })
     try {
       sendCommand("getAllMediaItems", requestId, scanArgs)
       const result = await waitForProviderResult(messages, requestId)
-      return { result, pageCalls }
+      return { result, pageCalls, mediaRequestBodies }
     } finally {
       fetchSpy.mockRestore()
       performanceSpy.mockRestore()
@@ -3668,13 +3685,128 @@ describe("iCloud metadata and pagination evidence", () => {
   })
 
   it.each([
-    ["remaining records", { moreComing: true }],
+    ["moreComing without a cursor", { moreComing: true }],
     ["malformed continuation flag", { moreComing: "false" }],
     ["terminal cursor contradiction", { moreComing: false, continuationMarker: "next" }],
-    ["unconsumed cursor", { continuationMarker: "next" }]
-  ])("[PARITY-06] refuses count-only exhaustion with %s", async (_label, pageEnvelope) => {
+    ["non-string cursor", { continuationMarker: 42 }],
+    ["empty page with cursor", { records: [], continuationMarker: "next" }]
+  ])("[PARITY-06] rejects malformed library pagination with %s", async (_label, pageEnvelope) => {
     const { result } = await scanFixture({}, { assetDate: 1000 }, pageEnvelope)
     expect(result.scanCoverage.status).not.toBe("complete")
+    expect(result.providerSyncToken).toBeUndefined()
+  })
+
+  it("[PARITY-06] follows library cursors and maps split master and asset records together", async () => {
+    const continuationMarker = "library-cursor-next"
+    const syncToken = "stable-library-sync-token"
+    const { result, pageCalls, mediaRequestBodies } = await scanFixture(
+      {},
+      { assetDate: 1000 },
+      (pageCall) =>
+        pageCall === 1
+          ? { continuationMarker, moreComing: true, syncToken }
+          : { moreComing: false, syncToken },
+      1,
+      {},
+      1,
+      (records, pageCall) =>
+        records.filter((record) =>
+          pageCall === 1
+            ? record.recordType === "CPLMaster"
+            : record.recordType === "CPLAsset"
+        )
+    )
+
+    expect(pageCalls).toBe(2)
+    expect(mediaRequestBodies).toHaveLength(2)
+    const startRank = (body: Record<string, any>) =>
+      body.query.filterBy.find(
+        (filter: any) => filter.fieldName === "startRank"
+      )?.fieldValue?.value
+    expect(startRank(mediaRequestBodies[0])).toBe(0)
+    expect(startRank(mediaRequestBodies[1])).toBe(0)
+    expect(mediaRequestBodies[1]).toMatchObject({ continuationMarker })
+    expect(result).toMatchObject({
+      success: true,
+      data: [{ mediaKind: "photo" }],
+      providerSyncToken: syncToken,
+      scanCoverage: {
+        status: "complete",
+        stopReason: "exhausted",
+        itemsVisited: 1,
+        itemsReturned: 1,
+        pagesRead: 2
+      }
+    })
+  })
+
+  it("[PARITY-06] advances library rank by all items returned across cursor pages", async () => {
+    const continuationMarker = "large-library-cursor-next"
+    const syncToken = "stable-large-library-sync-token"
+    const { result, pageCalls, mediaRequestBodies } = await scanFixture(
+      {},
+      { assetDate: 1000 },
+      (pageCall) =>
+        pageCall === 1
+          ? { continuationMarker, moreComing: true, syncToken }
+          : { moreComing: false, syncToken },
+      102,
+      {},
+      102,
+      (records, pageCall, requestBody) => {
+        const startRank = requestBody.query.filterBy.find(
+          (filter: any) => filter.fieldName === "startRank"
+        )?.fieldValue?.value
+        if (pageCall === 1) return records.slice(0, 200)
+        if (pageCall === 2) return records.slice(200, 202)
+        return records.slice(startRank * 2, startRank * 2 + 2)
+      }
+    )
+
+    const startRank = (body: Record<string, any>) =>
+      body.query.filterBy.find(
+        (filter: any) => filter.fieldName === "startRank"
+      )?.fieldValue?.value
+    expect(pageCalls).toBe(3)
+    expect(mediaRequestBodies.map(startRank)).toEqual([0, 0, 101])
+    expect(result).toMatchObject({
+      success: true,
+      data: Array.from(
+        { length: 102 },
+        () => expect.objectContaining({ mediaKind: "photo" })
+      ),
+      providerSyncToken: syncToken,
+      scanCoverage: {
+        status: "complete",
+        stopReason: "exhausted",
+        itemsVisited: 102,
+        itemsReturned: 102,
+        pagesRead: 3
+      }
+    })
+  })
+
+  it("[PARITY-06] rejects a repeated library continuation cursor before exposing partial records", async () => {
+    const continuationMarker = "repeated-library-cursor"
+    const { result, pageCalls } = await scanFixture(
+      {},
+      { assetDate: 1000 },
+      { continuationMarker, moreComing: true },
+      1
+    )
+
+    expect(pageCalls).toBe(2)
+    expect(result).toMatchObject({
+      success: true,
+      data: [],
+      scanCoverage: {
+        status: "partial",
+        stopReason: "pagination_error",
+        itemsVisited: 0,
+        itemsReturned: 0,
+        pagesRead: 2
+      }
+    })
     expect(result.providerSyncToken).toBeUndefined()
   })
 

@@ -649,6 +649,51 @@ describe("getAllMediaItems — field mapping", () => {
     restore()
   })
 
+  it("counts the final Google page when GPTK uses an empty-string cursor", async () => {
+    const item = (mediaKey: string) => ({
+      mediaKey,
+      dedupKey: `${mediaKey}-dedup`,
+      thumb: `https://thumb/${mediaKey}`,
+      mimeType: "image/jpeg",
+      isVideo: false,
+      timestamp: 1000,
+      creationTimestamp: 1000
+    })
+    const getPage = vi
+      .fn()
+      .mockResolvedValueOnce({
+        items: [item("google-cursor-page-one")],
+        nextPageId: "next-page"
+      })
+      .mockResolvedValueOnce({
+        items: [item("google-cursor-final-page")],
+        nextPageId: ""
+      })
+    ;(window as any).gptkApi = { getItemsByUploadedDate: getPage }
+    const { messages, restore } = collectMessages()
+
+    sendCommand("getAllMediaItems", "google-empty-terminal-cursor", {})
+    await waitForMessage(messages, "google-empty-terminal-cursor")
+
+    const result = messages.find(
+      (message: any) =>
+        message.action === "gptkResult" &&
+        message.command === "getAllMediaItems" &&
+        message.requestId === "google-empty-terminal-cursor"
+    ) as any
+    expect(getPage).toHaveBeenCalledTimes(2)
+    expect(result?.data).toHaveLength(2)
+    expect(result?.scanCoverage).toMatchObject({
+      status: "complete",
+      stopReason: "exhausted",
+      itemsVisited: 2,
+      itemsReturned: 2,
+      pagesRead: 2,
+      pageSizes: [1, 1]
+    })
+    restore()
+  })
+
   it("rejects an empty nonterminal Google page as incomplete pagination", async () => {
     const { messages, restore } = collectMessages()
     const getPage = vi.fn().mockResolvedValue({ items: [], nextPageId: "next" })
