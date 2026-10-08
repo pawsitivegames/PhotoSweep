@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest"
 import {
   buildAnalyticsEvent,
   countBucket,
+  trashOutcomeAnalytics,
+  restoreOutcomeAnalytics,
   ProviderConnectionTracker,
   sendPrivacySafeAnalyticsEvent,
   utcDayKey
@@ -11,7 +13,7 @@ import { buildSupportDiagnosticsReport } from "../../lib/support-diagnostics"
 
 describe("privacy analytics", () => {
   it("uses buckets instead of exact counts", () => {
-    expect(countBucket(12)).toBe("0-99")
+    expect(countBucket(12)).toBe("1-99")
     expect(countBucket(1200)).toBe("1k-5k")
     expect(countBucket(50000)).toBe("50k+")
   })
@@ -251,5 +253,49 @@ describe("support diagnostics", () => {
     })
 
     expect(report.planId).toBe("free")
+  })
+})
+
+describe("consent and outcome regressions", () => {
+  it("distinguishes zero from a positive small count", () => {
+    expect(countBucket(0)).toBe("0")
+    expect(countBucket(1)).toBe("1-99")
+  })
+
+  it("replays an already-connected provider only after consent", () => {
+    const tracker = new ProviderConnectionTracker()
+    expect(tracker.markConnected("google", false)).toBe(false)
+    expect(tracker.connectionForConsent(true)).toBe("google")
+    expect(tracker.connectionForConsent(true)).toBeNull()
+    tracker.connectionForConsent(false)
+    expect(tracker.connectionForConsent(true)).toBe("google")
+    tracker.markDisconnected("google")
+    expect(tracker.connectionForConsent(true)).toBeNull()
+  })
+})
+
+
+describe("mutation outcome analytics", () => {
+  it("never counts a dry run as completed cleanup", () => {
+    expect(trashOutcomeAnalytics({ kind: "dry_run", movedCount: 0 })).toEqual([])
+  })
+  it("keeps a confirmed zero separate from real moves", () => {
+    expect(trashOutcomeAnalytics({ kind: "complete", movedCount: 0 })).toEqual([{ name: "trash_completed", photoCountBucket: "0" }])
+  })
+  it("reports partial completion and its matching failure", () => {
+    expect(trashOutcomeAnalytics({ kind: "partial", movedCount: 2 })).toEqual([
+      { name: "trash_completed", photoCountBucket: "1-99", errorCategory: "trash_partial" },
+      { name: "error", errorCategory: "trash_partial" }
+    ])
+  })
+  it.each(["unknown", "failed"] as const)("reports %s without a completed event", kind => {
+    expect(trashOutcomeAnalytics({ kind, movedCount: 0 })).toEqual([{ name: "error", errorCategory: "trash" }])
+    expect(restoreOutcomeAnalytics({ kind, restoredDedupKeys: [] })).toEqual([{ name: "error", errorCategory: "undo" }])
+  })
+  it("uses reconciled undo targets rather than a raw provider success flag", () => {
+    expect(restoreOutcomeAnalytics({ kind: "partial", restoredDedupKeys: ["one"] })).toEqual([
+      { name: "undo_completed", photoCountBucket: "1-99", errorCategory: "undo_partial" },
+      { name: "error", errorCategory: "undo_partial" }
+    ])
   })
 })

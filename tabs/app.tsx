@@ -127,6 +127,8 @@ import {
 import {
   ANALYTICS_CONSENT_STORAGE_KEY,
   countBucket,
+  trashOutcomeAnalytics,
+  restoreOutcomeAnalytics,
   ProviderConnectionTracker,
   sendPrivacySafeAnalyticsEvent,
   type PrivacySafeAnalyticsEvent,
@@ -1738,6 +1740,9 @@ export default function App() {
   >()
   const [photoDataConsent, setPhotoDataConsent] = useState<boolean | null>(null)
   const [analyticsConsent, setAnalyticsConsent] = useState<boolean | null>(null)
+  const analyticsConsentRef = useRef<boolean | null>(null)
+  const analyticsConsentGenerationRef = useRef(0)
+  analyticsConsentRef.current = analyticsConsent
   const appOpenedTrackedRef = useRef(false)
   const paidAccessLifecycleRef = useRef<PaidAccessLifecycle | null>(null)
   if (!paidAccessLifecycleRef.current) {
@@ -1848,7 +1853,9 @@ export default function App() {
 
   const trackEvent = useCallback(
     (event: PrivacySafeAnalyticsEvent) => {
-      if (analyticsConsent !== true || !licenseApiBaseUrl) return
+      if (analyticsConsentRef.current !== true || !licenseApiBaseUrl) return
+      const consentGeneration = analyticsConsentGenerationRef.current
+      const dayKey = utcDayKey()
       const safeEvent = {
         ...event,
         provider:
@@ -1861,11 +1868,11 @@ export default function App() {
       }
       void installIdPromiseRef.current
         .then((installId) =>
-          sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, {
+          analyticsConsentRef.current !== true || consentGeneration !== analyticsConsentGenerationRef.current ? false : sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, {
             ...safeEvent,
             installId,
             extensionVersion: extensionVersionForAnalytics(),
-            dayKey: utcDayKey()
+            dayKey
           })
         )
         .catch(() => {
@@ -1875,7 +1882,16 @@ export default function App() {
     [analyticsConsent, entitlement, licenseApiBaseUrl]
   )
 
+  useEffect(() => {
+    const provider = providerConnectionTrackerRef.current.connectionForConsent(
+      analyticsConsent === true && Boolean(licenseApiBaseUrl)
+    )
+    if (provider) trackEvent({ name: "provider_connected", provider })
+  }, [analyticsConsent, licenseApiBaseUrl, trackEvent])
+
   const saveAnalyticsConsent = useCallback((allowed: boolean) => {
+    if (!allowed) analyticsConsentGenerationRef.current += 1
+    analyticsConsentRef.current = allowed
     setAnalyticsConsent(allowed)
     void chrome.storage.local.set({
       [ANALYTICS_CONSENT_STORAGE_KEY]: allowed
@@ -1883,6 +1899,8 @@ export default function App() {
   }, [])
 
   const resetAnalyticsConsent = useCallback(() => {
+    analyticsConsentGenerationRef.current += 1
+    analyticsConsentRef.current = null
     setAnalyticsConsent(null)
     void chrome.storage.local.remove(ANALYTICS_CONSENT_STORAGE_KEY)
   }, [])
@@ -2504,22 +2522,19 @@ export default function App() {
         })
         .then((outcome) => {
           if (generation !== paidConversionGenerationRef.current) return
+          for (const event of trashOutcomeAnalytics(outcome)) {
+            trackEvent({ ...event, provider: result.provider })
+          }
           if (outcome.kind === "dry_run") {
             dispatch({ type: "TRASH_COMPLETE", trashedKeys: [] })
-            trackEvent({
-              name: "trash_completed",
-              photoCountBucket: countBucket(0)
-            })
             setTrashWarningSafely(outcome.message)
             return
           }
           if (outcome.kind === "failed") {
-            trackEvent({ name: "error", errorCategory: "trash" })
             dispatch({ type: "TRASH_ERROR", error: outcome.error })
             return
           }
           if (outcome.kind === "unknown") {
-            trackEvent({ name: "error", errorCategory: "trash" })
             const message = `${outcome.error} Confirmed failures: ${outcome.failedDedupKeys.length.toLocaleString()}; not dispatched: ${outcome.notDispatchedDedupKeys.length.toLocaleString()}.`
             dispatch({ type: "TRASH_ERROR", error: message })
             setTrashWarningSafely(message)
@@ -2531,13 +2546,6 @@ export default function App() {
             trashedKeys: outcome.movedMediaKeys
           })
           setTrashMovesThisSession((count) => count + outcome.movedCount)
-          trackEvent({
-            name: "trash_completed",
-            photoCountBucket: countBucket(outcome.movedCount),
-            ...(outcome.kind === "partial"
-              ? { errorCategory: "trash_partial" }
-              : {})
-          })
           setUndoDataSafely(outcome.undo)
           if (outcome.message) setTrashWarningSafely(outcome.message)
           void recordSuccessfulCleanup(
@@ -2557,6 +2565,7 @@ export default function App() {
         .catch((error) => {
           if (generation !== paidConversionGenerationRef.current) return
           const message = error instanceof Error ? error.message : String(error)
+          trackEvent({ name: "error", provider: result.provider, errorCategory: "trash" })
           setReportError(`Could not reconcile the trash result: ${message}`)
           dispatch({ type: "TRASH_ERROR", error: message })
         })
@@ -2601,11 +2610,8 @@ export default function App() {
         error: result.error
       })
       if (restoreOutcome === undefined) return
-      if (result.success && !restoreRequest.history) {
-        trackEvent({
-          name: "undo_completed",
-          provider: restoreRequest.provider
-        })
+      for (const event of restoreOutcomeAnalytics(restoreOutcome)) {
+        trackEvent({ ...event, provider: restoreRequest.provider })
       }
       if (!restoreRequest.operationId) {
         restoreCommitInFlightRef.current = true
@@ -2699,6 +2705,7 @@ export default function App() {
       if (generation !== paidConversionGenerationRef.current) return
       const outcome = trashLifecycle.timeoutRestore({ requestId })
       if (!outcome) return
+      trackEvent({ name: "error", errorCategory: "undo" })
       const restoreRequest = restoreRequestByIdRef.current.get(requestId)
       if (
         restoreRequest?.operationId &&
@@ -2740,7 +2747,8 @@ export default function App() {
       isRestoreRequestCurrent,
       persistRestoreStatusSafely,
       setTrashWarningSafely,
-      trashLifecycle
+      trackEvent,
+    trashLifecycle
     ]
   )
 
@@ -3259,7 +3267,8 @@ export default function App() {
             cancelHealthCheckRetry()
             if (
               providerConnectionTrackerRef.current.markConnected(
-                healthCheckProvider
+                healthCheckProvider,
+                analyticsConsentRef.current === true && Boolean(licenseApiBaseUrl)
               )
             ) {
               trackEvent({
@@ -4890,13 +4899,6 @@ export default function App() {
       reviewHydrationClosedRef.current = true
       scanReviewGenerationRef.current += 1
       invalidatePaidConversionContext()
-      trackEvent({
-        name: "scan_started",
-        provider: scanSettings.sourceProvider ?? "google",
-        scanMode: scanSettings.scanMode,
-        photoCountBucket:
-          estimatedCount !== undefined ? countBucket(estimatedCount) : undefined
-      })
       deferredUpgradeRef.current = null
       setDeferredUpgrade(null)
       settingsRef.current = scanSettings
@@ -5014,6 +5016,14 @@ export default function App() {
       } catch {
         // Cache unavailable — do full fetch
       }
+      if (!scanLifecycle.isCurrent(requestId)) return
+      trackEvent({
+        name: "scan_started",
+        provider: scanSettings.sourceProvider ?? "google",
+        scanMode: scanSettings.scanMode,
+        photoCountBucket:
+          estimatedCount !== undefined ? countBucket(estimatedCount) : undefined
+      })
 
       sendToServiceWorker({
         app: APP_ID,
@@ -5353,10 +5363,6 @@ export default function App() {
       )
       return
     }
-    trackEvent({
-      name: "trash_attempted",
-      photoCountBucket: countBucket(dedupKeys.length)
-    })
     setTrashConfirmCount("")
     setUnknownFavoriteTrashAcknowledged(false)
     setTrashConfirmSafely(plan)
@@ -5598,6 +5604,8 @@ export default function App() {
       scopeFingerprint: latestState.scopeFingerprint ?? latestScopeFingerprint
     })
 
+    trackEvent({ name: "trash_attempted", provider: command.provider,
+      photoCountBucket: countBucket(command.totalToTrash) })
     sendToServiceWorker({
       app: APP_ID,
       action: "gptkCommand",
@@ -5619,6 +5627,7 @@ export default function App() {
           ) {
             return
           }
+          trackEvent({ name: "error", provider: command.provider, errorCategory: "trash" })
           if (outcome.kind === "partial") {
             dispatch({
               type: "TRASH_COMPLETE",
@@ -5653,6 +5662,7 @@ export default function App() {
     reviewSession,
     cleanupScopeGroups,
     handleCloseTrashConfirm,
+    trackEvent,
     trashLifecycle,
     setUndoDataSafely,
     setTrashWarningSafely
@@ -5991,6 +6001,8 @@ export default function App() {
       totalItems: sessionBoundUndo.snapshot.totalItems
     })
     // Call GPTK to restore from trash
+    trackEvent({ name: "undo_attempted", provider: restore.provider,
+      photoCountBucket: countBucket(restore.args.dedupKeys.length) })
     sendToServiceWorker({
       app: APP_ID,
       action: "gptkCommand",
@@ -6011,6 +6023,7 @@ export default function App() {
     setReportError,
     setTrashWarningSafely,
     setUndoDataSafely,
+    trackEvent,
     trashLifecycle,
     undoData
   ])
@@ -6142,6 +6155,8 @@ export default function App() {
       }
       restoreCommitInFlightRef.current = false
       setRecoveryHistoryOpen(false)
+      trackEvent({ name: "undo_attempted", provider: restore.provider,
+        photoCountBucket: countBucket(restore.args.dedupKeys.length) })
       sendToServiceWorker({
         app: APP_ID,
         action: "gptkCommand",
@@ -6162,7 +6177,8 @@ export default function App() {
       setRecoveryHistoryBusyId,
       setReportError,
       setTrashWarningSafely,
-      trashLifecycle
+      trackEvent,
+    trashLifecycle
     ]
   )
 
@@ -6347,8 +6363,9 @@ export default function App() {
           Optional private usage metrics
         </Typography>
         <Typography variant="caption">
-          PhotoSweep only shares event names, provider, plan, scan mode, count
-          ranges, and error category. Photo content, filenames, albums, URLs,
+          PhotoSweep shares event names, provider, plan, scan mode, count
+          ranges, error categories, event reasons and outcomes, a random install
+          identifier, extension version, and UTC day. Photo content, filenames, albums, URLs,
           and reports are never included.
         </Typography>
       </Alert>

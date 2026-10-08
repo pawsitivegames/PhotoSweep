@@ -40,12 +40,15 @@ const ANALYTICS_EVENT_NAMES = new Set([
   "export_clicked",
   "trash_attempted",
   "trash_completed",
+  "undo_attempted",
   "undo_completed",
   "error"
 ])
 const ANALYTICS_PROVIDERS = new Set(["google", "icloud", "amazon"])
 const ANALYTICS_SCAN_MODES = new Set(["smart", "full"])
 const ANALYTICS_COUNT_BUCKETS = new Set([
+  "0",
+  "1-99",
   "0-99",
   "100-999",
   "1k-5k",
@@ -57,7 +60,9 @@ const ANALYTICS_ERROR_CATEGORIES = new Set([
   "license_refresh",
   "scan",
   "trash",
-  "trash_partial"
+  "trash_partial",
+  "undo",
+  "undo_partial"
 ])
 const ANALYTICS_PLAN_IDS = new Set([
   "free",

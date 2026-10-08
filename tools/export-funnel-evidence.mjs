@@ -17,6 +17,8 @@ Options:
   --to <YYYY-MM-DD>             Inclusive observation-window upper bound
   --cohort-from <YYYY-MM-DD>    Inclusive fixed D7 cohort lower bound
   --cohort-to <YYYY-MM-DD>      Inclusive fixed D7 cohort upper bound
+  --history-from <YYYY-MM-DD>  Operator-attested complete available history start
+  --history-through <YYYY-MM-DD>  Operator-attested last fully observed UTC day
   --output <path>               Write JSON to a file instead of stdout
   --help                        Show this help
 
@@ -44,6 +46,8 @@ function parseArgs(argv) {
         "to",
         "cohort-from",
         "cohort-to",
+        "history-from",
+        "history-through",
         "output"
       ].includes(key)
     ) {
@@ -81,6 +85,8 @@ async function main() {
   const rows = snapshot.docs.map((doc) => doc.data())
   const summary = buildFunnelEvidenceSummary(rows, {
     currentVersion,
+    historyFrom: options["history-from"],
+    historyThrough: options["history-through"],
     ...(options.from ? { from: options.from } : {}),
     ...(options.to ? { to: options.to } : {}),
     ...(options["cohort-from"]

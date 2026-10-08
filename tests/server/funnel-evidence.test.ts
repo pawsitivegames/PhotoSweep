@@ -17,11 +17,11 @@ function event(
   dayKey: string,
   extensionVersion = CURRENT_VERSION
 ) {
-  return { installId, name, recordedAt, dayKey, extensionVersion }
+  return { installId, name, recordedAt, dayKey, extensionVersion, provider: "google", photoCountBucket: "1-99" }
 }
 
 describe("funnel evidence", () => {
-  it("derives the eight standing-board metrics deterministically", () => {
+  it("distinguishes verified counts from uncorrelated receipt proxies", () => {
     const rows = [
       event(INSTALL_A, "provider_connected", 1_000, "2026-01-01"),
       event(INSTALL_A, "scan_started", 2_000, "2026-01-01"),
@@ -57,12 +57,12 @@ describe("funnel evidence", () => {
 
     expect(computeFunnelMetrics(rows, options)).toEqual({
       first_connect: 2,
-      first_scan_started: 2,
-      first_scan_completed: 2,
-      first_trash_or_undo: 2,
-      median_time_to_value: 8_500,
-      d7_retention: 2 / 3,
-      error_rate: 2 / 9,
+      first_scan_started: null,
+      first_scan_completed: null,
+      first_trash_or_undo: null,
+      median_time_to_value: null,
+      d7_retention: null,
+      error_rate: null,
       old_version_share: 1 / 3
     })
     expect(buildFunnelEvidenceSummary(rows, options).firstValueEventTypeCounts).toEqual({
@@ -88,7 +88,7 @@ describe("funnel evidence", () => {
     )
 
     expect(summary).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       currentVersion: CURRENT_VERSION,
       eventCount: 3,
       installCount: 2,

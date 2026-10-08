@@ -125,3 +125,13 @@ describe("formal verification npm lifecycle", () => {
     )
   })
 })
+
+
+it("preserves exporter options and requires explicit D7 history coverage", () => {
+  const exporter = readFileSync(resolve(root, "tools/export-funnel-evidence.mjs"), "utf8")
+  for (const option of ["current-version", "from", "to", "cohort-from", "cohort-to", "output", "history-from", "history-through"]) {
+    expect(exporter).toContain(`"${option}"`)
+  }
+  expect(exporter).toContain('historyFrom: options["history-from"]')
+  expect(exporter).toContain('historyThrough: options["history-through"]')
+})

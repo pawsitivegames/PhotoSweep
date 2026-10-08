@@ -1,152 +1,124 @@
 # Standing-board funnel evidence
 
-PhotoSweep Phase A records a consented, privacy-safe event row that Store
-Growth can aggregate without importing photo or account data. This document is
-the import and verification contract for the standing board.
+This is the **source contract**, not evidence that the live API, published
+extension, or standing board uses it. Phase A merged on September 23, 2026;
+older September 18 aggregates predate its identity fields and cannot be
+reconstructed into installation cohorts or correlated attempts. Earlier
+redeployment notes and version targets were historical plans. Current deployment
+and publication must be verified separately by an authorized operator.
 
-## Next-shipment build binding
+## Consent and collection
 
-The next CWS reupload target from the current app line is app version `2.3.0`
-with Chrome version `2.3.0.3`; the public listing remains `2.3.0.2` until an
-owner-approved upload and publication. The Phase A client and API contract are
-present on this source line, but the live API still needs an owner-approved
-redeploy from the merged `main` tip before new rows can be imported. This
-document does not claim a standing-board PASS.
+Optional client usage metrics remain off until the user chooses **Allow**.
+The notice discloses event names, provider, plan, scan mode, count ranges, error
+categories, limited reasons/outcomes, random install identifier, extension
+version, and UTC day. Photo content, names, albums, URLs and reports are excluded.
+The random identifier is stored locally, not derived from a provider account.
+The existing license API request can carry its browser session cookie as
+described in the privacy policy; the event handler does not enrich rows with it.
 
-## Observed standing-board passConditions
+This repair adds **no persistent event fields**, operation/scan identifiers,
+client occurrence timestamps, event IDs, retries, local event queue, or retention
+policy. It only extends existing allowlists with `undo_attempted`, Undo failure
+categories, and separate `0` / `1-99` count buckets. `0-99` remains accepted for
+historical compatibility but cannot prove positive activity. No retention period
+is established for production; collection/retention changes require a separate
+explicit decision. The existing capped local stores can truncate history and
+must not be treated as complete D7 evidence.
 
-The following conditions are quoted from the observed standing board. They are
-acceptance conditions for Store Growth evidence, not claims that this PR has
-made any board metric PASS:
+Each valid row in `${PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ?? "photosweep"}_analytics_events`
+has `name`, `installId`, `extensionVersion`, `dayKey`, server `recordedAt`, and
+optional allowlisted provider/plan/mode/count/reason/outcome/error fields. Unknown
+fields are stripped by the API. Invalid identity/version/day/receipt records are
+excluded and flagged. Payment operational rows without this identity are not
+client funnel observations.
 
-1. `first_connect` — “A privacy-safe activation event is counted once per
-   install identity in the reporting window.”
-2. `first_scan_started` — “A first-scan-start event is counted after a
-   successful connect for the same install identity.”
-3. `first_scan_completed` — “A first-scan-complete event is counted only after
-   a valid scan start.”
-4. `first_trash_or_undo` — “The first Trash or Undo event is counted after a
-   completed scan and retains its event type.”
-5. `median_time_to_value` — “Each duration uses matched install and first-value
-   timestamps, excludes negative intervals, and reports the documented median.”
-6. `d7_retention` — “The D7 cohort and return event use the same privacy-safe
-   install identity and fixed cohort window.”
-7. `error_rate` — “Failures and attempts are from the same event contract and
-   the denominator is non-zero and documented.”
-8. `old_version_share` — “Version observations are present for the stated
-   population and compare semver values correctly.”
+Client delivery is optional and fire-and-forget: receipt counts are not unique
+operations. Delivery can be missing, reordered or repeated. Consent revocation
+drops events still waiting for identity resolution; it cannot recall a request
+already sent. A current connected provider is observed once when consent is
+granted, including if the connection was established while metrics were off.
+No historical actions are replayed on opt-in.
 
-## Source collection and event-row schema
+## Operation semantics
 
-The Firestore collection is:
+- `trash_attempted`: emitted at actual dispatch after confirmation and all
+  safety/persistence guards pass, not when the confirmation dialog opens.
+- A successful dry run produces no `trash_completed` event.
+- `trash_completed` includes a zero or positive moved-count bucket derived from
+  reconciliation. A partial outcome also emits `error: trash_partial` and marks
+  its completion partial; it is not a fully successful value milestone.
+- `undo_attempted`: emitted at actual restore dispatch, for both immediate Undo
+  and recovery-history restore. `undo_completed` and Undo failures use confirmed
+  reconciled targets, not the raw provider success flag.
+- Unknown/failing results and observed timeouts produce operation-specific error
+  receipts. A timeout followed by a late result can produce multiple receipts;
+  without attempt IDs these cannot safely become a per-operation failure rate.
 
-```text
-${PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ?? "photosweep"}_analytics_events
-```
+## Export and coverage
 
-Each accepted client row contains these fields:
-
-| Field | Meaning |
-| --- | --- |
-| `name` | Allowlisted event name |
-| `installId` | Random UUID v4 generated once in `chrome.storage.local`; opaque and not account-linked |
-| `extensionVersion` | Chrome manifest version, including the fourth release component when present |
-| `dayKey` | Client UTC calendar day in `YYYY-MM-DD` form |
-| `recordedAt` | Server receipt time in milliseconds; added by the store |
-| `provider` | Optional allowlisted provider (`google`, `icloud`, or `amazon`) |
-| other optional fields | Existing allowlisted plan, scan mode, count bucket, outcome, and error fields |
-
-The client event names used by the funnel are `provider_connected`,
-`scan_started`, `scan_completed`, `trash_attempted`, `trash_completed`,
-`undo_completed`, and `error`. Other allowlisted product events remain in the
-same collection and count toward retention only. Payment lifecycle rows do not
-have `installId` and are excluded from this funnel export.
-
-Rows with an invalid or missing funnel identity field are excluded by the
-evidence script. The HTTP analytics handler rejects such rows before storage and
-copies no unknown fields, so photo URLs, filenames, emails, raw reports, and
-other PII attempts do not enter the client telemetry document.
-
-## Export artifact
-
-Run the read-only exporter with the normal Google Cloud credentials available to
-the operator. The published Chrome version is intentionally supplied at run
-time:
+The read-only operator command preserves existing options:
 
 ```bash
 npm run analytics:export -- \
-  --current-version <PUBLISHED_CHROME_VERSION> \
-  --from <OBSERVATION_START_DAY> \
-  --to <OBSERVATION_END_DAY> \
-  --cohort-from <D7_COHORT_START_DAY> \
-  --cohort-to <D7_COHORT_END_DAY> \
-  --output <PRIVACY_SAFE_OUTPUT_FILE>
+  --current-version <CONFIGURED_OLDER_VERSION_THRESHOLD> \
+  --from <OBSERVATION_START_DAY> --to <OBSERVATION_END_DAY> \
+  --cohort-from <FIRST_OBSERVED_COHORT_START> \
+  --cohort-to <FIRST_OBSERVED_COHORT_END> \
+  --history-from <ATTESTED_COMPLETE_AVAILABLE_HISTORY_START> \
+  --history-through <ATTESTED_LAST_FULLY_OBSERVED_UTC_DAY> \
+  --output <AGGREGATE_JSON_PATH>
 ```
 
-`--from` and `--to` are optional inclusive observation-window `dayKey` bounds.
-`--cohort-from` and `--cohort-to` define the fixed inclusive D7 cohort window;
-when omitted, the observation bounds are used. The observation window must
-include the later return events needed for D7 measurement. Without `--output`,
-the same JSON summary is written to stdout. The script is
-`tools/export-funnel-evidence.mjs`, and its pure aggregation implementation is
-`server/funnel-evidence.mjs`.
+`--current-version` supplies the threshold; the tool does not verify it is the
+published version. Observation/cohort bounds are inclusive. Cohort bounds default
+to observation bounds. The two new optional history bounds are an operator's
+attestation of **complete available history**, not evidence supplied by the tool.
+Do not provide them for a partial, capped, future, or still-open observation day.
+Missing/inadequate history keeps the D7 proxy unavailable. Return events use full
+attested history, not the filtered observation window. Only cohorts with a fully
+observed day 7 enter its denominator; immature cohorts are counted separately.
+The exporter performs no dashboard writes and exports no raw identities/rows.
 
-The JSON artifact contains the collection name, selected window, total event
-and install counts, event-name counts, latest-version distribution, and the
-derived metrics below. It never contains event rows or install ids. Store
-Growth can verify the artifact by checking that event counts reconcile to the
-selected collection/window and that the version distribution's install total
-matches `installCount`.
+## Schema version 2 and metric limits
 
-## Metric derivations
+The summary explicitly distinguishes `metrics` from `observedReceiptProxies`.
+Consumers must not import a proxy under a stronger standing-board metric name.
 
-All derivations operate on distinct `installId` values in the selected
-observation window. “Earliest” means the lowest server `recordedAt`; input
-order breaks exact timestamp ties deterministically. A funnel transition must
-occur after the preceding transition for the same install identity.
+| Field | Definition |
+| --- | --- |
+| `metrics.first_connect` | Distinct consented identities observed connecting in the window; not lifetime installs |
+| `metrics.old_version_share` | Latest unambiguous receipt version numerically **older than** the configured threshold, divided by observed valid identities; newer versions are not old; missing trailing components equal zero |
+| `metrics.first_scan_started`, `first_scan_completed`, `first_trash_or_undo` | `null`: attempt correlation/deduplication is unavailable |
+| `metrics.median_time_to_value` | `null`: no installation timestamp exists |
+| `metrics.d7_retention` | `null`: first observation is not installation, and delivery is incomplete |
+| `metrics.error_rate` | `null`: no reliable unique-operation denominator exists |
+| `observedReceiptProxies.first_*` | Distinct-install strict receipt-order chains for one provider within the window, not verified attempts |
+| `observedReceiptProxies.median_connect_to_value_ms` | Median server-receipt duration from connect to a positive, nonpartial value receipt on the same provider; not install-to-value time |
+| `observedReceiptProxies.d7_return_rate` | Same-identity activity on **exactly** client UTC day 7 after first observation within attested available history, mature cohorts only; not installation retention |
+| `operationReceipts` | Separate scan/Trash/Undo attempted, completed and operation-error counts; excludes licensing errors; no mixed-start/completion ratio |
 
-- `first_connect`: count of installs with an earliest `provider_connected`.
-- `first_scan_started`: count of installs with a `scan_started` after that
-  install's earliest successful `provider_connected`.
-- `first_scan_completed`: count of installs with a `scan_completed` after that
-  install's valid scan start.
-- `first_trash_or_undo`: count of installs with a `trash_completed` or
-  `undo_completed` after that install's valid scan completion. The aggregate
-  export also includes `firstValueEventTypeCounts` with separate
-  `trash_completed` and `undo_completed` counts.
-- `median_time_to_value`: median milliseconds between each matched install's
-  earliest successful `provider_connected` and its first valid
-  `trash_completed` or `undo_completed`, using only non-negative intervals.
-- `d7_retention`: installs whose first observation `dayKey` falls inside the
-  fixed cohort window and that have any same-identity event at least seven
-  calendar days later, divided by the fixed cohort count.
-- `error_rate`: `error` event count divided by the count of
-  `scan_started + scan_completed + trash_attempted + trash_completed +
-  undo_completed` in the selected observation window. It is `null` when the
-  denominator is zero; the exporter does not invent a PASS for a zero
-  denominator.
-- `old_version_share`: installs whose latest version observation in the stated
-  observation population differs numerically from the run's
-  `--current-version`, divided by that population. Numeric comparison pads
-  missing trailing components with zero, so semver-equivalent forms compare
-  equal.
+Exact receipt timestamp ties cannot establish causality. Conflicting versions at
+the latest receipt time make version share unavailable rather than choosing
+input order. Providerless rows cannot build a provider chain. Zero, ambiguous
+legacy small buckets, and partial completions cannot become value milestones.
 
-The first-four values are distinct-install counts, not raw event totals. The
-summary includes `d7CohortInstallCount`, `d7RetainedInstallCount`, and
-`firstValueEventTypeCounts` so Store Growth can verify the passConditions
-without receiving raw identities. Empty denominators produce `null` for the
-rate/distribution metrics rather than an invented pass value.
+`qualityFlags` retain the identity/delivery/correlation limitations, identify
+invalid rows, missing retention history and ambiguous latest versions. Do not
+clear those flags, backfill unknowns, or turn `null` into zero/PASS. Summary event
+counts remain receipt counts and version distributions omit ambiguous identities.
+Schema version 1 exports must not be relabelled as version 2 evidence.
 
-## Deterministic fixture
+## Verification and rollout limits
 
-`tests/server/funnel-evidence.test.ts` supplies synthetic event rows and asserts
-all eight metric values, retention, error denominator, version comparison, and
-the no-raw-id export shape. Run it with:
+Focused fixtures exercise numeric versions, exact D7/maturity/history, timestamp
+ties, provider isolation, zero/partial outcomes, consent replay and pending-send
+revocation. Integration tests exercise the built extension against provider/API
+fixtures. These do not prove live provider behavior, historical completeness,
+current production deployment or a standing-board PASS.
 
-```bash
-npx vitest run tests/server/funnel-evidence.test.ts
-```
-
-This Phase A change does not run a production Firestore export. A live evidence
-artifact still requires authorized production credentials and the published
-Chrome version parameter.
+The API must accept the source allowlists before a compatible extension release;
+older deployed APIs may reject new Undo events or small count buckets. Deployment,
+extension publication, production queries and dashboard imports require separate
+authorization. Existing metrics cannot be retrospectively strengthened without
+new evidence and an explicitly approved collection contract.

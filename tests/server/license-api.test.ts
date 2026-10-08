@@ -1847,3 +1847,24 @@ describe("license API", () => {
     })
   })
 })
+
+
+describe("analytics outcome contract", () => {
+  it.each([
+    { name: "trash_completed", photoCountBucket: "0" },
+    { name: "undo_attempted", photoCountBucket: "1-99" },
+    { name: "error", errorCategory: "undo_partial" }
+  ])("accepts an allowlisted outcome without new identity fields: $name", async (fields) => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({ env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv, store })
+    const response = await api(new Request("https://license.test/analytics", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...fields, provider: "google", installId: "123e4567-e89b-42d3-a456-426614174000", extensionVersion: "2.3.0.4", dayKey: "2026-10-08", eventId: "must-not-store", photoUrl: "must-not-store" })
+    }))
+    expect(response.status).toBe(200)
+    expect(store.snapshot().analyticsEvents[0]).toMatchObject(fields)
+    expect(store.snapshot().analyticsEvents[0]).not.toHaveProperty("eventId")
+    expect(store.snapshot().analyticsEvents[0]).not.toHaveProperty("photoUrl")
+  })
+})

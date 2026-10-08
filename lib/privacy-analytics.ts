@@ -1,3 +1,4 @@
+import type { TrashOutcome, RestoreOutcome } from "./trash-lifecycle"
 import type { Entitlement } from "./entitlement"
 import type {
   ActivationOutcome,
@@ -25,6 +26,7 @@ const ANALYTICS_EVENT_NAMES = new Set<AnalyticsEventName>([
   "export_clicked",
   "trash_attempted",
   "trash_completed",
+  "undo_attempted",
   "undo_completed",
   "error"
 ])
@@ -35,6 +37,8 @@ const ANALYTICS_PROVIDERS = new Set<PhotoProvider>([
 ])
 const ANALYTICS_SCAN_MODES = new Set<ScanMode>(["smart", "full"])
 const ANALYTICS_COUNT_BUCKETS = new Set([
+  "0",
+  "1-99",
   "0-99",
   "100-999",
   "1k-5k",
@@ -46,7 +50,9 @@ const ANALYTICS_ERROR_CATEGORIES = new Set([
   "license_refresh",
   "scan",
   "trash",
-  "trash_partial"
+  "trash_partial",
+  "undo",
+  "undo_partial"
 ])
 const ANALYTICS_PLAN_IDS = new Set<Entitlement["planId"]>([
   "free",
@@ -91,6 +97,7 @@ export type AnalyticsEventName =
   | "export_clicked"
   | "trash_attempted"
   | "trash_completed"
+  | "undo_attempted"
   | "undo_completed"
   | "error"
 
@@ -112,7 +119,8 @@ export interface PrivacySafeAnalyticsEvent {
 }
 
 export function countBucket(count: number): string {
-  if (count < 100) return "0-99"
+  if (count <= 0) return "0"
+  if (count < 100) return "1-99"
   if (count < 1000) return "100-999"
   if (count < 5000) return "1k-5k"
   if (count < 10000) return "5k-10k"
@@ -225,21 +233,59 @@ export function utcDayKey(date = new Date()): string {
   return date.toISOString().slice(0, 10)
 }
 
+export function trashOutcomeAnalytics(
+  outcome: Pick<TrashOutcome, "kind" | "movedCount">
+): PrivacySafeAnalyticsEvent[] {
+  if (outcome.kind === "dry_run") return []
+  return mutationOutcomeAnalytics("trash", outcome.kind, outcome.movedCount)
+}
+
+export function restoreOutcomeAnalytics(
+  outcome: Pick<RestoreOutcome, "kind" | "restoredDedupKeys">
+): PrivacySafeAnalyticsEvent[] {
+  return mutationOutcomeAnalytics("undo", outcome.kind, outcome.restoredDedupKeys.length)
+}
+
+function mutationOutcomeAnalytics(
+  operation: "trash" | "undo",
+  kind: "complete" | "partial" | "failed" | "unknown",
+  count: number
+): PrivacySafeAnalyticsEvent[] {
+  const events: PrivacySafeAnalyticsEvent[] = []
+  if (kind === "complete" || kind === "partial") {
+    events.push({ name: `${operation}_completed`, photoCountBucket: countBucket(count),
+      ...(kind === "partial" ? { errorCategory: `${operation}_partial` } : {}) })
+  }
+  if (kind !== "complete") {
+    events.push({ name: "error", errorCategory: kind === "partial" ? `${operation}_partial` : operation })
+  }
+  return events
+}
+
 export class ProviderConnectionTracker {
   private connectedProvider: PhotoProvider | null = null
+  private reportedProvider: PhotoProvider | null = null
 
-  markConnected(provider: PhotoProvider): boolean {
-    if (this.connectedProvider === provider) return false
+  markConnected(provider: PhotoProvider, consent = true): boolean {
+    if (this.connectedProvider !== provider) this.reportedProvider = null
     this.connectedProvider = provider
-    return true
+    return this.connectionForConsent(consent) !== null
+  }
+
+  connectionForConsent(consent: boolean): PhotoProvider | null {
+    if (!consent) { this.reportedProvider = null; return null }
+    if (!this.connectedProvider || this.reportedProvider === this.connectedProvider) return null
+    this.reportedProvider = this.connectedProvider
+    return this.connectedProvider
   }
 
   markDisconnected(provider: PhotoProvider): void {
-    if (this.connectedProvider === provider) this.connectedProvider = null
+    if (this.connectedProvider === provider) this.reset()
   }
 
   reset(): void {
     this.connectedProvider = null
+    this.reportedProvider = null
   }
 }
 
