@@ -323,11 +323,6 @@ describe("ProviderScopedReviewStorage", () => {
       validated.selections?.selectedGroupIds.has("colliding-group-id")
     ).toBe(true)
 
-    await scoped.commitLegacyReviewMigration("google", {
-      scanResults: Boolean(validated.scanResults),
-      checkpoint: Boolean(validated.checkpoint)
-    })
-
     const restored = await scoped.get(["scanResults", "selections"], "google")
     expect(restored.scanResults?.scanDate).toBe(7)
     expect(restored.selections?.selectedGroupIds).toEqual([
@@ -401,30 +396,29 @@ describe("ProviderScopedReviewStorage", () => {
     }
     const scoped = providerStorage(raw, "google")
     const scope = new StoredReviewScope(scoped)
-    const restored = await scope.restore({
+    let leaseCurrent = true
+    const restoring = scope.restore({
       fallbackSettings: DEFAULT_SETTINGS,
       identityProvider: "google",
-      accountEmail: "google@example.com"
+      accountEmail: "google@example.com",
+      isCurrent: () => leaseCurrent
     })
-    expect(restored.scanResults?.scanDate).toBe(7)
-
-    let leaseCurrent = true
-    const migration = scoped.commitLegacyReviewMigration(
-      "google",
-      { scanResults: true, checkpoint: false },
-      () => leaseCurrent
-    )
     await migrationWriteStarted
 
     const nextReview = review("google", 8).scanResults
     leaseCurrent = false
-    const newerWrite = scoped.set({ scanResults: nextReview }, "google")
+    const newerWrite = scope.write(
+      { scanResults: nextReview },
+      () => true,
+      "google"
+    )
     await Promise.resolve()
     expect(writeOrder).toEqual(["migration"])
 
     releaseMigrationWrite()
-    await Promise.all([migration, newerWrite])
+    const [restored] = await Promise.all([restoring, newerWrite])
 
+    expect(restored.cancelled).toBe(true)
     expect(writeOrder).toEqual(["migration", "newer-review"])
     expect(values[scanResultsKey]).toEqual(nextReview)
     expect(values[migrationMarkerKey]).toBe(true)
@@ -483,10 +477,6 @@ describe("ProviderScopedReviewStorage", () => {
       providerSessionId: "icloud-session-4"
     })
     expect(checkpointRestore.checkpoint?.id).toBe("icloud-checkpoint")
-    await icloudStorage.commitLegacyReviewMigration("icloud", {
-      scanResults: false,
-      checkpoint: true
-    })
     expect(
       checkpointRaw.values[
         providerReviewStorageKey("icloud", SCAN_CHECKPOINT_KEY)

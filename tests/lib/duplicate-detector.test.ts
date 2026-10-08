@@ -982,6 +982,34 @@ describe("video metadata duplicate detection", () => {
 // groupByTimestamp
 // ============================================================
 
+describe("smart detection candidate coverage", () => {
+  it("uses bounded full-scope comparison for medium iCloud scopes without trusted dates", async () => {
+    const items = Array.from({ length: 101 }, (_, index) =>
+      makeItem(`icloud-${index}`, index * 86_400_000, index, {
+        provider: "icloud",
+        sequenceIndex: index,
+        timestampProvenance: "unknown",
+        creationTimestampProvenance: "unknown"
+      })
+    )
+    const originalFetch = globalThis.fetch
+    const originalIndexedDB = globalThis.indexedDB
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {})
+    vi.stubGlobal("indexedDB", undefined)
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("probe stop")))
+
+    try {
+      await expect(smartDetectDuplicates(items, 0.95)).rejects.toThrow()
+      expect(logs).toHaveBeenCalledWith(
+        expect.stringContaining("1 unbucketed fallback buckets")
+      )
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      vi.stubGlobal("indexedDB", originalIndexedDB)
+    }
+  })
+})
+
 describe("groupByTimestamp", () => {
   it("groups two items with the same timestamp", () => {
     const a = makeItem("a", 1000)

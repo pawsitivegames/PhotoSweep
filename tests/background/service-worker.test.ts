@@ -961,6 +961,7 @@ describe("healthCheck", () => {
   })
 
   it("forwards the Amazon Photos profile label to the app context", async () => {
+    mockChrome.scripting.executeScript.mockResolvedValue([{ result: { hasCommandHost: true, hasCommandHandler: true } }])
     const gpTabId = 10
     const appTabId = 20
 
@@ -1166,6 +1167,7 @@ describe("healthCheck", () => {
   })
 
   it("reports Amazon sign-in guidance when its health probe is unavailable", async () => {
+    mockChrome.scripting.executeScript.mockResolvedValue([{ result: { hasCommandHost: true, hasCommandHandler: true } }])
     const amazonTabId = 31
     const appTabId = 32
 

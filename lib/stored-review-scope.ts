@@ -26,6 +26,11 @@ export interface StoredReviewScopeAdapter {
     provider?: PhotoProvider
   ): Promise<void>
   remove(keys: string[], provider?: PhotoProvider): Promise<void>
+  commitLegacyReviewMigration?(
+    provider: PhotoProvider,
+    selection: { scanResults: boolean; checkpoint: boolean },
+    isCurrent?: () => boolean
+  ): Promise<void>
 }
 
 export interface StoredReviewScopePatch {
@@ -182,6 +187,7 @@ function deserializeSelections(
 export class StoredReviewScope {
   private reviewWritesSuppressed = false
   private restoreSequence = 0
+  private cancelRestoreRead?: () => void
   private restoreTail: Promise<void> = Promise.resolve()
   private readonly storageQueue = new AsyncSerialQueue()
 
@@ -206,6 +212,35 @@ export class StoredReviewScope {
     return pending
   }
 
+  loadCachedScanResults(params: {
+    sourceProvider: PhotoProvider
+    accountEmail?: string
+    providerSessionId?: string
+    isCurrent?: () => boolean
+  }): Promise<StoredState["scanResults"] | null> {
+    return this.storageQueue.run(async () => {
+      const isCurrent = params.isCurrent ?? (() => true)
+      if (!isCurrent()) return null
+      const stored = await this.adapter.get(
+        ["scanResults"],
+        params.sourceProvider
+      )
+      if (!isCurrent()) return null
+      const scanResults = stored.scanResults
+      if (
+        !scanResults ||
+        !areScanResultsValid(scanResults, {
+          accountEmail: params.accountEmail,
+          sourceProvider: params.sourceProvider,
+          providerSessionId: params.providerSessionId
+        })
+      ) {
+        return null
+      }
+      return scanResults
+    })
+  }
+
   private async restoreForSequence(
     params: {
       fallbackSettings: ScanSettings
@@ -217,12 +252,24 @@ export class StoredReviewScope {
     },
     sequence: number
   ): Promise<RestoredReviewScope> {
-    const stored = await this.adapter.get([
-      "settings",
-      "scanResults",
-      "selections",
-      SCAN_CHECKPOINT_KEY
-    ])
+    // A new review can supersede a read that has not settled. Release only
+    // that read; queued writes and migration commits remain serialized.
+    let cancelRead!: () => void
+    const cancelledRead = new Promise<Partial<StoredState>>(resolve => {
+      cancelRead = () => resolve({})
+    })
+    this.cancelRestoreRead = cancelRead
+    let stored: Partial<StoredState>
+    try {
+      stored = sequence === this.restoreSequence
+        ? await Promise.race([
+            this.adapter.get(["settings", "scanResults", "selections", SCAN_CHECKPOINT_KEY]),
+            cancelledRead
+          ])
+        : {}
+    } finally {
+      if (this.cancelRestoreRead === cancelRead) this.cancelRestoreRead = undefined
+    }
     const restoredSettings = stored.settings
       ? normalizeStoredSettings(stored.settings)
       : params.fallbackSettings
@@ -381,7 +428,7 @@ export class StoredReviewScope {
       )
     }
 
-    return {
+    const restored: RestoredReviewScope = {
       settings,
       checkpoint: checkpointValid ? checkpoint : null,
       scanResults: stored.scanResults ?? null,
@@ -390,6 +437,19 @@ export class StoredReviewScope {
       identityPending: false,
       cancelled: false
     }
+    if (!restored.staleReviewRemoved) {
+      if (!isCurrent()) return cancelledResult()
+      await this.adapter.commitLegacyReviewMigration?.(
+        sourceProvider,
+        {
+          scanResults: Boolean(restored.scanResults),
+          checkpoint: Boolean(restored.checkpoint)
+        },
+        isCurrent
+      )
+      if (!isCurrent()) return cancelledResult()
+    }
+    return restored
   }
 
   write(
@@ -474,6 +534,8 @@ export class StoredReviewScope {
   }
 
   startReview(): void {
+    this.restoreSequence += 1
+    this.cancelRestoreRead?.()
     this.reviewWritesSuppressed = false
   }
 }

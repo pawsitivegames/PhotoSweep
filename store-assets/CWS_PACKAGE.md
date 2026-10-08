@@ -1,11 +1,21 @@
 # Chrome Web Store package
 
-The upload package is generated from the root `package.json` metadata:
+> **Release identity needs reconciliation (8 October 2026):** earlier package
+> guidance named app `2.3.0` / Chrome `2.3.0.3`. The current dirty worktree declares
+> app `2.3.5` / Chrome `2.3.5.1`; that uncommitted metadata is not an approved
+> release target. Reconcile this document to the exact owner-approved merged
+> candidate before packaging. Do not use either version merely because it is
+> written here or in the dirty checkout.
+
+The upload package is generated from the root `package.json` metadata after an
+owner-approved candidate has merged. The merged candidate's `version` and
+`chromeVersion` are authoritative; do not copy a version from this document.
 
 - Title: `PhotoSweep for Google Photos™`
 - Short description: `Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.`
-- App version: `2.3.0`
-- Chrome Web Store version: `2.3.0.3`
+- Current public listing: `https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo` (ID `niggncodoibinbianpkdpepmhfljifbo`; public version `2.3.0.2` as rechecked 8 October 2026)
+- App version: `package.json` → `version`
+- Chrome Web Store version: `package.json` → `chromeVersion`
 
 Use full SemVer for the app version in `package.json`:
 
@@ -27,8 +37,8 @@ because `+` metadata is not a valid Chrome manifest version.
 hash-addressed upload ZIP plus a matching JSON sidecar:
 
 ```text
-build/photosweep-cws-v2.3.0.3-sha256-<first-12-sha256>.zip
-build/photosweep-cws-v2.3.0.3-sha256-<first-12-sha256>.json
+build/photosweep-cws-v<chromeVersion>-sha256-<first-12-sha256>.zip
+build/photosweep-cws-v<chromeVersion>-sha256-<first-12-sha256>.json
 ```
 
 The sidecar records the app version, Chrome version, full ZIP SHA-256, manifest
@@ -60,5 +70,5 @@ command only builds and audits the ZIP; it does not submit or publish it.
 To inspect the locked listing metadata in the generated package:
 
 ```bash
-unzip -p build/photosweep-cws-v2.3.0.3-sha256-<first-12-sha256>.zip manifest.json
+unzip -p build/photosweep-cws-v<chromeVersion>-sha256-<first-12-sha256>.zip manifest.json
 ```

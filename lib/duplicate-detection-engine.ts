@@ -24,6 +24,7 @@ import type { ScanLogger } from "./scan-log"
 import type { DuplicateGroup, GpdMediaItem } from "./types"
 
 export const FULL_SCAN_BLOCK_SIZE = 1000
+const MAX_SMART_UNBUCKETED_CANDIDATES = 1000
 
 export function blockPairCountForItems(
   itemCount: number,
@@ -818,18 +819,40 @@ export async function smartDetectDuplicates(
   const smallScopeBuckets = candidates.length > 1 && candidates.length <= 100
     ? [candidates]
     : []
-  const detectionBuckets = [...timestampBuckets, ...smallScopeBuckets]
+  // When a medium scope has no trusted timestamp groups, compare the full
+  // scope while it fits in one bounded block. This covers Google/Amazon rows
+  // without sequence metadata and iCloud rows whose sequence pairs only
+  // connect neighbors; otherwise a non-adjacent duplicate can be omitted.
+  // Larger libraries still require useful buckets so Smart does not silently
+  // become a full-library scan.
+  const unbucketedFallbackBuckets =
+    timestampBuckets.length === 0 &&
+    candidates.length > 100 &&
+    candidates.length <= MAX_SMART_UNBUCKETED_CANDIDATES
+      ? [candidates]
+      : []
+  const sequenceComparisonBuckets =
+    unbucketedFallbackBuckets.length > 0 ? [] : sequenceBuckets
+  const detectionBuckets = [
+    ...timestampBuckets,
+    ...smallScopeBuckets,
+    ...unbucketedFallbackBuckets
+  ]
   // A small personal-album scope is intentionally compared as one bounded
   // review set. Its bucket must not inherit the Smart timestamp gate: provider
   // upload normalization can move duplicate taken dates far apart even when
   // the user selected a tiny, explicit album scope.
   const bucketWindowMs = [
     ...timestampBuckets.map(() => windowMs),
-    ...smallScopeBuckets.map(() => null)
+    ...smallScopeBuckets.map(() => null),
+    ...unbucketedFallbackBuckets.map(() => null)
   ]
-  const embeddingCandidateBuckets = [...detectionBuckets, ...sequenceBuckets]
+  const embeddingCandidateBuckets = [
+    ...detectionBuckets,
+    ...sequenceComparisonBuckets
+  ]
   console.log(
-    `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${timestampBuckets.length} timestamp buckets, ${sequenceBuckets.length} sequence pairs, ${smallScopeBuckets.length} small-scope buckets`
+    `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${timestampBuckets.length} timestamp buckets, ${sequenceComparisonBuckets.length} sequence pairs, ${smallScopeBuckets.length} small-scope buckets, ${unbucketedFallbackBuckets.length} unbucketed fallback buckets`
   )
 
   // If strong metadata already accounts for every candidate, there is no
@@ -976,7 +999,7 @@ export async function smartDetectDuplicates(
       )
     }
   })
-  const workerComparePairs = sequenceBuckets
+  const workerComparePairs = sequenceComparisonBuckets
     .map((bucket) =>
       bucket
         .map((item) => mediaKeyToEmbIdx.get(item.mediaKey))

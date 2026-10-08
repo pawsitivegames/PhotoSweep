@@ -138,7 +138,7 @@ test("a scan paused during cache lookup emits no scan attempt or provider dispat
         return original(keys as string)
       }) as typeof chrome.storage.local.get
     })
-    await page.getByRole("button", { name: /^Scan recent 30 days$/ }).click()
+    await page.getByRole("button", { name: /^Scan the last 30 days$/ }).click()
     await expect.poll(() => page.evaluate(() => (window as unknown as { cachePending?: boolean }).cachePending)).toBe(true)
     await page.getByRole("button", { name: "Pause Scan", exact: true }).click()
     await page.evaluate(async () => {

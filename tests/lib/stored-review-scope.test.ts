@@ -54,6 +54,61 @@ const groups = [
 ]
 
 describe("StoredReviewScope", () => {
+  it("a new review releases an obsolete pending restore read without bypassing writes", async () => {
+    let releaseRead!: (value: Partial<StoredState>) => void
+    let markReadStarted!: () => void
+    const readStarted = new Promise<void>(resolve => { markReadStarted = resolve })
+    const values: Record<string, unknown> = {}
+    const scope = new StoredReviewScope({
+      get: () => new Promise(resolve => { releaseRead = resolve; markReadStarted() }),
+      async set(next) { Object.assign(values, next) },
+      async remove(keys) { for (const key of keys) delete values[key] }
+    })
+    const oldRestore = scope.restore({ fallbackSettings: DEFAULT_SETTINGS, accountEmail: "old@example.com" })
+    await readStarted
+    scope.startReview()
+    await scope.write({ settings: { ...DEFAULT_SETTINGS, similarityThreshold: 0.95 } })
+    expect((await oldRestore).cancelled).toBe(true)
+    releaseRead({ settings: DEFAULT_SETTINGS })
+    await Promise.resolve()
+    expect(values.settings).toMatchObject({ similarityThreshold: 0.95 })
+    expect(values.scanResults).toBeUndefined()
+  }, 1000)
+
+  it("loads cached scan results only for the matching provider identity and live request", async () => {
+    const subject = adapter({
+      scanResults: {
+        mediaItems,
+        groups,
+        scanDate: 1,
+        totalItems: 2,
+        sourceProvider: "google",
+        accountEmail: "reviewer@example.com"
+      }
+    })
+
+    await expect(
+      subject.scope.loadCachedScanResults({
+        sourceProvider: "google",
+        accountEmail: "REVIEWER@example.com"
+      })
+    ).resolves.toEqual(subject.values.scanResults)
+    await expect(
+      subject.scope.loadCachedScanResults({
+        sourceProvider: "google",
+        accountEmail: "another@example.com"
+      })
+    ).resolves.toBeNull()
+    await expect(
+      subject.scope.loadCachedScanResults({
+        sourceProvider: "google",
+        accountEmail: "reviewer@example.com",
+        isCurrent: () => false
+      })
+    ).resolves.toBeNull()
+    expect(subject.mutationCount).toBe(0)
+  })
+
   it("persists a selected keep default and hydrates missing legacy values to Best quality", async () => {
     const preferred = adapter({
       settings: {

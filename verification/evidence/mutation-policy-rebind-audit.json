@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-04T14:59:07.952Z",
+  "status": "POLICY_REBOUND_FOR_ORIGINAL; NO_MUTATION_RUN_EXECUTED_ON_ORIGINAL",
+  "originalSourceFingerprint": "da18e82efb1a79ffdfb44951c6f425ba3c31e6992031c59c44fe2bf5a12bda61",
+  "originalSourceFileCount": 290,
+  "priorOriginalSourceFingerprint": "92489d1341feb51f93ae64426e57826b65b353132a137364f2ce82b37f8742df",
+  "priorOriginalPolicySha256": "03c45253fd2695d92cbfbb6e17a00eec720d2e37488902e814170e9017e5bd35",
+  "authoritativeCandidate": {
+    "root": "/Users/mustafadungarpurwala/Documents/Codex/2026-10-03/task-11/PhotoDuplicateFinder-final-candidate-8e54991",
+    "runId": "20261004T135451Z-mutation-final",
+    "sourceFingerprint": "971ac1b399d422d35aa6d1d8ee4c3f8104e1e83318a098e7a53e5d3144942268",
+    "sourceFileCount": 290,
+    "runStatus": "PASS",
+    "rawReportBytesSha256": "7e78f9f54c3323340414d88e1c75931e52f2981a0d75578a186f08e2f198fdc7",
+    "canonicalReportSha256": "e52d265063f9e3d08f7c6b7d9f7b7c5de30056ac1ec774a6f29fe624e36f772b"
+  },
+  "originalCandidateDiff": {
+    "sameFileSet": true,
+    "changedPaths": [
+      {
+        "path": "build/chrome-mv3-prod/manifest.json",
+        "originalVersion": "2.3.0",
+        "candidateVersion": "2.3.0.3",
+        "otherManifestFieldsEqualAfterContentScriptOrderNormalization": true
+      },
+      {
+        "path": "scripts/embedder-worker.js",
+        "originalComment": "  // node_modules/.pnpm/@mediapipe+tasks-vision@0.10.35/node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+        "candidateComment": "  // ../PhotoDuplicateFinder-31a9709d-snapshot/node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+        "generatedPathCommentOnly": true
+      }
+    ],
+    "mutatedFiles": [
+      "lib/duplicate-review-session.ts",
+      "lib/keep-strategy.ts",
+      "lib/trash-lifecycle.ts",
+      "scripts/photo-provider-command-host.js",
+      "lib/review-preflight.ts",
+      "lib/trash-dispatch-guard.ts"
+    ],
+    "allMutatedFileContentsMatch": true,
+    "strykerTestFilesCount": 18,
+    "allStrykerTestFileContentsMatch": true,
+    "e2eAssertionTestIncludedInStryker": false
+  },
+  "reviewedMutationEntries": {
+    "count": 200,
+    "exactKeysMatched": true,
+    "classificationCounts": {
+      "UNREACHABLE": 25,
+      "EQUIVALENT": 146,
+      "DUPLICATE": 29
+    }
+  },
+  "policy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sourceFingerprint": "da18e82efb1a79ffdfb44951c6f425ba3c31e6992031c59c44fe2bf5a12bda61",
+    "canonicalReportSha256": "e52d265063f9e3d08f7c6b7d9f7b7c5de30056ac1ec774a6f29fe624e36f772b",
+    "sha256": "e89be969b9997f34503bb723c163a5ba2cb6d3c288357855ebff6384f150dc7f"
+  },
+  "limitations": [
+    "The PASS result remains bound to the isolated candidate fingerprint; this audit does not claim a mutation campaign was run on the original checkout.",
+    "The original checkout package manifest remains version 2.3.0 while the authoritative isolated candidate/package uses 2.3.0.3. The isolated CWS ZIP and its audit remain authoritative for this package candidate."
+  ],
+  "sourceFingerprintExclusion": "verification/source-fingerprint.mjs excludes verification/evidence/ from registered source inputs."
+}

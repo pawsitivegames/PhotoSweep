@@ -7,6 +7,10 @@ import {
   buildTrashResultReport,
   type TrashResultReport
 } from "./trash-result-report"
+import {
+  isTrashDispatchAuthorizationCurrent,
+  type TrashDispatchAuthorization
+} from "./trash-dispatch-guard"
 import { favoriteStatusForItem } from "./favorite-status"
 import type {
   DuplicateGroup,
@@ -59,6 +63,31 @@ export interface TrashAuditAdapter {
     report: TrashResultReport,
     context?: TrashAuditContext
   ): Promise<void>
+}
+
+export interface TrashDispatchAuthorizationGate {
+  expected: TrashDispatchAuthorization
+  current: () => TrashDispatchAuthorization | null
+}
+
+export interface TrashLifecycleBeginParams {
+  plan: DuplicateTrashPlan
+  reviewSession: DuplicateReviewSession
+  groups: DuplicateGroup[]
+  snapshot: TrashSnapshot
+  batchPolicy: TrashBatchPolicy
+  operationId?: string
+  requestId?: string
+  accountEmail?: string
+  providerSessionId?: string
+  scopeFingerprint?: string
+  scopeLabel?: string
+  unknownFavoriteAcknowledged?: boolean
+}
+
+export interface AuthorizedTrashLifecycleBeginParams
+  extends TrashLifecycleBeginParams {
+  dispatchAuthorization: TrashDispatchAuthorizationGate
 }
 
 export interface TrashBatchPolicy {
@@ -614,20 +643,13 @@ export class TrashLifecycle {
 
   constructor(private readonly audit: TrashAuditAdapter) {}
 
-  async begin(params: {
-    plan: DuplicateTrashPlan
-    reviewSession: DuplicateReviewSession
-    groups: DuplicateGroup[]
-    snapshot: TrashSnapshot
-    batchPolicy: TrashBatchPolicy
-    operationId?: string
-    requestId?: string
-    accountEmail?: string
-    providerSessionId?: string
-    scopeFingerprint?: string
-    scopeLabel?: string
-    unknownFavoriteAcknowledged?: boolean
-  }): Promise<TrashCommand> {
+  begin(params: AuthorizedTrashLifecycleBeginParams): Promise<TrashCommand | null>
+  begin(params: TrashLifecycleBeginParams): Promise<TrashCommand>
+  async begin(
+    params: TrashLifecycleBeginParams & {
+      dispatchAuthorization?: TrashDispatchAuthorizationGate
+    }
+  ): Promise<TrashCommand | null> {
     if (this.pending || this.beginInFlight) {
       throw new Error("Another trash operation is already pending.")
     }
@@ -728,6 +750,19 @@ export class TrashLifecycle {
     })
     try {
       await this.audit.savePreTrashReport(report, context)
+
+      if (params.dispatchAuthorization) {
+        const currentAuthorization = params.dispatchAuthorization.current()
+        if (
+          !currentAuthorization ||
+          !isTrashDispatchAuthorizationCurrent(
+            params.dispatchAuthorization.expected,
+            currentAuthorization
+          )
+        ) {
+          return null
+        }
+      }
 
       this.pending = {
         requestId,

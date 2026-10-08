@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { DeleteReport } from "../../lib/delete-report"
 import { DuplicateReviewSession } from "../../lib/duplicate-review-session"
+import { captureTrashDispatchAuthorization } from "../../lib/trash-dispatch-guard"
 import {
   TrashLifecycle,
   type IcloudAssetRef,
@@ -151,6 +152,49 @@ function icloudFixture() {
 }
 
 describe("TrashLifecycle", () => {
+  it("rechecks dispatch authorization after the pre-trash audit is saved", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+    const plan = reviewSession.trashPlan(groups)
+    const expected = captureTrashDispatchAuthorization({
+      generation: 1,
+      plan,
+      provider: plan.provider
+    })
+    let authorizationCalls = 0
+
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 1_000,
+        retryCount: 2,
+        retryBackoffMs: 1_000
+      },
+      dispatchAuthorization: {
+        expected,
+        current: () => {
+          authorizationCalls += 1
+          expect(audit.deleteReports).toHaveLength(1)
+          return captureTrashDispatchAuthorization({
+            generation: 2,
+            plan,
+            provider: plan.provider
+          })
+        }
+      }
+    })
+
+    expect(authorizationCalls).toBe(1)
+    expect(command).toBeNull()
+    expect(lifecycle.isPending()).toBe(false)
+    expect(audit.deleteReports).toHaveLength(1)
+  })
+
   it("requires a current unknown-favorite acknowledgement at dispatch", async () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)

@@ -198,8 +198,7 @@ import { StoredReviewScope } from "../lib/stored-review-scope"
 import { buildSupportDiagnosticsReport } from "../lib/support-diagnostics"
 import theme, { photoSweepColors } from "../lib/theme"
 import {
-  captureTrashDispatchAuthorization,
-  isTrashDispatchAuthorizationCurrent
+  captureTrashDispatchAuthorization
 } from "../lib/trash-dispatch-guard"
 import {
   TrashLifecycle,
@@ -1753,11 +1752,9 @@ export default function App() {
     })
   }
   const paidAccessLifecycle = paidAccessLifecycleRef.current
-  const providerReviewStorageRef = useRef<ProviderScopedReviewStorage | null>(
-    null
-  )
-  if (!providerReviewStorageRef.current) {
-    providerReviewStorageRef.current = new ProviderScopedReviewStorage(
+  const storedReviewScopeRef = useRef<StoredReviewScope | null>(null)
+  if (!storedReviewScopeRef.current) {
+    const providerReviewStorage = new ProviderScopedReviewStorage(
       {
         async get(keys) {
           return chrome.storage.local.get(keys)
@@ -1775,13 +1772,7 @@ export default function App() {
           settingsRef.current.sourceProvider ?? "google"
       }
     )
-  }
-  const providerReviewStorage = providerReviewStorageRef.current
-  const storedReviewScopeRef = useRef<StoredReviewScope | null>(null)
-  if (!storedReviewScopeRef.current) {
-    storedReviewScopeRef.current = new StoredReviewScope(
-      providerReviewStorage
-    )
+    storedReviewScopeRef.current = new StoredReviewScope(providerReviewStorage)
   }
   const storedReviewScope = storedReviewScopeRef.current
 
@@ -2259,16 +2250,18 @@ export default function App() {
   const scanLifecycleRef = useRef(
     new ScanLifecycle({
       persist: (checkpoint) =>
-        providerReviewStorage
-          .set(
-            { scanCheckpoint: checkpoint },
+        storedReviewScope
+          .write(
+            { checkpoint },
+            undefined,
             checkpoint.settings.sourceProvider ?? "google"
           )
           .catch(() => {}),
       clear: (provider) =>
-        providerReviewStorage
-          .remove(
-            ["scanCheckpoint"],
+        storedReviewScope
+          .write(
+            { checkpoint: null },
+            undefined,
             provider ?? settingsRef.current.sourceProvider ?? "google"
           )
           .catch(() => {})
@@ -4266,16 +4259,6 @@ export default function App() {
           }
         }
         if (cancelled || !restoreLeaseIsCurrent()) return
-        if (!restored.identityPending && !restored.staleReviewRemoved) {
-          await providerReviewStorage.commitLegacyReviewMigration(
-            restored.settings.sourceProvider ?? "google",
-            {
-              scanResults: Boolean(restored.scanResults),
-              checkpoint: Boolean(restored.checkpoint)
-            },
-            restoreLeaseIsCurrent
-          )
-        }
         if (cancelled || !restoreLeaseIsCurrent()) return
         // A health-triggered storage restore can finish after the user has
         // already started a scan. Do not restore an old checkpoint over the
@@ -4945,11 +4928,12 @@ export default function App() {
         scanSettings.albumScope
       )
       try {
-        const stored = await providerReviewStorage.get(
-          ["scanResults"],
-          sourceProvider
-        )
-        const prev = stored.scanResults
+        const prev = await storedReviewScope.loadCachedScanResults({
+          sourceProvider,
+          accountEmail,
+          providerSessionId,
+          isCurrent: () => scanLifecycle.isCurrent(requestId)
+        })
         const reusableSyncToken = prev
           ? scanLifecycle.reusableICloudSyncToken(prev, {
               accountEmail,
@@ -4970,16 +4954,10 @@ export default function App() {
           !dateRange &&
           !albumScope &&
           !batchLimit &&
-          (prev?.sourceProvider ?? "google") === sourceProvider &&
           !prev?.dateRange &&
           !prev?.albumScope &&
           prev?.mediaItems &&
-          cachedSnapshotIsUsable &&
-          areScanResultsValid(prev, {
-            accountEmail,
-            sourceProvider,
-            providerSessionId
-          })
+          cachedSnapshotIsUsable
         ) {
           cachedMediaItemsRef.current = prev.mediaItems
           providerSyncToken = reusableSyncToken
@@ -5449,6 +5427,90 @@ export default function App() {
         state.scopeFingerprint ?? buildScanScopeFingerprint(settings)
     })
 
+    let authorizedDispatchState: Extract<
+      typeof state,
+      { status: "results" }
+    > | null = null
+    let authorizedDispatchProvider = currentProvider
+    let authorizedDispatchScopeFingerprint =
+      state.scopeFingerprint ?? buildScanScopeFingerprint(settings)
+    const currentDispatchAuthorization = () => {
+      if (trashConfirmRef.current !== confirmedPlan) return null
+
+      const latestState = stateRef.current
+      if (latestState.status !== "results") return null
+
+      const latestSettings = settingsRef.current
+      const latestProvider = latestSettings.sourceProvider ?? "google"
+      const latestScopeFingerprint =
+        latestState.scopeFingerprint ?? buildScanScopeFingerprint(latestSettings)
+      const latestCleanupScopeGroups = getVisibleGroups(
+        latestState.groups,
+        entitlementRef.current
+      )
+      const latestReviewSession = new DuplicateReviewSession({
+        groups: latestState.groups,
+        mediaItems: latestState.mediaItems,
+        selections: reviewSelectionsRef.current,
+        defaultStrategy: latestSettings.defaultKeepStrategy
+      })
+      const latestAllCleanupGroupsReviewed =
+        latestCleanupScopeGroups.length > 0 &&
+        latestCleanupScopeGroups.every((group) =>
+          latestReviewSession.reviewedGroupIds.has(group.id)
+        )
+      const latestPlan = latestReviewSession.trashPlan(latestCleanupScopeGroups)
+      const latestScanProvider = latestState.sourceProvider ?? latestProvider
+      const latestAccountEmail =
+        (currentIdentityProviderRef.current === latestProvider
+          ? currentAccountEmailRef.current
+          : undefined) ?? latestState.accountEmail
+      const latestPreflight = scanLifecycle.reviewPreflight({
+        scanProvider: latestScanProvider,
+        currentProvider: latestProvider,
+        scanAccountEmail: latestState.accountEmail,
+        currentAccountEmail: latestAccountEmail,
+        scanProviderSessionId: latestState.providerSessionId,
+        currentProviderSessionId:
+          currentIdentityProviderRef.current === latestProvider
+            ? currentProviderSessionIdRef.current
+            : undefined,
+        scanDate: latestState.scanDate,
+        scanScopeFingerprint: latestState.scopeFingerprint,
+        currentScopeFingerprint: buildScanScopeFingerprint(latestSettings),
+        selectedCount: latestPlan.dedupKeys.length,
+        connectionValidated:
+          accountValidationCompleteRef.current && currentHasGptkRef.current,
+        requireFreshScan: true,
+        requireKnownScope: true
+      })
+
+      if (
+        latestScanProvider !== latestProvider ||
+        confirmedPlan.provider !== latestProvider ||
+        latestPlan.provider !== latestProvider ||
+        !latestAllCleanupGroupsReviewed ||
+        !latestPreflight.allowed
+      ) {
+        return null
+      }
+
+      authorizedDispatchState = latestState
+      authorizedDispatchProvider = latestProvider
+      authorizedDispatchScopeFingerprint = latestScopeFingerprint
+      return captureTrashDispatchAuthorization({
+        generation: paidConversionGenerationRef.current,
+        plan: latestPlan,
+        provider: latestProvider,
+        accountEmail: latestAccountEmail,
+        providerSessionId:
+          currentIdentityProviderRef.current === latestProvider
+            ? currentProviderSessionIdRef.current
+            : undefined,
+        scopeFingerprint: latestScopeFingerprint
+      })
+    }
+
     let command
     try {
       command = await trashLifecycle.begin({
@@ -5478,7 +5540,11 @@ export default function App() {
         scopeFingerprint:
           state.scopeFingerprint ?? buildScanScopeFingerprint(settings),
         scopeLabel: scanScopeLabel(settings).label,
-        unknownFavoriteAcknowledged: unknownFavoriteTrashAcknowledged
+        unknownFavoriteAcknowledged: unknownFavoriteTrashAcknowledged,
+        dispatchAuthorization: {
+          expected: dispatchAuthorization,
+          current: currentDispatchAuthorization
+        }
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -5490,13 +5556,7 @@ export default function App() {
       return
     }
 
-    // Saving the pre-trash report is an await boundary. Rebuild the plan and
-    // authorization from refs after it completes so a selection, provider,
-    // account, scope, or entitlement transition cannot dispatch the old
-    // command. The paid-access generation covers entitlement changes; the
-    // exact plan fingerprint covers every destructive provider identifier.
-    const latestState = stateRef.current
-    if (latestState.status !== "results") {
+    if (!command || !authorizedDispatchState) {
       trashLifecycle.reset()
       setTrashWarningSafely(
         "Cleanup review changed while preparing the provider request. Review the current results again before moving anything to Trash."
@@ -5504,82 +5564,9 @@ export default function App() {
       handleCloseTrashConfirm()
       return
     }
-    const latestSettings = settingsRef.current
-    const latestProvider = latestSettings.sourceProvider ?? "google"
-    const latestScopeFingerprint =
-      latestState.scopeFingerprint ?? buildScanScopeFingerprint(latestSettings)
-    const latestGroups = latestState.groups
-    const latestMediaItems = latestState.mediaItems
-    const latestCleanupScopeGroups = getVisibleGroups(
-      latestGroups,
-      entitlementRef.current
-    )
-    const latestReviewSession = new DuplicateReviewSession({
-      groups: latestGroups,
-      mediaItems: latestMediaItems,
-      selections: reviewSelectionsRef.current,
-      defaultStrategy: settingsRef.current.defaultKeepStrategy
-    })
-    const latestAllCleanupGroupsReviewed =
-      latestCleanupScopeGroups.length > 0 &&
-      latestCleanupScopeGroups.every((group) =>
-        latestReviewSession.reviewedGroupIds.has(group.id)
-      )
-    const latestPlan = latestReviewSession.trashPlan(latestCleanupScopeGroups)
-    const latestScanProvider = latestState.sourceProvider ?? latestProvider
-    const latestAccountEmail =
-      (currentIdentityProviderRef.current === latestProvider
-        ? currentAccountEmailRef.current
-        : undefined) ?? latestState.accountEmail
-    const latestPreflight = scanLifecycle.reviewPreflight({
-      scanProvider: latestScanProvider,
-      currentProvider: latestProvider,
-      scanAccountEmail: latestState.accountEmail,
-      currentAccountEmail: latestAccountEmail,
-      scanProviderSessionId: latestState.providerSessionId,
-      currentProviderSessionId:
-        currentIdentityProviderRef.current === latestProvider
-          ? currentProviderSessionIdRef.current
-          : undefined,
-      scanDate: latestState.scanDate,
-      scanScopeFingerprint: latestState.scopeFingerprint,
-      currentScopeFingerprint: buildScanScopeFingerprint(latestSettings),
-      selectedCount: latestPlan.dedupKeys.length,
-      connectionValidated:
-        accountValidationCompleteRef.current && currentHasGptkRef.current,
-      requireFreshScan: true,
-      requireKnownScope: true
-    })
-    const latestAuthorization = captureTrashDispatchAuthorization({
-      generation: paidConversionGenerationRef.current,
-      plan: latestPlan,
-      provider: latestProvider,
-      accountEmail: latestAccountEmail,
-      providerSessionId:
-        currentIdentityProviderRef.current === latestProvider
-          ? currentProviderSessionIdRef.current
-          : undefined,
-      scopeFingerprint: latestScopeFingerprint
-    })
-    const dispatchStillAuthorized =
-      trashConfirmRef.current === confirmedPlan &&
-      latestScanProvider === latestProvider &&
-      confirmedPlan.provider === currentProvider &&
-      latestPlan.provider === latestProvider &&
-      latestAllCleanupGroupsReviewed &&
-      latestPreflight.allowed &&
-      isTrashDispatchAuthorizationCurrent(
-        dispatchAuthorization,
-        latestAuthorization
-      )
-    if (!dispatchStillAuthorized) {
-      trashLifecycle.reset()
-      setTrashWarningSafely(
-        "Cleanup review changed while preparing the provider request. Review the current results again before moving anything to Trash."
-      )
-      handleCloseTrashConfirm()
-      return
-    }
+    const latestState = authorizedDispatchState
+    const latestProvider = authorizedDispatchProvider
+    const latestScopeFingerprint = authorizedDispatchScopeFingerprint
 
     handleCloseTrashConfirm()
     setTrashWarningSafely(null)

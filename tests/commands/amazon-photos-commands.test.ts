@@ -147,6 +147,104 @@ describe("Amazon regional host contract", () => {
       restore()
     }
   })
+
+  it("bounds account identity reads during the health check", async () => {
+    const { messages, restore } = collectMessages()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          count: 1,
+          data: [{ id: "photo-1", ownerId: "owner-1" }]
+        })
+    })
+    const timerSpy = vi.spyOn(globalThis, "setTimeout")
+    vi.stubGlobal("fetch", fetchMock)
+
+    try {
+      sendAmazonProviderCommand("healthCheck", "amazon-health-bounded", {})
+      await flushProviderWork()
+
+      const result = messages.find(
+        (msg) =>
+          msg.action === "gptkResult" &&
+          msg.command === "healthCheck" &&
+          msg.requestId === "amazon-health-bounded"
+      )
+      expect(result).toMatchObject({
+        success: true,
+        data: { hasGptk: true }
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(timerSpy.mock.calls).toContainEqual([
+        expect.any(Function),
+        10000
+      ])
+    } finally {
+      timerSpy.mockRestore()
+      vi.unstubAllGlobals()
+      restore()
+    }
+  })
+
+  it("uses a fast owner response without waiting for the other identity endpoint", async () => {
+    const { messages, restore } = collectMessages()
+    let finishSearch: ((response: unknown) => void) | undefined
+    let searchAborted = false
+    const ownerResponse = {
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          count: 1,
+          data: [{ id: "photo-1", ownerId: "owner-1" }]
+        })
+    }
+    const searchWithoutOwner = {
+      ok: true,
+      json: () => Promise.resolve({ count: 0, data: [] })
+    }
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/drive/v1/search") {
+        return new Promise((resolve, reject) => {
+          finishSearch = resolve
+          init?.signal?.addEventListener(
+            "abort",
+            () => {
+              searchAborted = true
+              reject(new DOMException("Aborted", "AbortError"))
+            },
+            { once: true }
+          )
+        })
+      }
+      return Promise.resolve(ownerResponse)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    try {
+      sendAmazonProviderCommand("healthCheck", "amazon-health-parallel", {})
+      await flushProviderWork()
+
+      const result = messages.find(
+        (msg) =>
+          msg.action === "gptkResult" &&
+          msg.command === "healthCheck" &&
+          msg.requestId === "amazon-health-parallel"
+      )
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(result).toMatchObject({
+        success: true,
+        data: { hasGptk: true }
+      })
+      expect(searchAborted).toBe(true)
+    } finally {
+      finishSearch?.(searchWithoutOwner)
+      await flushProviderWork()
+      vi.unstubAllGlobals()
+      restore()
+    }
+  })
 })
 
 describe("Amazon provider identity binding", () => {

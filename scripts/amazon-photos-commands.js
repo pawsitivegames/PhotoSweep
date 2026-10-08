@@ -5,7 +5,6 @@
     console.log("GPD: Amazon Photos command handler already loaded")
     return
   }
-  window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
   // Uses Amazon Photos' private web API from the signed-in page context.
 
   const commandHost = window.__GPD_COMMAND_HOST__
@@ -32,6 +31,7 @@
   const AMAZON_TRASH_VERIFY_ATTEMPTS = 3
   const AMAZON_TRASH_VERIFY_DELAYS_MS = [0, 250, 1000]
   const AMAZON_API_TIMEOUT_MS = 45000
+  const AMAZON_HEALTH_CHECK_API_TIMEOUT_MS = 10000
   const AMAZON_API_RETRY_COUNT = 2
   const AMAZON_SEARCH_RETRY_COUNT = 6
   const AMAZON_SEARCH_PAGE_PAUSE_MS = 1000
@@ -294,12 +294,18 @@
     return url
   }
 
-  async function fetchJsonWithTimeout(url, label, externalSignal, extraHeaders = {}) {
+  async function fetchJsonWithTimeout(
+    url,
+    label,
+    externalSignal,
+    extraHeaders = {},
+    timeoutMs = AMAZON_API_TIMEOUT_MS
+  ) {
     commandHost.throwIfAborted(externalSignal)
     const controller = new AbortController()
     const abortExternal = () => controller.abort()
     externalSignal?.addEventListener("abort", abortExternal, { once: true })
-    const timeout = setTimeout(() => controller.abort(), AMAZON_API_TIMEOUT_MS)
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
     try {
       const response = await fetch(url, {
         credentials: "include",
@@ -1014,6 +1020,47 @@
       1
     )
     return amazonOwnerIdentityFromPage(albumPage) || amazonCookieIdentity()
+  }
+
+  async function discoverAmazonHealthIdentity() {
+    const controller = new AbortController()
+    let successfulResponsesWithoutOwner = 0
+    const fetchOwner = async (url, label) => {
+      const page = await fetchJsonWithTimeout(
+        url,
+        label,
+        controller.signal,
+        {},
+        AMAZON_HEALTH_CHECK_API_TIMEOUT_MS
+      )
+      const ownerIdentity = amazonOwnerIdentityFromPage(page)
+      if (ownerIdentity) return ownerIdentity
+      successfulResponsesWithoutOwner += 1
+      throw new Error(`${label} did not include an owner marker`)
+    }
+
+    try {
+      return await Promise.any([
+        fetchOwner(
+          amazonSearchUrl({
+            offset: 0,
+            limit: 1,
+            filters: buildFilters()
+          }),
+          "Checking Amazon Photos account"
+        ),
+        fetchOwner(
+          amazonNodesUrl({ albumId: null, offset: 0, limit: 1 }),
+          "Checking Amazon Photos library account"
+        )
+      ])
+    } catch {
+      return successfulResponsesWithoutOwner === 2
+        ? amazonCookieIdentity()
+        : ""
+    } finally {
+      controller.abort()
+    }
   }
 
   function discoverAmazonProfileDisplayName() {
@@ -2576,7 +2623,7 @@
     let ownerIdentity = ""
     if (pageIsUsable) {
       try {
-        ownerIdentity = await discoverAmazonProviderIdentity(requestId)
+        ownerIdentity = await discoverAmazonHealthIdentity()
       } catch {
         ownerIdentity = ""
       }
@@ -2610,5 +2657,6 @@
       `Unsupported Amazon Photos command: ${command}`
   })
 
+  window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
   console.log("GPD: Amazon Photos command handler loaded")
 })()

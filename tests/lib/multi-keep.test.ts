@@ -39,7 +39,7 @@ function session(selections?: DuplicateReviewSelections) {
 }
 
 describe("DuplicateReviewSession", () => {
-  it("uses the default keep choice and accepts it as an explicit decision", () => {
+  it("accepts a keeper choice without including the set for cleanup", () => {
     const review = session()
 
     expect(review.keptFor(g1)).toEqual(new Set(["img1"]))
@@ -48,7 +48,7 @@ describe("DuplicateReviewSession", () => {
       groupId: "g1",
       mediaKey: "img1"
     })
-    expect(accepted.selectedGroupIds).toEqual(new Set(["g1"]))
+    expect(accepted.selectedGroupIds).toEqual(new Set())
     expect(accepted.reviewedGroupIds).toEqual(new Set(["g1"]))
     expect(accepted.keptOverrides.g1).toEqual(new Set(["img1"]))
   })
@@ -68,6 +68,7 @@ describe("DuplicateReviewSession", () => {
     })
 
     expect(afterAdd.keptOverrides.g1).toEqual(new Set(["img1", "img2"]))
+    expect(afterAdd.selectedGroupIds).toEqual(new Set())
     expect(afterRemove.keptOverrides.g1).toEqual(new Set(["img1"]))
     expect(second.keptFor(g2)).toEqual(new Set(["img4"]))
   })

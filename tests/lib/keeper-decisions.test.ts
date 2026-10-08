@@ -66,6 +66,41 @@ function hydrateSelections(
 }
 
 describe("keeper decision contract", () => {
+  it("includes available groups across filters and reopens review for newly included groups", () => {
+    const initial = session({
+      selectedGroupIds: new Set([g2.id]),
+      reviewedGroupIds: new Set([g1.id, g2.id]),
+      keptOverrides: {}
+    })
+
+    const included = initial.update({
+      type: "include_groups_for_cleanup",
+      groupIds: [g1.id, g2.id, "outside-scan"]
+    })
+
+    expect(included.selectedGroupIds).toEqual(new Set([g1.id, g2.id]))
+    expect(included.reviewedGroupIds).toEqual(new Set([g2.id]))
+
+    const reviewedAgain = new DuplicateReviewSession({
+      groups: [g1, g2],
+      mediaItems,
+      selections: included
+    }).update({
+      type: "select_groups",
+      groupIds: [g1.id]
+    })
+    const repeatedInclude = new DuplicateReviewSession({
+      groups: [g1, g2],
+      mediaItems,
+      selections: reviewedAgain
+    }).update({
+      type: "include_groups_for_cleanup",
+      groupIds: [g1.id, g2.id]
+    })
+
+    expect(repeatedInclude.reviewedGroupIds).toEqual(new Set([g1.id, g2.id]))
+  })
+
   it("fails closed for missing members while keeping normal Best Quality behavior", () => {
     const incompleteGroup = group(
       "incomplete",
@@ -685,7 +720,6 @@ describe("keeper decision contract", () => {
         type: "apply_keep_strategy",
         groupIds: ["g1", "g2"],
         strategy: "best_quality",
-        includeGroupIds: ["g1", "g2"],
         overrideManualChoices: true
       })
     )
@@ -969,38 +1003,16 @@ describe("keeper decision contract", () => {
     expect(next.selections.keepDecisionProvenance?.g2).toBeUndefined()
   })
 
-  it("does not include a group named like the mutation sentinel when includeGroupIds is omitted", () => {
-    const sentinelGroup = group("Stryker was here", "x", "y")
-    const review = new DuplicateReviewSession({
-      groups: [sentinelGroup],
-      mediaItems: { x: item("x"), y: item("y") }
-    })
-
-    const updated = new DuplicateReviewSession({
-      groups: [sentinelGroup],
-      mediaItems: { x: item("x"), y: item("y") },
-      selections: review.update({
-        type: "apply_keep_strategy",
-        groupIds: [],
-        strategy: "best_quality"
-      })
-    })
-
-    expect(updated.selectedGroupIds).toEqual(new Set())
-    expect(updated.serialize().selectedGroupIds).toEqual([])
-  })
-
-  it("ignores unknown group IDs in an explicit bulk include list", () => {
+  it("applies keeper rules without including sets for cleanup", () => {
     const updated = session().update({
       type: "apply_keep_strategy",
-      groupIds: [],
-      includeGroupIds: ["missing-group"],
+      groupIds: ["g1"],
       strategy: "best_quality"
     })
 
-    expect(updated.selectedGroupIds.has("missing-group")).toBe(false)
-    expect(updated.reviewedGroupIds.has("missing-group")).toBe(false)
-    expect(updated.keptOverrides["missing-group"]).toBeUndefined()
+    expect(updated.selectedGroupIds).toEqual(new Set())
+    expect(updated.reviewedGroupIds).toEqual(new Set())
+    expect(updated.keptOverrides.g1).toEqual(new Set(["b"]))
   })
 
   it("recomputes an automatic keep-all override when a different strategy is applied", () => {

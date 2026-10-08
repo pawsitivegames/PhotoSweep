@@ -26,7 +26,6 @@ export interface KeepStrategyApplication {
 
 export interface KeepStrategySelectionHandlerParams {
   groups: DuplicateGroup[]
-  cleanupEligibleGroupIds?: Iterable<string>
   mediaItems?: Record<string, GpdMediaItem>
   selections: DuplicateReviewSelections
   strategy: KeepStrategy
@@ -38,20 +37,15 @@ export interface KeepStrategySelectionHandlerParams {
   setFeedback: (message: string) => void
 }
 
-/** Shared app handler for a Selection-menu strategy choice. */
+/** Shared app handler for an automatic keeper strategy choice. */
 export function handleKeepStrategySelection(
   params: KeepStrategySelectionHandlerParams
 ): DuplicateReviewSelections | null {
   const { strategy } = params
-  const cleanupEligibleGroupIds = [
-    ...new Set(
-      params.cleanupEligibleGroupIds ?? params.groups.map((group) => group.id)
-    )
-  ]
   params.persistDefaultStrategy(strategy)
   if (!params.mediaItems) {
     params.setFeedback(
-      `${KEEP_STRATEGY_LABELS[strategy]} is saved as the default, but could not be applied because media details are unavailable. This action does not include sets for cleanup.`
+      `${KEEP_STRATEGY_LABELS[strategy]} is saved as the default, but could not be applied because media details are unavailable. Set selection for cleanup is unchanged.`
     )
     return null
   }
@@ -60,15 +54,13 @@ export function handleKeepStrategySelection(
     type: "apply_keep_strategy",
     groupIds: params.groups.map((group) => group.id),
     strategy,
-    includeGroupIds: cleanupEligibleGroupIds,
     overrideManualChoices: true
   }
   const application = applyKeepStrategyToReview({
     groups: params.groups,
     mediaItems: params.mediaItems,
     selections: params.selections,
-    strategy,
-    includeGroupIds: cleanupEligibleGroupIds
+    strategy
   })
   const nextSelections = params.updateReviewSelections(
     action,
@@ -76,7 +68,7 @@ export function handleKeepStrategySelection(
   )
   if (!nextSelections) {
     params.setFeedback(
-      `${KEEP_STRATEGY_LABELS[strategy]} is saved as the default. Results are being confirmed, so the new default will be applied when they are ready. This action does not include sets for cleanup.`
+      `${KEEP_STRATEGY_LABELS[strategy]} is saved as the default. Results are being confirmed, so the new default will be applied when they are ready. Set selection for cleanup is unchanged.`
     )
     return null
   }
@@ -87,14 +79,10 @@ export function handleKeepStrategySelection(
 
 export function applyKeepStrategyToReview(params: {
   groups: DuplicateGroup[]
-  includeGroupIds?: Iterable<string>
   mediaItems: Record<string, GpdMediaItem>
   selections: DuplicateReviewSelections
   strategy: KeepStrategy
 }): KeepStrategyApplication {
-  const cleanupEligibleGroupIds = new Set(
-    params.includeGroupIds ?? params.groups.map((group) => group.id)
-  )
   const previousSession = new DuplicateReviewSession({
     groups: params.groups,
     mediaItems: params.mediaItems,
@@ -104,7 +92,6 @@ export function applyKeepStrategyToReview(params: {
     type: "apply_keep_strategy",
     groupIds: params.groups.map((group) => group.id),
     strategy: params.strategy,
-    includeGroupIds: cleanupEligibleGroupIds,
     overrideManualChoices: true
   })
   const session = new DuplicateReviewSession({
@@ -121,8 +108,7 @@ export function applyKeepStrategyToReview(params: {
       summarizeKeepStrategyApplication(
         params.groups,
         previousSession,
-        session,
-        params.groups.filter((group) => cleanupEligibleGroupIds.has(group.id))
+        session
       )
     )
   }
@@ -202,6 +188,10 @@ export function buildKeepStrategyFeedback(
     counts.cleanupIncludedGroupCount === 1 ? "set" : "sets"
   const proposedItemLabel =
     counts.proposedTrashMediaItemCount === 1 ? "media item" : "media items"
+  const includedVerb =
+    counts.cleanupIncludedGroupCount === 1 ? "remains" : "remain"
+  const proposedVerb =
+    counts.proposedTrashMediaItemCount === 1 ? "remains" : "remain"
 
-  return `${KEEP_STRATEGY_LABELS[strategy]} was applied and saved as the default: ${setCount(counts.changedGroupCount)} changed; ${setCount(counts.alreadyMatchedGroupCount)} already had the selected keeper; ${counts.preservedGroupCount} manual ${preservedLabel} preserved; ${counts.replacedManualGroupCount} manual ${replacedManualLabel}; ${setCount(counts.deterministicFallbackGroupCount)} resolved by deterministic tie-break; ${counts.noConfidenceGroupCount} ${unresolvedLabel}. ${counts.cleanupIncludedGroupCount} ${includedSetLabel} included for cleanup review; ${counts.proposedTrashMediaItemCount} ${proposedItemLabel} proposed for Trash. Review each set before moving anything to Trash.`
+  return `${KEEP_STRATEGY_LABELS[strategy]} updated keeper choices and was saved as the default: ${setCount(counts.changedGroupCount)} changed; ${setCount(counts.alreadyMatchedGroupCount)} already had the selected keeper; ${counts.preservedGroupCount} manual ${preservedLabel} preserved; ${counts.replacedManualGroupCount} manual ${replacedManualLabel}; ${setCount(counts.deterministicFallbackGroupCount)} resolved by deterministic tie-break; ${counts.noConfidenceGroupCount} ${unresolvedLabel}. Set selection for cleanup is unchanged: ${counts.cleanupIncludedGroupCount} ${includedSetLabel} ${includedVerb} selected and ${counts.proposedTrashMediaItemCount} ${proposedItemLabel} ${proposedVerb} proposed for Trash. Review any set marked Needs review before moving items.`
 }

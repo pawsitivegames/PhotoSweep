@@ -5,7 +5,11 @@ import {
   providerOpenUrl,
   providerTabPatterns
 } from "../lib/provider-operations"
-import { ProviderConnectionSession } from "../lib/provider-connection-session"
+import {
+  ProviderConnectionSession,
+  type ProviderHealthOutcome
+} from "../lib/provider-connection-session"
+import { PhotoProviderOperationSession } from "../lib/photo-provider-operation"
 import {
   isAllowedLicenseSessionSender,
   isLicenseSessionExternalMessage,
@@ -45,6 +49,7 @@ import type {
 // Routes messages between the app tab and the active photo-provider tab.
 
 const connectionSession = new ProviderConnectionSession()
+const providerOperationSession = new PhotoProviderOperationSession()
 const googleCompletedScans = new GoogleCompletedScanRegistry()
 const googleOriginalReviewBudget = new GoogleOriginalReviewBudget()
 const activeSidePanelClientIds = new Set<string>()
@@ -102,6 +107,8 @@ type ChromeWithSidePanel = typeof chrome & {
 const sidePanelApi = (chrome as ChromeWithSidePanel).sidePanel
 const SIDE_PANEL_PATH = "tabs/scanner-panel.html"
 const GPTK_COMMAND_TIMEOUT_MS = 3500
+const AMAZON_HEALTH_CHECK_TIMEOUT_MS = 12_000
+const AMAZON_HEALTH_CHECK_TOTAL_TIMEOUT_MS = 15_000
 const GOOGLE_ORIGINAL_RELAY_TIMEOUT_MS = 60_000
 
 type ManifestWithExternalConnectable = {
@@ -581,6 +588,84 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
     : true
 }
 
+async function ensureAmazonMainWorldScripts(tabId: number): Promise<boolean> {
+  const readState = async () => {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: () => ({
+        hasCommandHost: Boolean(
+          (
+            window as typeof window & {
+              __GPD_COMMAND_HOST__?: unknown
+            }
+          ).__GPD_COMMAND_HOST__
+        ),
+        hasCommandHandler: Boolean(
+          (
+            window as typeof window & {
+              __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
+            }
+          ).__GPD_AMAZON_COMMAND_HANDLER_LOADED__
+        )
+      })
+    })
+    return result?.result as
+      | { hasCommandHost?: boolean; hasCommandHandler?: boolean }
+      | undefined
+  }
+
+  let state = await readState()
+  if (!state?.hasCommandHost) {
+    // Older Amazon handlers set this marker before checking whether the shared
+    // command host existed. Clear that stale marker so the handler can register
+    // after the host is restored.
+    if (state?.hasCommandHandler) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func: () => {
+          delete (
+            window as typeof window & {
+              __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
+            }
+          ).__GPD_AMAZON_COMMAND_HANDLER_LOADED__
+        }
+      })
+    }
+
+    const publicKey = await getProviderCommandPublicKey()
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: (key: unknown) => {
+        ;(
+          window as typeof window & {
+            __GPD_PROVIDER_COMMAND_PUBLIC_KEY__?: unknown
+          }
+        ).__GPD_PROVIDER_COMMAND_PUBLIC_KEY__ = key
+      },
+      args: [publicKey]
+    })
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      files: ["scripts/photo-provider-command-host.js"]
+    })
+  }
+
+  if (!state?.hasCommandHandler || !state?.hasCommandHost) {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      files: ["scripts/amazon-photos-commands.js"]
+    })
+  }
+
+  state = await readState()
+  return Boolean(state?.hasCommandHost && state?.hasCommandHandler)
+}
+
 function contentScriptFilesForProvider(provider: PhotoProvider): string[] {
   const patterns = providerTabPatterns(provider)
   const manifest = chrome.runtime.getManifest()
@@ -841,6 +926,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function stopPendingCommandsForSidePanel(clientId?: string): void {
+  providerOperationSession.stopClient(clientId)
   connectionSession.stopClient(clientId)
 }
 
@@ -863,13 +949,17 @@ async function sendGptkCommand(
   const message = await withProviderCommandCapability(unsignedMessage)
 
   return new Promise((resolve, reject) => {
+    const timeoutMs =
+      provider === "amazon" && command === "healthCheck"
+        ? AMAZON_HEALTH_CHECK_TIMEOUT_MS
+        : GPTK_COMMAND_TIMEOUT_MS
     const timeoutId = setTimeout(() => {
-      connectionSession.cancelCommand(requestId)
+      providerOperationSession.cancel(requestId)
       reject(
         `Timed out waiting for ${providerName(provider)} to respond. Please reload the tab and try again.`
       )
-    }, GPTK_COMMAND_TIMEOUT_MS)
-    connectionSession.startCommand(requestId, {
+    }, timeoutMs)
+    providerOperationSession.start(requestId, {
       resolve: (data) => {
         clearTimeout(timeoutId)
         resolve(data)
@@ -897,7 +987,7 @@ async function sendGptkCommand(
 
     delivery.catch(() => {
       clearTimeout(timeoutId)
-      connectionSession.cancelCommand(requestId)
+      providerOperationSession.cancel(requestId)
       reject(
         `Unable to connect to ${providerName(provider)} tab. Please reload the tab and try again.`
       )
@@ -1104,44 +1194,71 @@ async function handleHealthCheck(
   const provider =
     message.action === "healthCheck" ? message.provider ?? "google" : "google"
   const requestId = (message as { requestId?: string }).requestId
-  const senderTabId = await getSenderTabId(sender)
+  let senderTabId: number | null = sender.tab?.id ?? null
   const clientId = message.clientId
 
-  const providerTabId = await resolveProviderTab(senderTabId, provider)
-  if (providerTabId === null) {
-    sendToAppContext(
-      senderTabId,
-      {
-        app: APP_ID,
-        action: "healthCheck.result",
-        provider,
-        requestId,
-        success: false,
-        hasGptk: false
+  const deadlineAt =
+    provider === "amazon"
+      ? Date.now() + AMAZON_HEALTH_CHECK_TOTAL_TIMEOUT_MS
+      : Number.POSITIVE_INFINITY
+  const ensureBeforeDeadline = () => {
+    if (Date.now() >= deadlineAt) {
+      throw new Error(
+        "Amazon Photos took too long to respond. Reload its tab and retry."
+      )
+    }
+  }
+  const checkProvider = async (): Promise<ProviderHealthOutcome> => {
+    senderTabId = await getSenderTabId(sender)
+    ensureBeforeDeadline()
+    const providerTabId = await resolveProviderTab(senderTabId, provider)
+    ensureBeforeDeadline()
+    if (providerTabId === null) {
+      return { success: false, hasGptk: false }
+    }
+    if (
+      provider === "amazon" &&
+      !(await ensureAmazonMainWorldScripts(providerTabId))
+    ) {
+      throw new Error(
+        "The Amazon Photos page bridge is not ready. Reload its tab and retry."
+      )
+    }
+    ensureBeforeDeadline()
+
+    return connectionSession.checkProviderHealth(providerTabId, provider, {
+      async check(tabId, requestedProvider) {
+        return (await sendGptkCommand(
+          tabId,
+          "healthCheck",
+          undefined,
+          requestedProvider
+        )) as GptkResultMessage
       },
-      clientId
-    )
-    return
+      ensureGoogleMainWorldScripts,
+      rememberGoogleSession: rememberGoogleProviderSession,
+      invalidateGoogleSession: invalidateGoogleProviderTab
+    })
   }
 
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
   try {
-    const outcome = await connectionSession.checkProviderHealth(
-      providerTabId,
-      provider,
-      {
-        async check(tabId, requestedProvider) {
-          return (await sendGptkCommand(
-            tabId,
-            "healthCheck",
-            undefined,
-            requestedProvider
-          )) as GptkResultMessage
-        },
-        ensureGoogleMainWorldScripts,
-        rememberGoogleSession: rememberGoogleProviderSession,
-        invalidateGoogleSession: invalidateGoogleProviderTab
-      }
-    )
+    const check = checkProvider()
+    const outcome =
+      provider === "amazon"
+        ? await Promise.race([
+            check,
+            new Promise<ProviderHealthOutcome>((_, reject) => {
+              timeoutId = setTimeout(() => {
+                reject(
+                  new Error(
+                    "Amazon Photos took too long to respond. Reload its tab and retry."
+                  )
+                )
+              }, AMAZON_HEALTH_CHECK_TOTAL_TIMEOUT_MS)
+            })
+          ])
+        : await check
     sendToAppContext(
       senderTabId,
       {
@@ -1167,6 +1284,8 @@ async function handleHealthCheck(
       },
       clientId
     )
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 }
 
@@ -1373,7 +1492,7 @@ async function handleGptkCommand(
     return
   }
 
-  connectionSession.startCommand(message.requestId, {
+  providerOperationSession.start(message.requestId, {
     resolve: () => {},
     reject: () => {},
     appTabId: senderTabId,
@@ -1426,7 +1545,7 @@ async function handleGptkCommand(
           } as GptkResultMessage,
           message.clientId
         )
-        connectionSession.cancelCommand(message.requestId)
+        providerOperationSession.cancel(message.requestId)
       })
     return
   }
@@ -1447,7 +1566,7 @@ async function handleGptkCommand(
       } as GptkResultMessage,
       message.clientId
     )
-    connectionSession.cancelCommand(message.requestId)
+    providerOperationSession.cancel(message.requestId)
   })
 }
 
@@ -1455,7 +1574,7 @@ function handleGptkResult(
   message: GptkResultMessage,
   sender: chrome.runtime.MessageSender
 ): void {
-  const pending = connectionSession.commandFromProvider(
+  const pending = providerOperationSession.fromProvider(
     message.requestId,
     sender.tab?.id
   )
@@ -1472,23 +1591,13 @@ function handleGptkResult(
     return
   }
 
-  const finished = connectionSession.finishCommand(message.requestId)
-  if (!finished) return
-
-  const responseMatchesRequest =
-    (!finished.command || message.command === finished.command) &&
-    (!message.provider || !finished.provider || message.provider === finished.provider)
-  const routedResult: GptkResultMessage = responseMatchesRequest
-    ? { ...message, ...(finished.provider ? { provider: finished.provider } : {}) }
-    : {
-        app: APP_ID,
-        action: "gptkResult",
-        command: finished.command ?? message.command,
-        requestId: message.requestId,
-        provider: finished.provider,
-        success: false,
-        error: "The provider response did not match the routed command."
-      }
+  const completion = providerOperationSession.completeFromProvider(
+    message,
+    sender.tab?.id
+  )
+  if (!completion) return
+  const { operation: finished, result: routedResult } = completion
+  const responseMatchesRequest = completion.responseMatchesOperation
 
   const scanContext = pendingGoogleScanContexts.get(message.requestId)
   pendingGoogleScanContexts.delete(message.requestId)
@@ -1567,7 +1676,7 @@ function routeGoogleOriginalHashResult(
   success: boolean,
   data?: ProviderOriginalHashRelayResponse["data"]
 ): void {
-  const pending = connectionSession.pendingCommand(context.requestId)
+  const pending = providerOperationSession.get(context.requestId)
   if (
     !pending ||
     pending.command !== "getOriginalContentHash" ||
@@ -1579,7 +1688,7 @@ function routeGoogleOriginalHashResult(
     return
   }
 
-  const finished = connectionSession.finishCommand(context.requestId)
+  const finished = providerOperationSession.finish(context.requestId)
   if (!finished) return
   pendingGoogleOriginalRequests.delete(context.requestId)
 
@@ -1604,7 +1713,7 @@ async function handleGoogleOriginalHashFetch(
   sender: chrome.runtime.MessageSender,
   sendResponse: (response?: unknown) => void
 ): Promise<void> {
-  const pendingCommand = connectionSession.pendingCommand(message.requestId)
+  const pendingCommand = providerOperationSession.get(message.requestId)
   const context = pendingGoogleOriginalRequests.get(message.requestId)
   const matches = Boolean(
     pendingCommand &&
@@ -1686,7 +1795,7 @@ async function handleGoogleOriginalHashFetch(
     })
     const isStillCurrent =
       activeGoogleOriginalFetches.get(message.requestId) === active &&
-      connectionSession.pendingCommand(message.requestId) === pendingCommand &&
+      providerOperationSession.get(message.requestId) === pendingCommand &&
       googleCompletedScans.hasItem({
         appTabId: context.appTabId,
         ...(context.appClientId ? { clientId: context.appClientId } : {}),
@@ -1747,7 +1856,7 @@ function handleGptkProgress(
   message: GptkProgressMessage,
   sender: chrome.runtime.MessageSender
 ): void {
-  const pending = connectionSession.commandFromProvider(
+  const pending = providerOperationSession.progressFromProvider(
     message.requestId,
     sender.tab?.id
   )
@@ -1763,6 +1872,7 @@ function handleGptkProgress(
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   const mappedTabId = connectionSession.removeTab(tabId)
+  providerOperationSession.removeAppTab(tabId)
   googleCompletedScans.invalidateAppTab(tabId)
   invalidateGoogleProviderTab(tabId)
   for (const [requestId, context] of pendingGoogleOriginalRequests) {

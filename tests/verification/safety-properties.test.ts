@@ -454,7 +454,6 @@ describe("generated safety properties", () => {
                 type: "apply_keep_strategy",
                 groupIds: [group.id],
                 strategy,
-                includeGroupIds: [group.id],
                 overrideManualChoices: true
               })
               const bulkReview = new DuplicateReviewSession({
@@ -463,14 +462,14 @@ describe("generated safety properties", () => {
                 selections: bulkSelections
               })
 
-              expect(bulkReview.selectedGroupIds).toEqual(new Set([group.id]))
+              expect(bulkReview.selectedGroupIds).toEqual(originalSelection)
               const bulkReviewExpected = new Set(initial.reviewedGroupIds)
               const bulkKeeperChanged =
                 originalKeeper.size !== bulkReview.keptFor(group).size ||
                 [...originalKeeper].some(
                   (mediaKey) => !bulkReview.keptFor(group).has(mediaKey)
                 )
-              if (!includedBefore || bulkKeeperChanged) {
+              if (includedBefore && bulkKeeperChanged) {
                 bulkReviewExpected.delete(group.id)
               }
               expect(bulkReview.reviewedGroupIds).toEqual(bulkReviewExpected)
@@ -485,7 +484,9 @@ describe("generated safety properties", () => {
               )
               expect(bulkReview.decisionFor(group).source).toBe("automatic")
               expect(bulkReview.trashPlan(groups).mediaKeysToTrash.length).toBe(
-                mediaKeys.length - bulkReview.keptFor(group).size
+                includedBefore
+                  ? mediaKeys.length - bulkReview.keptFor(group).size
+                  : 0
               )
             }
           }

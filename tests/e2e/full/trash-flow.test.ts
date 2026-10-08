@@ -90,7 +90,7 @@ test("trashes duplicates via API and undoes via undo snackbar", async () => {
     }
 
     // Keep the live test conservative: trash only the first visible duplicate set.
-    await appPage.getByRole("button", { name: /^Skip all$/i }).click()
+    await appPage.getByRole("button", { name: /^Skip [0-9]+ shown sets$/i }).click()
     await appPage.locator('input[type="checkbox"]').first().check()
 
     // Skip gracefully if no duplicates are selected in this account.

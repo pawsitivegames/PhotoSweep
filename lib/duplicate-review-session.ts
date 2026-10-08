@@ -61,6 +61,7 @@ export interface DuplicateTrashPlan {
 }
 
 export type DuplicateReviewAction =
+  | { type: "include_groups_for_cleanup"; groupIds: Iterable<string> }
   | { type: "select_groups"; groupIds: Iterable<string> }
   | { type: "deselect_groups"; groupIds: Iterable<string> }
   | { type: "toggle_kept"; groupId: string; mediaKey: string }
@@ -69,8 +70,6 @@ export type DuplicateReviewAction =
       type: "apply_keep_strategy"
       groupIds: Iterable<string>
       strategy: KeepStrategy
-      /** Re-include these eligible sets in the Trash proposal review. */
-      includeGroupIds?: Iterable<string>
       /** An explicit strategy-menu action replaces per-set manual keep choices. */
       overrideManualChoices?: boolean
     }
@@ -228,6 +227,18 @@ export class DuplicateReviewSession {
     const current = cloneSelections(this.selectionState)
 
     switch (action.type) {
+      case "include_groups_for_cleanup":
+        for (const groupId of action.groupIds) {
+          if (this.groupsById.has(groupId)) {
+            if (!current.selectedGroupIds.has(groupId)) {
+              // A scan-wide include can reverse an earlier skip. Require the
+              // user to review any set newly added to the cleanup proposal.
+              current.reviewedGroupIds.delete(groupId)
+            }
+            current.selectedGroupIds.add(groupId)
+          }
+        }
+        break
       case "select_groups":
         for (const groupId of action.groupIds) {
           if (this.groupsById.has(groupId)) {
@@ -257,7 +268,6 @@ export class DuplicateReviewSession {
         }
         const kept = new Set(this.resolveKept(group))
         if (kept.has(action.mediaKey) && kept.size === 1) {
-          current.selectedGroupIds.add(group.id)
           current.reviewedGroupIds.add(group.id)
           current.keptOverrides[group.id] = kept
           current.keepDecisionProvenance![group.id] = { source: "manual" }
@@ -265,7 +275,6 @@ export class DuplicateReviewSession {
         }
         if (kept.has(action.mediaKey)) kept.delete(action.mediaKey)
         else kept.add(action.mediaKey)
-        current.selectedGroupIds.add(group.id)
         current.reviewedGroupIds.add(group.id)
         current.keptOverrides[group.id] = kept
         current.keepDecisionProvenance![group.id] = { source: "manual" }
@@ -281,16 +290,6 @@ export class DuplicateReviewSession {
         break
       case "apply_keep_strategy": {
         const previouslyIncludedGroupIds = new Set(current.selectedGroupIds)
-        for (const groupId of action.includeGroupIds ?? []) {
-          if (this.groupsById.has(groupId)) {
-            if (!previouslyIncludedGroupIds.has(groupId)) {
-              // Newly proposed groups need another per-set review even if a
-              // prior Skip action had marked them reviewed.
-              current.reviewedGroupIds.delete(groupId)
-            }
-            current.selectedGroupIds.add(groupId)
-          }
-        }
         for (const groupId of action.groupIds) {
           const group = this.groupsById.get(groupId)
           if (!group) continue

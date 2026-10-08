@@ -53,7 +53,7 @@ async function sendAppMessage(
 }
 
 function scanLibraryButton(page: Page) {
-  return page.getByRole("button", { name: /Check entire library/i })
+  return page.getByRole("button", { name: /^Scan (entire library|recent 30 days|this date range)$/i })
 }
 
 // ============================================================

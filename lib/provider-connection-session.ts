@@ -6,16 +6,6 @@ import {
 } from "./types"
 import { providerHealthUnavailableMessage } from "./provider-operations"
 
-export interface PendingProviderCommand {
-  resolve: (data: unknown) => void
-  reject: (error: string) => void
-  appTabId: number | null
-  providerTabId: number
-  provider?: PhotoProvider
-  command?: string
-  appClientId?: string
-}
-
 export interface ProviderConnectionAdapter {
   ensureReachable(tabId: number, provider: PhotoProvider): Promise<boolean>
   findProviderTab(
@@ -44,7 +34,6 @@ export interface ProviderHealthOutcome {
 export class ProviderConnectionSession {
   private readonly tabMap = new Map<number, number>()
   private readonly providerByTab = new Map<number, PhotoProvider>()
-  private readonly pendingCommands = new Map<string, PendingProviderCommand>()
   private sidePanelHost: number | null = null
   private sidePanelProviderTab: number | null = null
   private sidePanelProvider: PhotoProvider = "google"
@@ -213,40 +202,8 @@ export class ProviderConnectionSession {
     this.forgetPair(appTabId)
   }
 
-  startCommand(requestId: string, command: PendingProviderCommand): void {
-    this.pendingCommands.set(requestId, command)
-  }
-
-  pendingCommand(requestId: string): PendingProviderCommand | undefined {
-    return this.pendingCommands.get(requestId)
-  }
-
-  commandFromProvider(
-    requestId: string,
-    providerTabId: number | undefined
-  ): PendingProviderCommand | undefined {
-    const command = this.pendingCommands.get(requestId)
-    return command?.providerTabId === providerTabId ? command : undefined
-  }
-
-  finishCommand(requestId: string): PendingProviderCommand | undefined {
-    const command = this.pendingCommands.get(requestId)
-    this.pendingCommands.delete(requestId)
-    return command
-  }
-
-  cancelCommand(requestId: string, error?: string): void {
-    const command = this.finishCommand(requestId)
-    if (command && error) command.reject(error)
-  }
-
   stopClient(clientId?: string): void {
     if (!clientId) return
-    for (const [requestId, command] of this.pendingCommands) {
-      if (command.appClientId !== clientId) continue
-      this.pendingCommands.delete(requestId)
-      command.reject("Side panel closed.")
-    }
     this.sidePanelProviderTab = null
     this.sidePanelHost = null
   }
@@ -258,9 +215,6 @@ export class ProviderConnectionSession {
     const mappedTabId = this.tabMap.get(tabId) ?? null
     this.forgetPair(tabId)
 
-    for (const [requestId, command] of this.pendingCommands) {
-      if (command.appTabId === tabId) this.pendingCommands.delete(requestId)
-    }
     return mappedTabId
   }
 

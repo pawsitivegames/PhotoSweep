@@ -77,7 +77,7 @@ describe("keep strategy feedback", () => {
       proposedTrashMediaItemCount: 0
     })
     expect(buildKeepStrategyFeedback("largest_resolution", counts)).toBe(
-      "Largest resolution was applied and saved as the default: 1 set changed; 1 set already had the selected keeper; 0 manual choices preserved; 0 manual choices replaced; 0 sets resolved by deterministic tie-break; 0 sets had no keeper data. 0 sets included for cleanup review; 0 media items proposed for Trash. Review each set before moving anything to Trash."
+      "Largest resolution updated keeper choices and was saved as the default: 1 set changed; 1 set already had the selected keeper; 0 manual choices preserved; 0 manual choices replaced; 0 sets resolved by deterministic tie-break; 0 sets had no keeper data. Set selection for cleanup is unchanged: 0 sets remain selected and 0 media items remain proposed for Trash. Review any set marked Needs review before moving items."
     )
   })
 
@@ -154,7 +154,7 @@ describe("keep strategy feedback", () => {
       proposedTrashMediaItemCount: 0
     })
     expect(buildKeepStrategyFeedback("best_quality", counts)).toBe(
-      "Best quality was applied and saved as the default: 0 sets changed; 1 set already had the selected keeper; 0 manual choices preserved; 0 manual choices replaced; 1 set resolved by deterministic tie-break; 0 sets had no keeper data. 0 sets included for cleanup review; 0 media items proposed for Trash. Review each set before moving anything to Trash."
+      "Best quality updated keeper choices and was saved as the default: 0 sets changed; 1 set already had the selected keeper; 0 manual choices preserved; 0 manual choices replaced; 1 set resolved by deterministic tie-break; 0 sets had no keeper data. Set selection for cleanup is unchanged: 0 sets remain selected and 0 media items remain proposed for Trash. Review any set marked Needs review before moving items."
     )
     expect(next.keptFor(groups[0])).toEqual(new Set(["a"]))
   })
@@ -167,7 +167,7 @@ describe("keep strategy feedback", () => {
     "newest_upload",
     "non_storage_counting"
   ] as const)(
-    "includes skipped groups in the proposed-trash review for %s and reopens them for review",
+    "updates skipped groups' keepers without including them for %s",
     (strategy) => {
       const groups = [group("g1", "manual-keep", "manual-trash"), group("g2", "c", "d")]
       const mediaItems = {
@@ -208,10 +208,8 @@ describe("keep strategy feedback", () => {
         strategy
       })
 
-      expect(application.selections.selectedGroupIds).toEqual(
-        new Set(["g1", "g2"])
-      )
-      expect(application.selections.reviewedGroupIds).toEqual(new Set())
+      expect(application.selections.selectedGroupIds).toEqual(new Set())
+      expect(application.selections.reviewedGroupIds).toEqual(new Set(["g1"]))
       expect(application.session.decisionFor(groups[0]).source).toBe(
         "automatic"
       )
@@ -222,16 +220,9 @@ describe("keep strategy feedback", () => {
       )
       expect(application.feedback).toContain("1 manual choice replaced")
       expect(application.session.keptFor(groups[1]).size).toBe(1)
-      expect(application.session.trashPlan(groups).mediaKeysToTrash).toEqual(
-        expect.arrayContaining([
-          "manual-trash",
-          ...groups[1].mediaKeys.filter(
-            (mediaKey) => !application.session.keptFor(groups[1]).has(mediaKey)
-          )
-        ])
-      )
+      expect(application.session.trashPlan(groups).mediaKeysToTrash).toEqual([])
       expect(application.feedback).toContain(
-        "2 sets included for cleanup review; 2 media items proposed for Trash"
+        "Set selection for cleanup is unchanged: 0 sets remain selected and 0 media items remain proposed for Trash"
       )
     }
   )
@@ -245,7 +236,7 @@ describe("keep strategy feedback", () => {
       label: "manual Trash-all choice",
       keptOverride: new Set<string>()
     }
-  ])("replaces a skipped $label choice after explicit bulk re-inclusion", (choice) => {
+  ])("replaces a skipped $label choice without re-including the set", (choice) => {
     const groups = [group("g1", "manual-keep", "manual-trash")]
     const mediaItems = {
       "manual-keep": item("manual-keep"),
@@ -269,20 +260,17 @@ describe("keep strategy feedback", () => {
       groups,
       mediaItems,
       selections: skippedSelections,
-      strategy: "best_quality",
-      includeGroupIds: ["g1"]
+      strategy: "best_quality"
     })
 
-    expect(application.session.selectedGroupIds).toEqual(new Set(["g1"]))
-    expect(application.selections.reviewedGroupIds).toEqual(new Set())
-    expect(application.session.reviewedGroupIds).toEqual(new Set())
+    expect(application.session.selectedGroupIds).toEqual(new Set())
+    expect(application.selections.reviewedGroupIds).toEqual(new Set(["g1"]))
+    expect(application.session.reviewedGroupIds).toEqual(new Set(["g1"]))
     expect(application.session.decisionFor(groups[0]).source).toBe("automatic")
     expect(application.session.keptFor(groups[0])).toEqual(
       new Set(["manual-keep"])
     )
-    expect(application.session.trashPlan(groups).mediaKeysToTrash).toEqual(
-      ["manual-trash"]
-    )
+    expect(application.session.trashPlan(groups).mediaKeysToTrash).toEqual([])
     expect(application.feedback).toContain("1 manual choice replaced")
 
     const stored = application.session.serialize()
@@ -297,7 +285,7 @@ describe("keep strategy feedback", () => {
       ),
       keepDecisionProvenance: stored.keepDecisionProvenance
     })
-    expect(restored.reviewedGroupIds).toEqual(new Set())
+    expect(restored.reviewedGroupIds).toEqual(new Set(["g1"]))
     expect(restored.decisionFor(groups[0]).source).toBe("automatic")
     expect(restored.keptFor(groups[0])).toEqual(new Set(["manual-keep"]))
   })
@@ -336,7 +324,7 @@ describe("keep strategy feedback", () => {
     expect(unchanged.selections.reviewedGroupIds).toEqual(new Set(["g1"]))
   })
 
-  it("counts proposals only for cleanup-eligible groups while updating all keepers", () => {
+  it("updates all keepers without changing which groups are included", () => {
     const groups = [group("eligible", "keep", "copy"), group("locked", "locked-a", "locked-b")]
     const mediaItems = {
       keep: item("keep", { isOriginalQuality: true, provider: "google" }),
@@ -353,20 +341,15 @@ describe("keep strategy feedback", () => {
         reviewedGroupIds: new Set(),
         keptOverrides: {}
       },
-      strategy: "best_quality",
-      includeGroupIds: ["eligible"]
+      strategy: "best_quality"
     })
 
-    expect(application.selections.selectedGroupIds).toEqual(
-      new Set(["eligible", "locked"])
-    )
+    expect(application.selections.selectedGroupIds).toEqual(new Set(["locked"]))
     expect(application.session.keptFor(groups[0])).toEqual(new Set(["keep"]))
     expect(application.session.keptFor(groups[1]).size).toBe(1)
-    expect(application.session.trashPlan([groups[0]]).mediaKeysToTrash).toEqual([
-      "copy"
-    ])
+    expect(application.session.trashPlan([groups[0]]).mediaKeysToTrash).toEqual([])
     expect(application.feedback).toContain(
-      "1 set included for cleanup review; 1 media item proposed for Trash"
+      "Set selection for cleanup is unchanged: 1 set remains selected and 1 media item remains proposed for Trash"
     )
   })
 
@@ -390,7 +373,7 @@ describe("keep strategy feedback", () => {
         groups: [currentGroup],
         mediaItems: currentItems,
         selections: {
-          selectedGroupIds: new Set(),
+          selectedGroupIds: new Set([currentGroup.id]),
           reviewedGroupIds: new Set(),
           keptOverrides: {}
         },
