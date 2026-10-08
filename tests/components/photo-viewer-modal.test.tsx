@@ -521,8 +521,28 @@ describe("PhotoViewerModal — original-byte verification", () => {
     )
 
     expect(onVerifyOriginal).not.toHaveBeenCalled()
-    expect(screen.getByText(/up to 25 MiB per item/i)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Verify original bytes" }))
+    expect(
+      screen.getByText(
+        /reads this item's original from iCloud Photos into your browser/i
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/downloads this item's original/i)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/calculates a SHA-256 locally/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /saves the digest and byte count, plus the media type when available, with this local review/i
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Maximum 25 MiB per item and 100 MiB total per review/i)
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: "Verify original bytes" })
+    )
     await screen.findByText(new RegExp(`SHA-256 ${hash}`))
     expect(onVerifyOriginal).toHaveBeenCalledOnce()
     expect(screen.getByRole("button", { name: "Original bytes verified" })).toBeDisabled()
@@ -552,11 +572,38 @@ describe("PhotoViewerModal — original-byte verification", () => {
       />
     )
 
+    expect(
+      screen.getByText(
+        /a Live Photo check covers only the still image, not its motion component/i
+      )
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Verify original bytes" }))
     await screen.findByText(new RegExp(`SHA-256 ${hash}`))
     fireEvent.click(screen.getByRole("button", { name: "Next photo" }))
     fireEvent.click(screen.getByRole("button", { name: "Verify original bytes" }))
-    await screen.findByText(/still-image bytes match across 2 candidate items; Live Photo motion pairing remains unknown/i)
+    await screen.findByText(
+      /still-image bytes match across 2 candidate items; Live Photo motion pairing remains unknown/i
+    )
+  })
+
+  it("discloses the Canada-only Amazon original check before opt-in", () => {
+    const item = makeItem("amazon-photo", { provider: "amazon" })
+    const onVerifyOriginal = vi.fn()
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[item]}
+        keptSet={new Set([item.mediaKey])}
+        onVerifyOriginal={onVerifyOriginal}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        /PhotoSweep's Amazon original check is limited to Amazon Photos Canada/i
+      )
+    ).toBeInTheDocument()
+    expect(onVerifyOriginal).not.toHaveBeenCalled()
   })
 
   it("aborts original hashing on navigation and does not display a late digest", async () => {

@@ -868,9 +868,19 @@ export function PhotoViewerModal({
             <Typography
               variant="caption"
               sx={{ color: photoSweepColors.viewerMuted, flex: 1, minWidth: 220 }}>
-              Original checks read only this item (up to 25 MiB per item,
-              100 MiB per review). The SHA-256 evidence is retained with this
-              review; original bytes and temporary URLs are discarded.
+              Choosing Verify original bytes reads this item&apos;s original
+              from {providerLabel(item)} into your browser and calculates a
+              SHA-256 locally. PhotoSweep saves the digest and byte count, plus
+              the media type when available, with this local review; it does
+              not save the original file. Maximum 25 MiB per item and 100 MiB
+              total per review.
+              {item.provider === "amazon"
+                ? " PhotoSweep's Amazon original check is limited to Amazon Photos Canada."
+                : ""}
+              {item.mediaKind === "live-photo"
+                ? " A Live Photo check covers only the still image, not its motion component."
+                : ""}
+              Unsupported or failed checks remain unverified.
             </Typography>
             {currentHash && (
               <Box sx={{ width: "100%" }}>
