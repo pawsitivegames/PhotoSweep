@@ -1291,7 +1291,11 @@ function parseGoogleRawAlbum(itemData) {
       ? { itemCount: rawItemCount }
       : {}),
     isShared:
-      typeof rawSharedValue === "boolean" ? rawSharedValue : undefined
+      typeof rawSharedValue === "boolean"
+        ? rawSharedValue
+        : rawSharedValue === null
+          ? false
+          : undefined
   }
 }
 
