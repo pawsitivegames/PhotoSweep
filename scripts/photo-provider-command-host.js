@@ -3,8 +3,6 @@
 // dispatch contract they all satisfy.
 
 {
-const providerSessionIds = new WeakMap()
-
 function isLocalTestEnvironment(targetWindow) {
   const protocol =
     typeof targetWindow.location === "object" && targetWindow.location
@@ -24,11 +22,26 @@ function isLocalTestEnvironment(targetWindow) {
   )
 }
 
+function providerSessionIdentityMap() {
+  const key = Symbol.for("photosweep.providerSessionIds")
+  const existing = globalThis[key]
+  if (existing instanceof WeakMap) return existing
+
+  const sessionIds = new WeakMap()
+  try {
+    Object.defineProperty(globalThis, key, { value: sessionIds })
+  } catch {
+    // Keep this host usable if the page has made the global non-extensible.
+  }
+  return sessionIds
+}
+
 function createCommandHost(targetWindow, publicKey) {
   if (targetWindow.__GPD_COMMAND_HOST__) {
     return targetWindow.__GPD_COMMAND_HOST__
   }
 
+  const providerSessionIds = providerSessionIdentityMap()
   const APP_ID = "GPD"
   const CAPABILITY_TTL_MS = 60 * 1000
   const PROVIDER_HEALTH_SCHEMA_VERSION = 1
@@ -1215,9 +1228,15 @@ function readPublicKeyFromCurrentScript(targetWindow) {
   }
 }
 
-globalThis.addEventListener("gpd-command-host-test", () =>
-  exposeTestFactory(globalThis)
-)
+if (
+  typeof window === "undefined" ||
+  !window.__GPD_COMMAND_HOST__ ||
+  globalThis.__GPD_COMMAND_HOST_TEST_MODE__ === true
+) {
+  globalThis.addEventListener("gpd-command-host-test", () =>
+    exposeTestFactory(globalThis)
+  )
+}
 
 if (typeof window !== "undefined") {
   const publicKey = readPublicKeyFromCurrentScript(window)
