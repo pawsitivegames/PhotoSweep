@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { parseArgs } from "./parse-args.mjs"
+import { resolveTlcJarPath } from "./tlc-tooling.mjs"
 
 const TLC_VERSION = "1.8.0"
 const TLC_SHA256 = "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d"
@@ -49,22 +50,6 @@ function sha256(bytes) {
 
 function sha256File(path) {
   return sha256(readFileSync(path))
-}
-
-function newestLocalJar(root) {
-  const verificationRoot = resolve(root, "tmp/verification")
-  if (!existsSync(verificationRoot)) return null
-  const candidates = []
-  for (const directory of readdirSync(verificationRoot)) {
-    const candidate = join(
-      verificationRoot,
-      directory,
-      "tooling",
-      `tla2tools-${TLC_VERSION}.jar`
-    )
-    if (existsSync(candidate)) candidates.push(candidate)
-  }
-  return candidates.sort().at(-1) ?? null
 }
 
 function parseCoverage(output) {
@@ -289,14 +274,13 @@ export function runMutationOutcomeModels({
   const negativeDirectory = join(outputDirectory, "negative")
   mkdirSync(positiveDirectory, { recursive: true })
   mkdirSync(negativeDirectory, { recursive: true })
-  const jarCandidate = jarPath ?? newestLocalJar(root)
-  const resolvedJar = jarCandidate ? resolve(root, jarCandidate) : null
+  const resolvedJar = resolveTlcJarPath(root, TLC_VERSION, jarPath)
   const summaryPath = join(outputDirectory, "mutation-outcomes-model.json")
   const positivePath = join(outputDirectory, "model-SAFE-12.json")
   const negativePath = join(outputDirectory, "negative-SAFE-12.json")
 
-  if (!resolvedJar || !existsSync(resolvedJar) || !statSync(resolvedJar).isFile()) {
-    const message = `Pinned TLC ${TLC_VERSION} jar is unavailable or not a file: ${resolvedJar ?? "no local candidate"}`
+  if (!existsSync(resolvedJar) || !statSync(resolvedJar).isFile()) {
+    const message = `Pinned TLC ${TLC_VERSION} jar is unavailable or not a file: ${resolvedJar}`
     writeFileSync(join(positiveDirectory, "tlc.log"), `${message}\n`)
     writeFileSync(join(negativeDirectory, "tlc.log"), `${message}\n`)
     const blocked = {

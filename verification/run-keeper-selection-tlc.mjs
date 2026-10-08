@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { parseArgs } from "./parse-args.mjs"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
+import { resolveTlcJarPath } from "./tlc-tooling.mjs"
 
 const TLC_VERSION = "1.8.0"
 const TLC_SHA256 = "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d"
@@ -74,24 +75,6 @@ function sha256(bytes) {
 
 function sha256File(path) {
   return sha256(readFileSync(path))
-}
-
-function newestLocalJar(root) {
-  const verificationRoot = resolve(root, "tmp/verification")
-  if (!existsSync(verificationRoot)) return null
-  const candidates = []
-  for (const directory of readdirSync(verificationRoot)) {
-    const candidate = join(
-      verificationRoot,
-      directory,
-      "tooling",
-      `tla2tools-${TLC_VERSION}.jar`
-    )
-    if (existsSync(candidate) && statSync(candidate).isFile()) {
-      candidates.push(candidate)
-    }
-  }
-  return candidates.sort().at(-1) ?? null
 }
 
 function parseSummary(output) {
@@ -165,7 +148,7 @@ export function runKeeperSelectionTlc({
         : "safe01-selection"
   const logPath = join(outputDirectoryAbsolute, `${prefix}-tlc.log`)
   const resultPath = join(outputDirectoryAbsolute, `${prefix}.json`)
-  const resolvedJar = resolve(root, jarPath ?? newestLocalJar(root) ?? "")
+  const resolvedJar = resolveTlcJarPath(root, TLC_VERSION, jarPath)
   const activeConfigPath =
     variant === "negative"
       ? NEGATIVE_CONFIG_PATH

@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { parseArgs } from "./parse-args.mjs"
+import { resolveTlcJarPath } from "./tlc-tooling.mjs"
 import {
   RECOVERY_AUTHORITY_CORRESPONDENCE_PATHS,
   RECOVERY_AUTHORITY_REQUIRED_ACTIONS
@@ -30,24 +31,6 @@ function sha256(bytes) {
 
 function sha256File(path) {
   return sha256(readFileSync(path))
-}
-
-function newestLocalJar(root) {
-  const verificationRoot = resolve(root, "tmp/verification")
-  if (!existsSync(verificationRoot)) return null
-  const candidates = []
-  for (const directory of readdirSync(verificationRoot)) {
-    const candidate = join(
-      verificationRoot,
-      directory,
-      "tooling",
-      `tla2tools-${TLC_VERSION}.jar`
-    )
-    if (existsSync(candidate) && statSync(candidate).isFile()) {
-      candidates.push(candidate)
-    }
-  }
-  return candidates.sort().at(-1) ?? null
 }
 
 function parseCoverage(output) {
@@ -277,10 +260,9 @@ export function runRecoveryAuthorityModels({
   )
   const summaryPath = join(outputDirectory, "recovery-authority-model.json")
 
-  const jarCandidate = jarPath ?? newestLocalJar(root)
-  const resolvedJar = jarCandidate ? resolve(root, jarCandidate) : null
-  if (!resolvedJar || !existsSync(resolvedJar) || !statSync(resolvedJar).isFile()) {
-    const message = `Pinned TLC ${TLC_VERSION} jar is unavailable or not a file: ${resolvedJar ?? "no local candidate"}`
+  const resolvedJar = resolveTlcJarPath(root, TLC_VERSION, jarPath)
+  if (!existsSync(resolvedJar) || !statSync(resolvedJar).isFile()) {
+    const message = `Pinned TLC ${TLC_VERSION} jar is unavailable or not a file: ${resolvedJar}`
     const positive = blockedArtifact({ id: "SAFE-12-authority-model", runId, outputDirectory: positiveDirectory, message })
     const negative = blockedArtifact({ id: "SAFE-12-authority-negative-control", runId, outputDirectory: negativeDirectory, message })
     const clearNegative = blockedArtifact({ id: "SAFE-12-authority-clear-negative-control", runId, outputDirectory: clearNegativeDirectory, message })

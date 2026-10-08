@@ -69,6 +69,21 @@ describe("formal verification npm lifecycle", () => {
     expect(packageScripts.pretest).toContain("tools/write-build-flags.mjs")
   })
 
+  it("documents the canonical pinned TLC location and strict checksum override", () => {
+    const tooling = readFileSync(
+      resolve(root, "verification/tlc-tooling.mjs"),
+      "utf8"
+    )
+    expect(tooling).toContain('"ci-tlc"')
+    expect(agents).toContain(
+      "`tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar`"
+    )
+    expect(agents).toContain("`TLA_TOOLS_JAR` is an explicit path override")
+    expect(agents).toContain(
+      "`7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d`"
+    )
+  })
+
   it("keeps internal package and recorded-artifact audits as separate release gates", () => {
     const workflows = [
       ".github/workflows/build-extension-package.yml",

@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
 import {
-  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -10,6 +9,7 @@ import {
 } from "node:fs"
 import { join, relative, resolve } from "node:path"
 import { parseArgs } from "../parse-args.mjs"
+import { resolveTlcJarPath } from "../tlc-tooling.mjs"
 
 export const TRACE_SCHEMA_VERSION = 1
 export const PINNED_TLC_VERSION = "1.8.0"
@@ -262,28 +262,6 @@ export function parseTraceModule(text, sourcePath = null) {
   }
 }
 
-function newestLocalJar(root) {
-  const verificationRoot = resolve(root, "tmp/verification")
-  if (!existsSync(verificationRoot)) return null
-  const candidates = []
-  function visit(directory) {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name)
-      if (entry.isDirectory()) {
-        if (entry.name === "node_modules" || entry.name === "build") continue
-        visit(path)
-      } else if (
-        entry.isFile() &&
-        entry.name === `tla2tools-${PINNED_TLC_VERSION}.jar`
-      ) {
-        candidates.push(path)
-      }
-    }
-  }
-  visit(verificationRoot)
-  return candidates.sort().at(-1) ?? null
-}
-
 function commandLine(args) {
   return ["java", ...args]
     .map((part) =>
@@ -470,9 +448,10 @@ export function exportTraceBundle({
     constants: parseConfigConstants(readFileSync(configAbsolute, "utf8"))
   }
 
-  const resolvedJar = resolve(
+  const resolvedJar = resolveTlcJarPath(
     resolvedRoot,
-    jarPath ?? newestLocalJar(resolvedRoot) ?? ""
+    PINNED_TLC_VERSION,
+    jarPath
   )
   if (!isFile(resolvedJar)) {
     return failedResult({

@@ -1,9 +1,7 @@
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import {
-  existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   statSync,
   writeFileSync
@@ -12,6 +10,7 @@ import { join, relative, resolve } from "node:path"
 import { parseArgs } from "./parse-args.mjs"
 import { runKeeperSelectionTlc } from "./run-keeper-selection-tlc.mjs"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
+import { resolveTlcJarPath } from "./tlc-tooling.mjs"
 
 const PINNED_TLC_VERSION = "1.8.0"
 const PINNED_TLC_SHA256 =
@@ -27,22 +26,6 @@ function isRegularFile(path) {
   } catch {
     return false
   }
-}
-
-function newestLocalJar(root) {
-  const verificationRoot = resolve(root, "tmp/verification")
-  if (!existsSync(verificationRoot)) return null
-  const candidates = []
-  for (const directory of readdirSync(verificationRoot)) {
-    const candidate = join(
-      verificationRoot,
-      directory,
-      "tooling",
-      `tla2tools-${PINNED_TLC_VERSION}.jar`
-    )
-    if (existsSync(candidate)) candidates.push(candidate)
-  }
-  return candidates.sort().at(-1) ?? null
 }
 
 function parseSummary(output) {
@@ -128,15 +111,11 @@ export function runTlc({
 } = {}) {
   const outputDirectoryAbsolute = resolve(root, outputDirectory)
   mkdirSync(outputDirectoryAbsolute, { recursive: true })
-  const configuredJar =
-    typeof jarPath === "string" && jarPath.trim()
-      ? resolve(root, jarPath)
-      : newestLocalJar(root)
-  const resolvedJar = configuredJar
+  const resolvedJar = resolveTlcJarPath(root, PINNED_TLC_VERSION, jarPath)
   const logPath = join(outputDirectoryAbsolute, "model-tlc.log")
   const resultPath = join(outputDirectoryAbsolute, "model.json")
-  if (!resolvedJar || !isRegularFile(resolvedJar)) {
-    const jarDescription = resolvedJar ?? "no pinned local jar was found"
+  if (!isRegularFile(resolvedJar)) {
+    const jarDescription = resolvedJar
     const result = {
       status: "BLOCKED",
       runId,

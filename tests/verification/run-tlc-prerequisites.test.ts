@@ -7,7 +7,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { runTlc } from "../../verification/run-tlc.mjs"
@@ -39,6 +39,45 @@ describe("TLC jar prerequisites", () => {
       expect(existsSync(result.resultPath)).toBe(true)
       expect(JSON.parse(readFileSync(result.resultPath, "utf8")).status).toBe(
         "BLOCKED"
+      )
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("uses the canonical CI jar path instead of a stale run-local fallback", () => {
+    const root = makeRoot()
+    const canonicalPath = join(
+      root,
+      "tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar"
+    )
+    const staleFallbackPath = join(
+      root,
+      "tmp/verification/zz-stale-run/tooling/tla2tools-1.8.0.jar"
+    )
+    mkdirSync(dirname(canonicalPath), { recursive: true })
+    mkdirSync(dirname(staleFallbackPath), { recursive: true })
+    writeFileSync(canonicalPath, "wrong digest at canonical path\n")
+    writeFileSync(staleFallbackPath, "wrong digest at later fallback\n")
+    vi.stubEnv("TLA_TOOLS_JAR", "")
+
+    try {
+      const result = runTlc({
+        root,
+        outputDirectory: "tmp/verification/canonical-path"
+      })
+
+      expect(result).toMatchObject({
+        status: "FAIL",
+        exitCode: 1,
+        jarPath: canonicalPath
+      })
+      expect(result).toHaveProperty(
+        "message",
+        expect.stringContaining("integrity mismatch")
+      )
+      expect(readFileSync(result.logPath, "utf8")).toContain(
+        "integrity mismatch"
       )
     } finally {
       rmSync(root, { recursive: true, force: true })
