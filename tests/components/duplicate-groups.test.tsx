@@ -127,6 +127,20 @@ const defaultSelectedGroupIds = new Set(["g1"])
 const defaultKeptByGroupId = new Map<string, Set<string>>([
   ["g1", new Set(["img1"])]
 ])
+const defaultKeepDecisionByGroupId = new Map([["g1", manualDecision]])
+
+function reviewDisplayProps(
+  keptByGroupId: Map<string, Set<string>>,
+  keepDecisionByGroupId: Map<string, KeepDecision> = defaultKeepDecisionByGroupId
+) {
+  return {
+    getKeptForGroup: (currentGroup: DuplicateGroup) =>
+      new Set(keptByGroupId.get(currentGroup.id) ?? []),
+    getKeepDecisionForGroup: (currentGroup: DuplicateGroup) =>
+      keepDecisionByGroupId.get(currentGroup.id)
+  }
+}
+
 const defaultTrashPlanMediaKeys = new Set(
   proposedTrashMediaKeys({
     groups: [group],
@@ -144,8 +158,7 @@ const defaultProps = {
   reviewedGroupIds: new Set(["g1"]),
   onToggleGroup: vi.fn(),
   onSkipGroup: vi.fn(),
-  keptByGroupId: defaultKeptByGroupId,
-  keepDecisionByGroupId: new Map([["g1", manualDecision]]) ,
+  ...reviewDisplayProps(defaultKeptByGroupId),
   onToggleKept: vi.fn(),
   onTrashAll: vi.fn()
 }
@@ -167,7 +180,7 @@ describe("DuplicateGroups — chip rendering", () => {
         {...defaultProps}
         selectedGroupIds={new Set()}
         reviewedGroupIds={new Set()}
-        keepDecisionByGroupId={new Map()}
+        getKeepDecisionForGroup={() => undefined}
       />
     )
 
@@ -212,8 +225,7 @@ describe("DuplicateGroups — chip rendering", () => {
         mediaItems={reviewOnlyItems}
         trashPlanMediaKeys={new Set(reviewOnlyPlan)}
         selectedGroupIds={reviewOnlySelection}
-        keptByGroupId={reviewOnlyKept}
-        keepDecisionByGroupId={new Map()}
+        {...reviewDisplayProps(reviewOnlyKept, new Map())}
       />
     )
 
@@ -251,8 +263,7 @@ describe("DuplicateGroups — chip rendering", () => {
         mediaItems={itemsWithoutIdentity}
         trashPlanMediaKeys={new Set(plan)}
         selectedGroupIds={selected}
-        keptByGroupId={kept}
-        keepDecisionByGroupId={new Map()}
+        {...reviewDisplayProps(kept, new Map())}
       />
     )
 
@@ -291,8 +302,7 @@ describe("DuplicateGroups — chip rendering", () => {
         mediaItems={allItems}
         trashPlanMediaKeys={new Set(plan)}
         selectedGroupIds={selected}
-        keptByGroupId={kept}
-        keepDecisionByGroupId={new Map()}
+        {...reviewDisplayProps(kept, new Map())}
       />
     )
 
@@ -327,8 +337,7 @@ describe("DuplicateGroups — chip rendering", () => {
         mediaItems={proposalItems}
         trashPlanMediaKeys={new Set(plan)}
         selectedGroupIds={selected}
-        keptByGroupId={kept}
-        keepDecisionByGroupId={new Map()}
+        {...reviewDisplayProps(kept, new Map())}
       />
     )
 
@@ -409,7 +418,9 @@ describe("DuplicateGroups — chip rendering", () => {
     wrap(
       <DuplicateGroups
         {...defaultProps}
-        keptByGroupId={new Map([["g1", new Set(["img1", "img2"])]])}
+        {...reviewDisplayProps(
+          new Map([["g1", new Set(["img1", "img2"])]])
+        )}
       />
     )
     const keepChips = screen.getAllByText("Keep this copy")
@@ -434,7 +445,7 @@ describe("DuplicateGroups — chip rendering", () => {
       <DuplicateGroups
         {...defaultProps}
         trashPlanMediaKeys={trashPlanMediaKeys}
-        keptByGroupId={new Map([["g1", new Set()]])}
+        {...reviewDisplayProps(new Map([["g1", new Set()]]))}
       />
     )
     expect(screen.queryByText("Keep this copy")).not.toBeInTheDocument()
@@ -557,7 +568,7 @@ describe("DuplicateGroups — group item-kind label", () => {
         groups={[makeGroup("gk", ...keys)]}
         mediaItems={items}
         selectedGroupIds={new Set(["gk"])}
-        keptByGroupId={new Map([["gk", new Set([keys[0]])]])}
+        {...reviewDisplayProps(new Map([["gk", new Set([keys[0]])]]))}
       />
     )
   }
@@ -806,7 +817,7 @@ describe("DuplicateGroups — virtualized rendering", () => {
         groups={largeGroups}
         mediaItems={largeMediaItems}
         selectedGroupIds={selectedGroupIds}
-        keptByGroupId={keptByGroupId}
+        {...reviewDisplayProps(keptByGroupId)}
       />
     )
 

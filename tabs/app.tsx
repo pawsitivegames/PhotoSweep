@@ -73,7 +73,7 @@ import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
 import { DuplicateDetectionEngine } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
 import {
-  applyDefaultKeepStrategyToSelections,
+  applyDefaultKeepStrategyToSession,
   DuplicateReviewSession,
   type DuplicateReviewAction,
   type DuplicateReviewSelections,
@@ -3068,23 +3068,20 @@ export default function App() {
     }
 
     const strategy = settings.defaultKeepStrategy ?? "best_quality"
-    const applied = applyDefaultKeepStrategyToSelections({
+    const appliedSession = applyDefaultKeepStrategyToSession({
       groups,
       mediaItems: displayMediaItems,
       selections,
       strategy
     })
+    const applied = appliedSession.selections
+    reviewSessionRef.current = appliedSession
     reviewSelectionsRef.current = applied
     setReviewSelections(applied)
 
     void storedReviewScope.write(
       {
-        selections: new DuplicateReviewSession({
-          groups,
-          mediaItems: displayMediaItems,
-          selections: applied,
-          defaultStrategy: strategy
-        }).serialize()
+        selections: appliedSession.serialize()
       },
       undefined,
       resultProvider
@@ -3163,28 +3160,6 @@ export default function App() {
     state,
     storedReviewScope
   ])
-
-  const handleToggleGroup = useCallback(
-    (groupId: string) => {
-      reviewHydrationClosedRef.current = true
-      scanReviewGenerationRef.current += 1
-      setReviewSelections((current) => {
-        const currentSession = new DuplicateReviewSession({
-          groups,
-          mediaItems: displayMediaItems,
-          selections: current,
-          defaultStrategy: settingsRef.current.defaultKeepStrategy
-        })
-        return currentSession.update({
-          type: currentSession.selectedGroupIds.has(groupId)
-            ? "deselect_groups"
-            : "select_groups",
-          groupIds: [groupId]
-        })
-      })
-    },
-    [displayMediaItems, groups]
-  )
 
   // Listen for messages from service worker
   useEffect(() => {
@@ -3745,6 +3720,7 @@ export default function App() {
   const reviewHydrationClosedRef = useRef(false)
   const reviewSelectionsRef = useRef(reviewSelections)
   reviewSelectionsRef.current = reviewSelections
+  const reviewSessionRef = useRef<DuplicateReviewSession | null>(null)
   const reviewFilterRef = useRef(reviewFilter)
   reviewFilterRef.current = reviewFilter
   const entitlementRef = useRef(entitlement)
@@ -4418,6 +4394,7 @@ export default function App() {
       }),
     [displayMediaItems, groups, reviewSelections, settings.defaultKeepStrategy]
   )
+  reviewSessionRef.current = reviewSession
   const cleanupTrashPlan = useMemo(
     () => reviewSession.trashPlan(cleanupScopeGroups),
     [cleanupScopeGroups, reviewSession]
@@ -4427,24 +4404,18 @@ export default function App() {
     [cleanupTrashPlan]
   )
   const updateReviewSelections = useCallback(
-    (
-      action: DuplicateReviewAction,
-      nextSelectionsOverride?: DuplicateReviewSelections
-    ): DuplicateReviewSelections | null => {
+    (action: DuplicateReviewAction): DuplicateReviewSelections | null => {
       if (
         stateRef.current.status === "results" &&
         !stateIdentityValidated
       ) {
         return null
       }
-      const next =
-        nextSelectionsOverride ??
-        new DuplicateReviewSession({
-          groups,
-          mediaItems: displayMediaItems,
-          selections: reviewSelectionsRef.current,
-          defaultStrategy: settingsRef.current.defaultKeepStrategy
-        }).update(action)
+      const currentSession = reviewSessionRef.current
+      if (!currentSession) return null
+      const nextSession = currentSession.transition(action)
+      const next = nextSession.selections
+      reviewSessionRef.current = nextSession
       reviewSelectionsRef.current = next
       setReviewSelections(next)
       if (
@@ -4455,19 +4426,34 @@ export default function App() {
         scanReviewGenerationRef.current += 1
         // Persist the user action immediately so a fast reload cannot race the
         // later reconciliation effect and lose a keep/skip decision.
-        void storedReviewScope.write({
-          selections: new DuplicateReviewSession({
-          groups,
-          mediaItems: displayMediaItems,
-          selections: next,
-          defaultStrategy: settingsRef.current.defaultKeepStrategy
-        }).serialize()
-        }, undefined, stateRef.current.sourceProvider ?? settingsRef.current.sourceProvider ?? "google")
+        void storedReviewScope.write(
+          { selections: nextSession.serialize() },
+          undefined,
+          stateRef.current.sourceProvider ??
+            settingsRef.current.sourceProvider ??
+            "google"
+        )
       }
       return next
     },
-    [displayMediaItems, groups, stateIdentityValidated, storedReviewScope]
+    [stateIdentityValidated, storedReviewScope]
   )
+  const handleToggleGroup = useCallback((groupId: string) => {
+    const currentSession = reviewSessionRef.current
+    if (!currentSession) return
+    reviewHydrationClosedRef.current = true
+    scanReviewGenerationRef.current += 1
+    const nextSession = currentSession.transition({
+      type: currentSession.selectedGroupIds.has(groupId)
+        ? "deselect_groups"
+        : "select_groups",
+      groupIds: [groupId]
+    })
+    reviewSessionRef.current = nextSession
+    const next = nextSession.selections
+    reviewSelectionsRef.current = next
+    setReviewSelections(next)
+  }, [])
   const reviewedVisibleGroupCount = visibleGroups.filter((group) =>
     reviewSession.reviewedGroupIds.has(group.id)
   ).length
@@ -4504,6 +4490,10 @@ export default function App() {
 
   const getKept = useCallback(
     (group: DuplicateGroup): Set<string> => reviewSession.keptFor(group),
+    [reviewSession]
+  )
+  const getKeepDecision = useCallback(
+    (group: DuplicateGroup) => reviewSession.decisionFor(group),
     [reviewSession]
   )
 
@@ -4593,8 +4583,6 @@ export default function App() {
     trackEvent,
     visibleGroups.length
   ])
-
-  const keptByGroupId = reviewSession.keptByGroupId
 
   const handleToggleKept = useCallback(
     (group: DuplicateGroup, mediaKey: string) => {
@@ -6734,8 +6722,8 @@ export default function App() {
                     reviewedGroupIds={reviewedGroupIds}
                     onToggleGroup={handleToggleGroup}
                     onSkipGroup={handleSkipGroup}
-                    keptByGroupId={keptByGroupId}
-                    keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
+                    getKeptForGroup={getKept}
+                    getKeepDecisionForGroup={getKeepDecision}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
                     onVerifyOriginal={handleVerifyOriginal}
@@ -6870,10 +6858,8 @@ export default function App() {
                         reviewedGroupIds={new Set()}
                         onToggleGroup={() => {}}
                         onSkipGroup={() => {}}
-                        keptByGroupId={keptByGroupId}
-                        keepDecisionByGroupId={
-                          reviewSession.keepDecisionByGroupId
-                        }
+                        getKeptForGroup={getKept}
+                        getKeepDecisionForGroup={getKeepDecision}
                         onToggleKept={() => {}}
                         onTrashAll={() => {}}
                         readOnly
@@ -6942,8 +6928,8 @@ export default function App() {
                     reviewedGroupIds={reviewedGroupIds}
                     onToggleGroup={handleToggleGroup}
                     onSkipGroup={handleSkipGroup}
-                    keptByGroupId={keptByGroupId}
-                    keepDecisionByGroupId={reviewSession.keepDecisionByGroupId}
+                    getKeptForGroup={getKept}
+                    getKeepDecisionForGroup={getKeepDecision}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
                     onVerifyOriginal={handleVerifyOriginal}

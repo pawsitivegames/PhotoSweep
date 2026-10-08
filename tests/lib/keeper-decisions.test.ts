@@ -572,7 +572,7 @@ describe("keeper decision contract", () => {
       }
     })
 
-    const decision = review.keepDecisionByGroupId.get("g1")!
+    const decision = review.decisionFor(g1)
     expect(decision.source).toBe("automatic")
     expect(decision.recommendation).toMatchObject({
       status: "recommended",
@@ -1180,7 +1180,8 @@ describe("keeper decision contract", () => {
 
     expect(updated.selectedGroupIds).toEqual(new Set())
     expect(updated.reviewedGroupIds).toEqual(new Set())
-    expect(updated.keptByGroupId.has("empty")).toBe(false)
+    expect(updated.keptFor(emptyGroup)).toEqual(new Set())
+    expect(updated.decisionFor(emptyGroup).keptMediaKeys).toEqual(new Set())
     expect(updated.trashPlan([emptyGroup]).mediaKeysToTrash).toEqual([])
   })
 
@@ -1207,7 +1208,8 @@ describe("keeper decision contract", () => {
 
     expect(updated.selectedGroupIds).toEqual(new Set())
     expect(updated.reviewedGroupIds).toEqual(new Set())
-    expect(updated.keptByGroupId.has("empty")).toBe(false)
+    expect(updated.keptFor(emptyGroup)).toEqual(new Set())
+    expect(updated.decisionFor(emptyGroup).keptMediaKeys).toEqual(new Set())
     expect(updated.trashPlan([emptyGroup]).mediaKeysToTrash).toEqual([])
 
     const automatic = new DuplicateReviewSession({
@@ -1234,7 +1236,7 @@ describe("keeper decision contract", () => {
 
     expect(reapplied.selectedGroupIds).toEqual(new Set())
     expect(reapplied.reviewedGroupIds).toEqual(new Set())
-    expect(reapplied.keepDecisionByGroupId.has("empty")).toBe(false)
+    expect(reapplied.decisionFor(emptyGroup).keptMediaKeys).toEqual(new Set())
   })
 
   it("recomputes nonempty groups with an empty legacy keeper override", () => {

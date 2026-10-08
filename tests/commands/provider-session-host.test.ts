@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 type ProviderCommandHost = {
   providerSessionId: string
+  originalMediaRetrieval: object
   setProviderIdentity: (identity: string) => Promise<string>
   requireCurrentDocumentSession: () => string
   postResult: (
@@ -53,12 +54,32 @@ type ProviderCommandHost = {
         signal?: AbortSignal
       ) => void
     >
+    unsupportedMessage?: (command: string) => string
   }) => void
 }
 
+type ProviderAdapterCommandHost = Pick<
+  ProviderCommandHost,
+  | "providerSessionId"
+  | "originalMediaRetrieval"
+  | "setProviderIdentity"
+  | "requireCurrentDocumentSession"
+  | "postResult"
+  | "postError"
+  | "postProgress"
+  | "dateRangeBounds"
+  | "isTimestampInDateRange"
+  | "classifyProviderFailure"
+  | "createProviderHealth"
+  | "createAbortError"
+  | "throwIfAborted"
+  | "delay"
+  | "register"
+>
+
 declare global {
   interface Window {
-    __GPD_COMMAND_HOST__?: ProviderCommandHost
+    __GPD_COMMAND_HOST__?: ProviderAdapterCommandHost
     __GPD_COMMAND_HOST_TEST_MODE__?: boolean
     __GPD_COMMAND_HOST_TEST_FACTORY__?: (
       targetWindow: Record<string, unknown>,
@@ -68,25 +89,26 @@ declare global {
 }
 
 const PROVIDER_SESSION_KEY = "__GPD_PROVIDER_SESSION_ID__"
+let activeTestHost: ProviderCommandHost | undefined
 
 const trashHandler = vi.fn((requestId: string) => {
-  window.__GPD_COMMAND_HOST__?.postResult("trashItems", requestId, {
+  activeTestHost?.postResult("trashItems", requestId, {
     trashedCount: 1
   })
 })
 const listAlbumsHandler = vi.fn((requestId: string) => {
-  window.__GPD_COMMAND_HOST__?.postResult("listAlbums", requestId, [])
+  activeTestHost?.postResult("listAlbums", requestId, [])
 })
 const mediaItemsHandler = vi.fn((requestId: string) => {
-  window.__GPD_COMMAND_HOST__?.postResult("getAllMediaItems", requestId, [])
+  activeTestHost?.postResult("getAllMediaItems", requestId, [])
 })
 const restoreHandler = vi.fn((requestId: string) => {
-  window.__GPD_COMMAND_HOST__?.postResult("restoreItems", requestId, {
+  activeTestHost?.postResult("restoreItems", requestId, {
     restoredCount: 1
   })
 })
 const healthCheckHandler = vi.fn((requestId: string) => {
-  window.__GPD_COMMAND_HOST__?.postResult("healthCheck", requestId, {
+  activeTestHost?.postResult("healthCheck", requestId, {
     ok: true
   })
 })
@@ -106,14 +128,20 @@ let hostMessageListener: EventListener | undefined
 beforeEach(async () => {
   vi.resetModules()
   delete window.__GPD_COMMAND_HOST__
+  window.__GPD_COMMAND_HOST_TEST_MODE__ = true
   const addEventListenerSpy = vi.spyOn(window, "addEventListener")
   // Import the production host for each test so mutation runs exercise the
   // current source instead of a module cached by an earlier test.
   // @ts-expect-error Vite resolves this JavaScript module in the test bundle.
   await import("../../scripts/photo-provider-command-host.js")
-  const host = window.__GPD_COMMAND_HOST__
-  if (!host) throw new Error("Provider command host was not initialized")
-  host.register({
+  const adapterHost = window.__GPD_COMMAND_HOST__
+  if (!adapterHost) throw new Error("Provider command host was not initialized")
+  window.dispatchEvent(new Event("gpd-command-host-test"))
+  const createHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
+  if (!createHost) throw new Error("Provider command-host test factory is missing")
+  delete window.__GPD_COMMAND_HOST__
+  activeTestHost = createHost(window as unknown as Record<string, unknown>)
+  activeTestHost.register({
     handlers: {
       trashItems: trashHandler,
       listAlbums: listAlbumsHandler,
@@ -146,6 +174,9 @@ afterEach(() => {
     window.removeEventListener("message", hostMessageListener)
     hostMessageListener = undefined
   }
+  activeTestHost = undefined
+  delete window.__GPD_COMMAND_HOST_TEST_FACTORY__
+  delete window.__GPD_COMMAND_HOST_TEST_MODE__
   delete window.__GPD_COMMAND_HOST__
 })
 
@@ -361,7 +392,7 @@ async function sendProviderRetrievalCancellation(
 
 describe("PARITY-02 provider command host session binding", () => {
   it("persists the generated session ID in tab sessionStorage", () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
 
     expect(window.sessionStorage.getItem(PROVIDER_SESSION_KEY)).toBe(
       host.providerSessionId
@@ -753,7 +784,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("rejects destructive commands from an older provider page session", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
 
     await sendTrashCommand("stale-provider-page-session")
@@ -772,7 +803,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("rejects destructive commands with no provider page session", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
 
     await sendTrashCommandWithoutSession()
@@ -804,7 +835,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("dispatches only when the expected provider page session matches", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
 
     await sendTrashCommand(host.providerSessionId)
 
@@ -817,7 +848,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("binds original retrieval to explicit opt-in, current session, and scope", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
 
     await sendOriginalRetrieval(
@@ -867,7 +898,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("binds video playback retrieval and cancellation to the current request identity", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const scopeFingerprint = "video-playback-current-scope"
     const postMessage = vi.spyOn(window, "postMessage")
     try {
@@ -972,7 +1003,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("returns protocol errors when provider commands have no argument object", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
     const sendWithoutArgs = async (
       command: string,
@@ -1031,7 +1062,7 @@ describe("PARITY-02 provider command host session binding", () => {
   ] as const)(
     "rejects original retrieval before handler dispatch when only %s is invalid",
     async (_label, invalidField) => {
-      const host = window.__GPD_COMMAND_HOST__!
+      const host = activeTestHost!
       const scopeFingerprint = "established-current-scope"
       const requestId = "hash-invalid-session-or-scope-field"
       await sendSessionCommand(
@@ -1087,7 +1118,7 @@ describe("PARITY-02 provider command host session binding", () => {
   )
 
   it("cancels only the matching retrieval session and scan scope", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
     const scopeFingerprint = "current-scope"
     const targetRequestId = "hash-cancellable"
@@ -1140,7 +1171,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("aborts active retrieval when the provider account session rotates", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     await host.setProviderIdentity("approved-owner-a")
     const firstSessionId = host.providerSessionId
     await sendSessionCommand(
@@ -1164,7 +1195,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("rotates the opaque session when a provider account changes in the same tab", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const firstIdentitySessionId = await host.setProviderIdentity("owner-a")
     const rotatedSessionId = await host.setProviderIdentity("owner-b")
 
@@ -1242,7 +1273,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("creates a versioned bounded provider health snapshot", () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
 
     expect(
       host.createProviderHealth("google", {
@@ -1309,7 +1340,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("[PARITY-03] binds Amazon album listing to the provider page session", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
 
     await sendListAlbumsCommand("stale-provider-page-session")
@@ -1340,7 +1371,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("binds media enumeration and restore to the current provider session", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
 
     await sendSessionCommand("getAllMediaItems", "stale-session")
@@ -1393,7 +1424,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("keeps Google and non-session commands outside page-session binding", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
 
     await sendListAlbumsCommand(undefined, "google")
@@ -1439,7 +1470,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("verifies shared response, progress, coverage, and provider-error envelopes", () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
     const scanCoverage = { status: "partial", itemsVisited: 2 }
 
@@ -1529,7 +1560,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("classifies provider authorization failures without hiding other errors", () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
 
     expect(host.classifyProviderFailure({ status: 401 })).toBe("auth_expired")
     expect(host.classifyProviderFailure({ status: 403 })).toBe("auth_expired")
@@ -1554,7 +1585,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("uses inclusive local date boundaries and rejects invalid timestamps", () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const bounds = host.dateRangeBounds({
       from: "2024-02-29",
       to: "2024-02-29"
@@ -1614,7 +1645,7 @@ describe("PARITY-02 provider command host session binding", () => {
 
 
   it("rejects the Apia date skipped by the international date-line transition", () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const isPacificApia =
       Intl.DateTimeFormat().resolvedOptions().timeZone === "Pacific/Apia"
     const nativeGetDate = Date.prototype.getDate
@@ -1639,7 +1670,7 @@ describe("PARITY-02 provider command host session binding", () => {
   })
 
   it("cancels abort-aware promises and delays with AbortError semantics", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const abortError = host.createAbortError()
     expect(abortError.name).toBe("AbortError")
     expect(abortError.message).toBe("The operation was aborted.")
@@ -1828,7 +1859,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   }
 
   it("binds cached resources to the current session and scope, replaces by key, and clears only one provider", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "cache-membership-scope"
     const current = { mediaKey: "same-key", mediaKind: "photo" }
@@ -1894,7 +1925,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("rejects malformed cache keys and values and invalidates replaced resources safely", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "cache-malformed-values-scope"
     const current = { mediaKey: "same-key", version: 1 }
@@ -1924,7 +1955,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("expires old cache entries and evicts the least-recently-used key at capacity", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "cache-expiry-and-capacity-scope"
     await activateScope(host, "google", scope)
@@ -1970,7 +2001,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("preserves provider-specific policy codes and messages at invalid boundaries", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const labels = [
       ["amazon", "Amazon Photos"],
@@ -2024,7 +2055,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("asserts provider-specific budget-change, scope-capacity, and known-size messages", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const labels = [
       ["amazon", "Amazon Photos"],
@@ -2079,7 +2110,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("enforces byte and scope limits while accepting exact valid reservation boundaries", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "valid-budget-boundaries-scope"
     await activateScope(host, "amazon", scope)
@@ -2197,7 +2228,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("reserves the requested limit when a known size is supplied without the opt-in flag", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "known-size-without-explicit-reservation-scope"
     await activateScope(host, "amazon", scope)
@@ -2215,7 +2246,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("accounts exact chunks, partial results, overruns, and reservation cleanup without releasing another item", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "chunk-accounting-scope"
     await activateScope(host, "amazon", scope)
@@ -2296,7 +2327,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("rejects mutated and copied reservations without changing their budget", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "immutable-reservation-accounting-scope"
     await activateScope(host, "amazon", scope)
@@ -2379,7 +2410,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
 
 
   it("prioritizes exhausted review budget over known item size when no bytes remain", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "known-item-after-review-budget-is-full"
     await activateScope(host, "google", scope)
@@ -2409,7 +2440,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("charges invalid result lengths fully and counts a valid positive result once through the page-world API", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const validScope = "valid-page-world-result-accounting-scope"
     await activateScope(host, "google", validScope)
@@ -2460,7 +2491,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
   })
 
   it("accepts zero-byte chunks and safely resets and releases live reservations", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const cache = resource(host)
     const scope = "zero-chunk-and-live-reset-scope"
     await activateScope(host, "amazon", scope)
@@ -2522,7 +2553,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   }
 
   it("rejects malformed scan-scope fingerprints and aborts only work from an older scope", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
     const invalidScopes: unknown[] = ["", " padded", "padded ", "bad\u0000scope", "s".repeat(513), 17]
     try {
@@ -2572,7 +2603,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("expires and replaces pending cancellation markers, and delivers an early exact cancel as an already-aborted signal", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const scope = "pending-cancel-scope"
     await activateScope(host, scope)
     const postMessage = vi.spyOn(window, "postMessage")
@@ -2662,7 +2693,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("does not apply pending or active cancellations across provider, session, or scope identities", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
     const scope = "cancellation-identity-mismatch-scope"
     await host.setProviderIdentity("cancellation-owner-before-mismatch")
@@ -2766,7 +2797,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("rejects malformed provider retrieval cancellation arguments with a protocol error", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const postMessage = vi.spyOn(window, "postMessage")
     const validScope = "valid-cancellation-validation-scope"
     const validTarget = "valid-cancellation-validation-target"
@@ -2866,7 +2897,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("clears a consumed cancellation timer before reusing its request ID", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const scope = "consumed-cancellation-timer-scope"
     const targetRequestId = "consumed-cancellation-timer-target"
     await activateScope(host, scope)
@@ -2919,7 +2950,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("registers an early cancel after a completed request releases its active entry", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const scope = "completed-request-cleanup-scope"
     const targetRequestId = "completed-request-cleanup-target"
     await activateScope(host, scope)
@@ -2948,7 +2979,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("keeps a newer active request registered when an older request with the same ID finishes", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const scope = "reused-request-id-scope"
     await activateScope(host, scope)
     let finishFirst!: () => void
@@ -2981,7 +3012,7 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
   })
 
   it("completes reused request IDs newer-first without unhandled rejection when the older request finishes", async () => {
-    const host = window.__GPD_COMMAND_HOST__!
+    const host = activeTestHost!
     const scope = "newer-first-reused-request-id-scope"
     await activateScope(host, scope)
 

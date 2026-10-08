@@ -123,11 +123,6 @@ test("SAFE-10 security-boundary blocks unauthorized browser dispatch", async () 
       }) => {
         const browserWindow = window as typeof window & {
           __GPD_COMMAND_HOST__?: {
-            postResult: (
-              command: string,
-              requestId: string,
-              data: unknown
-            ) => void
             register: (params: {
               handlers: Record<
                 string,
@@ -152,7 +147,17 @@ test("SAFE-10 security-boundary blocks unauthorized browser dispatch", async () 
           handlers: {
             healthCheck: async (requestId) => {
               controlDispatches += 1
-              host.postResult("healthCheck", requestId, { ok: true })
+              browserWindow.postMessage(
+                {
+                  app: "GPD",
+                  action: "gptkResult",
+                  command: "healthCheck",
+                  requestId,
+                  success: true,
+                  data: { ok: true }
+                },
+                "*"
+              )
             },
             trashItems: async () => {
               destructiveDispatches += 1

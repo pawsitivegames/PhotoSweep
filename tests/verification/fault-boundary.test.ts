@@ -885,7 +885,9 @@ describe("provider fault and message boundaries", () => {
 
   it("SAFE-10 keeps duplicate host loads singleton and rejects prototype commands", async () => {
     const fixture = commandHostFixture()
-    expect(createCommandHost?.(fixture.source as FakeWindow)).toBe(fixture.host)
+    expect(createCommandHost?.(fixture.source as FakeWindow)).toBe(
+      fixture.source.__GPD_COMMAND_HOST__
+    )
     fixture.host.register({
       handlers: {},
       unsupportedMessage: (command) => `unsupported ${command}`

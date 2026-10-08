@@ -28,6 +28,10 @@ _Avoid_: Original download, direct URL
 The current association between a PhotoSweep app context and the reachable signed-in Photo Provider tab that receives its commands.
 _Avoid_: Tab map, bridge state
 
+**Photo Provider Operation**:
+One attempt by PhotoSweep to inspect or act on a Photo Provider through a Photo Provider Connection. It runs against the current provider session and ends with a result or cancellation.
+_Avoid_: command message, bridge request
+
 **Duplicate Detection Engine**:
 The capability that turns a collection of media items and a scan mode into duplicate groups.
 _Avoid_: Detector helpers, matching utilities

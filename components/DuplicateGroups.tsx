@@ -873,8 +873,8 @@ interface DuplicateGroupsProps {
   reviewedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
   onSkipGroup: (groupId: string) => void
-  keptByGroupId: Map<string, Set<string>>
-  keepDecisionByGroupId?: Map<string, KeepDecision>
+  getKeptForGroup: (group: DuplicateGroup) => Set<string>
+  getKeepDecisionForGroup?: (group: DuplicateGroup) => KeepDecision | undefined
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
   onVerifyOriginal?: (
@@ -896,8 +896,8 @@ interface VirtualGroupListData {
   trashPlanMediaKeys: ReadonlySet<string>
   selectedGroupIds: Set<string>
   reviewedGroupIds: Set<string>
-  keptByGroupId: Map<string, Set<string>>
-  keepDecisionByGroupId?: Map<string, KeepDecision>
+  getKeptForGroup: (group: DuplicateGroup) => Set<string>
+  getKeepDecisionForGroup?: (group: DuplicateGroup) => KeepDecision | undefined
   onToggleGroup: (groupId: string) => void
   onSkipGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
@@ -924,8 +924,8 @@ function VirtualGroupRow({
         trashPlanMediaKeys={data.trashPlanMediaKeys}
         isSelected={data.selectedGroupIds.has(group.id)}
         isReviewed={data.reviewedGroupIds.has(group.id)}
-        keptSet={data.keptByGroupId.get(group.id) ?? new Set()}
-        keepDecision={data.keepDecisionByGroupId?.get(group.id)}
+        keptSet={data.getKeptForGroup(group)}
+        keepDecision={data.getKeepDecisionForGroup?.(group)}
         onToggleGroup={data.onToggleGroup}
         onSkipGroup={data.onSkipGroup}
         onToggleKept={data.onToggleKept}
@@ -947,8 +947,8 @@ export function DuplicateGroups({
   reviewedGroupIds,
   onToggleGroup,
   onSkipGroup,
-  keptByGroupId,
-  keepDecisionByGroupId,
+  getKeptForGroup,
+  getKeepDecisionForGroup,
   onToggleKept,
   onTrashAll,
   onVerifyOriginal,
@@ -1100,8 +1100,8 @@ export function DuplicateGroups({
       trashPlanMediaKeys,
       selectedGroupIds,
       reviewedGroupIds,
-      keptByGroupId,
-      keepDecisionByGroupId,
+      getKeptForGroup,
+      getKeepDecisionForGroup,
       onToggleGroup,
       onSkipGroup,
       onToggleKept,
@@ -1117,8 +1117,8 @@ export function DuplicateGroups({
       trashPlanMediaKeys,
       selectedGroupIds,
       reviewedGroupIds,
-      keptByGroupId,
-      keepDecisionByGroupId,
+      getKeptForGroup,
+      getKeepDecisionForGroup,
       onToggleGroup,
       onSkipGroup,
       onToggleKept,
@@ -1190,8 +1190,8 @@ export function DuplicateGroups({
               trashPlanMediaKeys={trashPlanMediaKeys}
               isSelected={selectedGroupIds.has(group.id)}
               isReviewed={reviewedGroupIds.has(group.id)}
-              keptSet={keptByGroupId.get(group.id) ?? new Set()}
-              keepDecision={keepDecisionByGroupId?.get(group.id)}
+              keptSet={getKeptForGroup(group)}
+              keepDecision={getKeepDecisionForGroup?.(group)}
               onToggleGroup={onToggleGroup}
               onSkipGroup={onSkipGroup}
               onToggleKept={onToggleKept}
@@ -1229,7 +1229,7 @@ export function DuplicateGroups({
           items={viewerItems}
           nextGroupItems={nextGroupItems}
           initialIndex={viewerState.index}
-          keptSet={keptByGroupId.get(viewerState.group.id)!}
+          keptSet={getKeptForGroup(viewerState.group)}
           isGroupSelected={selectedGroupIds.has(viewerState.group.id)}
           onClose={() => setViewerState(null)}
           onToggleKept={

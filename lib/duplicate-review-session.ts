@@ -161,10 +161,30 @@ function defaultSelections(): DuplicateReviewSelections {
   }
 }
 
+function cloneKeepDecision(decision: KeepDecision): KeepDecision {
+  return {
+    ...decision,
+    keptMediaKeys: new Set(decision.keptMediaKeys),
+    recommendation: {
+      ...decision.recommendation,
+      keptMediaKeys: [...decision.recommendation.keptMediaKeys],
+      evidence: {
+        ...decision.recommendation.evidence,
+        comparedMediaKeys: [...decision.recommendation.evidence.comparedMediaKeys],
+        missingMediaKeys: [...decision.recommendation.evidence.missingMediaKeys],
+        values: { ...decision.recommendation.evidence.values },
+        provenanceByMediaKey: {
+          ...decision.recommendation.evidence.provenanceByMediaKey
+        }
+      }
+    }
+  }
+}
+
 export class DuplicateReviewSession {
   private readonly selectionState: DuplicateReviewSelections
-  readonly keptByGroupId: Map<string, Set<string>>
-  readonly keepDecisionByGroupId: Map<string, KeepDecision>
+  readonly #keptByGroupId: Map<string, Set<string>>
+  readonly #keepDecisionByGroupId: Map<string, KeepDecision>
 
   private readonly groups: DuplicateGroup[]
   private readonly mediaItems: Record<string, GpdMediaItem>
@@ -179,15 +199,15 @@ export class DuplicateReviewSession {
     this.selectionState = this.sanitize(
       params.selections ?? defaultSelections()
     )
-    this.keepDecisionByGroupId = new Map(
+    this.#keepDecisionByGroupId = new Map(
       this.groups.map((group) => [group.id, this.resolveDecision(group)])
     )
-    this.keptByGroupId = new Map(
+    this.#keptByGroupId = new Map(
       this.groups.map((group) => [
         group.id,
         // The decision map is built from these same groups immediately above,
         // so every group id has a decision when this cache is initialized.
-        new Set(this.keepDecisionByGroupId.get(group.id)!.keptMediaKeys)
+        new Set(this.#keepDecisionByGroupId.get(group.id)!.keptMediaKeys)
       ])
     )
   }
@@ -324,12 +344,25 @@ export class DuplicateReviewSession {
     return current
   }
 
+  transition(action: DuplicateReviewAction): DuplicateReviewSession {
+    return new DuplicateReviewSession({
+      groups: this.groups,
+      mediaItems: this.mediaItems,
+      selections: this.update(action),
+      defaultStrategy: this.defaultStrategy
+    })
+  }
+
   keptFor(group: DuplicateGroup): Set<string> {
-    return this.keptByGroupId.get(group.id) ?? this.resolveKept(group)
+    return new Set(
+      this.#keptByGroupId.get(group.id) ?? this.resolveKept(group)
+    )
   }
 
   decisionFor(group: DuplicateGroup): KeepDecision {
-    return this.keepDecisionByGroupId.get(group.id) ?? this.resolveDecision(group)
+    return cloneKeepDecision(
+      this.#keepDecisionByGroupId.get(group.id) ?? this.resolveDecision(group)
+    )
   }
 
   duplicateCount(groups: DuplicateGroup[] = this.groups): number {
@@ -636,23 +669,26 @@ export function applyDefaultKeepStrategyToSelections(params: {
   selections?: DuplicateReviewSelections
   strategy: KeepStrategy
 }): DuplicateReviewSelections {
+  return applyDefaultKeepStrategyToSession(params).selections
+}
+
+export function applyDefaultKeepStrategyToSession(params: {
+  groups: DuplicateGroup[]
+  mediaItems: Record<string, GpdMediaItem>
+  selections?: DuplicateReviewSelections
+  strategy: KeepStrategy
+}): DuplicateReviewSession {
   const current = new DuplicateReviewSession({
     groups: params.groups,
     mediaItems: params.mediaItems,
     selections: params.selections,
     defaultStrategy: params.strategy
   })
-  const updated = current.update({
+  return current.transition({
     type: "apply_keep_strategy",
     groupIds: params.groups.map((group) => group.id),
     strategy: params.strategy
   })
-  return new DuplicateReviewSession({
-    groups: params.groups,
-    mediaItems: params.mediaItems,
-    selections: updated,
-    defaultStrategy: params.strategy
-  }).selections
 }
 
 function isKeepStrategyValue(value: unknown): value is KeepStrategy {

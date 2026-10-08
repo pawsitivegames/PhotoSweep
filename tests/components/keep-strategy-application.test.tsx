@@ -187,8 +187,8 @@ function ReviewHarness({
             groupIds: [groupId]
           })
         }
-        keptByGroupId={session.keptByGroupId}
-        keepDecisionByGroupId={session.keepDecisionByGroupId}
+        getKeptForGroup={(group) => session.keptFor(group)}
+        getKeepDecisionForGroup={(group) => session.decisionFor(group)}
         onToggleKept={(group, mediaKey) =>
           updateReviewSelections({
             type: "toggle_kept",

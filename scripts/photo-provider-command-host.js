@@ -1130,7 +1130,7 @@ function createCommandHost(targetWindow, publicKey) {
     })
   }
 
-  const host = Object.freeze({
+  const internalHost = Object.freeze({
     get providerSessionId() {
       return providerSessionId
     },
@@ -1151,8 +1151,31 @@ function createCommandHost(targetWindow, publicKey) {
     register
   })
 
-  targetWindow.__GPD_COMMAND_HOST__ = host
-  return host
+  // Provider adapters receive only the operations they use. The generic
+  // withAbort wrapper stays private to the host; the test factory returns the
+  // full internalHost for focused lifecycle tests.
+  const providerAdapterHost = Object.freeze({
+    get providerSessionId() {
+      return providerSessionId
+    },
+    originalMediaRetrieval,
+    setProviderIdentity,
+    requireCurrentDocumentSession,
+    postResult,
+    postError,
+    postProgress,
+    dateRangeBounds,
+    isTimestampInDateRange,
+    classifyProviderFailure,
+    createProviderHealth,
+    createAbortError,
+    throwIfAborted,
+    delay,
+    register
+  })
+
+  targetWindow.__GPD_COMMAND_HOST__ = providerAdapterHost
+  return internalHost
 }
 
 // The production bundle loads this file as a classic MAIN-world script. The

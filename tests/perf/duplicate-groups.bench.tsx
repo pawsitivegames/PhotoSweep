@@ -58,7 +58,8 @@ describe("DuplicateGroups perf", () => {
         reviewedGroupIds: allSelected,
         onToggleGroup: () => {},
         onSkipGroup: () => {},
-        keptByGroupId,
+        getKeptForGroup: (group) =>
+          keptByGroupId.get(group.id) ?? new Set(),
         onToggleKept: () => {},
         onTrashAll: () => {}
       })
@@ -77,7 +78,8 @@ describe("DuplicateGroups perf", () => {
         reviewedGroupIds: allSelected,
         onToggleGroup: () => {},
         onSkipGroup: () => {},
-        keptByGroupId,
+        getKeptForGroup: (group) =>
+          keptByGroupId.get(group.id) ?? new Set(),
         onToggleKept: () => {},
         onTrashAll: () => {}
       })
@@ -90,7 +92,9 @@ describe("DuplicateGroups perf", () => {
             reviewedGroupIds={allSelected}
             onToggleGroup={() => {}}
             onSkipGroup={() => {}}
-            keptByGroupId={keptByGroupId}
+            getKeptForGroup={(group) =>
+              keptByGroupId.get(group.id) ?? new Set()
+            }
             onToggleKept={() => {}}
             onTrashAll={() => {}}
           />
@@ -111,7 +115,8 @@ describe("DuplicateGroups perf", () => {
         reviewedGroupIds: allSelected,
         onToggleGroup: () => {},
         onSkipGroup: () => {},
-        keptByGroupId,
+        getKeptForGroup: (group) =>
+          keptByGroupId.get(group.id) ?? new Set(),
         onToggleKept: () => {},
         onTrashAll: () => {}
       })
@@ -124,7 +129,9 @@ describe("DuplicateGroups perf", () => {
             reviewedGroupIds={allSelected}
             onToggleGroup={() => {}}
             onSkipGroup={() => {}}
-            keptByGroupId={keptBigGroupToggled}
+            getKeptForGroup={(group) =>
+              keptBigGroupToggled.get(group.id) ?? new Set()
+            }
             onToggleKept={() => {}}
             onTrashAll={() => {}}
           />

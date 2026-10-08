@@ -416,10 +416,14 @@ describe("mutation closure: duplicate review session", () => {
   it("handles unknown actions and replace/clear through the public update seam", () => {
     const { groups, session } = reviewSessionFixture()
     const initial = session()
-    expect(initial.keptByGroupId.get("g1")).toEqual(new Set(["b"]))
-    expect(initial.keepDecisionByGroupId.get("g1")?.keptMediaKeys).toEqual(
-      new Set(["b"])
-    )
+    expect(initial.keptFor(groups[0])).toEqual(new Set(["b"]))
+    expect(initial.decisionFor(groups[0]).keptMediaKeys).toEqual(new Set(["b"]))
+    const transitioned = initial.transition({
+      type: "select_groups",
+      groupIds: ["g1"]
+    })
+    expect(initial.selectedGroupIds).toEqual(new Set())
+    expect(transitioned.selectedGroupIds).toEqual(new Set(["g1"]))
     expect(
       initial.update({ type: "select_groups", groupIds: ["missing", "g1"] })
     ).toMatchObject({
@@ -932,7 +936,7 @@ describe("mutation closure: duplicate review session", () => {
     })
   })
 
-  it("resolves decisions after exposed caches and provenance are cleared", () => {
+  it("keeps decision caches private and returns defensive copies", () => {
     const { groups, mediaItems, session } = reviewSessionFixture()
     const review = session({
       selectedGroupIds: new Set(),
@@ -940,15 +944,19 @@ describe("mutation closure: duplicate review session", () => {
       keptOverrides: { g1: new Set(["a"]) }
     })
 
-    review.keepDecisionByGroupId.delete("g1")
-    review.selections.keepDecisionProvenance = undefined
+    const expectedDecision = review.decisionFor(groups[0])
+    const decisionCopy = review.decisionFor(groups[0])
+    decisionCopy.keptMediaKeys.clear()
+    decisionCopy.recommendation.keptMediaKeys.length = 0
+    decisionCopy.recommendation.evidence.comparedMediaKeys.length = 0
+    decisionCopy.recommendation.evidence.values.a = null
+    decisionCopy.recommendation.evidence.provenanceByMediaKey.a = null
+    const keptCopy = review.keptFor(groups[0])
+    keptCopy.clear()
+    expect(Reflect.ownKeys(review)).not.toContain("keptByGroupId")
+    expect(Reflect.ownKeys(review)).not.toContain("keepDecisionByGroupId")
 
-    expect(review.decisionFor(groups[0])).toMatchObject({
-      source: "legacy_preserved",
-      keptMediaKeys: new Set(["a"]),
-      recommendation: { reasonCode: "unique_best_value" }
-    })
-    review.keptByGroupId.delete("g1")
+    expect(review.decisionFor(groups[0])).toEqual(expectedDecision)
     expect(review.keptFor(groups[0])).toEqual(new Set(["a"]))
 
     // A caller can also ask for a group that is not in the original cache.
@@ -2202,7 +2210,9 @@ describe("mutation closure: command host", () => {
 
   it("requires own callable handlers and keeps the singleton host", async () => {
     const fixture = commandHostFixture()
-    expect(createCommandHost?.(fixture.source)).toBe(fixture.host)
+    expect(createCommandHost?.(fixture.source)).toBe(
+      fixture.source.__GPD_COMMAND_HOST__
+    )
     let calls = 0
     const inherited = { inherited: async () => { calls += 1 } }
     const handlers = Object.create(inherited) as Record<string, (requestId: string, args: unknown) => Promise<void>>
@@ -2367,12 +2377,25 @@ describe("mutation closure: command host", () => {
     const addEventListenerSpy = vi.spyOn(globalThis, "addEventListener")
 
     try {
-      expect(browserWindow.__GPD_COMMAND_HOST__).toMatchObject({
-        postResult: expect.any(Function),
-        postError: expect.any(Function),
-        postProgress: expect.any(Function),
-        register: expect.any(Function)
-      })
+      expect(
+        Object.keys((browserWindow.__GPD_COMMAND_HOST__ as object) ?? {})
+      ).toEqual([
+        "providerSessionId",
+        "originalMediaRetrieval",
+        "setProviderIdentity",
+        "requireCurrentDocumentSession",
+        "postResult",
+        "postError",
+        "postProgress",
+        "dateRangeBounds",
+        "isTimestampInDateRange",
+        "classifyProviderFailure",
+        "createProviderHealth",
+        "createAbortError",
+        "throwIfAborted",
+        "delay",
+        "register"
+      ])
       if (!commandHostTestHook) {
         throw new Error("Command-host test hook was not registered")
       }
