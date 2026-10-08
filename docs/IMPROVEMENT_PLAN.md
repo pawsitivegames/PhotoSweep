@@ -136,9 +136,11 @@ still enforce free vs paid behavior.
 
 - Consolidate the two parallel iCloud DOM scrapers
   (`scripts/icloud-photos-commands.js:465` + `background/index.ts:623`).
-- **Done — full-scan detection test seam:** removed the obsolete timestamp-
-  adjacent reference implementation; focused tests now exercise the production
-  algorithm shared with the worker through `workers/embedder-kernels.ts`.
+- **Done — active full-scan detection test seam:** `fullDetectDuplicates`
+  dispatches `detectBlock`; its shared pair-comparison kernel and the main-thread
+  union-find route are covered with a transitive chain across a block boundary.
+- **Retained — legacy worker `detect` handler:** its greedy neighborhood helper
+  remains separately tested, but is not the route used by `fullDetectDuplicates`.
 - **Done — single source for `matMul` / `topK`:** the production worker and
   focused tests import the same kernels, with equal scores ordered by input
   index.

@@ -1367,7 +1367,8 @@ export async function computeEmbeddings(
  * Embeddings are packed into a single transferable Float32Array and sent
  * to the worker. The worker returns number[][] (the group index lists).
  */
-async function runCommunityDetectionInWorker(
+/** @internal Exported so tests can exercise the active detectBlock route. */
+export async function runCommunityDetectionInWorker(
   embeddings: Float32Array[],
   threshold: number,
   workerUrl: string,

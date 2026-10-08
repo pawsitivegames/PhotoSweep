@@ -4036,6 +4036,31 @@
     }
     return { values, indices };
   }
+  function detectEmbeddingBlockPairs(input) {
+    const {
+      flatA,
+      rowsA,
+      offsetA,
+      flatB,
+      rowsB,
+      offsetB,
+      dim,
+      threshold,
+      sameBlock
+    } = input;
+    const pairs = [];
+    for (let i2 = 0; i2 < rowsA; i2++) {
+      const startJ = sameBlock ? i2 + 1 : 0;
+      for (let j2 = startJ; j2 < rowsB; j2++) {
+        let dot = 0;
+        const aBase = i2 * dim;
+        const bBase = j2 * dim;
+        for (let k2 = 0; k2 < dim; k2++) dot += flatA[aBase + k2] * flatB[bBase + k2];
+        if (dot >= threshold) pairs.push([offsetA + i2, offsetB + j2]);
+      }
+    }
+    return pairs;
+  }
   async function detectEmbeddingCommunities(embeddings, threshold, _timestamps, onProgress) {
     const n2 = embeddings.length;
     if (n2 < 2) return [];
@@ -4185,17 +4210,17 @@
         threshold,
         sameBlock
       } = data;
-      const pairs = [];
-      for (let i2 = 0; i2 < rowsA; i2++) {
-        const startJ = sameBlock ? i2 + 1 : 0;
-        for (let j2 = startJ; j2 < rowsB; j2++) {
-          let dot = 0;
-          const aBase = i2 * dim;
-          const bBase = j2 * dim;
-          for (let k2 = 0; k2 < dim; k2++) dot += flatA[aBase + k2] * flatB[bBase + k2];
-          if (dot >= threshold) pairs.push([offsetA + i2, offsetB + j2]);
-        }
-      }
+      const pairs = detectEmbeddingBlockPairs({
+        flatA,
+        rowsA,
+        offsetA,
+        flatB,
+        rowsB,
+        offsetB,
+        dim,
+        threshold,
+        sameBlock
+      });
       self.postMessage({ type: "blockResults", pairs });
     }
     if (type === "detectSmart") {

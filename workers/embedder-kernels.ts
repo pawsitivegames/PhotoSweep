@@ -55,10 +55,53 @@ export function topK(
 }
 
 /**
- * The full-scan community algorithm used by embedder.worker.ts. Embeddings are
- * L2-normalized, so their dot products are cosine similarities. Each item
- * votes for its above-threshold neighborhood; the largest neighborhoods claim
- * their members first, yielding non-overlapping groups.
+ * Compare the rows for the active full-scan `detectBlock` worker message.
+ * The caller unions returned absolute-index pairs across blocks so duplicate
+ * groups remain transitive.
+ */
+export function detectEmbeddingBlockPairs(input: {
+  flatA: Float32Array
+  rowsA: number
+  offsetA: number
+  flatB: Float32Array
+  rowsB: number
+  offsetB: number
+  dim: number
+  threshold: number
+  sameBlock: boolean
+}): Array<[number, number]> {
+  const {
+    flatA,
+    rowsA,
+    offsetA,
+    flatB,
+    rowsB,
+    offsetB,
+    dim,
+    threshold,
+    sameBlock
+  } = input
+  const pairs: Array<[number, number]> = []
+  for (let i = 0; i < rowsA; i++) {
+    const startJ = sameBlock ? i + 1 : 0
+    for (let j = startJ; j < rowsB; j++) {
+      let dot = 0
+      const aBase = i * dim
+      const bBase = j * dim
+      for (let k = 0; k < dim; k++) dot += flatA[aBase + k] * flatB[bBase + k]
+      if (dot >= threshold) pairs.push([offsetA + i, offsetB + j])
+    }
+  }
+
+  return pairs
+}
+
+/**
+ * Legacy handler for the worker's `detect` message. The main full-scan path
+ * sends `detectBlock` messages and combines their pairs with union-find.
+ * Embeddings are L2-normalized, so dot products are cosine similarities. Each
+ * item votes for its above-threshold neighborhood; the largest neighborhoods
+ * claim their members first, yielding non-overlapping groups.
  */
 export async function detectEmbeddingCommunities(
   embeddings: Float32Array[],

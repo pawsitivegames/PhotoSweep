@@ -11,6 +11,7 @@ import {
   groupByProviderSequence,
   groupByTimestamp,
   mergeDuplicateItemGroups,
+  runCommunityDetectionInWorker,
   shouldCompareSmartTimestamps,
   smartDetectDuplicates,
   smartScanEmbeddingCandidates,
@@ -19,6 +20,7 @@ import {
 import { selectDefaultKeep } from "../../lib/keep-strategy"
 import type { GpdMediaItem } from "../../lib/types"
 import {
+  detectEmbeddingBlockPairs,
   detectEmbeddingCommunities,
   matMul,
   topK
@@ -260,7 +262,8 @@ describe("computeEmbeddings", () => {
 })
 
 // ============================================================
-// Production full-scan community detection — shared with embedder.worker.ts.
+// Legacy worker `detect` message helper. The active fullDetectDuplicates route
+// uses detectBlock and is exercised separately below.
 // ============================================================
 
 describe("detectEmbeddingCommunities", () => {
@@ -362,6 +365,160 @@ describe("detectEmbeddingCommunities", () => {
     await expect(
       detectEmbeddingCommunities([duplicate, duplicate], 1)
     ).resolves.toEqual([[0, 1]])
+  })
+})
+
+type BlockDetectionMessage = {
+  type: string
+  data: Parameters<typeof detectEmbeddingBlockPairs>[0]
+}
+
+function stubBlockComparisonWorker() {
+  const originalWorker = globalThis.Worker
+  const workers: Array<{
+    requests: BlockDetectionMessage[]
+    terminated: boolean
+  }> = []
+
+  class BlockComparisonWorker {
+    onmessage: ((event: MessageEvent) => void) | null = null
+    onerror: ((event: ErrorEvent) => void) | null = null
+    readonly requests: BlockDetectionMessage[] = []
+    terminated = false
+
+    constructor(_workerUrl: string) {
+      workers.push(this)
+    }
+
+    postMessage(message: BlockDetectionMessage) {
+      this.requests.push(message)
+      if (message.type !== "detectBlock") {
+        throw new Error(`Unexpected worker message: ${message.type}`)
+      }
+      const pairs = detectEmbeddingBlockPairs(message.data)
+      this.onmessage?.({ data: { type: "blockResults", pairs } } as MessageEvent)
+    }
+
+    terminate() {
+      this.terminated = true
+    }
+  }
+
+  vi.stubGlobal("Worker", BlockComparisonWorker)
+  return {
+    workers,
+    restore: () => vi.stubGlobal("Worker", originalWorker)
+  }
+}
+
+function makeFullScanBoundaryChain(): Float32Array[] {
+  const embeddings = Array.from({ length: 1001 }, () => new Float32Array(4))
+  const firstPair = unitVector(4, 2)
+  const secondPair = unitVector(4, 3)
+  embeddings[0] = firstPair
+  embeddings[1] = new Float32Array(firstPair)
+  embeddings[5] = secondPair
+  embeddings[6] = new Float32Array(secondPair)
+
+  const angle = 0.3
+  embeddings[998][0] = Math.cos(angle)
+  embeddings[998][1] = -Math.sin(angle)
+  embeddings[999][0] = 1
+  embeddings[1000][0] = Math.cos(angle)
+  embeddings[1000][1] = Math.sin(angle)
+  return embeddings
+}
+
+describe("detectBlock full-scan route", () => {
+  it("includes threshold-equal pairs and uses block offsets without self-pairs", () => {
+    expect(
+      detectEmbeddingBlockPairs({
+        flatA: new Float32Array([1, 0, 1, 0]),
+        rowsA: 2,
+        offsetA: 8,
+        flatB: new Float32Array([1, 0, 1, 0]),
+        rowsB: 2,
+        offsetB: 8,
+        dim: 2,
+        threshold: 1,
+        sameBlock: true
+      })
+    ).toEqual([[8, 9]])
+
+    expect(
+      detectEmbeddingBlockPairs({
+        flatA: new Float32Array([1, 0]),
+        rowsA: 1,
+        offsetA: 8,
+        flatB: new Float32Array([1, 0]),
+        rowsB: 1,
+        offsetB: 1000,
+        dim: 2,
+        threshold: 1,
+        sameBlock: false
+      })
+    ).toEqual([[8, 1000]])
+  })
+
+  it("keeps transitive duplicate groups across the 1000-item block boundary", async () => {
+    const stub = stubBlockComparisonWorker()
+    const progress = vi.fn()
+    const partialGroups = vi.fn()
+
+    try {
+      const groups = await runCommunityDetectionInWorker(
+        makeFullScanBoundaryChain(),
+        0.9,
+        "embedder-worker.js",
+        progress,
+        undefined,
+        partialGroups
+      )
+
+      expect(groups).toEqual([[998, 999, 1000], [0, 1], [5, 6]])
+      expect(stub.workers).toHaveLength(1)
+      expect(stub.workers[0].requests.map(({ type }) => type)).toEqual([
+        "detectBlock",
+        "detectBlock",
+        "detectBlock"
+      ])
+      expect(
+        stub.workers[0].requests.map(({ data }) => data.sameBlock)
+      ).toEqual([true, false, true])
+      expect(progress.mock.calls.map(([event]) => event)).toEqual([
+        { phase: "detecting_duplicates", current: 1, total: 3 },
+        { phase: "detecting_duplicates", current: 2, total: 3 },
+        { phase: "detecting_duplicates", current: 3, total: 3 }
+      ])
+      expect(partialGroups).toHaveBeenCalled()
+      expect(stub.workers[0].terminated).toBe(true)
+    } finally {
+      stub.restore()
+    }
+  })
+
+  it("honors cancellation between block comparisons", async () => {
+    const stub = stubBlockComparisonWorker()
+    const controller = new AbortController()
+    const progress = vi.fn(() => controller.abort())
+
+    try {
+      await expect(
+        runCommunityDetectionInWorker(
+          makeFullScanBoundaryChain(),
+          0.9,
+          "embedder-worker.js",
+          progress,
+          controller.signal
+        )
+      ).rejects.toMatchObject({ name: "AbortError" })
+
+      expect(progress).toHaveBeenCalledTimes(1)
+      expect(stub.workers[0].requests).toHaveLength(1)
+      expect(stub.workers[0].terminated).toBe(true)
+    } finally {
+      stub.restore()
+    }
   })
 })
 

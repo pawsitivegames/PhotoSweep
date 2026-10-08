@@ -1,13 +1,13 @@
 /// <reference lib="webworker" />
 
-// Standalone Web Worker for MediaPipe image embedding AND community detection.
+// Standalone Web Worker for MediaPipe image embedding and duplicate detection.
 // Built separately with esbuild so it can be loaded as a classic worker
 // from the extension (CSP: script-src 'self').
 //
 // Message protocol (main → worker):
 //   { type: "init", data: { wasmLoaderUrl, wasmBinaryUrl, modelBuffer: ArrayBuffer } }
 //   { type: "embed", data: { items: Array<{ localIdx: number, blob: Blob }> } }
-//   { type: "detect", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number } }
+//   { type: "detect", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number } } // legacy
 //   { type: "detectBlock", data: { flatA: Float32Array, rowsA: number, offsetA: number, flatB: Float32Array, rowsB: number, offsetB: number, dim: number, threshold: number, sameBlock: boolean } }
 //   { type: "detectSmart", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number, buckets: number[][], bucketWindowMs?: Array<number | null> } }
 //
@@ -21,7 +21,10 @@
 //   { type: "blockResults", pairs: Array<[number, number]> }
 
 import { ImageEmbedder } from "@mediapipe/tasks-vision";
-import { detectEmbeddingCommunities } from "./embedder-kernels";
+import {
+  detectEmbeddingBlockPairs,
+  detectEmbeddingCommunities
+} from "./embedder-kernels";
 
 let embedder: ImageEmbedder | null = null;
 let mediaPipeConsoleFilterInstalled = false;
@@ -128,6 +131,7 @@ self.addEventListener("message", async (event: MessageEvent) => {
   }
 
   if (type === "detect") {
+    // Legacy message path. fullDetectDuplicates currently sends detectBlock.
     const { flatEmbeddings, n, dim, threshold, timestamps } = data as {
       flatEmbeddings: Float32Array;
       n: number;
@@ -176,17 +180,17 @@ self.addEventListener("message", async (event: MessageEvent) => {
       sameBlock: boolean;
     };
 
-    const pairs: Array<[number, number]> = [];
-    for (let i = 0; i < rowsA; i++) {
-      const startJ = sameBlock ? i + 1 : 0;
-      for (let j = startJ; j < rowsB; j++) {
-        let dot = 0;
-        const aBase = i * dim;
-        const bBase = j * dim;
-        for (let k = 0; k < dim; k++) dot += flatA[aBase + k] * flatB[bBase + k];
-        if (dot >= threshold) pairs.push([offsetA + i, offsetB + j]);
-      }
-    }
+    const pairs = detectEmbeddingBlockPairs({
+      flatA,
+      rowsA,
+      offsetA,
+      flatB,
+      rowsB,
+      offsetB,
+      dim,
+      threshold,
+      sameBlock
+    });
 
     self.postMessage({ type: "blockResults", pairs });
   }
