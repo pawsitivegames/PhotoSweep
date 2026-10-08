@@ -1727,6 +1727,7 @@ describe("gptkCommand routing", () => {
     expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
       expect.objectContaining({
         target: { tabId: icloudTabId, frameIds: [9] },
+        world: "MAIN",
         func: expect.any(Function),
         args: [
           expect.objectContaining({
