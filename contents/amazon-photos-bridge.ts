@@ -1,7 +1,6 @@
 import type { PlasmoCSConfig } from "plasmo"
 
-import { APP_ID } from "../lib/types"
-import type { AppMessage } from "../lib/types"
+import { installProviderMessageBridge } from "../lib/provider-message-bridge"
 
 export const config: PlasmoCSConfig = {
   matches: [
@@ -53,34 +52,7 @@ export const config: PlasmoCSConfig = {
   run_at: "document_idle"
 }
 
-function safeSendRuntimeMessage(message: AppMessage) {
-  try {
-    chrome.runtime?.sendMessage?.(message)
-  } catch {
-    // The extension was likely reloaded while this content script remained on
-    // the page. Ignore stale bridge messages instead of surfacing noisy errors.
-  }
-}
 
-window.addEventListener("message", (event) => {
-  if (event.source !== window) return
-  const msg = event.data as AppMessage
-  if (msg?.app !== APP_ID) return
-
-  if (
-    msg.action === "gptkResult" ||
-    msg.action === "gptkProgress" ||
-    msg.action === "gptkLog"
-  ) {
-    safeSendRuntimeMessage(msg)
-  }
-})
-
-chrome.runtime.onMessage.addListener((message: AppMessage) => {
-  if (message?.app !== APP_ID) return
-  if (message.action === "gptkCommand") {
-    window.postMessage(message)
-  }
-})
+installProviderMessageBridge()
 
 console.log("GPD: Amazon Photos bridge content script loaded")
