@@ -62,6 +62,29 @@ test.afterAll(async () => {
 
 // ============================================================
 
+test("sets the app document language for assistive technology", async () => {
+  const page = await openAppTab(context, extensionId)
+
+  await expect(page.locator("html")).toHaveAttribute("lang", "en")
+
+  await page.close()
+})
+
+test("gives the compact provider selector an accessible name", async () => {
+  const page = await context.newPage()
+  await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+  const providerSelector = page.locator(
+    '[role="combobox"][aria-label="Photo source"]'
+  )
+
+  await expect(providerSelector).toBeVisible()
+  await expect(providerSelector).toHaveAttribute("role", "combobox")
+  await expect(providerSelector).toHaveAttribute("aria-label", "Photo source")
+  await expect(providerSelector).not.toHaveAttribute("aria-labelledby")
+
+  await page.close()
+})
+
 test("restores saved scan results from storage on load", async () => {
   await clearStorage(context)
   await injectScanResults(

@@ -984,7 +984,12 @@ function SidePanelSourceBar({
         size="small"
         fullWidth
         value={provider}
-        aria-label="Photo source"
+        SelectProps={{
+          SelectDisplayProps: {
+            "aria-label": "Photo source",
+            "aria-labelledby": undefined
+          }
+        }}
         sx={{
           minWidth: 0,
           "& .MuiInputBase-root": {
@@ -1344,6 +1349,10 @@ type UpgradePromptState = {
 }
 
 export default function App() {
+  useEffect(() => {
+    document.documentElement.lang = "en"
+  }, [])
+
   const isSidePanel =
     typeof window !== "undefined" &&
     (window.location.pathname.includes("sidepanel") ||
