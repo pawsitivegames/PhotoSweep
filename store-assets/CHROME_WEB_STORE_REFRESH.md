@@ -31,20 +31,20 @@ PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Ama
 
 The public listing is [PhotoSweep for Google Photos™](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) (`niggncodoibinbianpkdpepmhfljifbo`). Its public page was rechecked on 8 October 2026: version `2.3.0.2`, updated 29 September 2026, with five screenshot slides.
 
-The Developer Dashboard was rechecked read-only: the item is **Published ·
-public** at version `2.3.0.2`. No separate draft state was visible in the
-listing row. The public icon still uses the older sparkle mark, and the five
-screenshot slides show the older teal/coral product UI; neither matches the
-website's photo-and-golden-sweep mark or the current blue/gold extension
-palette. The dirty local worktree declares `2.3.5` / `2.3.5.1`, which is not an
-approved target. Recheck dashboard state and reconcile an exact approved
-candidate before replacing listing media or submitting changes.
+At the read-only Developer Dashboard check on 8 October 2026, the item was
+**Published · public** at version `2.3.0.2`. No separate draft state was visible
+in the listing row. The public icon still uses the older sparkle mark, and the
+five screenshot slides show the older teal/coral product UI; neither matches
+the website's photo-and-golden-sweep mark or the current blue/gold extension
+palette. Recheck dashboard state before replacing listing media or submitting
+changes.
 
-The live Site is version `13`, sourced from commit
-`74e6f49c49b3a669eafb061b1c6134bd3ca2d11d`. Chrome computed its page background
-as `#F4F6FB`, primary CTA as `#145BE0`, and body font as Avenir Next. The local
-Site candidate uses `#F3F6FB`, `#255BD4`, and DM Sans, matching the extension
-source tokens, but its edits are uncommitted and unpublished.
+The live Site is version `15`, sourced from commit
+`187cb69ace77bd06d6a0fd232221172c79437aa4`, and its production deployment
+succeeded. Chrome computes the page background as `#F3F6FB`, primary CTA as
+`#255BD4`, and body font as DM Sans, matching the extension's current visual
+tokens. The home and guide pages now explain scan-wide and current-filter set
+inclusion, keeper selection, and review before Trash.
 
 Chrome Stable currently has a separate enabled PhotoSweep extension
 (`aipenpjlbgggghncblkjbfibgcfbojpo`) at version `2.3.0`; it is not the public
@@ -54,10 +54,12 @@ Store package `niggncodoibinbianpkdpepmhfljifbo` at `2.3.0.2`. Its runtime uses
 the separate scan-wide shortcut and current-filter include/remove actions from
 the current source, so it cannot provide captures of the revised review flow.
 
-The live Site and Store listing are still on older copy and assets. The Store
-description does not explain set inclusion, and its screenshots use the former
-teal UI and icon. Do not treat local Site or extension source as shipped until
-the exact candidate is built, reviewed, and published.
+The live Site now uses the updated copy and visual system. The public Store
+listing remains on older copy and assets: its description does not explain set
+inclusion, and its screenshots use the former teal UI and icon. The current
+`2.3.0` / `2.3.0.4` extension package is built and audited from clean `main`,
+but has not been uploaded or published. Do not describe the public Store
+listing as aligned until its copy and screenshot set are reviewed and updated.
 
 ## Screenshot Replacement Requirements
 
@@ -168,15 +170,20 @@ Developer Dashboard in Aside, verify the listing fields, upload the candidate,
 and confirm submission/review state. This document does not authorize or
 perform publication.
 
-## Next reupload target — unresolved
+## Next reupload target — prepared, review pending
 
-The former `2.3.0` / `2.3.0.3` target is stale relative to the current dirty
-worktree's `package.json` (`2.3.5` / `2.3.5.1`). Those local values are not an
-approved release candidate. Do not package or submit either version from this
-note. After the intended changes merge, select the exact owner-approved `main`
-SHA, reconcile this packet to its package metadata, and generate fresh ZIP and
-sidecar evidence from that immutable source. Redeploy the API only for that
-exact merged SHA and after owner approval.
+The current candidate is app version `2.3.0` / Chrome version `2.3.0.4`, built
+from clean `main`. Its release sidecar is the source of truth for the exact
+source commit, package digest, and manifest digest. `npm run package` passed
+the internal strict audit, and the separate `npm run audit:extension-package`
+gate passed. The unrelated dirty root checkout declares `2.3.5` /
+`2.3.5.1`; do not build the Store candidate from that dirty checkout.
+
+Good-cop review approved the corrected set-inclusion copy after the visible
+button wording was made accurate. That review covered copy only. The required
+bad-cop review of policy safety, privacy wording, and screenshot accuracy has
+not happened, and the seven tracked screenshots still use the previous UI.
+Refresh and review the screenshots before uploading the candidate.
 
 The screenshot refresh, package upload, and publication remain separate review
 steps. This document does not authorize publication.
