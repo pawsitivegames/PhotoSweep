@@ -2,7 +2,7 @@
  * Component tests for DuplicateGroups.
  *
  * Covers:
- * - Multi-keep chip rendering (Keep this copy / Moves to Trash / none)
+ * - Multi-keep chip rendering (Keep this copy / Proposed for Trash / none)
  * - Card click triggers onToggleKept
  * - Mark all copies for Trash action
  * - Zoom button opens the photo viewer modal
@@ -196,7 +196,7 @@ describe("DuplicateGroups — chip rendering", () => {
   it("shows Trash chips for non-kept items when group is selected", () => {
     wrap(<DuplicateGroups {...defaultProps} />)
     // img2 and img3 are not kept and group is selected
-    const trashChips = screen.getAllByText("Moves to Trash")
+    const trashChips = screen.getAllByText("Proposed for Trash")
     expect(trashChips).toHaveLength(2)
   })
 
@@ -230,12 +230,12 @@ describe("DuplicateGroups — chip rendering", () => {
     )
 
     expect(screen.getByText("Review only")).toBeInTheDocument()
-    expect(screen.queryAllByText("Moves to Trash")).toHaveLength(
+    expect(screen.queryAllByText("Proposed for Trash")).toHaveLength(
       reviewOnlyPlan.length
     )
     expect(
       screen.getByRole("button", { name: /Keep review-target\.jpg/ })
-    ).not.toHaveAccessibleName(/currently moves to Trash/)
+    ).not.toHaveAccessibleName(/currently proposed for Trash/)
   })
 
   it("does not label an item without a dedup identity as moving to Trash", () => {
@@ -267,10 +267,10 @@ describe("DuplicateGroups — chip rendering", () => {
       />
     )
 
-    expect(screen.queryAllByText("Moves to Trash")).toHaveLength(plan.length)
+    expect(screen.queryAllByText("Proposed for Trash")).toHaveLength(plan.length)
     expect(
       screen.getByRole("button", { name: /Keep identity-missing\.jpg/ })
-    ).not.toHaveAccessibleName(/currently moves to Trash/)
+    ).not.toHaveAccessibleName(/currently proposed for Trash/)
   })
 
   it("honors duplicate provider identities across the full plan scope", () => {
@@ -306,10 +306,10 @@ describe("DuplicateGroups — chip rendering", () => {
       />
     )
 
-    expect(screen.queryAllByText("Moves to Trash")).toHaveLength(plan.length)
+    expect(screen.queryAllByText("Proposed for Trash")).toHaveLength(plan.length)
     expect(
       screen.getByRole("button", { name: /Keep global-target\.jpg/ })
-    ).not.toHaveAccessibleName(/currently moves to Trash/)
+    ).not.toHaveAccessibleName(/currently proposed for Trash/)
   })
 
   it("shows Trash status for an item included in the shared review plan", () => {
@@ -341,10 +341,10 @@ describe("DuplicateGroups — chip rendering", () => {
       />
     )
 
-    expect(screen.getByText("Moves to Trash")).toBeInTheDocument()
+    expect(screen.getByText("Proposed for Trash")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: /Keep proposal-target\.jpg/ })
-    ).toHaveAccessibleName(/currently moves to Trash/)
+    ).toHaveAccessibleName(/currently proposed for Trash/)
   })
 
   it("shows favorite protection and prevents toggling a confirmed favorite", () => {
@@ -395,7 +395,7 @@ describe("DuplicateGroups — chip rendering", () => {
 
     expect(screen.getByText("Favorite status unknown")).toBeInTheDocument()
     expect(
-      screen.getByText("Moves to Trash · favorite unknown")
+      screen.getByText("Proposed for Trash · favorite unknown")
     ).toBeInTheDocument()
     expect(
       screen.getByRole("button", {
@@ -411,7 +411,7 @@ describe("DuplicateGroups — chip rendering", () => {
         selectedGroupIds={new Set()} // deselected
       />
     )
-    expect(screen.queryByText("Moves to Trash")).not.toBeInTheDocument()
+    expect(screen.queryByText("Proposed for Trash")).not.toBeInTheDocument()
   })
 
   it("shows multiple Keep chips when multiple items are kept", () => {
@@ -425,7 +425,7 @@ describe("DuplicateGroups — chip rendering", () => {
     )
     const keepChips = screen.getAllByText("Keep this copy")
     expect(keepChips).toHaveLength(2)
-    const trashChips = screen.getAllByText("Moves to Trash")
+    const trashChips = screen.getAllByText("Proposed for Trash")
     expect(trashChips).toHaveLength(1) // only img3
   })
 
@@ -449,7 +449,7 @@ describe("DuplicateGroups — chip rendering", () => {
       />
     )
     expect(screen.queryByText("Keep this copy")).not.toBeInTheDocument()
-    expect(screen.getAllByText("Moves to Trash")).toHaveLength(3)
+    expect(screen.getAllByText("Proposed for Trash")).toHaveLength(3)
   })
 
   it("shows a strong candidate classification when metadata matches", () => {
@@ -629,7 +629,7 @@ describe("DuplicateGroups — keyboard review", () => {
     wrap(<DuplicateGroups {...defaultProps} onToggleGroup={onToggleGroup} />)
 
     const setControl = screen.getByRole("checkbox", {
-      name: /Include duplicate set of 3 photos/i
+      name: /Include this set of 3 photos for cleanup/i
     })
     expect(screen.getAllByRole("checkbox")).toHaveLength(1)
 
@@ -648,7 +648,7 @@ describe("DuplicateGroups — keyboard review", () => {
     ).toHaveAttribute("aria-pressed", "true")
     expect(
       screen.getByRole("button", {
-        name: /Keep img2\.jpg \(currently moves to Trash; click to keep\)/
+        name: /Keep img2\.jpg \(currently proposed for Trash; click to keep\)/
       })
     ).toHaveAttribute("aria-pressed", "false")
   })
@@ -664,7 +664,9 @@ describe("DuplicateGroups — keyboard review", () => {
       />
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /Skip this set/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /Skip cleanup for this set/i })
+    )
     expect(onSkipGroup).toHaveBeenCalledWith("g1")
   })
 })

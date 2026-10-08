@@ -50,11 +50,11 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: [
+      '"DM Sans"',
       "-apple-system",
       "BlinkMacSystemFont",
       '"SF Pro Text"',
       '"SF Pro Display"',
-      '"DM Sans"',
       '"Segoe UI"',
       "Arial",
       "sans-serif"

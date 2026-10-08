@@ -95,8 +95,7 @@ const sxPaperBase = {
   borderColor: "divider",
   background: photoSweepColors.surface,
   boxShadow: `0 16px 44px ${photoSweepColors.shadow}`,
-  transition:
-    "opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease"
+  transition: "border-color 0.15s ease, box-shadow 0.15s ease"
 }
 const sxGroupHeader = {
   display: "flex",
@@ -404,7 +403,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
         {
           mb: compact ? 0 : sxPaperBase.mb,
           borderRadius: compact ? 2.25 : sxPaperBase.borderRadius,
-          opacity: readOnly || isSelected ? 1 : 0.72,
+          borderWidth: isSelected ? 2 : 1,
           borderColor: isSelected ? "primary.main" : "divider",
           boxShadow: isSelected
             ? compact
@@ -421,10 +420,10 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
         aria-label={
           readOnly
             ? undefined
-            : `Include duplicate set of ${group.mediaKeys.length} ${groupItemKind(
+            : `Include this set of ${group.mediaKeys.length} ${groupItemKind(
                 group,
                 mediaItems
-              )}`
+              )} for cleanup`
         }
         onClick={() => {
           if (!readOnly) onToggleGroup(group.id)
@@ -451,7 +450,14 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             ? {
                 px: 1.1,
                 py: 1,
-                gap: 0.85
+              gap: 0.85
+              }
+            : undefined,
+          !readOnly
+            ? {
+                bgcolor: isSelected
+                  ? photoSweepColors.primarySoft
+                  : photoSweepColors.surfaceSubtle
               }
             : undefined
         ]}>
@@ -476,8 +482,9 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             variant="caption"
             color="text.secondary"
             sx={compact ? { display: "block", lineHeight: 1.35 } : undefined}>
-            Choose one or more copies to keep. Unkept copies in an included set
-            move to Trash.
+            Select photos to choose keepers. Include this set in cleanup; it
+            adds eligible unkept copies to the Trash proposal and marks the
+            set reviewed.
           </Typography>
           <Typography
             variant="caption"
@@ -524,10 +531,12 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             <Chip
               label={
                 !isReviewed
-                  ? "Needs review"
+                  ? isSelected
+                    ? "Selected · needs review"
+                    : "Review this set"
                   : isSelected
-                    ? "Included"
-                    : "Skipped"
+                    ? "Selected for cleanup"
+                    : "Not selected"
               }
               size="small"
               color={
@@ -572,7 +581,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             decisionSource === "manual" ||
             decisionSource === "legacy_preserved" ||
             decisionSource === "stale_fallback"
-          const isExplicitlyKept = isUserDecision && isSelected && isKept
+          const isExplicitlyKept = isUserDecision && isKept
           const isSuggestedKeep = !isUserDecision && isKept
           const itemLabel = item.fileName || item.mediaKey
 
@@ -632,11 +641,11 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         : isLastKeptCopy
                           ? `Keep ${itemLabel} (currently kept; this is the last kept copy, so at least one copy must remain kept.)`
                         : isKept
-                          ? `Keep ${itemLabel} (currently kept; click to move to Trash)`
-                          : movesToTrash && favoriteStatus === "unknown"
-                            ? `Keep ${itemLabel} (currently moves to Trash; favorite status unknown; click to keep)`
+                          ? `Keep ${itemLabel} (currently kept; click to change the keeper choice)`
+                        : movesToTrash && favoriteStatus === "unknown"
+                            ? `Keep ${itemLabel} (currently proposed for Trash; favorite status unknown; click to keep)`
                             : movesToTrash
-                              ? `Keep ${itemLabel} (currently moves to Trash; click to keep)`
+                              ? `Keep ${itemLabel} (currently proposed for Trash; click to keep)`
                               : `Keep ${itemLabel} (not in the current Trash proposal; click to change the decision)`
                   }
                   aria-describedby={
@@ -792,11 +801,18 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         icon={<DeleteOutlineRoundedIcon />}
                         label={
                           favoriteStatus === "unknown"
-                            ? "Moves to Trash · favorite unknown"
-                            : "Moves to Trash"
+                            ? "Proposed for Trash · favorite unknown"
+                            : "Proposed for Trash"
                         }
                         size="small"
                         color="error"
+                        variant="outlined"
+                        sx={sxStatusChip}
+                      />
+                    ) : !readOnly && !favoriteProtected ? (
+                      <Chip
+                        label="Select to keep"
+                        size="small"
                         variant="outlined"
                         sx={sxStatusChip}
                       />
@@ -847,9 +863,10 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           }}>
           <Button
             size="small"
-            variant={!isReviewed || isSelected ? "outlined" : "contained"}
+            variant="outlined"
+            title="Keep this set out of the Trash proposal and mark it reviewed."
             onClick={() => onSkipGroup(group.id)}>
-            Skip this set
+            Skip cleanup for this set
           </Button>
           <Button
             size="small"
@@ -1174,8 +1191,9 @@ export function DuplicateGroups({
                 ? { display: "block", lineHeight: 1.35, mt: 0.25 }
                 : undefined
             }>
-            Choose the copy or copies to keep. Every other copy in an included
-            set moves to Trash.
+            First choose the photos to keep. Then include sets in cleanup.
+            Only included sets add eligible unkept copies to the Trash proposal;
+            nothing moves until you confirm.
           </Typography>
         </Box>
       </Box>

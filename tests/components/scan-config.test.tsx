@@ -172,10 +172,10 @@ describe("ScanConfig — taken date range", () => {
     expect(screen.getByLabelText("To")).toBeVisible()
     expect(screen.getByText("Recent 30 days · Recommended")).toBeVisible()
     expect(
-      screen.getByRole("button", { name: /Scan recent 30 days/i })
+      screen.getByRole("button", { name: /Scan the last 30 days/i })
     ).toBeVisible()
     expect(
-      screen.getByRole("button", { name: /Check entire library instead/i })
+      screen.getByRole("button", { name: /Scan all dates instead/i })
     ).toBeVisible()
     expect(
       screen.getByRole("button", { name: /Advanced matching/i })
@@ -185,7 +185,7 @@ describe("ScanConfig — taken date range", () => {
   it("launches a bounded recommended scan without manual date entry", () => {
     const { onSettingsChange, onStartScan } = renderConfig()
     fireEvent.click(
-      screen.getByRole("button", { name: /Scan recent 30 days/i })
+      screen.getByRole("button", { name: /Scan the last 30 days/i })
     )
 
     const dateRange = recommendedFirstScanDateRange()
@@ -193,6 +193,30 @@ describe("ScanConfig — taken date range", () => {
     expect(onStartScan).toHaveBeenCalledWith(
       expect.objectContaining({ dateRange })
     )
+  })
+
+  it("groups optional date and matching choices before the first scan action", () => {
+    renderConfig({}, { compact: true })
+
+    const optionsButton = screen.getByRole("button", {
+      name: /Scan options.*Recommended · 30 days/i
+    })
+    const scanButton = screen.getByRole("button", {
+      name: /Scan the last 30 days/i
+    })
+
+    expect(optionsButton).toHaveAttribute("aria-expanded", "false")
+    expect(screen.getByLabelText("From")).not.toBeVisible()
+    expect(
+      optionsButton.compareDocumentPosition(scanButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+
+    fireEvent.click(optionsButton)
+
+    expect(optionsButton).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByLabelText("From")).toBeVisible()
+    expect(screen.getByText("Matching method")).toBeVisible()
   })
 
   it("emits date range updates from the date inputs", () => {
@@ -227,7 +251,7 @@ describe("ScanConfig — taken date range", () => {
   it("labels the primary button as a date range scan when scoped", () => {
     renderConfig({ dateRange: { from: "2024-01-01", to: "2024-12-31" } })
     expect(
-      screen.getByRole("button", { name: /Check this date range/i })
+      screen.getByRole("button", { name: /Scan this date range/i })
     ).toBeInTheDocument()
   })
 
@@ -237,7 +261,7 @@ describe("ScanConfig — taken date range", () => {
     })
 
     const button = screen.getByRole("button", {
-      name: /Check this date range/i
+      name: /Scan this date range/i
     })
     expect(button).toBeDisabled()
     expect(screen.getByText(/start date must be before/i)).toBeInTheDocument()
@@ -336,7 +360,7 @@ describe("ScanConfig — album scope", () => {
     })
 
     expect(
-      screen.getByRole("button", { name: /Check this album/i })
+      screen.getByRole("button", { name: /Scan this album/i })
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Only checking Tiny test album/i)
@@ -395,7 +419,7 @@ describe("ScanConfig — photo source", () => {
       )
 
       expect(
-        screen.getByRole("button", { name: /Check up to 50 records/i })
+        screen.getByRole("button", { name: /Scan up to 50 records/i })
       ).toBeInTheDocument()
       expect(
         screen.getByText(/Test batch is on/).closest('[role="alert"]')
@@ -474,7 +498,10 @@ describe("ScanConfig — photo source", () => {
     renderConfig({ sourceProvider: "icloud" })
 
     expect(
-      screen.getByRole("button", { name: /Check entire library/i })
+      screen.getByRole("button", { name: /Scan the last 30 days/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /Scan all dates instead/i })
     ).toBeInTheDocument()
     expect(screen.getByText(/Recently Deleted/i)).toBeInTheDocument()
     expect(
@@ -503,7 +530,7 @@ describe("ScanConfig — photo source", () => {
       screen.getByRole("combobox", { name: /Library area/i })
     ).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: /Check entire library/i })
+      screen.getByRole("button", { name: /Scan the last 30 days/i })
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Choose a personal album or scan the full library/i)
@@ -532,7 +559,7 @@ describe("ScanConfig — photo source", () => {
       screen.getByText(/Choose a personal album or scan the full library/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: /Check entire library/i })
+      screen.getByRole("button", { name: /Scan the last 30 days/i })
     ).toBeInTheDocument()
   })
 
@@ -543,7 +570,7 @@ describe("ScanConfig — photo source", () => {
     })
 
     const startButton = screen.getByRole("button", {
-      name: /Check up to 50 records/i
+      name: /Scan up to 50 records/i
     })
     expect(startButton).toBeInTheDocument()
     expect(screen.getByText(/Test batch is on/i)).toBeInTheDocument()
@@ -565,7 +592,7 @@ describe("ScanConfig — photo source", () => {
       screen.getByText(/above the 1,000 photo scan limit for Free/i)
     ).toBeInTheDocument()
     fireEvent.click(
-      screen.getByRole("button", { name: /Check up to 1,001 records/i })
+      screen.getByRole("button", { name: /Scan up to 1,001 records/i })
     )
     expect(onStartScan).not.toHaveBeenCalled()
     expect(onUpgrade).toHaveBeenCalled()
@@ -584,7 +611,7 @@ describe("ScanConfig — photo source", () => {
     )
 
     expect(
-      screen.getByRole("button", { name: /Check up to 50 records/i })
+      screen.getByRole("button", { name: /Scan up to 50 records/i })
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Test batch is on/).closest('[role="alert"]')
@@ -607,7 +634,7 @@ describe("ScanConfig — photo source", () => {
       screen.getByRole("link", { name: /Open Amazon Photos/i })
     ).toHaveAttribute("href", "https://www.amazon.com/photos?sf=1")
     expect(
-      screen.getByRole("button", { name: /Check entire library/i })
+      screen.getByRole("button", { name: /Scan the last 30 days/i })
     ).toBeInTheDocument()
     expect(
       screen.getByText(

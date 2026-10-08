@@ -29,11 +29,16 @@ interface ActionBarProps {
   totalItems: number
   groupCount: number
   totalGroupCount: number
+  availableGroupCount?: number
+  hiddenAvailableGroupCount?: number
   reviewedGroupCount: number
+  selectedShownGroupCount: number
+  includedGroupCount?: number
   exactGroupCount: number
   similarGroupCount: number
   reviewFilter: ReviewFilter
   onReviewFilterChange: (filter: ReviewFilter) => void
+  onIncludeAllEligible?: () => void
   onSelectAll: () => void
   onDeselectAll: () => void
   onRescan: () => void
@@ -50,11 +55,16 @@ export function ActionBar({
   totalItems,
   groupCount,
   totalGroupCount,
+  availableGroupCount = totalGroupCount,
+  hiddenAvailableGroupCount = 0,
   reviewedGroupCount,
+  selectedShownGroupCount,
+  includedGroupCount = selectedShownGroupCount,
   exactGroupCount,
   similarGroupCount,
   reviewFilter,
   onReviewFilterChange,
+  onIncludeAllEligible,
   onSelectAll,
   onDeselectAll,
   onRescan,
@@ -70,6 +80,27 @@ export function ActionBar({
   const keepMenuOpen = Boolean(keepMenuAnchor)
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<HTMLElement | null>(null)
   const moreMenuOpen = Boolean(moreMenuAnchor)
+  const allShownGroupsSelected =
+    groupCount > 0 && selectedShownGroupCount >= groupCount
+  const allAvailableGroupsIncluded =
+    availableGroupCount > 0 && includedGroupCount >= availableGroupCount
+  const availableSetCountLabel = `${availableGroupCount.toLocaleString()} available set${availableGroupCount === 1 ? "" : "s"}`
+  const shownSetCountLabel = `${groupCount.toLocaleString()} shown set${groupCount === 1 ? "" : "s"}`
+  const includeAllLabel = allAvailableGroupsIncluded
+    ? "All available sets included"
+    : availableGroupCount === 0
+      ? "No available sets"
+      : "Include all available sets"
+  const includeAllAriaLabel = allAvailableGroupsIncluded
+    ? `All ${availableSetCountLabel} already included in cleanup`
+    : availableGroupCount === 0
+      ? "No sets are available to include in cleanup"
+      : `Include all ${availableSetCountLabel} in cleanup`
+  const includeAllTitle = allAvailableGroupsIncluded
+    ? "All sets available to review across the scan are already included."
+    : availableGroupCount === 0
+      ? "There are no sets available to review in this scan."
+      : "Includes every set available to review across the scan, even outside this filter. Plan-locked sets stay out. Newly included sets return to Needs review."
 
   return (
     <Paper
@@ -130,8 +161,20 @@ export function ActionBar({
             color="text.secondary"
             sx={{ display: "block", mt: 0.2, lineHeight: 1.25 }}>
             {reviewedGroupCount.toLocaleString()} of{" "}
-            {groupCount.toLocaleString()} visible sets reviewed
+            {groupCount.toLocaleString()} shown sets reviewed
           </Typography>
+          {!compact && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", lineHeight: 1.25 }}>
+              {includedGroupCount.toLocaleString()} of{" "}
+              {availableGroupCount.toLocaleString()} available sets included
+              across the scan; {selectedShownGroupCount.toLocaleString()} of{" "}
+              {groupCount.toLocaleString()} shown sets included here. Newly
+              included sets return to Needs review.
+            </Typography>
+          )}
           <Typography
             variant="caption"
             color="text.secondary"
@@ -140,7 +183,7 @@ export function ActionBar({
             {groupCount !== totalGroupCount ? " · " : ""}
             {groupCount !== totalGroupCount && (
               <Box component="span">
-                {totalGroupCount.toLocaleString()} sets total
+                {totalGroupCount.toLocaleString()} sets in scan
               </Box>
             )}
           </Typography>
@@ -186,24 +229,137 @@ export function ActionBar({
             </ToggleButton>
           </ToggleButtonGroup>
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 0.75
-            }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<TuneRoundedIcon />}
-              disabled={groupCount === 0}
-              onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
-              aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
-              aria-haspopup="menu"
-              aria-expanded={keepMenuOpen ? "true" : undefined}
-              sx={{ minHeight: 40, fontWeight: 800 }}>
-              Selection
-            </Button>
+          <Box sx={{ display: "grid", gap: 0.9 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gap: 0.65,
+                p: 1,
+                border: "1px solid",
+                borderColor: photoSweepColors.primaryBorder,
+                borderRadius: 1.5,
+                bgcolor: photoSweepColors.primarySoft
+              }}>
+              <Typography variant="subtitle2" fontWeight={800}>
+                1. Choose keeper photos
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ lineHeight: 1.3 }}>
+                Choose photos to keep, or apply a rule across all{" "}
+                {totalGroupCount.toLocaleString()} scan sets. This does not
+                include sets in cleanup.
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                startIcon={<TuneRoundedIcon />}
+                disabled={totalGroupCount === 0}
+                onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
+                aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
+                aria-haspopup="menu"
+                aria-expanded={keepMenuOpen ? "true" : undefined}
+                title="Choose a keeper rule across the scan. This does not change which sets are included in cleanup."
+                sx={{ minHeight: 40, fontWeight: 800, bgcolor: "background.paper" }}>
+                Choose keepers automatically
+              </Button>
+            </Box>
+            <Box
+              sx={{
+                display: "grid",
+                gap: 0.65,
+                p: 1,
+                border: "1px solid",
+                borderColor: photoSweepColors.borderStrong,
+                borderRadius: 1.5,
+                bgcolor: photoSweepColors.surfaceSubtle
+              }}>
+              <Typography variant="subtitle2" fontWeight={800}>
+                2. Include sets in cleanup
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ lineHeight: 1.3 }}>
+                {includedGroupCount.toLocaleString()} of{" "}
+                {availableGroupCount.toLocaleString()} available sets included
+                across the scan; {selectedShownGroupCount.toLocaleString()} of{" "}
+                {groupCount.toLocaleString()} shown sets included here.
+              </Typography>
+              {onIncludeAllEligible && availableGroupCount > 0 && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ lineHeight: 1.25 }}>
+                  {hiddenAvailableGroupCount > 0
+                    ? `Includes ${hiddenAvailableGroupCount.toLocaleString()} available sets hidden by this filter. `
+                    : "Includes every available set across the scan. "}
+                  Newly included sets return to Needs review.
+                </Typography>
+              )}
+              {onIncludeAllEligible && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  fullWidth
+                  startIcon={
+                    allAvailableGroupsIncluded ? (
+                      <CheckBoxOutlinedIcon />
+                    ) : (
+                      <CheckBoxOutlineBlankIcon />
+                    )
+                  }
+                  disabled={availableGroupCount === 0 || allAvailableGroupsIncluded}
+                  onClick={onIncludeAllEligible}
+                  aria-label={includeAllAriaLabel}
+                  title={includeAllTitle}
+                  sx={{ minHeight: 40, fontWeight: 800 }}>
+                  {includeAllLabel}
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                startIcon={
+                  allShownGroupsSelected ? (
+                    <CheckBoxOutlinedIcon />
+                  ) : (
+                    <CheckBoxOutlineBlankIcon />
+                  )
+                }
+                disabled={groupCount === 0 || allShownGroupsSelected}
+                onClick={onSelectAll}
+                aria-label={
+                  allShownGroupsSelected
+                    ? `All ${shownSetCountLabel} already included in cleanup`
+                    : `Include all ${shownSetCountLabel} in cleanup`
+                }
+                title={
+                  allShownGroupsSelected
+                    ? "All sets in the current filter are already included in cleanup."
+                    : "Includes only sets shown by the current filter and marks them reviewed."
+                }
+                sx={{ minHeight: 40, fontWeight: 800 }}>
+                {allShownGroupsSelected
+                  ? `All ${shownSetCountLabel} included`
+                  : `Include all ${shownSetCountLabel}`}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                startIcon={<CheckBoxOutlineBlankIcon />}
+                disabled={selectedShownGroupCount === 0}
+                onClick={onDeselectAll}
+                aria-label={`Remove ${shownSetCountLabel} from cleanup`}
+                title="Removes only sets shown by the current filter and marks them reviewed."
+                sx={{ minHeight: 38, fontWeight: 750 }}>
+                Remove shown sets from cleanup
+              </Button>
+            </Box>
             <Button
               variant="outlined"
               size="small"
@@ -212,8 +368,9 @@ export function ActionBar({
               aria-controls={moreMenuOpen ? "review-more-menu" : undefined}
               aria-haspopup="menu"
               aria-expanded={moreMenuOpen ? "true" : undefined}
-              sx={{ minHeight: 40, fontWeight: 800 }}>
-              More
+              fullWidth
+              sx={{ minHeight: 38, fontWeight: 750 }}>
+              More actions
             </Button>
           </Box>
 
@@ -222,6 +379,15 @@ export function ActionBar({
             anchorEl={keepMenuAnchor}
             open={keepMenuOpen}
             onClose={() => setKeepMenuAnchor(null)}>
+            <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
+              <Typography variant="caption" color="text.secondary">
+                Choose a rule to pick keeper photos across all{" "}
+                {totalGroupCount.toLocaleString()} scan sets, including sets
+                outside this filter. Manual keeper choices may be replaced;
+                which sets are included in cleanup stays the same.
+              </Typography>
+            </Box>
+            <Divider />
             {(Object.keys(KEEP_STRATEGY_LABELS) as KeepStrategy[]).map(
               (strategy) => (
                 <MenuItem
@@ -234,23 +400,6 @@ export function ActionBar({
                 </MenuItem>
               )
             )}
-            <Divider />
-            <MenuItem
-              disabled={groupCount === 0}
-              onClick={() => {
-                onSelectAll()
-                setKeepMenuAnchor(null)
-              }}>
-              Include all sets
-            </MenuItem>
-            <MenuItem
-              disabled={groupCount === 0}
-              onClick={() => {
-                onDeselectAll()
-                setKeepMenuAnchor(null)
-              }}>
-              Skip all sets
-            </MenuItem>
           </Menu>
           <Menu
             id="review-more-menu"
@@ -381,17 +530,26 @@ export function ActionBar({
             size="small"
             startIcon={<TuneRoundedIcon />}
             onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
-            disabled={groupCount === 0}
+            disabled={totalGroupCount === 0}
             aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
             aria-haspopup="menu"
             aria-expanded={keepMenuOpen ? "true" : undefined}>
-            Auto Keep
+            Choose keepers automatically
           </Button>
           <Menu
             id="keep-strategy-menu"
             anchorEl={keepMenuAnchor}
             open={keepMenuOpen}
             onClose={() => setKeepMenuAnchor(null)}>
+            <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
+              <Typography variant="caption" color="text.secondary">
+                Choose a rule to pick keeper photos across all{" "}
+                {totalGroupCount.toLocaleString()} scan sets, including sets
+                outside this filter. Manual keeper choices may be replaced;
+                which sets are included in cleanup stays the same.
+              </Typography>
+            </Box>
+            <Divider />
             {(Object.keys(KEEP_STRATEGY_LABELS) as KeepStrategy[]).map(
               (strategy) => (
                 <MenuItem
@@ -408,19 +566,57 @@ export function ActionBar({
           {!compact && (
             <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
           )}
+          {onIncludeAllEligible && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                allAvailableGroupsIncluded ? (
+                  <CheckBoxOutlinedIcon />
+                ) : (
+                  <CheckBoxOutlineBlankIcon />
+                )
+              }
+              disabled={availableGroupCount === 0 || allAvailableGroupsIncluded}
+              onClick={onIncludeAllEligible}
+              aria-label={includeAllAriaLabel}
+              title={includeAllTitle}>
+              {includeAllLabel}
+            </Button>
+          )}
           <Button
             size="small"
-            startIcon={<CheckBoxOutlinedIcon />}
-            disabled={groupCount === 0}
-            onClick={onSelectAll}>
-            Include all
+            startIcon={
+              allShownGroupsSelected ? (
+                <CheckBoxOutlinedIcon />
+              ) : (
+                <CheckBoxOutlineBlankIcon />
+              )
+            }
+            disabled={groupCount === 0 || allShownGroupsSelected}
+            onClick={onSelectAll}
+            aria-label={
+              allShownGroupsSelected
+                ? `All ${shownSetCountLabel} already included in cleanup`
+                : `Include all ${shownSetCountLabel} in cleanup`
+            }
+            title={
+              allShownGroupsSelected
+                ? "All sets in the current filter are already included in cleanup."
+                : "Includes only sets shown by the current filter and marks them reviewed."
+            }>
+            {allShownGroupsSelected
+              ? `All ${shownSetCountLabel} included`
+              : `Include all ${shownSetCountLabel}`}
           </Button>
           <Button
             size="small"
             startIcon={<CheckBoxOutlineBlankIcon />}
-            disabled={groupCount === 0}
-            onClick={onDeselectAll}>
-            Skip all
+            disabled={selectedShownGroupCount === 0}
+            onClick={onDeselectAll}
+            aria-label={`Remove ${shownSetCountLabel} from cleanup`}
+            title="Removes only sets shown by the current filter and marks them reviewed.">
+            Remove shown sets from cleanup
           </Button>
         </Stack>
       )}
@@ -483,7 +679,7 @@ export function CleanupBar({
           role="status"
           aria-live="polite">
           {includedGroupCount.toLocaleString()} set
-          {includedGroupCount === 1 ? "" : "s"} included ·{" "}
+          {includedGroupCount === 1 ? "" : "s"} selected for cleanup ·{" "}
           {duplicateCount.toLocaleString()} media item
           {duplicateCount === 1 ? "" : "s"} proposed for Trash
           {!reviewComplete &&
@@ -495,9 +691,9 @@ export function CleanupBar({
           variant="caption"
           color="text.secondary"
           sx={{ display: "block", lineHeight: 1.35 }}>
-          Review included sets across result filters before confirming. Audit
-          report is saved before cleanup; Undo is available after supported
-          Trash actions.
+          Review every set across all filters. Only selected sets contribute
+          unkept copies to the Trash proposal. You confirm before anything
+          moves; Undo is available after supported Trash actions.
         </Typography>
       </Box>
       <Button

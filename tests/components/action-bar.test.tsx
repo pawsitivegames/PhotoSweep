@@ -19,12 +19,16 @@ interface Props {
   totalItems?: number
   groupCount?: number
   totalGroupCount?: number
+  availableGroupCount?: number
   reviewedGroupCount?: number
+  selectedShownGroupCount?: number
+  includedGroupCount?: number
   exactGroupCount?: number
   similarGroupCount?: number
   duplicateCount?: number
   reviewFilter?: "all" | "exact" | "similar"
   onReviewFilterChange?: (filter: "all" | "exact" | "similar") => void
+  onIncludeAllEligible?: () => void
   onSelectAll?: () => void
   onDeselectAll?: () => void
   onTrash?: () => void
@@ -55,6 +59,8 @@ function renderActionBar(props: Props = {}) {
     onApplyKeepStrategy: vi.fn()
   }
   const merged = { ...defaults, ...props }
+  const selectedShownGroupCount =
+    props.selectedShownGroupCount ?? Math.min(1, merged.groupCount)
   return {
     ...render(
       <ThemeProvider theme={theme}>
@@ -62,11 +68,15 @@ function renderActionBar(props: Props = {}) {
           totalItems={merged.totalItems}
           groupCount={merged.groupCount}
           totalGroupCount={merged.totalGroupCount}
+          availableGroupCount={merged.availableGroupCount}
           reviewedGroupCount={merged.reviewedGroupCount}
+          selectedShownGroupCount={selectedShownGroupCount}
+          includedGroupCount={merged.includedGroupCount}
           exactGroupCount={merged.exactGroupCount}
           similarGroupCount={merged.similarGroupCount}
           reviewFilter={merged.reviewFilter}
           onReviewFilterChange={merged.onReviewFilterChange}
+          onIncludeAllEligible={merged.onIncludeAllEligible}
           onSelectAll={merged.onSelectAll}
           onDeselectAll={merged.onDeselectAll}
           onRescan={merged.onRescan}
@@ -86,6 +96,24 @@ function renderActionBar(props: Props = {}) {
 // ============================================================
 
 describe("ActionBar", () => {
+  it("makes keeper choice and cleanup selection separate ordered steps", () => {
+    renderActionBar({ compact: true })
+
+    expect(screen.getByText("1. Choose keeper photos")).toBeInTheDocument()
+    expect(screen.getByText("2. Include sets in cleanup")).toBeInTheDocument()
+    expect(
+      screen.getByText(/This does not include sets in cleanup\./)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", {
+        name: "Include all 3 shown sets in cleanup"
+      })
+    ).toHaveAttribute(
+      "title",
+      "Includes only sets shown by the current filter and marks them reviewed."
+    )
+  })
+
   describe("stats display", () => {
     it("shows the total items scanned count", () => {
       renderActionBar({ totalItems: 12345 })
@@ -111,7 +139,7 @@ describe("ActionBar", () => {
         reviewFilter: "exact"
       })
       expect(screen.getByText("2 duplicate sets to review")).toBeInTheDocument()
-      expect(screen.getByText("5 sets total")).toBeInTheDocument()
+      expect(screen.getByText("5 sets in scan")).toBeInTheDocument()
     })
   })
 
@@ -122,7 +150,7 @@ describe("ActionBar", () => {
         screen.queryByRole("button", { name: /Scan again/i })
       ).not.toBeInTheDocument()
       expect(
-        screen.queryByRole("button", { name: /Include all/i })
+        screen.queryByRole("button", { name: /Select all/i })
       ).not.toBeInTheDocument()
     })
 
@@ -138,13 +166,15 @@ describe("ActionBar", () => {
         screen.getByRole("button", { name: /^Spreadsheet$/i })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: /^Include all$/i })
+        screen.getByRole("button", { name: /Include all 2 shown sets in cleanup/i })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: /^Skip all$/i })
+        screen.getByRole("button", {
+          name: /Remove 2 shown sets from cleanup/i
+        })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: /Auto Keep/i })
+        screen.getByRole("button", { name: /Choose keepers automatically/i })
       ).toBeInTheDocument()
       expect(
         screen.getByRole("button", { name: /All sets \(3\)/i })
@@ -162,9 +192,11 @@ describe("ActionBar", () => {
       expect(
         screen.getByRole("button", { name: /All sets \(3\)/i })
       ).toBeInTheDocument()
-      expect(screen.getByRole("button", { name: /Auto Keep/i })).toBeDisabled()
       expect(
-        screen.getByRole("button", { name: /^Include all$/i })
+        screen.getByRole("button", { name: /Choose keepers automatically/i })
+      ).toBeEnabled()
+      expect(
+        screen.getByRole("button", { name: /Include all 0 shown sets in cleanup/i })
       ).toBeDisabled()
     })
   })
@@ -206,7 +238,7 @@ describe("ActionBar", () => {
       expect(btn).toBeDisabled()
     })
 
-    it("announces included sets separately from proposed Trash items", () => {
+    it("announces selected sets separately from proposed Trash items", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
@@ -220,7 +252,7 @@ describe("ActionBar", () => {
       )
 
       expect(screen.getByRole("status")).toHaveTextContent(
-        "1 set included · 0 media items proposed for Trash"
+        "1 set selected for cleanup · 0 media items proposed for Trash"
       )
       expect(
         screen.getByRole("button", {
@@ -242,7 +274,7 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
       expect(screen.getByRole("status")).toHaveTextContent(
-        "1 set included · 1 media item proposed for Trash"
+        "1 set selected for cleanup · 1 media item proposed for Trash"
       )
     })
 
@@ -259,7 +291,7 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
       expect(screen.getByRole("status")).toHaveTextContent(
-        "2 sets included · 4 media items proposed for Trash · 2 sets left to review"
+        "2 sets selected for cleanup · 4 media items proposed for Trash · 2 sets left to review"
       )
       expect(
         screen.getByRole("button", { name: /Review 2 more to continue/i })
@@ -268,22 +300,89 @@ describe("ActionBar", () => {
   })
 
   describe("callbacks", () => {
+    it.each([true, false])(
+      "includes all available sets across filters in compact=%s layout",
+      (compact) => {
+        const onIncludeAllEligible = vi.fn()
+        renderActionBar({
+          compact,
+          groupCount: 1,
+          totalGroupCount: 5,
+          availableGroupCount: 4,
+          selectedShownGroupCount: 0,
+          includedGroupCount: 1,
+          reviewFilter: "exact",
+          onIncludeAllEligible
+        })
+
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "Include all 4 available sets in cleanup"
+          })
+        )
+        expect(onIncludeAllEligible).toHaveBeenCalledOnce()
+      }
+    )
+
+    it("shows a disabled all-included state for scan-wide selection", () => {
+      renderActionBar({
+        compact: true,
+        groupCount: 1,
+        totalGroupCount: 5,
+        availableGroupCount: 4,
+        selectedShownGroupCount: 0,
+        includedGroupCount: 4,
+        onIncludeAllEligible: vi.fn()
+      })
+
+      expect(
+        screen.getByRole("button", {
+          name: "All 4 available sets already included in cleanup"
+        })
+      ).toBeDisabled()
+    })
+
     it("calls onRescan when Scan again is clicked", () => {
       const { callbacks } = renderActionBar()
       fireEvent.click(screen.getByRole("button", { name: /Scan again/i }))
       expect(callbacks.onRescan).toHaveBeenCalledOnce()
     })
 
-    it("calls onSelectAll when Include all is clicked", () => {
-      const { callbacks } = renderActionBar()
-      fireEvent.click(screen.getByRole("button", { name: /^Include all$/i }))
+    it("selects all sets currently shown by the filter", () => {
+      const { callbacks } = renderActionBar({
+        groupCount: 2,
+        reviewFilter: "exact",
+        selectedShownGroupCount: 0
+      })
+      fireEvent.click(
+        screen.getByRole("button", { name: /Include all 2 shown sets in cleanup/i })
+      )
       expect(callbacks.onSelectAll).toHaveBeenCalledOnce()
     })
 
-    it("calls onDeselectAll when Skip all is clicked", () => {
-      const { callbacks } = renderActionBar()
-      fireEvent.click(screen.getByRole("button", { name: /Skip all/i }))
+    it("clears cleanup selection for the shown sets", () => {
+      const { callbacks } = renderActionBar({ groupCount: 2 })
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: /Remove 2 shown sets from cleanup/i
+        })
+      )
       expect(callbacks.onDeselectAll).toHaveBeenCalledOnce()
+    })
+
+    it("shows when every set in the current filter is already included", () => {
+      renderActionBar({ selectedShownGroupCount: 3 })
+
+      expect(
+        screen.getByRole("button", {
+          name: /All 3 shown sets already included in cleanup/i
+        })
+      ).toBeDisabled()
+      expect(
+        screen.getByRole("button", {
+          name: /Remove 3 shown sets from cleanup/i
+        })
+      ).toBeEnabled()
     })
 
     it("calls onReviewFilterChange when a filter is clicked", () => {
@@ -300,9 +399,9 @@ describe("ActionBar", () => {
       expect(callbacks.onExportCsv).toHaveBeenCalledOnce()
     })
 
-    it("calls keep strategy callback from the Auto Keep menu", () => {
+    it("calls keep strategy callback from the keeper choice menu", () => {
       const { callbacks } = renderActionBar()
-      fireEvent.click(screen.getByRole("button", { name: /Auto Keep/i }))
+      fireEvent.click(screen.getByRole("button", { name: /Choose keepers automatically/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Largest resolution/i })
       )
@@ -311,11 +410,13 @@ describe("ActionBar", () => {
       )
     })
 
-    it("routes every Selection strategy choice to the keep handler", () => {
+    it("routes every keep-choice strategy to the keep handler", () => {
       const { callbacks } = renderActionBar({ compact: true })
 
       for (const label of Object.values(KEEP_STRATEGY_LABELS)) {
-        fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+        fireEvent.click(
+          screen.getByRole("button", { name: /Choose keepers automatically/i })
+        )
         fireEvent.click(screen.getByRole("menuitem", { name: label }))
       }
 
@@ -348,7 +449,7 @@ describe("ActionBar", () => {
 
     it("shows the non-storage-counting keep strategy", () => {
       const { callbacks } = renderActionBar()
-      fireEvent.click(screen.getByRole("button", { name: /Auto Keep/i }))
+      fireEvent.click(screen.getByRole("button", { name: /Choose keepers automatically/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Non-storage-counting/i })
       )
@@ -360,22 +461,22 @@ describe("ActionBar", () => {
     it("keeps compact toolbar actions accessible by name", () => {
       const { callbacks } = renderActionBar({ compact: true })
 
-      fireEvent.click(screen.getByRole("button", { name: /More/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More actions/i }))
       fireEvent.click(screen.getByRole("menuitem", { name: /Scan again/i }))
-      fireEvent.click(screen.getByRole("button", { name: /More/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More actions/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Export audit report/i })
       )
-      fireEvent.click(screen.getByRole("button", { name: /More/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More actions/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Export spreadsheet/i })
       )
-      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
       fireEvent.click(
-        screen.getByRole("menuitem", { name: /Include all sets/i })
+        screen.getByRole("button", { name: /Include all 3 shown sets in cleanup/i })
       )
-      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
-      fireEvent.click(screen.getByRole("menuitem", { name: /Skip all sets/i }))
+      fireEvent.click(
+        screen.getByRole("button", { name: /Remove 3 shown sets from cleanup/i })
+      )
 
       expect(callbacks.onRescan).toHaveBeenCalledOnce()
       expect(callbacks.onExportJson).toHaveBeenCalledOnce()

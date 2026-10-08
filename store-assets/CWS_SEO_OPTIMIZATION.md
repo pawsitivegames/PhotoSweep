@@ -4,9 +4,9 @@ Status: **Package metadata is set for the requested listing strings. This change
 
 ## What we know
 
-The current live listing uses:
+The current live listing is titled:
 
-> PhotoSweep - Duplicate Photo Finder
+> PhotoSweep for Google Photos™
 
 "Google Photos duplicate finder" is a highly relevant search query for this product. However, Chrome Web Store does not publish a ranking formula. Any metadata change should be judged by policy safety, clarity, and observed search performance instead of assumed title weighting.
 
@@ -31,7 +31,13 @@ before submitting the package.
 
 ### Detailed Description
 
-Keep the current detailed description's provider-specific limitations, review-before-cleanup model, and scoped privacy language. The existing affiliation disclaimer should remain unchanged.
+The published description still presents keeper choice and typed Trash
+confirmation without explaining the separate set-inclusion step. Refresh the
+workflow copy to match the extension: choose keeper photos; use “Include all
+available sets” across the scan or “Include all shown sets in cleanup” for the current
+filter; review every set; then confirm the exact Trash proposal. Preserve the
+provider-specific limitations, scoped privacy language, and affiliation
+disclaimer.
 
 ## Critic gate re-review
 

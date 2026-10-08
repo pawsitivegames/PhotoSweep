@@ -492,7 +492,7 @@ export function ScanConfig({
                 SCAN SCOPE
               </Typography>
               <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                Choose what to check
+                Choose what to scan
               </Typography>
             </>
           )}
@@ -814,58 +814,7 @@ export function ScanConfig({
           )}
         </Paper>
 
-        {compact ? (
-          <Accordion
-            disableGutters
-            elevation={0}
-            defaultExpanded={Boolean(
-              settings.dateRange?.from || settings.dateRange?.to
-            )}
-            sx={{
-              mb: 0.75,
-              bgcolor: "transparent",
-              borderTop: "1px solid",
-              borderBottom: "1px solid",
-              borderRadius: 0,
-              "&:before": { display: "none" },
-              "&.Mui-expanded": { mb: 0.75 }
-            }}>
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              sx={{
-                minHeight: 42,
-                px: 0.5,
-                "&.Mui-expanded": { minHeight: 42 },
-                "& .MuiAccordionSummary-content": {
-                  my: 0.75,
-                  minWidth: 0,
-                  "&.Mui-expanded": { my: 0.75 }
-                }
-              }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: 0.75,
-                  minWidth: 0
-                }}>
-                <Typography variant="body2" fontWeight={700} noWrap>
-                  Date range
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  noWrap
-                  sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {dateRangeSummary}
-                </Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails sx={{ px: 0.5, pt: 0, pb: 1 }}>
-              {dateRangeControls}
-            </AccordionDetails>
-          </Accordion>
-        ) : (
+        {!compact && (
           <Paper
             variant="outlined"
             sx={{
@@ -1005,7 +954,7 @@ export function ScanConfig({
               color="text.secondary"
               sx={{ display: "block", mt: 0.25, lineHeight: 1.35 }}>
               {useRecommendedFirstScope
-                ? "Starts with a bounded first pass. Widen the dates or use the entire library after you see the first results."
+                ? "Starts with a smaller date range. Widen it or scan all dates after you see the first results."
                 : settings.scanMode === "smart"
                   ? "Compares photos and videos saved close together. It is faster and works well for normal duplicates."
                   : `Compares every item in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks to find copies saved far apart.`}
@@ -1017,67 +966,8 @@ export function ScanConfig({
             variant="caption"
             color="text.secondary"
             sx={{ display: "block", mb: 0.25, lineHeight: 1.3 }}>
-            Start with 30 days, then widen the date range if needed.
+            Start with a smaller range, then widen it after you see the first results.
           </Typography>
-        )}
-
-        <Button
-          variant="contained"
-          fullWidth
-          size="large"
-          startIcon={<SearchRoundedIcon />}
-          onClick={() => {
-            if (!scanGate.allowed) {
-              onUpgrade?.(
-                scanGate.reason === "full_scan_locked"
-                  ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
-                : scanGate.reason === "unscoped_scan_locked"
-                      ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
-                      : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
-              )
-              return
-            }
-            if (useRecommendedFirstScope) {
-              onSettingsChange({ dateRange: recommendedDateRange })
-              onStartScan(startSettings)
-              return
-            }
-            onStartScan()
-          }}
-          disabled={dateRangeInvalid}
-          sx={{
-            mb: compact ? 0.75 : 2,
-            minHeight: compact ? 42 : undefined,
-            borderRadius: compact ? 1.5 : 2,
-            fontSize: compact ? 14 : undefined,
-            boxShadow: compact
-              ? `0 4px 12px ${photoSweepColors.primaryShadow}`
-              : `0 12px 26px ${photoSweepColors.primaryShadow}`,
-            "&:hover": {
-              boxShadow: compact
-                ? `0 6px 16px ${photoSweepColors.primaryShadow}`
-                : `0 16px 34px ${photoSweepColors.primaryShadow}`
-            }
-          }}>
-          {settings.albumScope && supportsAlbumScope
-            ? "Check this album"
-            : batchLimit
-              ? `Check up to ${batchLimit.toLocaleString()} records`
-              : settings.dateRange?.from || settings.dateRange?.to
-                ? "Check this date range"
-                : useRecommendedFirstScope
-                  ? "Scan recent 30 days"
-                  : "Check entire library"}
-        </Button>
-
-        {useRecommendedFirstScope && (
-          <Button
-            fullWidth
-            size="small"
-            onClick={() => onStartScan(settings)}
-            sx={{ mb: compact ? 0.5 : 2, fontWeight: 750 }}>
-            Check entire library instead
-          </Button>
         )}
 
         {showUnscopedFullScanWarning && compact && (
@@ -1108,6 +998,10 @@ export function ScanConfig({
         <Accordion
           disableGutters
           elevation={0}
+          defaultExpanded={
+            compact &&
+            Boolean(settings.dateRange?.from || settings.dateRange?.to)
+          }
           sx={{
             border: "1px solid",
             borderColor: photoSweepColors.border,
@@ -1131,22 +1025,60 @@ export function ScanConfig({
                     "&.Mui-expanded": { minHeight: 38 },
                     "& .MuiAccordionSummary-content": {
                       my: 0.75,
+                      minWidth: 0,
                       "&.Mui-expanded": { my: 0.75 }
                     }
                   }
                 : undefined
             }>
-            <Typography
-              variant="body2"
-              fontWeight={compact ? 700 : undefined}
-              color={compact ? "text.primary" : "text.secondary"}>
-              Advanced matching
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "baseline", minWidth: 0 }}>
+              <Typography
+                variant="body2"
+                fontWeight={compact ? 700 : undefined}
+                color={compact ? "text.primary" : "text.secondary"}
+                noWrap
+                sx={{ flexShrink: 0 }}>
+                {compact ? "Scan options" : "Advanced matching"}
+              </Typography>
+              {compact && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{
+                    ml: 0.75,
+                    minWidth: 0,
+                    flex: 1,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis"
+                  }}>
+                  {settings.dateRange?.from || settings.dateRange?.to
+                    ? dateRangeSummary
+                    : useRecommendedFirstScope
+                      ? "Recommended · 30 days"
+                      : "Any date"}
+                </Typography>
+              )}
+            </Box>
           </AccordionSummary>
           <AccordionDetails sx={compact ? { px: 1, pt: 0, pb: 1 } : undefined}>
+            {compact && (
+              <Box
+                sx={{
+                  mb: 2,
+                  pb: 2,
+                  borderBottom: "1px solid",
+                  borderColor: photoSweepColors.border
+                }}>
+                <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+                  Date range
+                </Typography>
+                {dateRangeControls}
+              </Box>
+            )}
             <Box sx={{ mb: compact ? 1.75 : 3 }}>
               <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-                Search breadth
+                  Matching method
               </Typography>
               <ToggleButtonGroup
                 value={settings.scanMode}
@@ -1361,6 +1293,66 @@ export function ScanConfig({
             )}
           </AccordionDetails>
         </Accordion>
+
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          startIcon={<SearchRoundedIcon />}
+          onClick={() => {
+            if (!scanGate.allowed) {
+              onUpgrade?.(
+                scanGate.reason === "full_scan_locked"
+                  ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
+                  : scanGate.reason === "unscoped_scan_locked"
+                    ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
+                    : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
+              )
+              return
+            }
+            if (useRecommendedFirstScope) {
+              onSettingsChange({ dateRange: recommendedDateRange })
+              onStartScan(startSettings)
+              return
+            }
+            onStartScan()
+          }}
+          disabled={dateRangeInvalid}
+          sx={{
+            mt: compact ? 0.75 : 0,
+            mb: compact ? 0.75 : 2,
+            minHeight: compact ? 42 : undefined,
+            borderRadius: compact ? 1.5 : 2,
+            fontSize: compact ? 14 : undefined,
+            boxShadow: compact
+              ? `0 4px 12px ${photoSweepColors.primaryShadow}`
+              : `0 12px 26px ${photoSweepColors.primaryShadow}`,
+            "&:hover": {
+              boxShadow: compact
+                ? `0 6px 16px ${photoSweepColors.primaryShadow}`
+                : `0 16px 34px ${photoSweepColors.primaryShadow}`
+            }
+          }}>
+          {batchLimit
+            ? `Scan up to ${batchLimit.toLocaleString()} records`
+            : settings.albumScope && supportsAlbumScope
+              ? "Scan this album"
+              : settings.dateRange?.from || settings.dateRange?.to
+                ? "Scan this date range"
+                : useRecommendedFirstScope
+                  ? "Scan the last 30 days"
+                  : "Scan entire library"}
+        </Button>
+
+        {useRecommendedFirstScope && (
+          <Button
+            fullWidth
+            size="small"
+            onClick={() => onStartScan(settings)}
+            sx={{ mb: compact ? 0.5 : 2, fontWeight: 750 }}>
+            Scan all dates instead
+          </Button>
+        )}
 
         <Accordion
           disableGutters

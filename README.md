@@ -29,17 +29,19 @@ For development or testing an unreleased build, use the manual install path:
 
 1. Open Google Photos in Chrome with the extension installed
 2. Click the extension icon → **Open PhotoSweep**
-3. Start with a scoped scan: choose a small album, month, or year before scanning a large library
-4. Review each duplicate group, choose which item or items to keep, and skip any uncertain group
-5. Export the JSON or CSV review report before moving anything to Trash
-6. Click **Review & move N to Trash**, read the confirmation, type the exact item count, then click the final **Move to Trash** button
-7. Check the Trash result report, then restore from provider Trash if anything looks wrong
+3. Start with a scoped scan: choose a small album, month, or year, or begin with the recommended last 30 days
+4. Choose keepers by selecting photos, or apply an automatic keeper rule. Then select sets separately for cleanup; “Include all N shown sets in cleanup” and “Remove shown sets from cleanup” affect only sets in the active filter
+5. Review every set and skip any uncertain group
+6. Export the JSON or CSV review report before moving anything to Trash
+7. Click **Review & move N to Trash**, read the confirmation, type the exact item count, then click the final **Move to Trash** button
+8. Check the Trash result report, then restore from provider Trash if anything looks wrong
 
 No OAuth setup. No Google Cloud project. Photo matching runs locally in your browser; PhotoSweep does not upload your photo library for analysis.
 
 ## Safety Model
 
 - Review-first workflow: the extension recommends keep items, but does not permanently delete photos or auto-delete entire groups.
+- Separate review choices: choosing keepers automatically changes keeper choices across the scan but never selects sets for cleanup. Photo choices and set selection are independent; only selected sets contribute eligible unkept copies to the Trash proposal.
 - Scoped scans: scan by album or taken-date range so large libraries can be processed in small sessions.
 - Resume support: interrupted scans can resume from checkpointed media lists or cached embeddings.
 - Local cache: embeddings and metadata snapshots stay in Chrome extension storage and can be cleared or rebuilt.

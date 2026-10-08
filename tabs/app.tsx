@@ -52,6 +52,7 @@ import { ActionBar, CleanupBar } from "../components/ActionBar"
 import type { ReviewFilter } from "../components/ActionBar"
 import { DuplicateGroups } from "../components/DuplicateGroups"
 import { KeepStrategyFeedbackSnackbar } from "../components/KeepStrategyFeedbackSnackbar"
+import { PhotoSweepBrandMark } from "../components/PhotoSweepBrandMark"
 import { RatingPromptDialog } from "../components/RatingPromptDialog"
 import { RecoveryHistoryDialog } from "../components/RecoveryHistoryDialog"
 import { ScanConfig } from "../components/ScanConfig"
@@ -1067,19 +1068,7 @@ function SidePanelBrandHeader() {
         px: 0.35,
         py: 0.2
       }}>
-      <Box
-        sx={{
-        width: 34,
-        height: 34,
-        borderRadius: 1,
-          display: "grid",
-          placeItems: "center",
-          color: photoSweepColors.surface,
-          bgcolor: photoSweepColors.primary,
-        boxShadow: "none"
-      }}>
-        <PhotoLibraryRoundedIcon sx={{ fontSize: 19 }} />
-      </Box>
+      <PhotoSweepBrandMark size={34} />
       <Typography
         variant="subtitle1"
         fontWeight={850}
@@ -4489,6 +4478,13 @@ export default function App() {
     })
   }, [updateReviewSelections, visibleGroups])
 
+  const handleIncludeAllEligible = useCallback(() => {
+    updateReviewSelections({
+      type: "include_groups_for_cleanup",
+      groupIds: cleanupScopeGroups.map((group) => group.id)
+    })
+  }, [cleanupScopeGroups, updateReviewSelections])
+
   const handleDeselectAll = useCallback(() => {
     updateReviewSelections({
       type: "deselect_groups",
@@ -4627,7 +4623,6 @@ export default function App() {
     (strategy: KeepStrategy) => {
       handleKeepStrategySelection({
         groups,
-        cleanupEligibleGroupIds: cleanupScopeGroups.map((group) => group.id),
         mediaItems: mediaItems ? displayMediaItems : undefined,
         selections: reviewSelectionsRef.current,
         strategy,
@@ -4639,7 +4634,6 @@ export default function App() {
     },
     [
       displayMediaItems,
-      cleanupScopeGroups,
       groups,
       mediaItems,
       setSettings,
@@ -6230,6 +6224,14 @@ export default function App() {
   const includedGroupCount = cleanupScopeGroups.filter((group) =>
     reviewSession.selectedGroupIds.has(group.id)
   ).length
+  const selectedShownGroupCount = visibleGroups.filter((group) =>
+    selectedGroupIds.has(group.id)
+  ).length
+  const visibleGroupIds = new Set(visibleGroups.map((group) => group.id))
+  const hiddenAvailableGroupCount = cleanupScopeGroups.reduce(
+    (count, group) => count + (visibleGroupIds.has(group.id) ? 0 : 1),
+    0
+  )
   const workflowStage =
     state.status === "scanning"
       ? "scan"
@@ -6423,18 +6425,7 @@ export default function App() {
               mx: "auto",
               px: { xs: 2, md: 3 }
             }}>
-            <Box
-              sx={{
-                width: 34,
-                height: 34,
-                borderRadius: 1,
-                display: "grid",
-                placeItems: "center",
-                bgcolor: "primary.main",
-                color: "primary.contrastText"
-              }}>
-              <PhotoLibraryRoundedIcon fontSize="small" />
-            </Box>
+            <PhotoSweepBrandMark size={34} />
             <Typography
               variant="h6"
               fontWeight={700}
@@ -6717,11 +6708,16 @@ export default function App() {
                     totalItems={state.totalItems}
                     groupCount={visibleGroups.length}
                     totalGroupCount={groups.length}
+                    availableGroupCount={cleanupScopeGroups.length}
+                    hiddenAvailableGroupCount={hiddenAvailableGroupCount}
                     reviewedGroupCount={reviewedVisibleGroupCount}
+                    selectedShownGroupCount={selectedShownGroupCount}
+                    includedGroupCount={includedGroupCount}
                     exactGroupCount={exactGroupCount}
                     similarGroupCount={similarGroupCount}
                     reviewFilter={reviewFilter}
                     onReviewFilterChange={setReviewFilter}
+                    onIncludeAllEligible={handleIncludeAllEligible}
                     onSelectAll={handleSelectAll}
                     onDeselectAll={handleDeselectAll}
                     onRescan={handleReset}
@@ -6923,11 +6919,16 @@ export default function App() {
                     totalItems={state.totalItems}
                     groupCount={visibleGroups.length}
                     totalGroupCount={groups.length}
+                    availableGroupCount={cleanupScopeGroups.length}
+                    hiddenAvailableGroupCount={hiddenAvailableGroupCount}
                     reviewedGroupCount={reviewedVisibleGroupCount}
+                    selectedShownGroupCount={selectedShownGroupCount}
+                    includedGroupCount={includedGroupCount}
                     exactGroupCount={exactGroupCount}
                     similarGroupCount={similarGroupCount}
                     reviewFilter={reviewFilter}
                     onReviewFilterChange={setReviewFilter}
+                    onIncludeAllEligible={handleIncludeAllEligible}
                     onSelectAll={handleSelectAll}
                     onDeselectAll={handleDeselectAll}
                     onRescan={handleReset}

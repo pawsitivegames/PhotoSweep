@@ -146,6 +146,7 @@ function ReviewHarness({
         groupCount={1}
         totalGroupCount={1}
         reviewedGroupCount={session.reviewedGroupIds.size}
+        selectedShownGroupCount={session.selectedGroupIds.size}
         exactGroupCount={1}
         similarGroupCount={0}
         reviewFilter="all"
@@ -213,7 +214,9 @@ function ReviewHarness({
 }
 
 function chooseStrategy(label: string) {
-  fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+  fireEvent.click(
+    screen.getByRole("button", { name: /Choose keepers automatically/i })
+  )
   fireEvent.click(screen.getByRole("menuitem", { name: label }))
 }
 
@@ -282,7 +285,7 @@ describe("Selection strategy application in the review UI", () => {
       const view = render(<ReviewHarness />)
       try {
         const checkbox = screen.getByRole("checkbox", {
-          name: "Include duplicate set of 3 photos"
+          name: "Include this set of 3 photos for cleanup"
         })
         expect(checkbox).toHaveAttribute("aria-checked", "false")
 
@@ -297,10 +300,10 @@ describe("Selection strategy application in the review UI", () => {
             : "1 set already had the selected keeper"
         )
         expect(status).toHaveTextContent(
-          "was applied and saved as the default"
+          "updated keeper choices and was saved as the default"
         )
         expect(status).toHaveTextContent(
-          "1 set included for cleanup review; 2 media items proposed for Trash."
+          "Set selection for cleanup is unchanged: 0 sets remain selected and 0 media items remain proposed for Trash."
         )
         expect(screen.getByTestId("default-keep-strategy")).toHaveTextContent(
           outcome.strategy
@@ -315,26 +318,30 @@ describe("Selection strategy application in the review UI", () => {
             key === outcome.keptMediaKey ? "true" : "false"
           )
         }
-        expect(checkbox).toHaveAttribute("aria-checked", "true")
+        expect(checkbox).toHaveAttribute("aria-checked", "false")
       } finally {
         view.unmount()
       }
     }
   )
 
-  it("includes or skips all sets without changing the saved strategy", () => {
+  it("selects or clears shown sets without changing the saved strategy", () => {
     const view = render(<ReviewHarness />)
     try {
       const checkbox = screen.getByRole("checkbox", {
-        name: "Include duplicate set of 3 photos"
+        name: "Include this set of 3 photos for cleanup"
       })
-      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
       fireEvent.click(
-        screen.getByRole("menuitem", { name: "Include all sets" })
+        screen.getByRole("button", {
+          name: "Include all 1 shown set in cleanup"
+        })
       )
       expect(checkbox).toHaveAttribute("aria-checked", "true")
-      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
-      fireEvent.click(screen.getByRole("menuitem", { name: "Skip all sets" }))
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Remove 1 shown set from cleanup"
+        })
+      )
       expect(checkbox).toHaveAttribute("aria-checked", "false")
       expect(screen.getByTestId("default-keep-strategy")).toHaveTextContent(
         "best_quality"
@@ -476,10 +483,12 @@ describe("Selection strategy application in the review UI", () => {
       screen.getByRole("button", { name: /Keep photo1\.jpg \(currently kept/i })
     ).toHaveAttribute("aria-pressed", "true")
     expect(
-      screen.getByRole("button", { name: /Keep photo2\.jpg \(currently moves to Trash/i })
+      screen.getByRole("button", { name: /Keep photo2\.jpg \(currently proposed for Trash/i })
     ).toHaveAttribute("aria-pressed", "false")
     expect(
-      screen.getByRole("checkbox", { name: "Include duplicate set of 3 photos" })
+      screen.getByRole("checkbox", {
+        name: "Include this set of 3 photos for cleanup"
+      })
     ).toHaveAttribute("aria-checked", "true")
   })
 

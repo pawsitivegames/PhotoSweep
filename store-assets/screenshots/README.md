@@ -2,7 +2,18 @@
 
 Chrome Web Store screenshot size: 1280 x 800.
 
-These assets are composed from the installed PhotoSweep extension UI captured in Chrome. The caption band is outside the product UI and should not obscure the extension layout.
+These assets are composed from installed PhotoSweep extension UI captured in Chrome. The caption band is outside the product UI and should not obscure the extension layout.
+
+## Current readiness
+
+All seven tracked screenshots still use the previous teal UI and branding;
+the review frame also predates the scan-wide Include action and current-filter
+include/remove controls. Keep these PNGs as reference only. Recapture the set
+from the exact approved release package using the current photo-and-sweep icon,
+royal-blue `#255BD4` controls, cool light surfaces, and DM Sans UI. Do not
+recolor or retouch the captured product UI. The Chrome Web Store Developer
+Dashboard currently allows five screenshots; use the first five below and keep
+the remaining two as alternates.
 
 ## Files
 
@@ -39,19 +50,27 @@ These assets are composed from the installed PhotoSweep extension UI captured in
    - Caption labels this as an example compact review state.
    - Uses a locally seeded demo state; no provider library was modified.
 
-## Recommended upload order
+## Five-frame upload order
 
-Upload the assets in this order so the first frames lead with user value and
-trust. The filename prefixes describe the captured screen, not the upload
-priority.
+Upload the assets in this order so people first see how to start, then how to
+review and stay in control. Recapture the review frame with the clearer sidebar
+workflow: show the two separate steps (“1. Choose keeper photos” and “2. Include
+sets in cleanup”), the scan-wide “Include all available sets” shortcut, the separate
+current-filter “Include all N shown sets in cleanup” action, and “Remove shown
+sets from cleanup.” Show that newly included sets return to “Needs review” and
+that the all-included state is explicit. The filename prefixes describe the
+captured screen, not the upload priority.
 
-1. `04-review-groups.png` — Example review state: compare matches and choose what to keep.
-2. `05-export-safety.png` — Example confirmation state: typed confirmation and an audit report come first.
-3. `06-cleanup-outcome.png` — Example post-cleanup state: Undo remains available while you verify the result.
-4. `02-focused-scan.png` — Start with a focused scan before a large cleanup.
+1. `02-focused-scan.png` — Start with a focused scan before a large cleanup.
+2. `04-review-groups.png` — Example review state: choose keeper photos, include available sets across filters, then review newly included sets before cleanup.
+3. `05-export-safety.png` — Example confirmation state: typed confirmation and an audit report come first.
+4. `06-cleanup-outcome.png` — Example post-cleanup state: Undo remains available while you verify the result.
 5. `07-compact-exact-similar.png` — Example compact review: filter exact duplicates separately from visually similar sets.
-6. `01-provider-selector.png` — Find duplicates across supported cloud photo libraries.
-7. `03-scan-progress.png` — Scan before any cleanup action.
+
+## Retained alternates
+
+- `01-provider-selector.png` — Find duplicates across supported cloud photo libraries.
+- `03-scan-progress.png` — Scan before any cleanup action.
 
 ## Upload Rules
 
