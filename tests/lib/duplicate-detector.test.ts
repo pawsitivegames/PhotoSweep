@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   blockPairCountForItems,
-  communityDetection,
   computeEmbeddings,
   findDedupKeyDuplicateGroups,
   findExactContentDuplicateGroups,
@@ -11,16 +10,19 @@ import {
   fullDetectDuplicates,
   groupByProviderSequence,
   groupByTimestamp,
-  matMul,
   mergeDuplicateItemGroups,
   shouldCompareSmartTimestamps,
   smartDetectDuplicates,
   smartScanEmbeddingCandidates,
-  topK,
   withinGroupDuplicates
 } from "../../lib/duplicate-detection-engine"
 import { selectDefaultKeep } from "../../lib/keep-strategy"
 import type { GpdMediaItem } from "../../lib/types"
+import {
+  detectEmbeddingCommunities,
+  matMul,
+  topK
+} from "../../workers/embedder-kernels"
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -89,6 +91,20 @@ describe("topK", () => {
     expect(values[0]).toBeCloseTo(0.42)
     expect(indices).toEqual([0])
   })
+
+  it("uses ascending indices to break score ties", () => {
+    const { values, indices } = topK(new Float32Array([0.7, 0.7, 0.8, 0.7]), 3)
+    expect(values[0]).toBeCloseTo(0.8)
+    expect(values[1]).toBeCloseTo(0.7)
+    expect(values[2]).toBeCloseTo(0.7)
+    expect(indices).toEqual([2, 0, 1])
+  })
+
+  it("handles empty input and non-positive k", () => {
+    expect(topK(new Float32Array(), 2)).toEqual({ values: [], indices: [] })
+    expect(topK(new Float32Array([0.4]), 0)).toEqual({ values: [], indices: [] })
+    expect(topK(new Float32Array([0.4]), -1)).toEqual({ values: [], indices: [] })
+  })
 })
 
 // ============================================================
@@ -130,6 +146,10 @@ describe("matMul", () => {
     expect(result[0]).toBeCloseTo(0.0) // v1·v0
     expect(result[1]).toBeCloseTo(1.0) // v1·v1
     expect(result[2]).toBeCloseTo(0.0) // v1·v2
+  })
+
+  it("returns an empty matrix for empty row ranges", () => {
+    expect(matMul([], 0, 0, [], 0, 0, 0)).toEqual(new Float32Array())
   })
 })
 
@@ -240,55 +260,54 @@ describe("computeEmbeddings", () => {
 })
 
 // ============================================================
-// communityDetection — with synthetic embeddings
-// These tests mirror the correctness guarantees of the original
-// Python DuplicateImageDetector tests (which used real images).
+// Production full-scan community detection — shared with embedder.worker.ts.
 // ============================================================
 
-describe("communityDetection", () => {
+describe("detectEmbeddingCommunities", () => {
   const DIM = 64
   const THRESHOLD = 0.99
 
-  it("groups near-identical images together", () => {
+  it("groups near-identical images together", async () => {
     // Two very similar vectors (simulate duplicate pair 1a/1b)
     const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
     const dupA = addNoise(new Float32Array(base), 0.001)
     const dupB = addNoise(new Float32Array(base), 0.001)
 
     // Cosine similarity of near-identical vectors should be ≥ 0.9999+
-    const groups = communityDetection([dupA, dupB], THRESHOLD)
+    const groups = await detectEmbeddingCommunities([dupA, dupB], THRESHOLD)
     expect(groups.length).toBe(1)
     expect(groups[0]).toContain(0)
     expect(groups[0]).toContain(1)
   })
 
-  it("does not group clearly different images", () => {
+  it("does not group clearly different images", async () => {
     // Three orthogonal unit vectors — cosine similarity = 0.0
     const v0 = unitVector(DIM, 0)
     const v1 = unitVector(DIM, 1)
     const v2 = unitVector(DIM, 2)
 
-    const groups = communityDetection([v0, v1, v2], THRESHOLD)
+    const groups = await detectEmbeddingCommunities([v0, v1, v2], THRESHOLD)
     expect(groups.length).toBe(0)
   })
 
-  it("returns empty when given fewer than 2 items", () => {
+  it("returns empty for empty input and a singleton", async () => {
     const v = unitVector(DIM, 0)
-    expect(communityDetection([v], THRESHOLD)).toEqual([])
+    await expect(detectEmbeddingCommunities([], THRESHOLD)).resolves.toEqual([])
+    await expect(detectEmbeddingCommunities([v], THRESHOLD)).resolves.toEqual([])
   })
 
-  it("handles three-way duplicates", () => {
+  it("handles three-way duplicates", async () => {
     const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
     const a = addNoise(new Float32Array(base), 0.001)
     const b = addNoise(new Float32Array(base), 0.001)
     const c = addNoise(new Float32Array(base), 0.001)
 
-    const groups = communityDetection([a, b, c], THRESHOLD)
+    const groups = await detectEmbeddingCommunities([a, b, c], THRESHOLD)
     expect(groups.length).toBe(1)
     expect(groups[0].length).toBe(3)
   })
 
-  it("separates two independent duplicate pairs into two groups", () => {
+  it("separates two independent duplicate pairs into two groups", async () => {
     const base1 = l2normalize(new Float32Array(DIM).map(() => Math.random()))
     const base2 = unitVector(DIM, 0) // orthogonal to base1 (high-D vectors)
 
@@ -297,13 +316,13 @@ describe("communityDetection", () => {
     const b1 = addNoise(new Float32Array(base2), 0.001)
     const b2 = addNoise(new Float32Array(base2), 0.001)
 
-    const groups = communityDetection([a1, a2, b1, b2], THRESHOLD)
+    const groups = await detectEmbeddingCommunities([a1, a2, b1, b2], THRESHOLD)
     expect(groups.length).toBe(2)
     // Each group has exactly 2 members
     for (const g of groups) expect(g.length).toBe(2)
   })
 
-  it("groups are sorted largest-first", () => {
+  it("groups are sorted largest-first", async () => {
     const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
     const trio = [
       addNoise(new Float32Array(base), 0.001),
@@ -316,21 +335,33 @@ describe("communityDetection", () => {
       addNoise(new Float32Array(singletonBase), 0.001)
     ]
 
-    const groups = communityDetection([...trio, ...pair], THRESHOLD)
-    if (groups.length >= 2) {
-      expect(groups[0].length).toBeGreaterThanOrEqual(groups[1].length)
-    }
+    const groups = await detectEmbeddingCommunities([...trio, ...pair], THRESHOLD)
+    expect(groups.map((group) => group.length)).toEqual([3, 2])
   })
 
-  it("does not double-count: each item appears in at most one group", () => {
+  it("does not double-count: each item appears in at most one group", async () => {
     const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
     const items = Array.from({ length: 5 }, () =>
       addNoise(new Float32Array(base), 0.001)
     )
-    const groups = communityDetection(items, THRESHOLD)
+    const groups = await detectEmbeddingCommunities(items, THRESHOLD)
     const allIndices = groups.flat()
     const uniqueIndices = new Set(allIndices)
     expect(allIndices.length).toBe(uniqueIndices.size)
+  })
+
+  it("returns duplicate members in deterministic index order", async () => {
+    const duplicate = unitVector(DIM, 3)
+    await expect(
+      detectEmbeddingCommunities([duplicate, duplicate, duplicate], THRESHOLD)
+    ).resolves.toEqual([[0, 1, 2]])
+  })
+
+  it("includes similarities equal to the threshold", async () => {
+    const duplicate = unitVector(DIM, 3)
+    await expect(
+      detectEmbeddingCommunities([duplicate, duplicate], 1)
+    ).resolves.toEqual([[0, 1]])
   })
 })
 

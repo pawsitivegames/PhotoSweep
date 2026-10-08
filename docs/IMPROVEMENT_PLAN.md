@@ -126,9 +126,9 @@ still enforce free vs paid behavior.
 
 ## Phase 7 — Performance
 
-- **Detection math** (`workers/embedder.worker.ts:374`): replace full-sort
-  `topK` with a bounded heap / partial selection; expanding-window re-sort
-  (`:328`) is the hottest spot. Benchmark with `npm run test:bench`.
+- **Detection math** (`workers/embedder-kernels.ts`): `topK` still sorts each
+  similarity row. A bounded heap / partial selection may improve it, but first
+  benchmark the production worker path with `npm run test:bench`.
 - **Side-panel virtualization** (`components/DuplicateGroups.tsx:851`): reuse
   the non-compact `react-window` `VariableSizeList`.
 
@@ -136,11 +136,12 @@ still enforce free vs paid behavior.
 
 - Consolidate the two parallel iCloud DOM scrapers
   (`scripts/icloud-photos-commands.js:465` + `background/index.ts:623`).
-- Correct the misleading "O(n) instead of O(n²)" comment on `communityDetection`
-  (`lib/duplicate-detector.ts:1451`). It is a test-only reference impl, not the
-  production path (do not delete it — `tests/lib/duplicate-detector.test.ts`
-  imports it).
-- Single source for `matMul` / `topK` (currently duplicated in lib + worker).
+- **Done — full-scan detection test seam:** removed the obsolete timestamp-
+  adjacent reference implementation; focused tests now exercise the production
+  algorithm shared with the worker through `workers/embedder-kernels.ts`.
+- **Done — single source for `matMul` / `topK`:** the production worker and
+  focused tests import the same kernels, with equal scores ordered by input
+  index.
 
 ---
 
