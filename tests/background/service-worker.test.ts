@@ -729,6 +729,56 @@ describe("launch flow", () => {
     })
   })
 
+  it("navigates the side-panel host to selected Amazon", async () => {
+    const currentHostTab = {
+      id: 52,
+      url: "https://www.icloud.com/photos"
+    }
+    const existingAmazonTab = {
+      id: 63,
+      url: "https://www.amazon.ca/photos?sf=1"
+    }
+    mockChrome.tabs.get.mockResolvedValue(currentHostTab)
+    mockChrome.tabs.query.mockImplementation((query: unknown) => {
+      const filter = query as { url?: string }
+      if (filter.url?.includes("amazon")) {
+        return Promise.resolve([existingAmazonTab])
+      }
+      return Promise.resolve([])
+    })
+    mockChrome.tabs.update.mockResolvedValue({
+      id: currentHostTab.id,
+      url: "https://www.amazon.com/photos?sf=1"
+    })
+
+    const response = await dispatchMessageWithResponse(
+      {
+        app: APP_ID,
+        action: "launchProvider",
+        provider: "amazon",
+        hostTabId: currentHostTab.id
+      },
+      { url: "chrome-extension://test/tabs/scanner-panel.html" }
+    )
+
+    expect(mockChrome.tabs.get).toHaveBeenCalledWith(currentHostTab.id)
+    expect(mockChrome.tabs.update).toHaveBeenCalledWith(currentHostTab.id, {
+      url: "https://www.amazon.com/photos?sf=1",
+      active: true
+    })
+    expect(mockChrome.tabs.update).not.toHaveBeenCalledWith(
+      existingAmazonTab.id,
+      { active: true }
+    )
+    expect(mockChrome.tabs.create).not.toHaveBeenCalled()
+    expect(response).toMatchObject({
+      success: true,
+      provider: "amazon",
+      tabId: currentHostTab.id,
+      alreadyOpen: false
+    })
+  })
+
   it("focuses the active main tab without reloading when it already matches the selected provider", async () => {
     mockChrome.tabs.query.mockResolvedValue([
       { id: 12, url: "https://www.amazon.ca/photos?sf=1" }
