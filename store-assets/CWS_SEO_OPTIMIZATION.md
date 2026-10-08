@@ -32,12 +32,12 @@ before submitting the package.
 ### Detailed Description
 
 The published description still presents keeper choice and typed Trash
-confirmation without explaining the separate set-inclusion step. Refresh the
-workflow copy to match the extension: choose keeper photos; use “Include all
-available sets” across the scan or “Include all shown sets in cleanup” for the current
-filter; review every set; then confirm the exact Trash proposal. Preserve the
-provider-specific limitations, scoped privacy language, and affiliation
-disclaimer.
+confirmation without explaining the separate set-inclusion step. Add this
+workflow copy: “Choose keeper photos, then include all available sets across
+the scan or only the sets shown by the current filter. Newly included sets
+return to Needs review. Review every eligible set and the exact items proposed
+for Trash before confirming what moves.” Preserve the provider-specific
+limitations, scoped privacy language, and affiliation disclaimer.
 
 ## Critic gate re-review
 

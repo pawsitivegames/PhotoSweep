@@ -56,8 +56,9 @@ Upload the assets in this order so people first see how to start, then how to
 review and stay in control. Recapture the review frame with the clearer sidebar
 workflow: show the two separate steps (“1. Choose keeper photos” and “2. Include
 sets in cleanup”), the scan-wide “Include all available sets” shortcut, the separate
-current-filter “Include all N shown sets in cleanup” action, and “Remove shown
-sets from cleanup.” Show that newly included sets return to “Needs review” and
+current-filter “Include all N shown sets” action, and “Remove shown sets from
+cleanup.” Explain that the current-filter action includes only shown sets. Show
+that newly included sets return to “Needs review” and
 that the all-included state is explicit. The filename prefixes describe the
 captured screen, not the upload priority.
 
