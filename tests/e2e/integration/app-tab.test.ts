@@ -1019,9 +1019,12 @@ test("keeps the free-results exit clickable after an unverified checkout return"
       page.getByRole("alert").filter({ hasText: /Checkout opened/i })
     ).not.toBeVisible()
 
+    const entitlementRefreshesBeforeReturn = entitlementRefreshes
     await page.bringToFront()
     await page.evaluate(() => window.dispatchEvent(new Event("focus")))
-    await expect.poll(() => entitlementRefreshes).toBeGreaterThan(0)
+    await expect
+      .poll(() => entitlementRefreshes)
+      .toBeGreaterThan(entitlementRefreshesBeforeReturn)
     await expect(
       page.getByText(
         /Payment is still being confirmed|Payment could not be verified yet/i
