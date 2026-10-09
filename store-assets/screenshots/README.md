@@ -6,9 +6,9 @@ Chrome Web Store screenshot size: 1280 x 800 PNG.
 
 Five screenshots are ready for a listing review. Each shows the exact PhotoSweep
 extension package built from source commit
-`7c3e9fa720684377747de770a3547d5bd381458b` (app `2.3.5`, Chrome `2.3.5.2`).
+`204b0f2f83d2107f0f4b654851366c0abf3a6731` (app `2.3.5`, Chrome `2.3.5.2`).
 The ZIP SHA-256 is
-`1a8b24beaa40e53e8f0ea0bb0e43b1db1dc423311dbf5b255966da9deb8599cb`.
+`fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`.
 Package audit passed with a clean source tree. Captures used an isolated
 Playwright Chromium context and synthetic account/results; the cleanup request
 was intercepted by the local Google Photos test stub. No personal provider

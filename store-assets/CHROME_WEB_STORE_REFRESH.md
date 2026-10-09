@@ -58,7 +58,7 @@ The live Site and current extension source use the same PhotoSweep mark, DM Sans
 cool light surfaces, and royal-blue `#255BD4` controls. The public Store listing
 still has older copy and teal screenshots; it is not visually aligned yet. A
 clean app `2.3.5` / Chrome `2.3.5.2` package was built from source commit
-`7c3e9fa720684377747de770a3547d5bd381458b` and passed the package audit. The
+`204b0f2f83d2107f0f4b654851366c0abf3a6731` and passed the package audit. The
 five new listing screenshots below were captured from that exact package. The
 local listing copy and screenshot set are ready for review, but have not been
 uploaded or submitted. Do not describe the public Store listing as aligned until

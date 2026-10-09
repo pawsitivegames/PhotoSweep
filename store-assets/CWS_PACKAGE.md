@@ -1,9 +1,9 @@
 # Chrome Web Store package
 
 > **Source candidate (8 October 2026):** app `2.3.5` / Chrome `2.3.5.2` was
-> built cleanly from commit `7c3e9fa720684377747de770a3547d5bd381458b`; the ZIP
+> built cleanly from commit `204b0f2f83d2107f0f4b654851366c0abf3a6731`; the ZIP
 > passed `npm run audit:extension-package`. ZIP SHA-256:
-> `1a8b24beaa40e53e8f0ea0bb0e43b1db1dc423311dbf5b255966da9deb8599cb`. The
+> `fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`. The
 > replacement Store screenshots were captured from this exact ZIP. The public
 > listing remains at `2.3.0.2`; this repo change does not upload or publish it.
 
