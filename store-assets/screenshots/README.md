@@ -9,7 +9,9 @@ extension package built from source commit
 `204b0f2f83d2107f0f4b654851366c0abf3a6731` (app `2.3.5`, Chrome `2.3.5.2`).
 The ZIP SHA-256 is
 `fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`.
-Package audit passed with a clean source tree. Captures used an isolated
+The artifact is `build/photosweep-cws-v2.3.5.2-sha256-fcda782a794f.zip` with its
+matching JSON sidecar in `build/`. Package audit passed with a clean source
+tree. Captures used an isolated
 Playwright Chromium context and synthetic account/results; the cleanup request
 was intercepted by the local Google Photos test stub. No personal provider
 library was read or changed.

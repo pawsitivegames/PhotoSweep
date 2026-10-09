@@ -385,7 +385,7 @@ Find and review duplicate photos in Google Photos. Matching runs locally in your
 
 ### Detailed Description
 
-PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support available where the provider flow, region, account state, loaded library area, and media type support it. Review matches first, then clean up confirmed items using each service's available Trash or Recently Deleted flow.
+PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support where available. Review matches first, then clean up confirmed items using each service's available Trash or Recently Deleted flow.
 
 PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Amazon, or their photo services. Google Photos is a trademark of Google LLC. Use of this trademark is subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its affiliates.
 
