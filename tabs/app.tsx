@@ -1446,6 +1446,9 @@ export default function App() {
   const [resumeCheckpoint, setResumeCheckpoint] =
     useState<ScanCheckpoint | null>(null)
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all")
+  const [reviewFocusGroupId, setReviewFocusGroupId] = useState<string | null>(
+    null
+  )
   const [albums, setAlbums] = useState<GpdAlbum[]>([])
   const [albumsLoading, setAlbumsLoading] = useState(false)
   const [albumsError, setAlbumsError] = useState<string | null>(null)
@@ -4454,6 +4457,20 @@ export default function App() {
     cleanupScopeGroups.length > 0 &&
     reviewedCleanupScopeGroupCount === cleanupScopeGroups.length
 
+  const handleReviewNext = useCallback(() => {
+    const nextGroup = cleanupScopeGroups.find(
+      (group) => !reviewSession.reviewedGroupIds.has(group.id)
+    )
+    if (!nextGroup) return
+
+    setReviewFilter(groupClassificationById.get(nextGroup.id) ?? "all")
+    setReviewFocusGroupId(nextGroup.id)
+  }, [cleanupScopeGroups, groupClassificationById, reviewSession])
+  const handleReviewFocusGroupHandled = useCallback(
+    () => setReviewFocusGroupId(null),
+    []
+  )
+
   const handleSelectAll = useCallback(() => {
     updateReviewSelections({
       type: "include_groups_for_cleanup",
@@ -6729,6 +6746,8 @@ export default function App() {
                   )}
                   <DuplicateGroups
                     groups={visibleGroups}
+                    focusGroupId={reviewFocusGroupId}
+                    onFocusGroupHandled={handleReviewFocusGroupHandled}
                     mediaItems={displayMediaItems}
                     trashPlanMediaKeys={trashPlanMediaKeys}
                     selectedGroupIds={selectedGroupIds}
@@ -6748,6 +6767,7 @@ export default function App() {
                     duplicateCount={duplicateCount}
                     reviewedGroupCount={reviewedCleanupScopeGroupCount}
                     totalGroupCount={cleanupScopeGroups.length}
+                    onReviewNext={handleReviewNext}
                     onTrash={handleTrash}
                     compact
                   />
@@ -6940,6 +6960,8 @@ export default function App() {
                   )}
                   <DuplicateGroups
                     groups={visibleGroups}
+                    focusGroupId={reviewFocusGroupId}
+                    onFocusGroupHandled={handleReviewFocusGroupHandled}
                     mediaItems={displayMediaItems}
                     trashPlanMediaKeys={trashPlanMediaKeys}
                     selectedGroupIds={selectedGroupIds}
@@ -6959,6 +6981,7 @@ export default function App() {
                     duplicateCount={duplicateCount}
                     reviewedGroupCount={reviewedCleanupScopeGroupCount}
                     totalGroupCount={cleanupScopeGroups.length}
+                    onReviewNext={handleReviewNext}
                     onTrash={handleTrash}
                     compact={isSidePanel}
                   />

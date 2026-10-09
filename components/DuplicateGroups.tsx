@@ -398,6 +398,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   return (
     <Paper
       variant="outlined"
+      data-review-group-id={group.id}
       sx={[
         sxPaperBase,
         {
@@ -905,6 +906,8 @@ interface DuplicateGroupsProps {
   readOnly?: boolean
   heading?: string
   compact?: boolean
+  focusGroupId?: string | null
+  onFocusGroupHandled?: () => void
 }
 
 interface VirtualGroupListData {
@@ -972,7 +975,9 @@ export function DuplicateGroups({
   onLoadVideo,
   readOnly = false,
   heading,
-  compact = false
+  compact = false,
+  focusGroupId,
+  onFocusGroupHandled
 }: DuplicateGroupsProps) {
   const trashPlanMediaKeys =
     suppliedTrashPlanMediaKeys ?? EMPTY_TRASH_PLAN_MEDIA_KEYS
@@ -1150,6 +1155,54 @@ export function DuplicateGroups({
   useEffect(() => {
     listRef.current?.resetAfterIndex(0, true)
   }, [listGroups, listWidth])
+
+  useEffect(() => {
+    if (!focusGroupId) return
+    const groupIndex = listGroups.findIndex(
+      (group) => group.id === focusGroupId
+    )
+    if (groupIndex < 0) {
+      onFocusGroupHandled?.()
+      return
+    }
+
+    const focusGroup = () => {
+      const card = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-review-group-id]")
+      ).find((element) => element.dataset.reviewGroupId === focusGroupId)
+      if (!card) return
+
+      const firstAction =
+        card.querySelector<HTMLElement>("button:not(:disabled)") ??
+        card.querySelector<HTMLElement>('[role="checkbox"]')
+      firstAction?.focus({ preventScroll: true })
+      card.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "center"
+      })
+    }
+
+    if (compact) {
+      focusGroup()
+      onFocusGroupHandled?.()
+      return
+    }
+
+    listRef.current?.scrollToItem(groupIndex, "start")
+    let secondFrame: number | null = null
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        focusGroup()
+        onFocusGroupHandled?.()
+      })
+    })
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [compact, focusGroupId, listGroups, onFocusGroupHandled])
 
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length

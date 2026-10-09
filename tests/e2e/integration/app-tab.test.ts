@@ -292,8 +292,8 @@ test("filters review groups by exact and similar classification", async () => {
   await expect(page.getByText("Verified identical", { exact: true })).toBeVisible()
   await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review 2 more to continue/i })
-  ).toBeDisabled()
+    page.getByRole("button", { name: /Review next set (\(2 left\))/i })
+  ).toBeEnabled()
   await expect
     .poll(async () => {
       const stored = await readLocalStorage(context, ["selections"])
@@ -314,6 +314,35 @@ test("filters review groups by exact and similar classification", async () => {
     page.getByText("Verified identical", { exact: true })
   ).not.toBeVisible()
 
+  await page.close()
+  await stub.close()
+  await clearStorage(context)
+})
+
+test("review next reveals a hidden set and focuses it without authorizing Trash", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 2)
+  groups[1].duplicateKind = "exact"
+  for (const key of groups[1].mediaKeys) {
+    mediaItems[key].contentHash = {
+      value: "a".repeat(64), algorithm: "sha256",
+      provenance: "original-content", verificationSource: "local-original-bytes"
+    }
+  }
+  await injectScanResults(context, groups, mediaItems, 4)
+  await injectSelections(context, [groups[0].id])
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  await page.getByRole("button", { name: /Candidates & similar \(1\)/i }).click()
+  const target = page.locator(`[data-review-group-id="${groups[1].id}"]`)
+  await expect(target).toHaveCount(0)
+  const before = await readLocalStorage(context, ["selections"])
+  await page.getByRole("button", { name: "Review next set (1 left)" }).click()
+  await expect(target).toBeVisible()
+  await expect.poll(() => target.evaluate(card => card.contains(document.activeElement))).toBe(true)
+  expect(await readLocalStorage(context, ["selections"])).toEqual(before)
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /Review & move .* to Trash/ })).toHaveCount(0)
   await page.close()
   await stub.close()
   await clearStorage(context)
@@ -2248,8 +2277,8 @@ test("applies all six keep strategies through the app toolbar", async () => {
           })
     await expect(trashTarget).toHaveAttribute("aria-pressed", "false")
     await expect(
-      page.getByRole("button", { name: /Review 1 more to continue/i })
-    ).toBeDisabled()
+      page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+    ).toBeEnabled()
     await expect(
       page.getByRole("button", { name: /Review & move 1 to Trash/i })
     ).not.toBeVisible()
@@ -2292,8 +2321,8 @@ test("applies all six keep strategies through the app toolbar", async () => {
     "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
   )
   await expect(
-    page.getByRole("button", { name: /Review 1 more to continue/i })
-  ).toBeDisabled()
+    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+  ).toBeEnabled()
   await expect(
     page.getByRole("button", {
       name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
@@ -2636,8 +2665,8 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
     )
   }
   await expect(
-    page.getByRole("button", { name: /Review 1 more to continue/i })
-  ).toBeDisabled()
+    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+  ).toBeEnabled()
 
   const commandsAfterStrategy = await stub.evaluate(
     () =>
@@ -2716,8 +2745,8 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     page.getByText("0 media items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review 1 more to continue/i })
-  ).toBeDisabled()
+    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+  ).toBeEnabled()
 
   await expect
     .poll(() => readLocalStorage(context, ["settings", "selections"]))
@@ -3104,8 +3133,8 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
     "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
   )
   await expect(
-    page.getByRole("button", { name: /Review 1 more to continue/i })
-  ).toBeDisabled()
+    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+  ).toBeEnabled()
   await expect(
     page.getByRole("button", {
       name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
@@ -3136,8 +3165,8 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
     "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
   )
   await expect(
-    page.getByRole("button", { name: /Review 1 more to continue/i })
-  ).toBeDisabled()
+    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+  ).toBeEnabled()
 
   const trashCommands = await stub.evaluate(
     () =>

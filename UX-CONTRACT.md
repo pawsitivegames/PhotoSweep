@@ -75,8 +75,10 @@ Photo keeper choices and cleanup inclusion are independent decisions.
   all keeper choices and includes that set in cleanup. Existing favorite, identity,
   eligibility, and provider guards still apply.
 - Every eligible cleanup-scope set must be reviewed before the confirmation
-  step. The audit report, typed item-count confirmation, provider-specific
-  safety checks, and supported Undo path remain required.
+  step. While sets remain, the cleanup action stays enabled as “Review next
+  set” and moves focus to the next unreviewed set, including when it is under a
+  different filter. The audit report, typed item-count confirmation,
+  provider-specific safety checks, and supported Undo path remain required.
 - Existing saved cleanup selections are preserved during upgrade. Automatic
   keeper choices do not select new sets; previously saved selection is not
   inferred to be automatic or silently removed.

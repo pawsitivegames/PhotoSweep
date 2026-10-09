@@ -1,4 +1,5 @@
 import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined"
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded"
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank"
 import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
@@ -629,6 +630,7 @@ interface CleanupBarProps {
   duplicateCount: number
   reviewedGroupCount: number
   totalGroupCount: number
+  onReviewNext?: () => void
   onTrash: () => void
   compact?: boolean
 }
@@ -638,6 +640,7 @@ export function CleanupBar({
   duplicateCount,
   reviewedGroupCount,
   totalGroupCount,
+  onReviewNext,
   onTrash,
   compact = false
 }: CleanupBarProps) {
@@ -645,6 +648,15 @@ export function CleanupBar({
     totalGroupCount > 0 && reviewedGroupCount === totalGroupCount
   const hasSelection = reviewComplete && duplicateCount > 0
   const remainingCount = Math.max(0, totalGroupCount - reviewedGroupCount)
+  const canReviewNext =
+    !reviewComplete && remainingCount > 0 && Boolean(onReviewNext)
+  const actionLabel = hasSelection
+    ? "Review & move " + duplicateCount.toLocaleString() + " to Trash"
+    : reviewComplete
+      ? "No media items proposed for Trash"
+      : canReviewNext
+        ? "Review next set (" + remainingCount.toLocaleString() + " left)"
+        : "Review " + remainingCount.toLocaleString() + " more to continue"
 
   return (
     <Paper
@@ -698,21 +710,30 @@ export function CleanupBar({
       </Box>
       <Button
         variant="contained"
-        color="error"
-        startIcon={<DeleteOutlineRoundedIcon />}
-        disabled={!hasSelection}
-        onClick={onTrash}
+        color={reviewComplete ? "error" : "primary"}
+        startIcon={
+          reviewComplete ? (
+            <DeleteOutlineRoundedIcon />
+          ) : (
+            <ArrowForwardRoundedIcon />
+          )
+        }
+        disabled={!hasSelection && !canReviewNext}
+        onClick={reviewComplete ? onTrash : onReviewNext}
+        title={
+          canReviewNext
+            ? "Jump to the next unreviewed set. Review every set before moving anything to Trash."
+            : reviewComplete && !hasSelection
+              ? "All sets are reviewed, but no media items are proposed for Trash."
+              : undefined
+        }
         sx={{
           minHeight: 44,
           minWidth: compact ? 0 : 210,
           width: compact ? "100%" : "auto",
           fontWeight: 850
         }}>
-        {hasSelection
-          ? `Review & move ${duplicateCount.toLocaleString()} to Trash`
-          : reviewComplete
-            ? "No media items proposed for Trash"
-            : `Review ${remainingCount.toLocaleString()} more to continue`}
+        {actionLabel}
       </Button>
     </Paper>
   )

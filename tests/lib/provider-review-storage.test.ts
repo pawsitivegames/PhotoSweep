@@ -208,11 +208,17 @@ describe("ProviderScopedReviewStorage", () => {
         selections
       })
 
-      expect(stored.selectedGroupIds).toEqual([fixture.group.id])
+      expect(stored.selectedGroupIds).toEqual([])
       expect(stored.reviewedGroupIds).toEqual([])
       expect(restored.trashPlan([fixture.group])).toMatchObject({
-        provider,
-        mediaKeysToTrash: [`${provider}-copy`]
+        mediaKeysToTrash: []
+      })
+      const included = new DuplicateReviewSession({
+        groups: [fixture.group], mediaItems: fixture.mediaItems,
+        selections: { ...selections, selectedGroupIds: new Set([fixture.group.id]) }
+      })
+      expect(included.trashPlan([fixture.group])).toMatchObject({
+        provider, mediaKeysToTrash: [`${provider}-copy`]
       })
     }
 

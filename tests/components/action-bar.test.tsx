@@ -202,6 +202,30 @@ describe("ActionBar", () => {
   })
 
   describe("CleanupBar", () => {
+    it("routes incomplete review to the next set without dispatching Trash", () => {
+      const onReviewNext = vi.fn()
+      const onTrash = vi.fn()
+      const view = render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar includedGroupCount={2} duplicateCount={4}
+            reviewedGroupCount={1} totalGroupCount={3}
+            onReviewNext={onReviewNext} onTrash={onTrash} />
+        </ThemeProvider>
+      )
+      fireEvent.click(screen.getByRole("button", { name: "Review next set (2 left)" }))
+      expect(onReviewNext).toHaveBeenCalledOnce()
+      expect(onTrash).not.toHaveBeenCalled()
+      view.rerender(
+        <ThemeProvider theme={theme}>
+          <CleanupBar includedGroupCount={2} duplicateCount={4}
+            reviewedGroupCount={3} totalGroupCount={3}
+            onReviewNext={onReviewNext} onTrash={onTrash} />
+        </ThemeProvider>
+      )
+      fireEvent.click(screen.getByRole("button", { name: "Review & move 4 to Trash" }))
+      expect(onTrash).toHaveBeenCalledOnce()
+      expect(onReviewNext).toHaveBeenCalledOnce()
+    })
     it("is enabled when duplicateCount > 0", () => {
       render(
         <ThemeProvider theme={theme}>
