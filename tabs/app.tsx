@@ -4,13 +4,9 @@ import "@fontsource/dm-sans/700.css"
 
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded"
 import CloseIcon from "@mui/icons-material/Close"
-import CollectionsRoundedIcon from "@mui/icons-material/CollectionsRounded"
-import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
-import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded"
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded"
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined"
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded"
-import PhotoLibraryRoundedIcon from "@mui/icons-material/PhotoLibraryRounded"
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
 import Alert from "@mui/material/Alert"
@@ -284,248 +280,6 @@ function extensionVersionForAnalytics(): string | undefined {
   } catch {
     return undefined
   }
-}
-
-function WorkflowRail({
-  stage,
-  totalItems,
-  totalGroupCount,
-  exactGroupCount,
-  similarGroupCount,
-  duplicateCount,
-  scanDetail,
-  onRescan,
-  compact = false
-}: {
-  stage: "setup" | "scan" | "review" | "trash" | "done"
-  totalItems: number
-  totalGroupCount: number
-  exactGroupCount: number
-  similarGroupCount: number
-  duplicateCount: number
-  scanDetail?: string
-  onRescan: () => void
-  compact?: boolean
-}) {
-  const stageIndex = {
-    setup: 0,
-    scan: 1,
-    review: 2,
-    trash: 3,
-    done: 3
-  }[stage]
-  const headline =
-    stage === "setup"
-      ? "Your workflow"
-      : stage === "scan"
-        ? "Finding duplicates"
-        : stage === "trash"
-          ? "Moving to trash"
-          : stage === "done"
-            ? "Nothing to clean up"
-            : "Choose what stays"
-  const helper =
-    stage === "scan"
-      ? "The extension is checking photos and videos and building review sets."
-      : stage === "trash"
-        ? "Included duplicates are moved in batches. Undo remains available after completion."
-        : stage === "done"
-          ? "No duplicate sets are waiting. Try different settings if needed."
-          : "Choose a keeper for each set, then include the sets you want to clean up."
-  const steps = [
-    {
-      icon: <PhotoLibraryRoundedIcon fontSize="small" />,
-      label: "Choose",
-      value: stageIndex === 0 ? "Current" : "Done"
-    },
-    {
-      icon: <RefreshRoundedIcon fontSize="small" />,
-      label: "Find",
-      value:
-        stage === "scan"
-          ? scanDetail || "Working"
-          : stageIndex > 1
-            ? "Done"
-            : "Next"
-    },
-    {
-      icon: <CollectionsRoundedIcon fontSize="small" />,
-      label: "Review",
-      value:
-        stage === "review"
-          ? `${totalGroupCount.toLocaleString()} sets`
-          : stageIndex > 2
-            ? "Done"
-            : "Next"
-    },
-    {
-      icon: <DeleteOutlineRoundedIcon fontSize="small" />,
-      label: compact ? "Trash" : "Trash safely",
-      value:
-        stage === "trash"
-          ? `${duplicateCount.toLocaleString()} moving`
-          : stage === "review"
-            ? `${duplicateCount.toLocaleString()} media item${
-                duplicateCount === 1 ? "" : "s"
-              } proposed for Trash`
-            : stage === "done"
-              ? "Done"
-              : "Final"
-    }
-  ]
-
-  return (
-    <Box
-      component="aside"
-      sx={{
-        position: compact ? "static" : { md: "sticky" },
-        top: compact ? "auto" : { md: 88 },
-        alignSelf: "flex-start",
-        width: compact ? "100%" : { xs: "100%", md: 272 },
-        flexShrink: 0,
-        borderRight: { md: `1px solid ${photoSweepColors.border}` },
-        borderBottom: { xs: `1px solid ${photoSweepColors.border}`, md: 0 },
-        borderRadius: 0,
-        bgcolor: "transparent",
-        overflow: "visible",
-        pr: { xs: 0, md: 2.25 },
-        pb: { xs: 1, md: 0 }
-      }}>
-      <Box
-        sx={{
-          p: compact ? 1.25 : 0,
-          pb: compact ? 1.25 : 2,
-          borderBottom: "1px solid",
-          borderColor: "divider"
-        }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            mb: stage === "setup" ? 0 : 1.25
-          }}>
-          {stage === "scan" ? (
-            <CircularProgress size={16} thickness={5} />
-          ) : stage === "setup" ? (
-            <PhotoLibraryRoundedIcon color="primary" fontSize="small" />
-          ) : (
-            <DoneAllRoundedIcon color="success" fontSize="small" />
-          )}
-          <Typography variant="subtitle2" fontWeight={700}>
-            {headline}
-          </Typography>
-        </Box>
-        {stage !== "setup" && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mb: 1.5 }}>
-            {helper}
-          </Typography>
-        )}
-        {stage !== "setup" && (
-          <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: compact
-              ? "repeat(4, minmax(0, 1fr))"
-              : "1fr 1fr",
-            gap: compact ? 0.75 : 1.5
-          }}>
-          <Box>
-            <Typography variant={compact ? "subtitle1" : "h6"} fontWeight={800}>
-              {totalGroupCount.toLocaleString()}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              sets
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant={compact ? "subtitle1" : "h6"} fontWeight={800}>
-              {totalItems.toLocaleString()}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              checked
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant={compact ? "subtitle1" : "h6"} fontWeight={800}>
-              {exactGroupCount.toLocaleString()}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              identical
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant={compact ? "subtitle1" : "h6"} fontWeight={800}>
-              {similarGroupCount.toLocaleString()}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              similar
-            </Typography>
-          </Box>
-          </Box>
-        )}
-        {!compact && stage !== "setup" && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RefreshRoundedIcon />}
-            onClick={onRescan}
-            sx={{ mt: 1.5 }}>
-            New scan
-          </Button>
-        )}
-      </Box>
-
-      <Box
-        sx={{
-          p: compact ? 0.75 : 1,
-          display: compact ? "grid" : { xs: "grid", md: "block" },
-          gridTemplateColumns: compact
-            ? "repeat(4, minmax(0, 1fr))"
-            : { xs: "repeat(4, minmax(0, 1fr))", md: "none" },
-          gap: compact ? 0.5 : undefined
-        }}>
-        {steps.map((item, index) => (
-          <Box
-            key={item.label}
-            sx={{
-              display: "flex",
-              flexDirection: compact ? "column" : { xs: "column", md: "row" },
-              alignItems: "center",
-              justifyContent: compact ? "center" : undefined,
-              textAlign: compact ? "center" : "left",
-              gap: compact ? 0.35 : { xs: 0.4, md: 1.25 },
-              px: compact ? 0.5 : 1.25,
-              py: compact ? 0.75 : 1.1,
-              borderRadius: 2,
-              color: index === stageIndex ? "primary.main" : "text.secondary",
-              bgcolor: index === stageIndex ? "primary.light" : "transparent"
-            }}>
-            {item.icon}
-            <Typography
-              variant="body2"
-              fontWeight={700}
-              sx={{
-                flex: compact ? "initial" : 1,
-                fontSize: compact ? 11 : undefined,
-                lineHeight: compact ? 1.1 : undefined
-              }}>
-              {item.label}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: compact ? "none" : { xs: "none", md: "block" } }}>
-              {item.value}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  )
 }
 
 function generateRequestId(): string {
@@ -811,24 +565,29 @@ function SidePanelConnectionSetup({
 
 type TimelineStepStatus = "complete" | "active" | "locked"
 
-type SidePanelStepItem = {
+type WorkflowStepItem = {
   index: number
   title: string
   status: TimelineStepStatus
 }
 
-function SidePanelTimelineProgress({ steps }: { steps: SidePanelStepItem[] }) {
+function WorkflowProgress({ steps }: { steps: WorkflowStepItem[] }) {
   return (
     <Box
       component="ol"
-      aria-label="Setup progress"
+      aria-label="PhotoSweep workflow progress"
       sx={{
         listStyle: "none",
         m: 0,
-        p: 0.25,
+        px: 0.5,
+        py: 0.5,
         display: "grid",
         gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
-        gap: 0.25
+        gap: 0.25,
+        border: "1px solid",
+        borderColor: photoSweepColors.border,
+        borderRadius: 1.5,
+        bgcolor: photoSweepColors.surface
       }}>
       {steps.map((step, position) => {
         const isActive = step.status === "active"
@@ -926,7 +685,7 @@ function SidePanelTimelineProgress({ steps }: { steps: SidePanelStepItem[] }) {
 function SidePanelTimelineStep({
   status,
   children
-}: Pick<SidePanelStepItem, "status"> & {
+}: Pick<WorkflowStepItem, "status"> & {
   children?: ReactNode
 }) {
   if (status !== "active" || !children) return null
@@ -4466,6 +4225,12 @@ export default function App() {
     setReviewFilter(groupClassificationById.get(nextGroup.id) ?? "all")
     setReviewFocusGroupId(nextGroup.id)
   }, [cleanupScopeGroups, groupClassificationById, reviewSession])
+  const handleReviewAll = useCallback(() => {
+    updateReviewSelections({
+      type: "mark_groups_reviewed",
+      groupIds: cleanupScopeGroups.map((group) => group.id)
+    })
+  }, [cleanupScopeGroups, updateReviewSelections])
   const handleReviewFocusGroupHandled = useCallback(
     () => setReviewFocusGroupId(null),
     []
@@ -6236,51 +6001,6 @@ export default function App() {
     (count, group) => count + (visibleGroupIds.has(group.id) ? 0 : 1),
     0
   )
-  const workflowStage =
-    state.status === "scanning"
-      ? "scan"
-      : state.status === "results"
-        ? groups.length > 0
-          ? "review"
-          : "done"
-        : state.status === "trashing"
-          ? "trash"
-          : "setup"
-  const workflowTotalItems =
-    state.status === "results" || state.status === "trashing"
-      ? state.totalItems
-      : state.status === "scanning"
-        ? state.partialTotalItems ?? state.totalEstimate
-        : 0
-  const workflowGroups =
-    state.status === "results" || state.status === "trashing"
-      ? groups
-      : state.status === "scanning"
-        ? state.partialGroups ?? []
-        : []
-  const workflowExactGroupCount = workflowGroups.filter((group) => {
-    return (
-      Object.keys(displayMediaItems).length > 0 &&
-      classifyDuplicateGroup(group, displayMediaItems).duplicateKind === "exact"
-    )
-  }).length
-  const workflowSimilarGroupCount =
-    workflowGroups.length - workflowExactGroupCount
-  const workflowDuplicateCount =
-    state.status === "trashing"
-      ? Math.max(0, state.totalToTrash - state.trashedSoFar)
-      : duplicateCount
-  const workflowScanDetail =
-    state.status === "scanning"
-      ? state.totalEstimate > 0
-        ? `${state.itemsProcessed.toLocaleString()} of ${state.totalEstimate.toLocaleString()}`
-        : `${state.itemsProcessed.toLocaleString()} checked`
-      : undefined
-  const showWorkflowRail =
-    !isSidePanel ||
-    state.status === "scanning" ||
-    state.status === "results" ||
-    state.status === "trashing"
   const sourceProvider = settings.sourceProvider ?? "google"
   const amazonProfileName =
     sourceProvider === "amazon" &&
@@ -6300,7 +6020,7 @@ export default function App() {
     state.status === "trashing"
   const scanStepComplete =
     state.status === "results" || state.status === "trashing"
-  const sidePanelSteps: SidePanelStepItem[] = [
+  const workflowSteps: WorkflowStepItem[] = [
     {
       index: 1,
       title: "Source",
@@ -6501,6 +6221,7 @@ export default function App() {
           "&.photosweep-page": { width: "100%" }
         }}>
         {!isSidePanel && analyticsConsentNotice}
+        {!isSidePanel && <WorkflowProgress steps={workflowSteps} />}
         {isSidePanel ? (
           <Box
             sx={{
@@ -6541,7 +6262,7 @@ export default function App() {
               onProviderChange={handleOpenProvider}
             />
 
-            <SidePanelTimelineProgress steps={sidePanelSteps} />
+            <WorkflowProgress steps={workflowSteps} />
 
             <SidePanelTimelineStep
               status={sourceStepComplete ? "complete" : "active"}>
@@ -6768,6 +6489,7 @@ export default function App() {
                     reviewedGroupCount={reviewedCleanupScopeGroupCount}
                     totalGroupCount={cleanupScopeGroups.length}
                     onReviewNext={handleReviewNext}
+                    onReviewAll={handleReviewAll}
                     onTrash={handleTrash}
                     compact
                   />
@@ -6805,19 +6527,6 @@ export default function App() {
               gap: 2.5,
               alignItems: "flex-start"
             }}>
-            {showWorkflowRail && (
-              <WorkflowRail
-                stage={workflowStage}
-                totalItems={workflowTotalItems}
-                totalGroupCount={workflowGroups.length}
-                exactGroupCount={workflowExactGroupCount}
-                similarGroupCount={workflowSimilarGroupCount}
-                duplicateCount={workflowDuplicateCount}
-                scanDetail={workflowScanDetail}
-                onRescan={handleReset}
-              />
-            )}
-
             <Box sx={{ minWidth: 0, flex: 1, width: "100%" }}>
               {state.status === "connecting" && (
                 <Box sx={{ display: "flex", justifyContent: "center", pt: 10 }}>
@@ -6982,6 +6691,7 @@ export default function App() {
                     reviewedGroupCount={reviewedCleanupScopeGroupCount}
                     totalGroupCount={cleanupScopeGroups.length}
                     onReviewNext={handleReviewNext}
+                    onReviewAll={handleReviewAll}
                     onTrash={handleTrash}
                     compact={isSidePanel}
                   />

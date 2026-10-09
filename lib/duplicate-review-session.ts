@@ -62,6 +62,7 @@ export interface DuplicateTrashPlan {
 
 export type DuplicateReviewAction =
   | { type: "include_groups_for_cleanup"; groupIds: Iterable<string> }
+  | { type: "mark_groups_reviewed"; groupIds: Iterable<string> }
   | { type: "select_groups"; groupIds: Iterable<string> }
   | { type: "deselect_groups"; groupIds: Iterable<string> }
   | { type: "toggle_kept"; groupId: string; mediaKey: string }
@@ -237,6 +238,12 @@ export class DuplicateReviewSession {
             }
             current.selectedGroupIds.add(groupId)
           }
+        }
+        break
+      case "mark_groups_reviewed":
+        for (const groupId of action.groupIds) {
+          if (this.groupsById.has(groupId))
+            current.reviewedGroupIds.add(groupId)
         }
         break
       case "select_groups":
