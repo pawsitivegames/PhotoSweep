@@ -290,7 +290,11 @@ export function ActionBar({
                 {availableGroupCount.toLocaleString()} available sets included
                 {hiddenAvailableGroupCount > 0 &&
                   ` · ${hiddenAvailableGroupCount.toLocaleString()} outside this filter`}
-                {availableGroupCount > 0 && ". Review included sets before Trash."}
+                {allShownGroupsSelected &&
+                  !allAvailableGroupsIncluded &&
+                  `. All ${shownSetCountLabel} included`}
+                {availableGroupCount > 0 &&
+                  ". Review included sets before Trash."}
               </Typography>
               {onIncludeAllEligible && (
                 <Button
@@ -312,34 +316,36 @@ export function ActionBar({
                   {includeAllLabel}
                 </Button>
               )}
-              <Button
-                variant="outlined"
-                size="small"
-                fullWidth
-                startIcon={
-                  allShownGroupsSelected ? (
-                    <CheckBoxOutlinedIcon />
-                  ) : (
-                    <CheckBoxOutlineBlankIcon />
-                  )
-                }
-                disabled={groupCount === 0 || allShownGroupsSelected}
-                onClick={onSelectAll}
-                aria-label={
-                  allShownGroupsSelected
-                    ? `All ${shownSetCountLabel} already included in cleanup`
-                    : `Include all ${shownSetCountLabel} in cleanup`
-                }
-                title={
-                  allShownGroupsSelected
-                    ? "All sets in the current filter are already included in cleanup."
-                    : "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
-                }
-                sx={{ minHeight: 40, fontWeight: 800 }}>
-                {allShownGroupsSelected
-                  ? `All ${shownSetCountLabel} included`
-                  : `Include all ${shownSetCountLabel}`}
-              </Button>
+              {(!compact || !allShownGroupsSelected) && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  startIcon={
+                    allShownGroupsSelected ? (
+                      <CheckBoxOutlinedIcon />
+                    ) : (
+                      <CheckBoxOutlineBlankIcon />
+                    )
+                  }
+                  disabled={groupCount === 0 || allShownGroupsSelected}
+                  onClick={onSelectAll}
+                  aria-label={
+                    allShownGroupsSelected
+                      ? `All ${shownSetCountLabel} already included in cleanup`
+                      : `Include all ${shownSetCountLabel} in cleanup`
+                  }
+                  title={
+                    allShownGroupsSelected
+                      ? "All sets in the current filter are already included in cleanup."
+                      : "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
+                  }
+                  sx={{ minHeight: 40, fontWeight: 800 }}>
+                  {allShownGroupsSelected
+                    ? `All ${shownSetCountLabel} included`
+                    : `Include all ${shownSetCountLabel}`}
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 size="small"

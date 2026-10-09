@@ -65,8 +65,9 @@ Photo keeper choices and cleanup inclusion are independent decisions.
   returns to “Needs review.”
 - “Include all N shown sets in cleanup” and “Remove shown sets from cleanup”
   act only on the current result filter. When all shown sets are already
-  included, the include action changes to a disabled “All N shown sets
-  included” state. Hidden sets retain their state.
+  included, the full-page toolbar shows a disabled “All N shown sets
+  included” action; the compact side panel shows that completion in its status
+  copy and keeps the remove action available. Hidden sets retain their state.
 - “Include all available sets” adds every set available to review to the cleanup
   selection, including sets hidden by the current filter. Newly included sets
   return to “Needs review”; already included sets keep their review state.

@@ -346,7 +346,7 @@ describe("ActionBar", () => {
       }
     )
 
-    it("shows the completed shown-set state when scan-wide selection covers it", () => {
+    it("omits the redundant shown-set action when scan-wide selection covers it", () => {
       renderActionBar({
         compact: true,
         groupCount: 1,
@@ -363,10 +363,33 @@ describe("ActionBar", () => {
         })
       ).toBeDisabled()
       expect(
-        screen.getByRole("button", {
+        screen.queryByRole("button", {
           name: "All 1 shown set already included in cleanup"
         })
-      ).toBeDisabled()
+      ).not.toBeInTheDocument()
+    })
+
+    it("announces when every shown set is included while keeping compact actions concise", () => {
+      renderActionBar({
+        compact: true,
+        groupCount: 3,
+        availableGroupCount: 5,
+        selectedShownGroupCount: 3,
+        includedGroupCount: 3,
+        onIncludeAllEligible: vi.fn()
+      })
+
+      expect(screen.getByText(/All 3 shown sets included/)).toBeInTheDocument()
+      expect(
+        screen.queryByRole("button", {
+          name: "All 3 shown sets already included in cleanup"
+        })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.getByRole("button", {
+          name: "Remove 3 shown sets from cleanup"
+        })
+      ).toBeEnabled()
     })
 
     it("calls onRescan when Scan again is clicked", () => {
