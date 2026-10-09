@@ -21,9 +21,10 @@ PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Ama
 Use a focused scan before cleanup. Choose a provider, then scan its library, a
 personal album, or a date range where that provider supports the scope. Google
 Photos shared albums are not supported. iCloud album scans use the personal
-library; shared libraries are not included. Amazon album scans exclude shared
-albums and photos owned by another account. Provider behavior can vary by
-region, account state, loaded library area, and media type.
+library; shared libraries are not included. Amazon shared albums are not
+supported, and a personal-album scan stops if it encounters an item owned by
+another account. Provider behavior can vary by region, account state, loaded
+library area, and media type.
 
 Review Exact and Similar groups separately, choose which copy to keep, then
 include all available sets across the scan or only the sets shown by the current

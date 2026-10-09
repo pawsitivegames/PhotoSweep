@@ -83,7 +83,7 @@ function providerHelpText(provider: ScanSettings["sourceProvider"]): string {
     return "Scan the iCloud Photos library, a personal album, or a date range. Album scans use the personal PrimarySync library; shared libraries are not queried. CloudKit scans cover photos and videos and fail closed when a complete provider session is unavailable. Trash moves selected library items to Recently Deleted."
   }
   if (provider === "amazon") {
-    return "Scan the Amazon Photos library, a personal album, or a date range. Shared albums and items owned by another account are excluded. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Amazon Photos Trash."
+    return "Scan the Amazon Photos library, a personal album, or a date range. Shared albums are not supported. If an album contains items owned by another account, the scan stops for safety. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Amazon Photos Trash."
   }
   return "Scan the Google Photos library, an album, or a date range. Photos and videos are included, and results report examined and skipped records. Trash moves selected library items to Google Photos Trash."
 }

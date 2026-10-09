@@ -389,12 +389,12 @@ PhotoSweep helps you find duplicate and similar photos in Google Photos™, with
 
 PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Amazon, or their photo services. Google Photos is a trademark of Google LLC. Use of this trademark is subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its affiliates.
 
-Choose a provider and scan a focused library area. Review duplicate groups and choose keepers, then include all available sets across the scan or only the sets shown by the current filter. Newly included sets return to Needs review. Review the exact Trash proposal and confirm only the items you choose.
+Choose a provider and scan a focused library area. Review duplicate groups and choose keepers, then include all available sets across the scan or only the sets shown by the current filter. Newly included sets return to Needs review. Review the exact Trash proposal and confirm it once it matches your choices.
 
 PhotoSweep is designed for careful cleanup:
 
 - Find exact and similar duplicate photos.
-- Use Google Photos, with iCloud Photos and Amazon Photos personal-album scans where available from signed-in browser sessions. Shared-library and ownership limits vary by provider.
+- Use personal albums where available from signed-in browser sessions. Google Photos shared albums and iCloud shared libraries are not included. Amazon shared albums are unsupported, and a personal-album scan stops if it encounters an item owned by another account.
 - Scan smaller scopes before working through a large library.
 - Review duplicate groups before cleanup.
 - Keep exact and similar matches separate.
