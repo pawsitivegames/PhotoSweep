@@ -51,15 +51,25 @@ scans and may use Stripe Checkout.
 
 ## Publisher state snapshot — 8 October 2026
 
-The public listing is [PhotoSweep for Google Photos™](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) (`niggncodoibinbianpkdpepmhfljifbo`). Its public page was rechecked on 8 October 2026: version `2.3.0.2`, updated 29 September 2026, with five screenshot slides.
+The public listing is [PhotoSweep for Google Photos™](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo) (`niggncodoibinbianpkdpepmhfljifbo`). Its public page was rechecked on 8 October 2026: version `2.3.0.2`, updated 29 September 2026, with five screenshot slides. The Dashboard row separately reports a 7 October last-updated date, while the published package remains `2.3.0.2`.
 
 At the read-only Developer Dashboard check on 8 October 2026, the item was
-**Published · public** at version `2.3.0.2`. No separate draft state was visible
-in the listing row. The public icon still uses the older sparkle mark, and the
-five screenshot slides show the older teal/coral product UI; neither matches
-the website's photo-and-golden-sweep mark or the current blue/gold extension
-palette. Recheck dashboard state before replacing listing media or submitting
-changes.
+**Published · public** at version `2.3.0.2`. The Package tab also showed
+`2.3.0.2` as the current published package and an “Upload new package” action;
+no draft package was present. The Store listing editor still contains the old
+copy, including the Google-only album-scope claim, and does not mention
+scan-wide or current-filter set inclusion or Needs review. The public icon
+still uses the older sparkle mark, and its five screenshot slides show the
+older teal/coral product UI; neither matches the website's current
+photo-and-golden-sweep mark or extension blue/gold palette.
+
+The dashboard Privacy tab currently checks personally identifiable
+information, financial and payment information, user activity, and website
+content; it marks remote code “No” and links to the live privacy page. That
+page, updated 6 October 2026, describes all three provider families, local
+matching, consented optional analytics, and licensing/payment flows. This was
+a read-only review; no dashboard field was changed. Recheck dashboard state
+before any upload or submission.
 
 The live Site is version `15`, sourced from commit
 `187cb69ace77bd06d6a0fd232221172c79437aa4`, and its production deployment
@@ -68,23 +78,19 @@ succeeded. Chrome computes the page background as `#F3F6FB`, primary CTA as
 tokens. The home and guide pages now explain scan-wide and current-filter set
 inclusion, keeper selection, and review before Trash.
 
-Chrome Stable currently has a separate enabled PhotoSweep extension
-(`aipenpjlbgggghncblkjbfibgcfbojpo`) at version `2.3.0`; it is not the public
-Store package `niggncodoibinbianpkdpepmhfljifbo` at `2.3.0.2`. Its runtime uses
-`#F3F6FB`, `#255BD4`, and DM Sans, but its active bundle still places generic
-“Include all sets” and “Skip all sets” actions in the keeper-rule menu. It lacks
-the separate scan-wide shortcut and current-filter include/remove actions from
-the current source, so it cannot provide captures of the revised review flow.
+Chrome Stable currently reports two enabled local PhotoSweep installs at
+version `2.3.5`; both are separate from the public Store item
+`niggncodoibinbianpkdpepmhfljifbo` at `2.3.0.2`. Their installed profile data
+was not inspected. The revised review flow is instead evidenced by the clean
+candidate package and synthetic screenshots below.
 
 The live Site and current extension source use the same PhotoSweep mark, DM Sans,
 cool light surfaces, and royal-blue `#255BD4` controls. The public Store listing
-still has older copy and teal screenshots; it is not visually aligned yet. A
-clean app `2.3.5` / Chrome `2.3.5.2` package was built from source commit
-`204b0f2f83d2107f0f4b654851366c0abf3a6731` and passed the package audit. The
-five new listing screenshots below were captured from that exact package. The
-local listing copy and screenshot set are ready for review, but have not been
-uploaded or submitted. Do not describe the public Store listing as aligned until
-the live listing is updated and rechecked.
+still has older copy, icon, and teal screenshots; it is not visually aligned
+yet. The clean app `2.3.5` / Chrome `2.3.5.2` package and screenshot provenance
+are recorded below. The local listing copy and screenshot set are prepared, but
+have not been uploaded or submitted. Do not describe the public Store listing as
+aligned until the live listing is updated and rechecked.
 
 ## Screenshot Replacement Requirements
 
