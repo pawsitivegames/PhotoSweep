@@ -331,7 +331,7 @@ function WorkflowRail({
         ? "Included duplicates are moved in batches. Undo remains available after completion."
         : stage === "done"
           ? "No duplicate sets are waiting. Try different settings if needed."
-          : "Pick the copy to keep in each set, then trash the rest safely."
+          : "Choose a keeper for each set, then include the sets you want to clean up."
   const steps = [
     {
       icon: <PhotoLibraryRoundedIcon fontSize="small" />,

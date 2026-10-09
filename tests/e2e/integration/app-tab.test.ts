@@ -334,6 +334,12 @@ test("review next reveals a hidden set and focuses it without authorizing Trash"
   const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
   await page.getByRole("button", { name: /Candidates & similar \(1\)/i }).click()
+  await expect(
+    page.getByText(
+      "Choose a keeper for each set, then include the sets you want to clean up.",
+      { exact: true }
+    )
+  ).toBeVisible()
   const target = page.locator(`[data-review-group-id="${groups[1].id}"]`)
   await expect(target).toHaveCount(0)
   const before = await readLocalStorage(context, ["selections"])
