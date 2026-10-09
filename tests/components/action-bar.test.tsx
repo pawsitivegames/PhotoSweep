@@ -346,7 +346,7 @@ describe("ActionBar", () => {
       }
     )
 
-    it("omits the redundant shown-set action when scan-wide selection covers it", () => {
+    it("shows scan-wide completion in compact copy without redundant actions", () => {
       renderActionBar({
         compact: true,
         groupCount: 1,
@@ -358,10 +358,13 @@ describe("ActionBar", () => {
       })
 
       expect(
-        screen.getByRole("button", {
+        screen.getByText(/4 of 4 available sets included/)
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole("button", {
           name: "All 4 available sets already included in cleanup"
         })
-      ).toBeDisabled()
+      ).not.toBeInTheDocument()
       expect(
         screen.queryByRole("button", {
           name: "All 1 shown set already included in cleanup"
@@ -390,6 +393,9 @@ describe("ActionBar", () => {
           name: "Remove 3 shown sets from cleanup"
         })
       ).toBeEnabled()
+      expect(screen.getByRole("button", { name: "Remove 3 shown sets from cleanup" })).toHaveTextContent(
+        "Remove shown sets"
+      )
     })
 
     it("calls onRescan when Scan again is clicked", () => {

@@ -296,26 +296,29 @@ export function ActionBar({
                 {availableGroupCount > 0 &&
                   ". Review included sets before Trash."}
               </Typography>
-              {onIncludeAllEligible && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  fullWidth
-                  startIcon={
-                    allAvailableGroupsIncluded ? (
-                      <CheckBoxOutlinedIcon />
-                    ) : (
-                      <CheckBoxOutlineBlankIcon />
-                    )
-                  }
-                  disabled={availableGroupCount === 0 || allAvailableGroupsIncluded}
-                  onClick={onIncludeAllEligible}
-                  aria-label={includeAllAriaLabel}
-                  title={includeAllTitle}
-                  sx={{ minHeight: 40, fontWeight: 800 }}>
-                  {includeAllLabel}
-                </Button>
-              )}
+              {onIncludeAllEligible &&
+                (!compact || !allAvailableGroupsIncluded) && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    fullWidth
+                    startIcon={
+                      allAvailableGroupsIncluded ? (
+                        <CheckBoxOutlinedIcon />
+                      ) : (
+                        <CheckBoxOutlineBlankIcon />
+                      )
+                    }
+                    disabled={
+                      availableGroupCount === 0 || allAvailableGroupsIncluded
+                    }
+                    onClick={onIncludeAllEligible}
+                    aria-label={includeAllAriaLabel}
+                    title={includeAllTitle}
+                    sx={{ minHeight: 40, fontWeight: 800 }}>
+                    {includeAllLabel}
+                  </Button>
+                )}
               {(!compact || !allShownGroupsSelected) && (
                 <Button
                   variant="outlined"
@@ -356,7 +359,7 @@ export function ActionBar({
                 aria-label={`Remove ${shownSetCountLabel} from cleanup`}
                 title="Removes only sets shown by the current filter from cleanup and marks them reviewed."
                 sx={{ minHeight: 38, fontWeight: 750 }}>
-                Remove shown sets from cleanup
+                {compact ? "Remove shown sets" : "Remove shown sets from cleanup"}
               </Button>
             </Box>
             <Button
