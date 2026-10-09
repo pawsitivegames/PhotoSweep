@@ -200,10 +200,17 @@ perform publication.
 
 ## Next reupload target — source candidate, listing assets pending
 
-The source candidate is app version `2.3.5` / Chrome version `2.3.5.2`. The
-clean ZIP and package audit passed, and the five replacement screenshots were
-captured from that package. The local listing copy now describes provider-
-specific personal-album scope, set inclusion, and its Needs review behavior.
+The source candidate is app version `2.3.5` / Chrome version `2.3.5.2`, built
+from commit `c60551abdaf05b42490c570e62b4e02b84fa06ae`. Its clean ZIP is
+`build/photosweep-cws-v2.3.5.2-sha256-28e422f5317f.zip` (SHA-256
+`28e422f5317f6170bab1bd7ab9311e71f665216c9e1976c4d0d888d5f89aa007`); both
+package and recorded-ZIP audits passed. The five replacement screenshots were
+captured from the previous clean ZIP at source commit `204b0f2f83d2107f0f4b654851366c0abf3a6731`.
+Only the Amazon album-scope helper wording changed since capture; these images
+show Google scan/review states, and the packaged image, font, and stylesheet
+files are byte-identical. They were not recaptured from the current ZIP. The
+local listing copy describes provider-specific personal-album scope, set
+inclusion, and its Needs review behavior.
 The live listing remains at `2.3.0.2` and still says album scope is Google
 Photos only; its copy, privacy fields, icon, screenshots, and current Dashboard
 state still require review before any upload or submission.

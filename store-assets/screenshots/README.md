@@ -4,17 +4,26 @@ Chrome Web Store screenshot size: 1280 x 800 PNG.
 
 ## Ready upload set
 
-Five screenshots are ready for a listing review. Each shows the exact PhotoSweep
-extension package built from source commit
-`204b0f2f83d2107f0f4b654851366c0abf3a6731` (app `2.3.5`, Chrome `2.3.5.2`).
-The ZIP SHA-256 is
-`fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`.
-The artifact is `build/photosweep-cws-v2.3.5.2-sha256-fcda782a794f.zip` with its
-matching JSON sidecar in `build/`. Package audit passed with a clean source
+Five screenshots are ready for a listing review. The current clean candidate
+was built from source commit
+`c60551abdaf05b42490c570e62b4e02b84fa06ae` (app `2.3.5`, Chrome `2.3.5.2`).
+Its ZIP SHA-256 is
+`28e422f5317f6170bab1bd7ab9311e71f665216c9e1976c4d0d888d5f89aa007`.
+The artifact is
+`build/photosweep-cws-v2.3.5.2-sha256-28e422f5317f.zip` with its matching JSON
+sidecar in `build/`. Package and recorded-ZIP audits passed with a clean source
 tree. Captures used an isolated
 Playwright Chromium context and synthetic account/results; the cleanup request
 was intercepted by the local Google Photos test stub. No personal provider
 library was read or changed.
+
+The image captures were made from the previous clean package at source commit
+`204b0f2f83d2107f0f4b654851366c0abf3a6731`, ZIP SHA-256
+`fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`. Since
+then, the only extension UI change was the Amazon album-scope helper wording;
+these screenshots show Google scan/review states and do not display that text.
+The old and current ZIPs have byte-identical images, fonts, and stylesheets.
+The screenshots have not been recaptured from the current ZIP.
 
 The product UI was captured at 1280 x 720. An 80 px caption band was appended
 below it to produce the 1280 x 800 assets. The band uses the current PhotoSweep
