@@ -1,13 +1,15 @@
 # Chrome Web Store package
 
-> **Source candidate (8 October 2026):** `package.json` declares app `2.3.5` /
-> Chrome `2.3.5.2`. Build and audit a fresh package from the exact committed
-> source before any upload. The public listing remains at `2.3.0.2`; this repo
-> change does not upload or publish a listing update.
+> **Source candidate (8 October 2026):** app `2.3.5` / Chrome `2.3.5.2` was
+> built cleanly from commit `7c3e9fa720684377747de770a3547d5bd381458b`; the ZIP
+> passed `npm run audit:extension-package`. ZIP SHA-256:
+> `1a8b24beaa40e53e8f0ea0bb0e43b1db1dc423311dbf5b255966da9deb8599cb`. The
+> replacement Store screenshots were captured from this exact ZIP. The public
+> listing remains at `2.3.0.2`; this repo change does not upload or publish it.
 
-The upload package is generated from the root `package.json` metadata after the
-source candidate is committed. Its `version` and `chromeVersion` are
-authoritative; do not copy a version from this document.
+The upload package is generated from the root `package.json` metadata. Its
+`version` and `chromeVersion` are authoritative; do not copy a version from
+this document.
 
 - Title: `PhotoSweep for Google Photos™`
 - Short description: `Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.`

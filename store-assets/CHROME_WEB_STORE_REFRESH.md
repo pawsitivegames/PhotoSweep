@@ -54,14 +54,15 @@ Store package `niggncodoibinbianpkdpepmhfljifbo` at `2.3.0.2`. Its runtime uses
 the separate scan-wide shortcut and current-filter include/remove actions from
 the current source, so it cannot provide captures of the revised review flow.
 
-The live Site now uses the updated copy and visual system. The public Store
-listing remains on older copy and assets: its description does not explain set
-inclusion, and its screenshots use the former teal UI and icon. The source
-candidate now declares app `2.3.5` / Chrome `2.3.5.2`; its local typecheck,
-focused review tests, and extension build pass. A package ZIP and package audit
-for this source candidate have not been produced. Do not describe the public
-Store listing as aligned until its copy and screenshot set are reviewed and
-updated.
+The live Site and current extension source use the same PhotoSweep mark, DM Sans,
+cool light surfaces, and royal-blue `#255BD4` controls. The public Store listing
+still has older copy and teal screenshots; it is not visually aligned yet. A
+clean app `2.3.5` / Chrome `2.3.5.2` package was built from source commit
+`7c3e9fa720684377747de770a3547d5bd381458b` and passed the package audit. The
+five new listing screenshots below were captured from that exact package. The
+local listing copy and screenshot set are ready for review, but have not been
+uploaded or submitted. Do not describe the public Store listing as aligned until
+the live listing is updated and rechecked.
 
 ## Screenshot Replacement Requirements
 
@@ -84,9 +85,11 @@ website:
   bands may be composed around the capture; they must not cover or alter the
   extension UI.
 
-The existing screenshot set uses the previous teal treatment and is not ready
-for a new listing submission. See `screenshots/README.md` for the five-frame
-upload set and the two retained alternates.
+Five screenshot files now show the current extension UI and workflow. Three
+older captures remain in the directory for reference only and must not be
+uploaded with the new set. See `screenshots/README.md` for exact package
+provenance, the five-frame upload order, synthetic-state labels, and retained
+reference files.
 
 Screenshots must be product-dominant:
 
@@ -95,48 +98,49 @@ Screenshots must be product-dominant:
 - If iCloud/Amazon are mentioned or shown, the provider selector must be visible and functional in the captured UI.
 - Screenshots must not claim identical feature parity across Google Photos, iCloud Photos, and Amazon Photos.
 - Screenshots must show review-before-cleanup behavior, not one-click deletion.
-- Screenshots based on local seeded duplicate state must be labeled as example review, confirmation, compact comparison, or post-cleanup states in the caption band.
+- Screenshots based on local seeded duplicate state must be labeled as example review, confirmation, or post-cleanup/result states in the caption band.
 
 ## Proposed Screenshot Set
 
 1. Start with a focused scan
    - File: `screenshots/02-focused-scan.png`
-   - Shows scan settings and date/batch/scope controls.
-   - Caption: "Start with a focused scan before a large cleanup."
+   - Shows the provider selector and the start of the scan scope controls.
+   - Caption: "Choose a photo library and scope."
 
 2. Review duplicate groups
    - File: `screenshots/04-review-groups.png`
-   - Shows the review screen with exact/similar grouping, keeper choices, the scan-wide “Include all available sets” shortcut, and current-filter include/remove actions using local seeded example state.
-   - Caption: "Example review state: choose keepers, then include sets for cleanup. Newly included sets still need review."
+   - Shows the scan-wide “Include all available sets” shortcut and current-filter “Include all 3 shown sets” action using seeded example state.
+   - Caption: "Example review: choose keepers, then include sets."
 
-3. Confirm before cleanup
+3. Show the include-all result
+   - File: `screenshots/08-include-all-sets.png`
+   - Shows all available sets included and the “Selected · needs review” state.
+   - Caption: "Example review: newly included sets return to Needs review before cleanup."
+
+4. Confirm before cleanup
    - File: `screenshots/05-export-safety.png`
    - Shows typed confirmation and the audit-report warning using local seeded example state.
    - Caption: "Example confirmation state: typed confirmation and an audit report come first."
 
-4. Verify the cleanup outcome
+5. Verify the cleanup outcome
    - File: `screenshots/06-cleanup-outcome.png`
-   - Shows the completed Trash step and the exact `2 items moved to trash` Undo snackbar using local seeded example state.
-   - Caption: "Example post-cleanup state: Undo remains available while you verify the result."
+   - Shows the completed Trash step and the `3 items moved to trash` Undo snackbar from the intercepted local test stub.
+   - Caption: "Example result: check the outcome while Undo is available. No personal photo library was changed."
 
-5. Compare exact and similar results
-   - File: `screenshots/07-compact-exact-similar.png`
-   - Shows the compact side-panel review UI with All, Exact, and Similar filters plus Exact duplicate and Similar group labels using local seeded example state.
-   - Caption: "Example compact review: filter exact duplicates separately from visually similar sets."
-
-6. Choose your cloud photo library
+6. Choose your cloud photo library (old reference capture; do not upload)
    - File: `screenshots/01-provider-selector.png`
    - Shows provider selector with Google Photos, iCloud Photos, and Amazon Photos.
    - Caption: "Find duplicates across supported cloud photo libraries."
 
-7. Scan before any cleanup action
+7. Scan before any cleanup action (old reference capture; do not upload)
    - File: `screenshots/03-scan-progress.png`
    - Shows scan progress and the review-before-cleanup safety message.
    - Caption: "Scan before any cleanup action."
 
 The public listing currently displays five screenshots. Keep the recommended
 five-frame order below; confirm the current Dashboard limit before a future
-upload. Provider selection and scan progress remain alternate captures.
+upload. The provider-selector and scan-progress files are old reference captures;
+recapture them before using either in a future listing update.
 
 ## Critic Gate
 
@@ -175,11 +179,11 @@ perform publication.
 ## Next reupload target — source candidate, listing assets pending
 
 The source candidate is app version `2.3.5` / Chrome version `2.3.5.2`. The
-current tracked screenshot set still uses the former UI, and the live listing
-copy still omits set inclusion. Refresh the screenshot set from the exact
-committed candidate, review the listing copy and privacy fields, then build and
-audit a fresh package. The current source build is local evidence only; it is
-not an upload package.
+clean ZIP and package audit passed, and the five replacement screenshots were
+captured from that package. The local listing copy now describes set inclusion
+and its Needs review behavior. The live listing remains at `2.3.0.2`; its copy,
+privacy fields, icon, screenshots, and current Dashboard state still require
+review before any upload or submission.
 
 The screenshot refresh, package upload, and publication remain separate review
 steps. This document does not authorize publication.

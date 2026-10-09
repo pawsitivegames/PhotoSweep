@@ -1,82 +1,53 @@
-# Screenshot Set
+# Chrome Web Store Screenshot Set
 
-Chrome Web Store screenshot size: 1280 x 800.
+Chrome Web Store screenshot size: 1280 x 800 PNG.
 
-These assets are composed from installed PhotoSweep extension UI captured in Chrome. The caption band is outside the product UI and should not obscure the extension layout.
+## Ready upload set
 
-## Current readiness
+Five screenshots are ready for a listing review. Each shows the exact PhotoSweep
+extension package built from source commit
+`7c3e9fa720684377747de770a3547d5bd381458b` (app `2.3.5`, Chrome `2.3.5.2`).
+The ZIP SHA-256 is
+`1a8b24beaa40e53e8f0ea0bb0e43b1db1dc423311dbf5b255966da9deb8599cb`.
+Package audit passed with a clean source tree. Captures used an isolated
+Playwright Chromium context and synthetic account/results; the cleanup request
+was intercepted by the local Google Photos test stub. No personal provider
+library was read or changed.
 
-All seven tracked screenshots still use the previous teal UI and branding;
-the review frame also predates the scan-wide Include action and current-filter
-include/remove controls. Keep these PNGs as reference only. Recapture the set
-from the exact approved release package using the current photo-and-sweep icon,
-royal-blue `#255BD4` controls, cool light surfaces, and DM Sans UI. Do not
-recolor or retouch the captured product UI. The Chrome Web Store Developer
-Dashboard currently allows five screenshots; use the first five below and keep
-the remaining two as alternates.
+The product UI was captured at 1280 x 720. An 80 px caption band was appended
+below it to produce the 1280 x 800 assets. The band uses the current PhotoSweep
+mark, `#F3F6FB` background, `#255BD4` accent, and dark-blue type. Captured UI
+pixels were not retouched or recolored.
 
-## Files
+Upload in this order:
 
-1. `01-provider-selector.png`
-   - Real installed extension provider selector.
-   - Shows Google Photos, iCloud Photos, and Amazon Photos.
+1. `02-focused-scan.png` — **Demo · First scan.** Choose a photo library and scope.
+2. `04-review-groups.png` — **Example review.** Choose keepers, then use the
+   scan-wide shortcut or include only sets shown by the active filter.
+3. `08-include-all-sets.png` — **Example review.** Shows all available sets
+   included and newly included sets marked “Needs review.”
+4. `05-export-safety.png` — **Example confirmation.** Shows the typed count,
+   safety acknowledgment, and cleanup preflight before the provider action.
+5. `06-cleanup-outcome.png` — **Example result.** Shows the intercepted sample
+   response and Undo option; the caption states that no personal library changed.
 
-2. `02-focused-scan.png`
-   - Real installed extension scan/scope screen with date range.
+These screenshots and local listing copy are prepared, not published. Recheck
+the Chrome Web Store Developer Dashboard, current policy requirements, and
+listing fields before upload or submission. The public listing was still on
+version `2.3.0.2` at the 8 October 2026 audit.
 
-3. `03-scan-progress.png`
-   - Real installed extension scan progress screen from a narrow Google Photos date-range scan.
+## Retained reference screenshots
 
-4. `04-review-groups.png`
-   - Real installed extension review UI using local seeded demo duplicate state for screenshot composition only.
-   - Caption labels this as an example review state.
-   - No real photos were moved or modified.
+These captures use the older teal theme and must not be uploaded with the new set:
 
-5. `05-export-safety.png`
-   - Real installed extension Trash confirmation dialog using local seeded demo duplicate state.
-   - Caption labels this as an example confirmation state.
-   - Shows typed confirmation and the audit-report warning before any move action.
-   - No Trash confirmation was completed and no provider library was modified.
+- `01-provider-selector.png` — older provider-selector capture.
+- `03-scan-progress.png` — older scan-progress capture.
+- `07-compact-exact-similar.png` — older compact review capture.
 
-6. `06-cleanup-outcome.png`
-   - Real shipped extension post-cleanup UI with the completed Trash step.
-   - Shows the exact `2 items moved to trash` Undo snackbar.
-   - Caption labels this as an example post-cleanup state: Undo remains available while you verify the result.
-   - Uses a locally seeded demo state; no provider library was modified.
+## Upload rules
 
-7. `07-compact-exact-similar.png`
-   - Real shipped compact side-panel review UI.
-   - Shows `All`, `Exact`, and `Similar` filters plus `Exact duplicate` and `Similar` group labels.
-   - Caption labels this as an example compact review state.
-   - Uses a locally seeded demo state; no provider library was modified.
-
-## Five-frame upload order
-
-Upload the assets in this order so people first see how to start, then how to
-review and stay in control. Recapture the review frame with the clearer sidebar
-workflow: show the two separate steps (“1. Choose keeper photos” and “2. Include
-sets in cleanup”), the scan-wide “Include all available sets” shortcut, the separate
-current-filter “Include all N shown sets” action, and “Remove shown sets from
-cleanup.” Explain that the current-filter action includes only shown sets. Show
-that newly included sets return to “Needs review” and
-that the all-included state is explicit. The filename prefixes describe the
-captured screen, not the upload priority.
-
-1. `02-focused-scan.png` — Start with a focused scan before a large cleanup.
-2. `04-review-groups.png` — Example review state: choose keeper photos, include available sets across filters, then review newly included sets before cleanup.
-3. `05-export-safety.png` — Example confirmation state: typed confirmation and an audit report come first.
-4. `06-cleanup-outcome.png` — Example post-cleanup state: Undo remains available while you verify the result.
-5. `07-compact-exact-similar.png` — Example compact review: filter exact duplicates separately from visually similar sets.
-
-## Retained alternates
-
-- `01-provider-selector.png` — Find duplicates across supported cloud photo libraries.
-- `03-scan-progress.png` — Scan before any cleanup action.
-
-## Upload Rules
-
-- Do not upload if copy or screenshots imply official Google, Apple, or Amazon affiliation.
-- Do not upload if screenshots imply identical feature parity across providers.
-- Do not upload if the caption covers the product UI.
-- Keep the listing caveat near the first provider-support mention: availability and cleanup behavior can vary by provider, region, account state, loaded library area, and media type.
-- Do not remove the in-screenshot "Example" labels from seeded review, confirmation, compact comparison, or post-cleanup states unless those screenshots are replaced with non-seeded real-account captures.
+- Do not imply official Google, Apple, or Amazon affiliation.
+- Do not imply identical feature parity across providers.
+- Keep caption bands outside the product UI.
+- Keep provider availability and cleanup caveats near the first provider-support mention.
+- Keep “Example” labels on seeded review, confirmation, and result states.
