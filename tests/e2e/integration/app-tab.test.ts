@@ -17,7 +17,8 @@ import {
   makeGroups,
   openAppTab,
   openGptkStubPage,
-  readLocalStorage
+  readLocalStorage,
+  reviewShownKeepers
 } from "../fixtures/extension"
 
 let context: BrowserContext
@@ -271,12 +272,13 @@ test("filters review groups by exact and similar classification", async () => {
   })
   await expect(page.getByText("Similar", { exact: true })).toBeVisible()
 
+  await page.getByRole("button", { name: /^Include all 2 available sets in cleanup$/i }).click()
   await page.getByRole("button", { name: /Verified identical \(1\)/i }).click()
   await expect(
     page.getByText("Verified identical", { exact: true })
   ).toBeVisible()
   await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
-  await expect(page.getByText("2 sets total")).toBeVisible()
+  await expect(page.getByText("2 available sets", { exact: false })).toBeVisible()
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -433,7 +435,8 @@ test("closes a paid prompt when a connected account changes", async () => {
       exact: true
     })
   ).toBeVisible({ timeout: 8_000 })
-  await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+  await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
+    await reviewShownKeepers(page)
   await page.getByRole("button", { name: /Review & move 12 to Trash/i }).click()
   await expect(
     page.getByRole("heading", { name: "Unlock larger cleanup" })
@@ -501,7 +504,8 @@ test("drops a delayed old-account trash result after identity changes", async ()
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
-    await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+    await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
+    await reviewShownKeepers(page)
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
       .click()
@@ -585,7 +589,8 @@ test("dispatch-authorization rejects account drift during deferred audit persist
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
-    await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+    await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
+    await reviewShownKeepers(page)
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
       .click()
@@ -728,7 +733,8 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
-    await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+    await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
+    await reviewShownKeepers(page)
     await page
       .getByRole("button", { name: /Review & move 8 to Trash/i })
       .click()
@@ -965,7 +971,8 @@ test("does not open a stale checkout tab after results reset", async () => {
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
-    await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+    await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
+    await reviewShownKeepers(page)
     await page
       .getByRole("button", { name: /Review & move 12 to Trash/i })
       .click()
@@ -1059,7 +1066,6 @@ test("keeps the free-results exit clickable after an unverified checkout return"
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
-    await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
     await page
       .getByRole("button", { name: /Review & move 12 to Trash/i })
       .click()
@@ -2115,7 +2121,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
 
   await expect(
     page.getByRole("button", {
-      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
+      name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
     })
   ).toHaveAttribute("aria-pressed", "true")
 
@@ -2135,7 +2141,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
   ).toHaveAttribute("aria-pressed", "true")
   await expect(
     page.getByRole("button", {
-      name: /Keep key1\.jpg \(currently proposed for Trash; favorite status unknown; click to keep\)/
+      name: /^Keep key1\.jpg\b/
     })
   ).toHaveAttribute("aria-pressed", "false")
 
@@ -2768,7 +2774,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
       }
     })
 
-  await page.getByRole("button", { name: /^Skip [0-9]+ shown sets$/i }).click()
+  await page.getByRole("button", { name: "Skip cleanup for this set", exact: true }).click()
   await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeVisible()
@@ -2776,20 +2782,20 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText("0 sets selected for cleanup · 0 media items proposed for Trash")
 
-  await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+  await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
   await expect(
     page.getByText("1 media item proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review next set \(1 left\)/i })
   ).toBeVisible()
 
-  await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+  await expect(page.getByRole("button", { name: /^All [0-9]+ shown sets? already included in cleanup$/i })).toBeDisabled()
   await expect(
     page.getByText("1 media item proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review next set \(1 left\)/i })
   ).toBeVisible()
 
   await expect
@@ -2800,7 +2806,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
       settings: { defaultKeepStrategy: "largest_resolution" },
       selections: {
         selectedGroupIds: ["g1"],
-        reviewedGroupIds: ["g1"],
+        reviewedGroupIds: [],
         keptOverrides: { g1: ["key2"] },
         keepDecisionProvenance: {
           g1: { source: "automatic", strategy: "largest_resolution" }
@@ -2814,10 +2820,10 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "1 set selected for cleanup · 1 media item proposed for Trash"
+    "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
   )
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review next set \(1 left\)/i })
   ).toBeVisible()
   await expect
     .poll(() => readLocalStorage(context, ["settings", "selections"]))
@@ -2825,7 +2831,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
       settings: { defaultKeepStrategy: "largest_resolution" },
       selections: {
         selectedGroupIds: ["g1"],
-        reviewedGroupIds: ["g1"],
+        reviewedGroupIds: [],
         keptOverrides: { g1: ["key2"] },
         keepDecisionProvenance: {
           g1: { source: "automatic", strategy: "largest_resolution" }
@@ -2844,9 +2850,9 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   ).toHaveAttribute("aria-pressed", "false")
 
-  await page.getByRole("button", { name: /^Skip [0-9]+ shown sets$/i }).click()
+  await page.getByRole("button", { name: /^Remove [0-9]+ shown sets? from cleanup$/i }).click()
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review next set \(1 left\)/i })
   ).not.toBeVisible()
   await expect(
     page.getByRole("button", {
@@ -3143,7 +3149,7 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
   ).toBeEnabled()
   await expect(
     page.getByRole("button", {
-      name: /Keep key1\.jpg \(currently kept; this is the last kept copy/
+      name: /Keep key2\.jpg \(currently kept; this is the last kept copy/
     })
   ).toHaveAttribute("aria-pressed", "true")
 

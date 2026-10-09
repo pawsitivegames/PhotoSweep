@@ -53,7 +53,7 @@ async function sendAppMessage(
 }
 
 function scanLibraryButton(page: Page) {
-  return page.getByRole("button", { name: /^Scan (entire library|recent 30 days|this date range)$/i })
+  return page.getByRole("button", { name: /^Scan (all dates|the last 30 days|this date range)$/i })
 }
 
 // ============================================================
@@ -172,9 +172,13 @@ test.describe("healthCheck", () => {
     })
     await page.getByRole("button", { name: /Retry connection/i }).click()
 
-    // Simulate the user leaving Google Photos while the first health check is
-    // still in flight. The app must not remain connected to the old tab.
-    await stub.goto("https://example.com/")
+    // Observe delivery before navigating locally so network latency cannot let
+    // the delayed health check finish before the tab actually leaves Photos.
+    await expect.poll(() => stub.evaluate(() =>
+      (window as unknown as { __gptkCommandLog?: Array<{ command: string }> })
+        .__gptkCommandLog?.filter(entry => entry.command === "healthCheck").length ?? 0
+    )).toBeGreaterThan(0)
+    await stub.goto("about:blank")
     await expect(
       page.getByText(/Google Photos is not ready/i)
     ).toBeVisible({ timeout: 15_000 })

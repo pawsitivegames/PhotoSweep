@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext } from "@playwright/test"
-import { clearStorage, launchExtension, openAppTab, openGptkStubPage } from "../fixtures/extension"
+import { clearStorage, launchExtension, openAppTab, openGptkStubPage, injectScanResults, makeGroups } from "../fixtures/extension"
 
 let context: BrowserContext
 let extensionId: string
@@ -9,6 +9,8 @@ test.afterAll(async () => { await context.close() })
 
 test("default-off metrics replay the current connection on opt-in and disclose identity fields", async () => {
   await clearStorage(context)
+  const fixture = makeGroups(1, 2)
+  await injectScanResults(context, fixture.groups, fixture.mediaItems, 2)
   const events: Record<string, unknown>[] = []
   await context.route(endpoint, async route => {
     events.push(route.request().postDataJSON())
@@ -37,6 +39,8 @@ test("default-off metrics replay the current connection on opt-in and disclose i
 
 test("revoking consent drops events awaiting install identity", async () => {
   await clearStorage(context)
+  const fixture = makeGroups(1, 2)
+  await injectScanResults(context, fixture.groups, fixture.mediaItems, 2)
   const events: Record<string, unknown>[] = []
   await context.route(endpoint, async route => {
     events.push(route.request().postDataJSON())
@@ -74,6 +78,8 @@ test("revoking consent drops events awaiting install identity", async () => {
 })
 test("re-allowing consent does not revive events from the revoked generation", async () => {
   await clearStorage(context)
+  const fixture = makeGroups(1, 2)
+  await injectScanResults(context, fixture.groups, fixture.mediaItems, 2)
   const events: Record<string, unknown>[] = []
   await context.route(endpoint, async route => {
     events.push(route.request().postDataJSON())
@@ -116,6 +122,8 @@ test("re-allowing consent does not revive events from the revoked generation", a
 
 test("a scan paused during cache lookup emits no scan attempt or provider dispatch", async () => {
   await clearStorage(context)
+  const fixture = makeGroups(1, 2)
+  await injectScanResults(context, fixture.groups, fixture.mediaItems, 2)
   const events: Record<string, unknown>[] = []
   await context.route(endpoint, async route => {
     events.push(route.request().postDataJSON())
@@ -127,11 +135,13 @@ test("a scan paused during cache lookup emits no scan attempt or provider dispat
     await expect(page.getByText("Signed in · test@example.com")).toBeVisible({ timeout: 10000 })
     await page.getByRole("button", { name: "Allow", exact: true }).click()
     await expect.poll(() => events.filter(event => event.name === "provider_connected").length).toBe(1)
+    await page.getByRole("button", { name: /Scan again/i }).click()
+    await expect(page.getByRole("button", { name: /^Scan the last 30 days$/ })).toBeVisible()
     await page.evaluate(() => {
       const original = chrome.storage.local.get.bind(chrome.storage.local)
       const win = window as unknown as { releaseCache?: () => void; cachePending?: boolean }
       chrome.storage.local.get = ((keys: unknown) => {
-        if (Array.isArray(keys) && keys.some(key => String(key).endsWith(".scanResults"))) {
+        if (Array.isArray(keys) && keys.length === 1 && keys.some(key => String(key).endsWith(".scanResults"))) {
           win.cachePending = true
           return new Promise(resolve => { win.releaseCache = () => { chrome.storage.local.get = original; resolve({}) } })
         }

@@ -79,7 +79,11 @@ async function includeAllAndOpenTrashDialog(
   await expect(page.getByText(`Signed in · ${accountEmail}`)).toBeVisible({
     timeout: 8_000
   })
-  await page.getByRole("button", { name: /^Include [0-9]+ shown sets$/i }).click()
+  await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
+  // Inclusion proposes sets; an explicit keeper decision completes review.
+  for (const card of await page.locator("[data-review-group-id]").all()) {
+    await card.getByRole("button", { name: /currently kept; this is the last kept copy/ }).click()
+  }
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })
     .click()
@@ -354,7 +358,7 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
     timeout: 8_000
   })
 
-  await page.getByRole("button", { name: /Skip \d+ shown sets/i }).click()
+  await page.locator(`[data-review-group-id="${groups[1].id}"]`).getByRole("button", { name: "Skip cleanup for this set", exact: true }).click()
   await page.locator('input[type="checkbox"]').first().click()
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })

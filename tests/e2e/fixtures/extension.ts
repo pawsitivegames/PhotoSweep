@@ -200,6 +200,14 @@ export async function connectToChrome(
 // Extension launch
 // ============================================================
 
+export async function reviewShownKeepers(page: Page): Promise<void> {
+  for (const card of await page.locator("[data-review-group-id]").all()) {
+    // Confirm the existing sole keeper through the production UI. This marks
+    // review complete without changing the intended Trash target identities.
+    await card.getByRole("button", { name: /currently kept; this is the last kept copy/ }).click()
+  }
+}
+
 export async function launchExtension(): Promise<{
   context: BrowserContext
   extensionId: string
@@ -209,7 +217,7 @@ export async function launchExtension(): Promise<{
   // still temporary and isolated for each test run.
   const installedBrowser = installedChromiumExecutable()
   const context = await chromium.launchPersistentContext("", {
-    headless: false,
+    headless: process.env.PHOTOSWEEP_INTEGRATION_HEADLESS === "1",
     ...(installedBrowser ? { executablePath: installedBrowser } : {}),
     args: [
       `--disable-extensions-except=${extensionPath}`,
