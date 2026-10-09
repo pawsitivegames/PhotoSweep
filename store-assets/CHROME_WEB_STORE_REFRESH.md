@@ -12,31 +12,64 @@ Find duplicate photos and videos in Google Photos. Matching stays in your browse
 
 ### First Paragraph
 
-PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support where available. Availability and cleanup behavior can vary by provider, region, account state, loaded library area, and media type. Choose keeper photos, then include all available sets across the scan or only the sets shown by the current filter. Newly included sets return to “Needs review.” Review every eligible set and the exact items proposed for Trash before confirming what moves to each service's Trash or recovery flow.
+PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support where available. Before your first provider scan, review a short data-use notice explaining what PhotoSweep reads from the signed-in tab, what stays in your browser, and when the provider receives selected item IDs for Trash. An unscoped Smart scan recommends starting with the most recent 30 days where available. Before scanning, you can choose a supported date range, an album, or all dates instead. Availability and cleanup behavior can vary by provider, region, account state, loaded library area, and media type. Choose keeper photos, then include all available sets across the scan or only the sets shown by the current filter. Newly included sets return to “Needs review.” Review every eligible set and the exact items proposed for Trash before confirming what moves to each service's Trash or recovery flow.
 
 PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Amazon, or their photo services. Google Photos is a trademark of Google LLC. Use of this trademark is subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its affiliates.
 
-### Additional description copy
+### Store description for the Dashboard draft
 
-Use a focused scan before cleanup. Choose a provider, then scan its library, a
-personal album, or a date range where that provider supports the scope. Google
-Photos shared albums are not supported. iCloud album scans use the personal
-library; shared libraries are not included. Amazon shared albums are not
-supported, and a personal-album scan stops if it encounters an item owned by
-another account. Provider behavior can vary by region, account state, loaded
-library area, and media type.
+PhotoSweep finds duplicate and similar photos and videos in Google Photos™.
+Matching runs in your browser; PhotoSweep does not upload your photo library for
+analysis. PhotoSweep also supports iCloud Photos and Amazon Photos where
+available.
 
-Review Exact and Similar groups separately, choose which copy to keep, then
-include all available sets across the scan or only the sets shown by the current
-filter. Newly included sets return to “Needs review.” Review each eligible set
-and the exact items proposed for Trash. PhotoSweep asks you to type the item
-count before confirming. A move affects the provider library, not only the
-album used to narrow the scan. Provider Trash, recovery, and Undo options vary.
+WHAT YOU CAN DO
 
-Photo matching runs in your browser. PhotoSweep's services do not receive your
-photo content for analysis. Usage analytics stay off unless you choose Allow;
-analytics do not include photo content. Optional licensing unlocks larger
-scans and may use Stripe Checkout.
+• Review Exact and Similar groups separately and choose which copy to keep.
+• Choose a keeper rule across the scan, or make choices one set at a time.
+• Include all sets available to review across the scan, or only sets shown by
+  the current filter. Newly included sets return to “Needs review.”
+• Export a JSON audit report or CSV spreadsheet from the review menu. Some
+  locked results may require an optional license.
+• Review every eligible set and the exact items proposed for Trash.
+
+HOW SCANNING AND CLEANUP WORK
+
+Before a first scan, review the data-use notice. An unscoped Smart scan
+recommends a recent-30-day starting range where available. Before scanning,
+choose a supported date range, personal album, or all dates. Video matching can
+use provider thumbnails or poster stills and media metadata; PhotoSweep does
+not decode the full video. Separately, Verify original bytes reads an eligible
+original in your browser and calculates a SHA-256 locally, up to 25 MiB per item
+and 100 MiB per review. Availability varies by provider; Amazon Photos
+original-byte verification is currently limited to Amazon Photos Canada.
+
+Provider support and scope vary.
+
+• Google Photos shared albums are not supported.
+• iCloud album scans use the personal library; shared libraries are not
+  included.
+• Amazon shared albums are not supported. A personal-album scan stops if it
+  encounters an item owned by another account.
+
+PhotoSweep asks you to type the item count before sending a Trash request. A move
+affects the provider library, not only the album used to narrow the scan.
+Provider Trash, recovery, and Undo options vary. Availability and cleanup
+behavior can vary by provider, region, account state, loaded library area, and
+media type. Some steps use the provider's own web interface.
+
+PRIVACY AND BILLING
+
+Matching runs in your browser. PhotoSweep's services do not receive your photo
+content for analysis. Optional usage analytics stay off unless you choose Allow;
+they do not include photo content. Optional licensing unlocks larger scans.
+License checks go to the PhotoSweep service; checkout is handled by Stripe.
+
+PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, or
+Amazon. Google Photos is a trademark of Google LLC. Use of this trademark is
+subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks
+of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its
+affiliates.
 
 ## Messaging Rules
 
@@ -73,26 +106,38 @@ matching, consented optional analytics, and licensing/payment flows. This was
 a read-only review; no dashboard field was changed. Recheck dashboard and
 existing draft state before any upload or submission.
 
-The live Site is version `15`, sourced from commit
-`187cb69ace77bd06d6a0fd232221172c79437aa4`, and its production deployment
-succeeded. Chrome computes the page background as `#F3F6FB`, primary CTA as
-`#255BD4`, and body font as DM Sans, matching the extension's current visual
-tokens. The home and guide pages now explain scan-wide and current-filter set
-inclusion, keeper selection, and review before Trash.
-
-Chrome Stable currently reports two enabled local PhotoSweep installs at
-version `2.3.5`; both are separate from the public Store item
-`niggncodoibinbianpkdpepmhfljifbo` at `2.3.0.2`. Their installed profile data
-was not inspected. The revised review flow is instead evidenced by the clean
-candidate package and synthetic screenshots below.
-
 The live Site and current extension source use the same PhotoSweep mark, DM Sans,
 cool light surfaces, and royal-blue `#255BD4` controls. The public Store listing
 still has older copy, icon, and teal screenshots; it is not visually aligned
-yet. The clean app `2.3.5` / Chrome `2.3.5.2` package and screenshot provenance
-are recorded below. The local listing copy and screenshot set are prepared, but
-have not been uploaded or submitted. Do not describe the public Store listing as
-aligned until the live listing is updated and rechecked.
+yet. The refreshed package and screenshot provenance are recorded in the
+9 October update below. Do not describe the public Store listing as aligned
+until the live listing is updated and rechecked.
+
+## State update — 9 October 2026
+
+The live Site is version `16`, sourced from commit
+`ab860a6cbe1394fc7dc21fb9151abadb576ed69d`; its production deployment
+succeeded. The latest extension candidate is app `2.3.6` / Chrome `2.3.6.1`,
+built from source commit `66f5c8ed322411d10eb4124a3e65a5c74b4dc43a`. Package
+and recorded-ZIP audit both passed. ZIP SHA-256 is
+`f765a9262a6c082f2b54ff2039baa808f97cd3d6f3c8ef18cea8aef3e4bee786`.
+
+The package sidecar marks the checkout dirty because untracked scratch artifacts
+were present, while its tracked-diff SHA-256 is empty. Five replacement
+screenshots were captured from that exact package in an isolated Chrome Stable
+profile with synthetic provider and photo data. Their image dimensions and the
+five-frame order are recorded in `screenshots/README.md`.
+
+On 9 October, the candidate package was uploaded to the Chrome Web Store
+Developer Dashboard as draft version `2.3.6.1`. The refreshed description,
+128 px icon, five screenshots, and small promo tile were saved in the listing
+draft. The item remains **Published · public** at `2.3.0.2`; the draft has not
+been submitted for review, so the public page still shows the previous assets.
+
+The public Chrome Web Store page was rechecked on 9 October and remains at
+version `2.3.0.2`; its old icon, screenshots, and Google-only album-scope copy
+are still public. The refreshed local listing assets are not yet reflected in
+the public page.
 
 ## Screenshot Replacement Requirements
 
@@ -115,11 +160,11 @@ website:
   bands may be composed around the capture; they must not cover or alter the
   extension UI.
 
-Five screenshot files now show the current extension UI and workflow. Three
-older captures remain in the directory for reference only and must not be
-uploaded with the new set. See `screenshots/README.md` for exact package
-provenance, the five-frame upload order, synthetic-state labels, and retained
-reference files.
+Five screenshot files now show the current extension UI and workflow. Previous
+captures are retained under `screenshots/archive/20261009/` for reference and
+must not be uploaded with the new set. See `screenshots/README.md` for exact
+package provenance, the five-frame upload order, synthetic-state labels, and
+retained reference files.
 
 Screenshots must be product-dominant:
 
@@ -130,47 +175,40 @@ Screenshots must be product-dominant:
 - Screenshots must show review-before-cleanup behavior, not one-click deletion.
 - Screenshots based on local seeded duplicate state must be labeled as example review, confirmation, or post-cleanup/result states in the caption band.
 
-## Proposed Screenshot Set
+## Current Screenshot Set
 
-1. Start with a focused scan
-   - File: `screenshots/02-focused-scan.png`
-   - Shows the provider selector and the start of the scan scope controls.
-   - Caption: "Choose a photo library and scope."
+1. Review data use before the first scan
+   - File: `screenshots/01-first-scan-notice.png`
+   - Shows the required first-scan notice before scanning a provider library.
+   - Caption: "Review data use before you scan."
 
-2. Review duplicate groups
-   - File: `screenshots/04-review-groups.png`
-   - Shows the scan-wide “Include all available sets” shortcut and current-filter “Include all 3 shown sets” action using seeded example state.
-   - Caption: "Example review: choose keepers, then include sets."
+2. Choose a scan scope
+   - File: `screenshots/02-choose-scan-scope.png`
+   - Shows provider selection and available scan-scope controls in the
+     synthetic provider fixture.
+   - Caption: "Choose a scan scope."
 
-3. Show the include-all result
-   - File: `screenshots/08-include-all-sets.png`
-   - Shows all available sets included and the “Selected · needs review” state.
-   - Caption: "Example review: newly included sets return to Needs review before cleanup."
+3. Choose which sets to include
+   - File: `screenshots/03-review-groups.png`
+   - Shows the scan-wide “Include all available sets” shortcut and the
+     current-filter action in a seeded example review.
+   - Caption: "Example review: choose the sets to include. Include all 3 sets, or only the 2 shown by this filter."
 
-4. Confirm before cleanup
-   - File: `screenshots/05-export-safety.png`
-   - Shows typed confirmation and the audit-report warning using local seeded example state.
-   - Caption: "Example confirmation state: typed confirmation and an audit report come first."
+4. Review included sets next
+   - File: `screenshots/04-include-all-sets.png`
+   - Shows all available sets included, their “Needs review” state, and the
+     next-review shortcut.
+   - Caption: "Example review: newly included sets return to Needs review."
 
-5. Verify the cleanup outcome
-   - File: `screenshots/06-cleanup-outcome.png`
-   - Shows the completed Trash step and the `3 items moved to trash` Undo snackbar from the intercepted local test stub.
-   - Caption: "Example result: check the outcome while Undo is available. No personal photo library was changed."
+5. Review before moving to Trash
+   - File: `screenshots/05-confirm-before-trash.png`
+   - Shows the exact-count field and favorite-status acknowledgment in a
+     synthetic, unconfirmed cleanup dialog.
+   - Caption: "Example confirmation: no provider action was confirmed."
 
-6. Choose your cloud photo library (old reference capture; do not upload)
-   - File: `screenshots/01-provider-selector.png`
-   - Shows provider selector with Google Photos, iCloud Photos, and Amazon Photos.
-   - Caption: "Find duplicates across supported cloud photo libraries."
-
-7. Scan before any cleanup action (old reference capture; do not upload)
-   - File: `screenshots/03-scan-progress.png`
-   - Shows scan progress and the review-before-cleanup safety message.
-   - Caption: "Scan before any cleanup action."
-
-The public listing currently displays five screenshots. Keep the recommended
-five-frame order below; confirm the current Dashboard limit before a future
-upload. The provider-selector and scan-progress files are old reference captures;
-recapture them before using either in a future listing update.
+The public listing currently displays five screenshots. These assets now
+replace the old screenshots in the saved Dashboard draft; they are not public
+until that draft is submitted and approved.
 
 ## Critic Gate
 
@@ -206,22 +244,19 @@ Developer Dashboard in Aside, verify the listing fields, upload the candidate,
 and confirm submission/review state. This document does not authorize or
 perform publication.
 
-## Next reupload target — source candidate, listing assets pending
+## Current reupload candidate — Dashboard draft saved, not submitted
 
-The source candidate is app version `2.3.5` / Chrome version `2.3.5.2`, built
-from commit `c60551abdaf05b42490c570e62b4e02b84fa06ae`. Its clean ZIP is
-`build/photosweep-cws-v2.3.5.2-sha256-28e422f5317f.zip` (SHA-256
-`28e422f5317f6170bab1bd7ab9311e71f665216c9e1976c4d0d888d5f89aa007`); both
-package and recorded-ZIP audits passed. The five replacement screenshots were
-captured from the previous clean ZIP at source commit `204b0f2f83d2107f0f4b654851366c0abf3a6731`.
-Only the Amazon album-scope helper wording changed since capture; these images
-show Google scan/review states, and the packaged image, font, and stylesheet
-files are byte-identical. They were not recaptured from the current ZIP. The
-local listing copy describes provider-specific personal-album scope, set
-inclusion, and its Needs review behavior.
-The live listing remains at `2.3.0.2` and still says album scope is Google
-Photos only; its copy, privacy fields, icon, screenshots, and current Dashboard
-state still require review before any upload or submission.
+The source candidate is app version `2.3.6` / Chrome version `2.3.6.1`, built
+from commit `66f5c8ed322411d10eb4124a3e65a5c74b4dc43a`. Its ZIP is
+`build/photosweep-cws-v2.3.6.1-sha256-f765a9262a6c.zip` (SHA-256
+`f765a9262a6c082f2b54ff2039baa808f97cd3d6f3c8ef18cea8aef3e4bee786`); package
+and recorded-ZIP audits passed. The five replacement screenshots in
+`screenshots/` were captured from this exact package. Local listing copy now
+covers the first-scan data-use notice, recommended recent-30-day starting
+range, provider-specific scopes, set inclusion, and Needs review behavior.
 
-The screenshot refresh, package upload, and publication remain separate review
-steps. This document does not authorize publication.
+The live listing remains at `2.3.0.2`, with its older icon, screenshots, and
+Google-only album-scope copy. The package and refreshed listing assets are saved
+in the Developer Dashboard draft. The public page has not been changed; the
+draft remains unsubmitted and requires a separate publisher review and
+submission.

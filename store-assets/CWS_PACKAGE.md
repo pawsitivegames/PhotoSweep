@@ -1,12 +1,15 @@
 # Chrome Web Store package
 
-> **Source candidate (8 October 2026):** app `2.3.5` / Chrome `2.3.5.2` was
-> built cleanly from commit `204b0f2f83d2107f0f4b654851366c0abf3a6731`; the
-> `npm run audit:extension-package` gate passed. Artifact:
-> `build/photosweep-cws-v2.3.5.2-sha256-fcda782a794f.zip`. ZIP SHA-256:
-> `fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`. The
-> replacement Store screenshots were captured from this exact ZIP. The public
-> listing remains at `2.3.0.2`; this repo change does not upload or publish it.
+> **Source candidate (9 October 2026):** app `2.3.6` / Chrome `2.3.6.1` was
+> packaged from commit `66f5c8ed322411d10eb4124a3e65a5c74b4dc43a`; both the
+> package gate and the separate `npm run audit:extension-package` gate passed.
+> Artifact: `build/photosweep-cws-v2.3.6.1-sha256-f765a9262a6c.zip`. ZIP
+> SHA-256: `f765a9262a6c082f2b54ff2039baa808f97cd3d6f3c8ef18cea8aef3e4bee786`.
+> The sidecar records `sourceDirty: true` with an empty tracked-diff hash because
+> untracked scratch files were present. The refreshed screenshots were captured
+> from this exact package. The package is uploaded as Dashboard draft `2.3.6.1`,
+> and the refreshed listing assets and copy are saved in the draft. The public
+> listing remains at `2.3.0.2`; this repo change does not submit or publish it.
 
 The upload package is generated from the root `package.json` metadata. Its
 `version` and `chromeVersion` are authoritative; do not copy a version from
@@ -14,7 +17,7 @@ this document.
 
 - Title: `PhotoSweep for Google Photos™`
 - Short description: `Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.`
-- Current public listing: `https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo` (ID `niggncodoibinbianpkdpepmhfljifbo`; public version `2.3.0.2` as rechecked 8 October 2026)
+- Current public listing: `https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo` (ID `niggncodoibinbianpkdpepmhfljifbo`; public version `2.3.0.2` as rechecked 9 October 2026)
 - App version: `package.json` → `version`
 - Chrome Web Store version: `package.json` → `chromeVersion`
 

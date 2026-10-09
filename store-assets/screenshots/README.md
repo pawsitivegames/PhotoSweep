@@ -2,58 +2,50 @@
 
 Chrome Web Store screenshot size: 1280 x 800 PNG.
 
-## Ready upload set
+## Current upload set — 9 October 2026
 
-Five screenshots are ready for a listing review. The current clean candidate
-was built from source commit
-`c60551abdaf05b42490c570e62b4e02b84fa06ae` (app `2.3.5`, Chrome `2.3.5.2`).
-Its ZIP SHA-256 is
-`28e422f5317f6170bab1bd7ab9311e71f665216c9e1976c4d0d888d5f89aa007`.
-The artifact is
-`build/photosweep-cws-v2.3.5.2-sha256-28e422f5317f.zip` with its matching JSON
-sidecar in `build/`. Package and recorded-ZIP audits passed with a clean source
-tree. Captures used an isolated
-Playwright Chromium context and synthetic account/results; the cleanup request
-was intercepted by the local Google Photos test stub. No personal provider
-library was read or changed.
+These five screenshots were captured from the exact PhotoSweep Chrome package
+build in an isolated Chrome Stable 154 profile. The candidate is app `2.3.6`,
+Chrome `2.3.6.1`, source commit
+`66f5c8ed322411d10eb4124a3e65a5c74b4dc43a`, ZIP
+`build/photosweep-cws-v2.3.6.1-sha256-f765a9262a6c.zip`, SHA-256
+`f765a9262a6c082f2b54ff2039baa808f97cd3d6f3c8ef18cea8aef3e4bee786`.
+Package build and the separate recorded-ZIP audit passed. The sidecar records
+the source as dirty because the checkout contained untracked scratch files; its
+tracked-diff hash is empty.
 
-The image captures were made from the previous clean package at source commit
-`204b0f2f83d2107f0f4b654851366c0abf3a6731`, ZIP SHA-256
-`fcda782a794feda28564b37f9cbb1b64d1355fdfa2924441fd10cdc326e2a90b`. Since
-then, the only extension UI change was the Amazon album-scope helper wording;
-these screenshots show Google scan/review states and do not display that text.
-The old and current ZIPs have byte-identical images, fonts, and stylesheets.
-The screenshots have not been recaptured from the current ZIP.
-
-The product UI was captured at 1280 x 720. An 80 px caption band was appended
-below it to produce the 1280 x 800 assets. The band uses the current PhotoSweep
-mark, `#F3F6FB` background, `#255BD4` accent, and dark-blue type. Captured UI
-pixels were not retouched or recolored.
+The product UI was captured at 1280 x 720, then an 80 px caption band was added
+to reach 1280 x 800. The band uses `assets/icon.png`, DM Sans, `#F3F6FB`,
+`#255BD4`, and dark-blue type. Product pixels were not retouched. Review and
+confirmation states use generated landscape thumbnails, synthetic scan data,
+and the offline Google Photos test fixture. The confirmation dialog was opened
+but not confirmed; no provider Trash action ran and no personal library was
+read or changed.
 
 Upload in this order:
 
-1. `02-focused-scan.png` — **Demo · First scan.** Choose a photo library and scope.
-2. `04-review-groups.png` — **Example review.** Choose keepers, then use the
-   scan-wide shortcut or include only sets shown by the active filter.
-3. `08-include-all-sets.png` — **Example review.** Shows all available sets
-   included and newly included sets marked “Needs review.”
-4. `05-export-safety.png` — **Example confirmation.** Shows the typed count,
-   safety acknowledgment, and cleanup preflight before the provider action.
-5. `06-cleanup-outcome.png` — **Example result.** Shows the intercepted sample
-   response and Undo option; the caption states that no personal library changed.
+1. `01-first-scan-notice.png` — **First scan.** Shows the required data-use
+   notice before a provider scan.
+2. `02-choose-scan-scope.png` — **First scan.** Shows provider selection and
+   supported scan-scope controls after connecting the synthetic provider tab.
+3. `03-review-groups.png` — **Example review.** Shows keeper choice separately
+   from set inclusion. The active filter shows 2 of 3 sets, so the scan-wide
+   and current-filter shortcuts have visibly different scope.
+4. `04-include-all-sets.png` — **Example review.** Shows included sets returning
+   to Needs review and the next-review shortcut.
+5. `05-confirm-before-trash.png` — **Example confirmation.** Shows the safety
+   acknowledgment and exact-count requirement before the provider action.
 
-These screenshots and local listing copy are prepared, not published. Recheck
-the Chrome Web Store Developer Dashboard, current policy requirements, and
-listing fields before upload or submission. The public listing was still on
-version `2.3.0.2` at the 8 October 2026 audit.
+These assets were uploaded to the Chrome Web Store Developer Dashboard and
+saved in its listing draft on 9 October 2026. The public listing remains at
+version `2.3.0.2`; its published icon, copy, and screenshots are unchanged
+because the draft has not been submitted for review.
 
-## Retained reference screenshots
+## Archived screenshots
 
-These captures use the older teal theme and must not be uploaded with the new set:
-
-- `01-provider-selector.png` — older provider-selector capture.
-- `03-scan-progress.png` — older scan-progress capture.
-- `07-compact-exact-similar.png` — older compact review capture.
+Previous screenshots were moved to `archive/20261009/` to retain their Git
+history and source files. They use older extension layouts and must not be
+uploaded with the current set.
 
 ## Upload rules
 
@@ -61,4 +53,4 @@ These captures use the older teal theme and must not be uploaded with the new se
 - Do not imply identical feature parity across providers.
 - Keep caption bands outside the product UI.
 - Keep provider availability and cleanup caveats near the first provider-support mention.
-- Keep “Example” labels on seeded review, confirmation, and result states.
+- Keep “Example” labels on seeded review and confirmation states.
