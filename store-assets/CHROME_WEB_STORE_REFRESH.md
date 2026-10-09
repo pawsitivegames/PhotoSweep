@@ -56,10 +56,12 @@ the current source, so it cannot provide captures of the revised review flow.
 
 The live Site now uses the updated copy and visual system. The public Store
 listing remains on older copy and assets: its description does not explain set
-inclusion, and its screenshots use the former teal UI and icon. The current
-`2.3.0` / `2.3.0.4` extension package is built and audited from clean `main`,
-but has not been uploaded or published. Do not describe the public Store
-listing as aligned until its copy and screenshot set are reviewed and updated.
+inclusion, and its screenshots use the former teal UI and icon. The source
+candidate now declares app `2.3.5` / Chrome `2.3.5.2`; its local typecheck,
+focused review tests, and extension build pass. A package ZIP and package audit
+for this source candidate have not been produced. Do not describe the public
+Store listing as aligned until its copy and screenshot set are reviewed and
+updated.
 
 ## Screenshot Replacement Requirements
 
@@ -170,20 +172,14 @@ Developer Dashboard in Aside, verify the listing fields, upload the candidate,
 and confirm submission/review state. This document does not authorize or
 perform publication.
 
-## Next reupload target — prepared, review pending
+## Next reupload target — source candidate, listing assets pending
 
-The current candidate is app version `2.3.0` / Chrome version `2.3.0.4`, built
-from clean `main`. Its release sidecar is the source of truth for the exact
-source commit, package digest, and manifest digest. `npm run package` passed
-the internal strict audit, and the separate `npm run audit:extension-package`
-gate passed. The unrelated dirty root checkout declares `2.3.5` /
-`2.3.5.1`; do not build the Store candidate from that dirty checkout.
-
-Good-cop review approved the corrected set-inclusion copy after the visible
-button wording was made accurate. That review covered copy only. The required
-bad-cop review of policy safety, privacy wording, and screenshot accuracy has
-not happened, and the seven tracked screenshots still use the previous UI.
-Refresh and review the screenshots before uploading the candidate.
+The source candidate is app version `2.3.5` / Chrome version `2.3.5.2`. The
+current tracked screenshot set still uses the former UI, and the live listing
+copy still omits set inclusion. Refresh the screenshot set from the exact
+committed candidate, review the listing copy and privacy fields, then build and
+audit a fresh package. The current source build is local evidence only; it is
+not an upload package.
 
 The screenshot refresh, package upload, and publication remain separate review
 steps. This document does not authorize publication.

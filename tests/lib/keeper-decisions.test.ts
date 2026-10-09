@@ -66,14 +66,26 @@ function hydrateSelections(
 }
 
 describe("keeper decision contract", () => {
-  it("includes available groups across filters and reopens review for newly included groups", () => {
+  it("keeps newly included groups in Needs review for shown and scan-wide inclusion", () => {
     const initial = session({
       selectedGroupIds: new Set([g2.id]),
       reviewedGroupIds: new Set([g1.id, g2.id]),
       keptOverrides: {}
     })
 
-    const included = initial.update({
+    const shownIncluded = initial.update({
+      type: "include_groups_for_cleanup",
+      groupIds: [g1.id]
+    })
+
+    expect(shownIncluded.selectedGroupIds).toEqual(new Set([g1.id, g2.id]))
+    expect(shownIncluded.reviewedGroupIds).toEqual(new Set([g2.id]))
+
+    const included = new DuplicateReviewSession({
+      groups: [g1, g2],
+      mediaItems,
+      selections: shownIncluded
+    }).update({
       type: "include_groups_for_cleanup",
       groupIds: [g1.id, g2.id, "outside-scan"]
     })

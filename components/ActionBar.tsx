@@ -340,7 +340,7 @@ export function ActionBar({
                 title={
                   allShownGroupsSelected
                     ? "All sets in the current filter are already included in cleanup."
-                    : "Includes only sets shown by the current filter and marks them reviewed."
+                    : "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
                 }
                 sx={{ minHeight: 40, fontWeight: 800 }}>
                 {allShownGroupsSelected
@@ -355,7 +355,7 @@ export function ActionBar({
                 disabled={selectedShownGroupCount === 0}
                 onClick={onDeselectAll}
                 aria-label={`Remove ${shownSetCountLabel} from cleanup`}
-                title="Removes only sets shown by the current filter and marks them reviewed."
+                title="Removes only sets shown by the current filter from cleanup and marks them reviewed."
                 sx={{ minHeight: 38, fontWeight: 750 }}>
                 Remove shown sets from cleanup
               </Button>
@@ -603,7 +603,7 @@ export function ActionBar({
             title={
               allShownGroupsSelected
                 ? "All sets in the current filter are already included in cleanup."
-                : "Includes only sets shown by the current filter and marks them reviewed."
+                : "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
             }>
             {allShownGroupsSelected
               ? `All ${shownSetCountLabel} included`
@@ -615,7 +615,7 @@ export function ActionBar({
             disabled={selectedShownGroupCount === 0}
             onClick={onDeselectAll}
             aria-label={`Remove ${shownSetCountLabel} from cleanup`}
-            title="Removes only sets shown by the current filter and marks them reviewed.">
+            title="Removes only sets shown by the current filter from cleanup and marks them reviewed.">
             Remove shown sets from cleanup
           </Button>
         </Stack>

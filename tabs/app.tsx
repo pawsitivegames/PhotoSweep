@@ -4456,7 +4456,7 @@ export default function App() {
 
   const handleSelectAll = useCallback(() => {
     updateReviewSelections({
-      type: "select_groups",
+      type: "include_groups_for_cleanup",
       groupIds: visibleGroups.map((group) => group.id)
     })
   }, [updateReviewSelections, visibleGroups])
@@ -6326,7 +6326,11 @@ export default function App() {
     }
   ]
 
-  const analyticsConsentNotice = licenseApiBaseUrl ? (
+  const showAnalyticsConsentNotice =
+    licenseApiBaseUrl &&
+    photoDataConsent === true &&
+    state.status === "results"
+  const analyticsConsentNotice = showAnalyticsConsentNotice ? (
     analyticsConsent === null ? (
       <Alert
         severity="info"
@@ -7025,18 +7029,26 @@ export default function App() {
         onClose={() => {}}
         fullWidth
         maxWidth="sm"
-        aria-labelledby="photo-data-disclosure-title">
+        aria-labelledby="photo-data-disclosure-title"
+        aria-describedby="photo-data-disclosure-description photo-data-disclosure-action">
         <DialogTitle id="photo-data-disclosure-title">
           Before you scan
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            PhotoSweep reads thumbnails, media metadata, and provider item
-            identifiers from the signed-in photo tab to find duplicate photos
-            and videos. Matching, embeddings, and reports stay in this browser.
-            PhotoSweep only sends license information needed for paid access,
-            and optional usage metrics are separately opt-in. Nothing moves to
-            provider Trash until you review and confirm it.
+          <DialogContentText id="photo-data-disclosure-description">
+            PhotoSweep reads thumbnails, media details, and item IDs from your
+            signed-in photo tab. Matching and embeddings run in your browser;
+            your photo content is not sent to PhotoSweep for analysis. Scan
+            requests go to your chosen provider through your existing browser
+            session.
+          </DialogContentText>
+          <DialogContentText id="photo-data-disclosure-action">
+            Review the Trash proposal before confirming. Only then does
+            PhotoSweep send the provider the selected item IDs and requested
+            Trash action; the provider handles the request. Reports and exports
+            are generated locally and are not uploaded by PhotoSweep. The
+            license service receives paid-access information. Usage metrics
+            require a separate choice.
           </DialogContentText>
           <Button
             component="a"

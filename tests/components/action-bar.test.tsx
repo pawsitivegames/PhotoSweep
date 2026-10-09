@@ -110,7 +110,7 @@ describe("ActionBar", () => {
       })
     ).toHaveAttribute(
       "title",
-      "Includes only sets shown by the current filter and marks them reviewed."
+      "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
     )
   })
 

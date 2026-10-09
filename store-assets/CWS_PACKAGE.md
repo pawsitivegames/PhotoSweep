@@ -1,15 +1,13 @@
 # Chrome Web Store package
 
-> **Release identity needs reconciliation (8 October 2026):** earlier package
-> guidance named app `2.3.0` / Chrome `2.3.0.3`. The current dirty worktree declares
-> app `2.3.5` / Chrome `2.3.5.1`; that uncommitted metadata is not an approved
-> release target. Reconcile this document to the exact owner-approved merged
-> candidate before packaging. Do not use either version merely because it is
-> written here or in the dirty checkout.
+> **Source candidate (8 October 2026):** `package.json` declares app `2.3.5` /
+> Chrome `2.3.5.2`. Build and audit a fresh package from the exact committed
+> source before any upload. The public listing remains at `2.3.0.2`; this repo
+> change does not upload or publish a listing update.
 
-The upload package is generated from the root `package.json` metadata after an
-owner-approved candidate has merged. The merged candidate's `version` and
-`chromeVersion` are authoritative; do not copy a version from this document.
+The upload package is generated from the root `package.json` metadata after the
+source candidate is committed. Its `version` and `chromeVersion` are
+authoritative; do not copy a version from this document.
 
 - Title: `PhotoSweep for Google Photos™`
 - Short description: `Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.`

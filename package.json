@@ -2,7 +2,7 @@
   "name": "photosweep",
   "displayName": "PhotoSweep for Google Photos™",
   "version": "2.3.5",
-  "chromeVersion": "2.3.5.1",
+  "chromeVersion": "2.3.5.2",
   "description": "Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm.",
   "author": "Mack Talcott",
   "scripts": {
