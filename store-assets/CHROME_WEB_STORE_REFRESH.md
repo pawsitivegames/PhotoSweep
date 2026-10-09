@@ -16,6 +16,27 @@ PhotoSweep helps you find duplicate and similar photos in Google Photos™, with
 
 PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Amazon, or their photo services. Google Photos is a trademark of Google LLC. Use of this trademark is subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its affiliates.
 
+### Additional description copy
+
+Use a focused scan before cleanup. Choose a provider, then scan its library, a
+personal album, or a date range where that provider supports the scope. Google
+Photos shared albums are not supported. iCloud album scans use the personal
+library; shared libraries are not included. Amazon album scans exclude shared
+albums and photos owned by another account. Provider behavior can vary by
+region, account state, loaded library area, and media type.
+
+Review Exact and Similar groups separately, choose which copy to keep, then
+include all available sets across the scan or only the sets shown by the current
+filter. Newly included sets return to “Needs review.” Review each eligible set
+and the exact items proposed for Trash. PhotoSweep asks you to type the item
+count before confirming. A move affects the provider library, not only the
+album used to narrow the scan. Provider Trash, recovery, and Undo options vary.
+
+Photo matching runs in your browser. PhotoSweep's services do not receive your
+photo content for analysis. Usage analytics stay off unless you choose Allow;
+analytics do not include photo content. Optional licensing unlocks larger
+scans and may use Stripe Checkout.
+
 ## Messaging Rules
 
 - Google Photos should be the clearest primary use case; iCloud Photos and Amazon Photos should remain visible as supported surfaces where available.
@@ -180,10 +201,11 @@ perform publication.
 
 The source candidate is app version `2.3.5` / Chrome version `2.3.5.2`. The
 clean ZIP and package audit passed, and the five replacement screenshots were
-captured from that package. The local listing copy now describes set inclusion
-and its Needs review behavior. The live listing remains at `2.3.0.2`; its copy,
-privacy fields, icon, screenshots, and current Dashboard state still require
-review before any upload or submission.
+captured from that package. The local listing copy now describes provider-
+specific personal-album scope, set inclusion, and its Needs review behavior.
+The live listing remains at `2.3.0.2` and still says album scope is Google
+Photos only; its copy, privacy fields, icon, screenshots, and current Dashboard
+state still require review before any upload or submission.
 
 The screenshot refresh, package upload, and publication remain separate review
 steps. This document does not authorize publication.

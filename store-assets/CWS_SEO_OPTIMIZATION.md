@@ -32,12 +32,12 @@ before submitting the package.
 ### Detailed Description
 
 The published description still presents keeper choice and typed Trash
-confirmation without explaining the separate set-inclusion step. Add this
-workflow copy: “Choose keeper photos, then include all available sets across
-the scan or only the sets shown by the current filter. Newly included sets
-return to Needs review. Review every eligible set and the exact items proposed
-for Trash before confirming what moves.” Preserve the provider-specific
-limitations, scoped privacy language, and affiliation disclaimer.
+confirmation without explaining the separate set-inclusion step. It also says
+album scope is Google Photos only; the current package supports personal-album
+scans across Google Photos, iCloud Photos, and Amazon Photos with provider-
+specific limits. Use the updated workflow and scope copy in
+`CHROME_WEB_STORE_REFRESH.md`. Preserve scoped privacy wording, recovery
+details, and the affiliation disclaimer.
 
 ## Critic gate re-review
 
