@@ -55,21 +55,23 @@ The public listing is [PhotoSweep for Google Photos™](https://chromewebstore.g
 
 At the read-only Developer Dashboard check on 8 October 2026, the item was
 **Published · public** at version `2.3.0.2`. The Package tab also showed
-`2.3.0.2` as the current published package and an “Upload new package” action;
-no draft package was present. The Store listing editor still contains the old
-copy, including the Google-only album-scope claim, and does not mention
-scan-wide or current-filter set inclusion or Needs review. The public icon
-still uses the older sparkle mark, and its five screenshot slides show the
-older teal/coral product UI; neither matches the website's current
-photo-and-golden-sweep mark or extension blue/gold palette.
+both **Draft** and **Published** packages at `2.3.0.2`; the Draft section links
+to `main.crx` under a `__DRAFT` revision. An “Upload new package” action is
+available. The Store listing editor still contains the old copy, including the
+Google-only album-scope claim, and does not mention scan-wide or current-filter
+set inclusion or Needs review. The public icon still uses the older sparkle
+mark, and its five screenshot slides show the older teal/coral product UI;
+neither matches the website's current photo-and-golden-sweep mark or extension
+blue/gold palette. Reconcile the existing draft before any new upload or
+submission.
 
 The dashboard Privacy tab currently checks personally identifiable
 information, financial and payment information, user activity, and website
 content; it marks remote code “No” and links to the live privacy page. That
 page, updated 6 October 2026, describes all three provider families, local
 matching, consented optional analytics, and licensing/payment flows. This was
-a read-only review; no dashboard field was changed. Recheck dashboard state
-before any upload or submission.
+a read-only review; no dashboard field was changed. Recheck dashboard and
+existing draft state before any upload or submission.
 
 The live Site is version `15`, sourced from commit
 `187cb69ace77bd06d6a0fd232221172c79437aa4`, and its production deployment
