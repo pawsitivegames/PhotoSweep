@@ -390,6 +390,81 @@ function reviewSessionFixture() {
 }
 
 describe("mutation closure: duplicate review session", () => {
+  it.each([null, undefined, 1, "group", []])(
+    "ignores malformed group member %j",
+    (candidate) => {
+      const review = new DuplicateReviewSession({
+        groups: [candidate] as unknown as DuplicateGroup[],
+        mediaItems: {}
+      })
+      expect(review.serialize().keptOverrides).toEqual({})
+    }
+  )
+
+  it("rejects callable objects masquerading as review groups", () => {
+    const callableGroup = Object.assign(() => undefined, group("g1", "a", "b"))
+    const review = new DuplicateReviewSession({
+      groups: [callableGroup] as unknown as DuplicateGroup[],
+      mediaItems: { a: item("a"), b: item("b") },
+      selections: {
+        selectedGroupIds: new Set(["g1"]),
+        reviewedGroupIds: new Set(["g1"]),
+        keptOverrides: { g1: new Set(["a"]) }
+      }
+    })
+
+    expect(review.selectedGroupIds).toEqual(new Set())
+    expect(review.reviewedGroupIds).toEqual(new Set())
+    expect(review.serialize().keptOverrides).toEqual({})
+  })
+
+  it("preserves keeper evidence when caller-owned metadata changes", () => {
+    const reviewedGroup = group("g1", "a", "b")
+    const mediaItems = {
+      a: item("a", { timestamp: 1_000 }),
+      b: item("b", { timestamp: 2_000 })
+    }
+    const review = new DuplicateReviewSession({
+      groups: [reviewedGroup],
+      mediaItems,
+      defaultStrategy: "newest_taken"
+    })
+    const decision = review.decisionFor(reviewedGroup)
+
+    expect(decision.keptMediaKeys).toEqual(new Set(["b"]))
+    expect(decision.recommendation.evidence.values).toEqual({ a: 1_000, b: 2_000 })
+    expect(decision.recommendation.evidence.provenanceByMediaKey).toEqual({ a: "capture", b: "capture" })
+
+    decision.recommendation.evidence.values.b = 0
+    decision.recommendation.evidence.provenanceByMediaKey.b = "unknown"
+    mediaItems.b.timestamp = 0
+
+    const unchangedDecision = review.decisionFor(reviewedGroup)
+    expect(review.keptFor(reviewedGroup)).toEqual(new Set(["b"]))
+    expect(unchangedDecision.keptMediaKeys).toEqual(new Set(["b"]))
+    expect(unchangedDecision.recommendation.evidence.values).toEqual({ a: 1_000, b: 2_000 })
+    expect(unchangedDecision.recommendation.evidence.provenanceByMediaKey).toEqual({ a: "capture", b: "capture" })
+  })
+
+  it.each([null, undefined, {}, "groups", 1])(
+    "fails closed for malformed group root %j",
+    (groups) => {
+      const review = new DuplicateReviewSession({
+        groups: groups as unknown as DuplicateGroup[],
+        mediaItems: {},
+        selections: {
+          selectedGroupIds: new Set(["untrusted"]),
+          reviewedGroupIds: new Set(["untrusted"]),
+          keptOverrides: { untrusted: new Set(["photo"]) }
+        }
+      })
+
+      expect(review.selectedGroupIds).toEqual(new Set())
+      expect(review.reviewedGroupIds).toEqual(new Set())
+      expect(review.serialize().keptOverrides).toEqual({})
+    }
+  )
+
   it("fails closed for malformed keeper override roots at the session boundary", () => {
     const numericGroup = group("0", "a", "b")
     const mediaItems = {
