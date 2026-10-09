@@ -57,52 +57,95 @@ export function ScanCoverageNotice({
     `videos ${coverage.mediaTypesCovered.videos ? "covered" : "not covered"}`
   ].join("; ")
 
+  const coverageDetails = (
+    <>
+      <Typography variant="body2" fontWeight={700}>
+        {stopReasonText(coverage)}
+      </Typography>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: compact ? 0.65 : 1.5
+        }}>
+        {[
+          ["Examined", coverage.itemsVisited],
+          ["In scope", coverage.itemsReturned],
+          ["Skipped", coverage.itemsSkipped]
+        ].map(([label, value]) => (
+          <Box key={label} sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle2" fontWeight={700}>
+              {Number(value).toLocaleString()}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", lineHeight: 1.3 }}>
+              {label}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+      <Divider />
+      <Typography variant="caption" color="text.secondary">
+        Media coverage: {mediaTypes}.
+        {coverage.unknownDateItemsSkipped > 0 &&
+          ` ${coverage.unknownDateItemsSkipped.toLocaleString()} items had missing or invalid dates.`}
+        {coverage.unmappedItemsSkipped !== undefined &&
+          coverage.unmappedItemsSkipped > 0 &&
+          ` ${coverage.unmappedItemsSkipped.toLocaleString()} items could not be prepared for review.`}
+        {coverage.totalItems !== undefined &&
+          ` Provider total: ${coverage.totalItems.toLocaleString()}.`}
+        {coverage.pagesRead !== undefined &&
+          ` Provider pages read: ${coverage.pagesRead.toLocaleString()}.`}
+      </Typography>
+    </>
+  )
+
+  if (compact && coverage.status === "complete") {
+    return (
+      <Alert
+        aria-label="Scan coverage"
+        severity="info"
+        sx={{
+          mb: 0.75,
+          py: 0.15,
+          "& .MuiAlert-message": { width: "100%" },
+          "& .MuiAlert-icon": { py: 0.35, mr: 0.75 }
+        }}>
+        <Box sx={{ display: "grid", gap: 0.15 }}>
+          <Typography variant="caption" fontWeight={800}>
+            Scan complete · {coverage.itemsReturned.toLocaleString()} in scope
+            {coverage.itemsSkipped > 0 &&
+              ` · ${coverage.itemsSkipped.toLocaleString()} skipped`}
+          </Typography>
+          <Box
+            component="details"
+            sx={{
+              "& > summary": {
+                cursor: "pointer",
+                color: "text.secondary",
+                fontSize: "0.75rem",
+                lineHeight: 1.4
+              }
+            }}>
+            <Box component="summary">Scan details</Box>
+            <Box sx={{ display: "grid", gap: 0.85, pt: 0.75 }}>
+              {coverageDetails}
+            </Box>
+          </Box>
+        </Box>
+      </Alert>
+    )
+  }
+
   return (
     <Alert
       aria-label="Scan coverage"
       severity={severity}
       sx={{ mb: compact ? 1 : 2, "& .MuiAlert-message": { width: "100%" } }}>
       <Box sx={{ display: "grid", gap: compact ? 0.85 : 1 }}>
-        <Typography variant="body2" fontWeight={700}>
-          {stopReasonText(coverage)}
-        </Typography>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: compact ? 0.65 : 1.5
-          }}>
-          {[
-            ["Examined", coverage.itemsVisited],
-            ["In scope", coverage.itemsReturned],
-            ["Skipped", coverage.itemsSkipped]
-          ].map(([label, value]) => (
-            <Box key={label} sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle2" fontWeight={700}>
-                {Number(value).toLocaleString()}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", lineHeight: 1.3 }}>
-                {label}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-        <Divider />
-        <Typography variant="caption" color="text.secondary">
-          Media coverage: {mediaTypes}.
-          {coverage.unknownDateItemsSkipped > 0 &&
-            ` ${coverage.unknownDateItemsSkipped.toLocaleString()} items had missing or invalid dates.`}
-          {coverage.unmappedItemsSkipped !== undefined &&
-            coverage.unmappedItemsSkipped > 0 &&
-            ` ${coverage.unmappedItemsSkipped.toLocaleString()} items could not be prepared for review.`}
-          {coverage.totalItems !== undefined &&
-            ` Provider total: ${coverage.totalItems.toLocaleString()}.`}
-          {coverage.pagesRead !== undefined &&
-            ` Provider pages read: ${coverage.pagesRead.toLocaleString()}.`}
-        </Typography>
+        {coverageDetails}
       </Box>
     </Alert>
   )

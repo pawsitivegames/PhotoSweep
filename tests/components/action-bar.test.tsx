@@ -262,7 +262,7 @@ describe("ActionBar", () => {
       expect(btn).toBeDisabled()
     })
 
-    it("announces selected sets separately from proposed Trash items", () => {
+    it("announces included sets separately from proposed Trash items", () => {
       render(
         <ThemeProvider theme={theme}>
           <CleanupBar
@@ -275,9 +275,8 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
 
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "1 set selected for cleanup · 0 media items proposed for Trash"
-      )
+      expect(screen.getByRole("status")).toHaveTextContent("1 set included")
+      expect(screen.getByText(/0 items proposed for Trash/)).toBeInTheDocument()
       expect(
         screen.getByRole("button", {
           name: "No media items proposed for Trash"
@@ -297,9 +296,8 @@ describe("ActionBar", () => {
           />
         </ThemeProvider>
       )
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "1 set selected for cleanup · 1 media item proposed for Trash"
-      )
+      expect(screen.getByRole("status")).toHaveTextContent("1 set included")
+      expect(screen.getByText(/1 item proposed for Trash/)).toBeInTheDocument()
     })
 
     it("keeps cleanup locked until every visible set is reviewed", () => {
@@ -315,10 +313,10 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
       expect(screen.getByRole("status")).toHaveTextContent(
-        "2 sets selected for cleanup · 4 media items proposed for Trash · 2 sets left to review"
+        "2 sets included · 2 need review"
       )
       expect(
-        screen.getByRole("button", { name: /Review 2 more to continue/i })
+        screen.getByRole("button", { name: /Review 2 sets before Trash/i })
       ).toBeDisabled()
     })
   })
@@ -348,13 +346,13 @@ describe("ActionBar", () => {
       }
     )
 
-    it("shows a disabled all-included state for scan-wide selection", () => {
+    it("shows the completed shown-set state when scan-wide selection covers it", () => {
       renderActionBar({
         compact: true,
         groupCount: 1,
         totalGroupCount: 5,
         availableGroupCount: 4,
-        selectedShownGroupCount: 0,
+        selectedShownGroupCount: 1,
         includedGroupCount: 4,
         onIncludeAllEligible: vi.fn()
       })
@@ -362,6 +360,11 @@ describe("ActionBar", () => {
       expect(
         screen.getByRole("button", {
           name: "All 4 available sets already included in cleanup"
+        })
+      ).toBeDisabled()
+      expect(
+        screen.getByRole("button", {
+          name: "All 1 shown set already included in cleanup"
         })
       ).toBeDisabled()
     })

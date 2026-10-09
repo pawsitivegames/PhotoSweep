@@ -1236,18 +1236,13 @@ export function DuplicateGroups({
                 `${groups.length} Duplicate Set${groups.length !== 1 ? "s" : ""} to Review`}
             </Typography>
           )}
-          <Typography
-            variant={compact ? "caption" : "body2"}
-            color="text.secondary"
-            sx={
-              compact
-                ? { display: "block", lineHeight: 1.35, mt: 0.25 }
-                : undefined
-            }>
-            First choose the photos to keep. Then include sets in cleanup.
-            Only included sets add eligible unkept copies to the Trash proposal;
-            nothing moves until you confirm.
-          </Typography>
+          {!compact && (
+            <Typography variant="body2" color="text.secondary">
+              First choose the photos to keep. Then include sets in cleanup.
+              Only included sets add eligible unkept copies to the Trash
+              proposal; nothing moves until you confirm.
+            </Typography>
+          )}
         </Box>
       </Box>
 

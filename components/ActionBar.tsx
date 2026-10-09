@@ -176,18 +176,20 @@ export function ActionBar({
               included sets return to Needs review.
             </Typography>
           )}
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", lineHeight: 1.25 }}>
-            {totalItems.toLocaleString()} photos and videos checked
-            {groupCount !== totalGroupCount ? " · " : ""}
-            {groupCount !== totalGroupCount && (
-              <Box component="span">
-                {totalGroupCount.toLocaleString()} sets in scan
-              </Box>
-            )}
-          </Typography>
+          {!compact && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", lineHeight: 1.25 }}>
+              {totalItems.toLocaleString()} photos and videos checked
+              {groupCount !== totalGroupCount ? " · " : ""}
+              {groupCount !== totalGroupCount && (
+                <Box component="span">
+                  {totalGroupCount.toLocaleString()} sets in scan
+                </Box>
+              )}
+            </Typography>
+          )}
         </Box>
       </Box>
 
@@ -248,9 +250,9 @@ export function ActionBar({
                 variant="caption"
                 color="text.secondary"
                 sx={{ lineHeight: 1.3 }}>
-                Choose photos to keep, or apply a rule across all{" "}
-                {totalGroupCount.toLocaleString()} scan sets. This does not
-                include sets in cleanup.
+                Choose photos to keep or apply one rule across all{" "}
+                {totalGroupCount.toLocaleString()} sets. This does not include
+                sets in cleanup.
               </Typography>
               <Button
                 variant="outlined"
@@ -286,20 +288,10 @@ export function ActionBar({
                 sx={{ lineHeight: 1.3 }}>
                 {includedGroupCount.toLocaleString()} of{" "}
                 {availableGroupCount.toLocaleString()} available sets included
-                across the scan; {selectedShownGroupCount.toLocaleString()} of{" "}
-                {groupCount.toLocaleString()} shown sets included here.
+                {hiddenAvailableGroupCount > 0 &&
+                  ` · ${hiddenAvailableGroupCount.toLocaleString()} outside this filter`}
+                {availableGroupCount > 0 && ". Review included sets before Trash."}
               </Typography>
-              {onIncludeAllEligible && availableGroupCount > 0 && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ lineHeight: 1.25 }}>
-                  {hiddenAvailableGroupCount > 0
-                    ? `Includes ${hiddenAvailableGroupCount.toLocaleString()} available sets hidden by this filter. `
-                    : "Includes every available set across the scan. "}
-                  Newly included sets return to Needs review.
-                </Typography>
-              )}
               {onIncludeAllEligible && (
                 <Button
                   variant="contained"
@@ -656,7 +648,9 @@ export function CleanupBar({
       ? "No media items proposed for Trash"
       : canReviewNext
         ? "Review next set (" + remainingCount.toLocaleString() + " left)"
-        : "Review " + remainingCount.toLocaleString() + " more to continue"
+        : `Review ${remainingCount.toLocaleString()} set${
+            remainingCount === 1 ? "" : "s"
+          } before Trash`
 
   return (
     <Paper
@@ -691,21 +685,17 @@ export function CleanupBar({
           role="status"
           aria-live="polite">
           {includedGroupCount.toLocaleString()} set
-          {includedGroupCount === 1 ? "" : "s"} selected for cleanup ·{" "}
-          {duplicateCount.toLocaleString()} media item
-          {duplicateCount === 1 ? "" : "s"} proposed for Trash
+          {includedGroupCount === 1 ? "" : "s"} included
           {!reviewComplete &&
-            ` · ${remainingCount.toLocaleString()} set${
-              remainingCount === 1 ? "" : "s"
-            } left to review`}
+            ` · ${remainingCount.toLocaleString()} need review`}
         </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ display: "block", lineHeight: 1.35 }}>
-          Review every set across all filters. Only selected sets contribute
-          unkept copies to the Trash proposal. You confirm before anything
-          moves; Undo is available after supported Trash actions.
+          {duplicateCount.toLocaleString()} item
+          {duplicateCount === 1 ? "" : "s"} proposed for Trash. Review each
+          included set, then confirm before anything moves.
         </Typography>
       </Box>
       <Button
