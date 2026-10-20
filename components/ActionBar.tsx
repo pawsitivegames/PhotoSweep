@@ -156,8 +156,10 @@ export function ActionBar({
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="subtitle2"
-            fontWeight={800}
-            sx={{ lineHeight: 1.2 }}>
+            sx={{
+              fontWeight: 800,
+              lineHeight: 1.2
+            }}>
             {compact
               ? `${groupCount.toLocaleString()} set${groupCount === 1 ? "" : "s"} to review`
               : `${groupCount.toLocaleString()} duplicate set${groupCount === 1 ? "" : "s"} to review`}
@@ -165,8 +167,12 @@ export function ActionBar({
           {!compact && (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 0.2, lineHeight: 1.25 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                mt: 0.2,
+                lineHeight: 1.25
+              }}>
               {reviewedGroupCount.toLocaleString()} of{" "}
               {groupCount.toLocaleString()} shown sets reviewed
             </Typography>
@@ -174,8 +180,11 @@ export function ActionBar({
           {!compact && (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", lineHeight: 1.25 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                lineHeight: 1.25
+              }}>
               {includedGroupCount.toLocaleString()} of{" "}
               {availableGroupCount.toLocaleString()} available sets included
               across the scan; {selectedShownGroupCount.toLocaleString()} of{" "}
@@ -186,8 +195,11 @@ export function ActionBar({
           {!compact && (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", lineHeight: 1.25 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                lineHeight: 1.25
+              }}>
               {totalItems.toLocaleString()} photos and videos checked
               {groupCount !== totalGroupCount ? " · " : ""}
               {groupCount !== totalGroupCount && (
@@ -201,9 +213,9 @@ export function ActionBar({
         {compact && (
           <Typography
             variant="caption"
-            color="text.secondary"
             aria-label={`${reviewedGroupCount.toLocaleString()} of ${groupCount.toLocaleString()} shown sets reviewed`}
             sx={{
+              color: "text.secondary",
               whiteSpace: "nowrap",
               fontWeight: 750,
               fontVariantNumeric: "tabular-nums"
@@ -304,8 +316,12 @@ export function ActionBar({
             <Box sx={{ display: "grid", gap: 0.4, minWidth: 0 }}>
               <Typography
                 variant="caption"
-                color="text.secondary"
-                sx={{ fontSize: 10, lineHeight: 1.1, fontWeight: 850 }}>
+                sx={{
+                  color: "text.secondary",
+                  fontSize: 10,
+                  lineHeight: 1.1,
+                  fontWeight: 850
+                }}>
                 KEEPERS
               </Typography>
               <Button
@@ -344,14 +360,21 @@ export function ActionBar({
                 }}>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ fontSize: 10, lineHeight: 1.1, fontWeight: 850 }}>
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: 10,
+                    lineHeight: 1.1,
+                    fontWeight: 850
+                  }}>
                   CLEANUP
                 </Typography>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ whiteSpace: "nowrap", fontWeight: 700 }}>
+                  sx={{
+                    color: "text.secondary",
+                    whiteSpace: "nowrap",
+                    fontWeight: 700
+                  }}>
                   {includedGroupCount.toLocaleString()}/
                   {availableGroupCount.toLocaleString()} included
                 </Typography>
@@ -378,8 +401,13 @@ export function ActionBar({
               ) : (
                 <Typography
                   variant="caption"
-                  color="success.dark"
-                  sx={{ minHeight: 34, display: "flex", alignItems: "center", fontWeight: 750 }}>
+                  sx={{
+                    color: "success.dark",
+                    minHeight: 34,
+                    display: "flex",
+                    alignItems: "center",
+                    fontWeight: 750
+                  }}>
                   {availableGroupCount === 0 ? "No eligible sets" : "All available included"}
                 </Typography>
               )}
@@ -392,7 +420,9 @@ export function ActionBar({
             open={keepMenuOpen}
             onClose={() => setKeepMenuAnchor(null)}>
             <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Choose a rule to pick keeper photos across all{" "}
                 {totalGroupCount.toLocaleString()} scan sets, including sets
                 outside this filter. Manual keeper choices may be replaced;
@@ -484,11 +514,12 @@ export function ActionBar({
         <Stack
           direction="row"
           spacing={0.6}
-          alignItems="center"
-          flexWrap="wrap"
           useFlexGap
           sx={{
+            alignItems: "center",
+            flexWrap: "wrap",
             width: "100%",
+
             "& .MuiButton-root": {
               minHeight: 36,
               px: 1,
@@ -572,7 +603,9 @@ export function ActionBar({
             open={keepMenuOpen}
             onClose={() => setKeepMenuAnchor(null)}>
             <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Choose a rule to pick keeper photos across all{" "}
                 {totalGroupCount.toLocaleString()} scan sets, including sets
                 outside this filter. Manual keeper choices may be replaced;
@@ -651,7 +684,7 @@ export function ActionBar({
         </Stack>
       )}
     </Paper>
-  )
+  );
 }
 
 interface CleanupBarProps {
@@ -721,9 +754,11 @@ export function CleanupBar({
       <Box sx={{ minWidth: 0 }}>
         <Typography
           variant="subtitle2"
-          fontWeight={850}
           role="status"
-          aria-live="polite">
+          aria-live="polite"
+          sx={{
+            fontWeight: 850
+          }}>
           {includedGroupCount.toLocaleString()} set
           {includedGroupCount === 1 ? "" : "s"} included
           {!reviewComplete &&
@@ -731,8 +766,11 @@ export function CleanupBar({
         </Typography>
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", lineHeight: 1.35 }}>
+          sx={{
+            color: "text.secondary",
+            display: "block",
+            lineHeight: 1.35
+          }}>
           {duplicateCount.toLocaleString()} item
           {duplicateCount === 1 ? "" : "s"} proposed for Trash. Review each
           included set, then confirm before anything moves.
@@ -758,6 +796,7 @@ export function CleanupBar({
             )
           }
           disabled={!hasSelection && !canReviewNext}
+          aria-label={showReviewAll ? actionLabel : undefined}
           onClick={reviewComplete ? onTrash : onReviewNext}
           title={
             canReviewNext
@@ -794,5 +833,5 @@ export function CleanupBar({
         )}
       </Box>
     </Paper>
-  )
+  );
 }

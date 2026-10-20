@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_NORMAL_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-14T10:08:09.147Z",
+  "candidate": {
+    "sourceFingerprint": "9ab806898961e2f9f8ccaf024e2a3c3e4e135fd4d4d589b215be41914aaeb3bf",
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "packagePath": "build/photosweep-cws-v2.3.6.5-sha256-d8f5fabbfb54.zip",
+    "packageSha256": "d8f5fabbfb54d910532e5811bfca552ca979b561031e85fae0cf5db627b11bac"
+  },
+  "mutationRun": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "executionStatus": "DIAGNOSTIC_FAIL_BY_DESIGN",
+    "resultLog": "tmp/verification/runs/20261014T-mutation-rebind-final-node24/diagnostic-refresh-bound.log",
+    "rawReportPath": "tmp/verification/runs/20261014T-mutation-rebind-final-node24/mutation-diagnostic-bound/stryker-raw.json",
+    "triagePath": "tmp/verification/runs/20261014T-mutation-rebind-final-node24/mutation-diagnostic-bound/mutation-triage.json",
+    "rawStrykerFileSha256": "559f078f66392757b2b0c26f395e8a697686eb3817bef03b3b7639046979fab8",
+    "canonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "strykerVersion": "10.0.0",
+    "mutatedFileCount": 6,
+    "mutationTestFiles": 20,
+    "mutantCount": 4100,
+    "mutationScorePercent": 94.85,
+    "criticalSurvivors": 0,
+    "sourceDrift": false
+  },
+  "comparison": {
+    "priorCanonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "currentCanonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "canonicalReportsMatch": true,
+    "policyEntries": 211,
+    "currentNonKilledMutants": 211,
+    "exactCurrentNonKilledKeysMatchPolicy": true,
+    "mutationSourceHashesMatch": true,
+    "mutationTestFiles": 20,
+    "classificationsAndEvidencePreserved": true,
+    "thresholdsChanged": false,
+    "sourceDrift": false
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "6eb5b2c666759e8bdabd54cb6c8916326b08c705729bca70e57cfc07a0da6859",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprint": {
+      "from": "ccf27c6babb56827d60b8de18730d49ca10b19dac842973e053a2dfe76932814",
+      "to": "9ab806898961e2f9f8ccaf024e2a3c3e4e135fd4d4d589b215be41914aaeb3bf"
+    },
+    "rawReportSha256": {
+      "from": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+      "to": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404"
+    },
+    "entriesChanged": false,
+    "thresholdsChanged": false
+  },
+  "validationReplay": {
+    "command": "npm run test:mutation",
+    "resultLog": "tmp/verification/runs/20261014T-mutation-rebind-final-node24/normal-replay.log",
+    "rawReportPath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/runs/20261014T-mutation-rebind-final-node24/mutation-normal-replay/stryker-raw.json",
+    "rawStrykerFileSha256": "36eb75acac8429bd0064be179574a0e4324853159385c85a3c1607462f87e914",
+    "canonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "sourceFingerprint": "9ab806898961e2f9f8ccaf024e2a3c3e4e135fd4d4d589b215be41914aaeb3bf",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutationScorePercent": 94.85,
+    "coveredMutationScorePercent": 95.41,
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsResolved": 211,
+    "mutantsUnresolved": 0,
+    "criticalSurvivors": 0,
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "limitation": "Exact-package Chrome and live-provider gates remain separate.",
+  "checks": {
+    "releaseSourceMatchesCandidate": true,
+    "replayPasses": true,
+    "diagnosticAndReplayCanonicalReportsMatch": true,
+    "exactNonKilledKeysMatchPolicy": true,
+    "noCriticalSurvivors": true,
+    "expectedCounts": true,
+    "packageHashMatchesSidecar": true
+  }
+}

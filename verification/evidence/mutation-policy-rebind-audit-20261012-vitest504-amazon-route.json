@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-12T11:22:26.328Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_SOURCE_HASH_REVALIDATION",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.2",
+    "packageSha256": "12ca3f57969323c7d78603569473489d376df58185381ad4e4fff618ef7eb3c8",
+    "sourceFingerprint": "7bc5a62788bb4eb94433436a3e7b42e6eda444135d82d05c8b887f16e46fa1ff",
+    "sourceFileCount": 321,
+    "buildId": "8b57d1d1-0c84-4dfc-8d4a-322dfbf9ea28"
+  },
+  "mutationRun": {
+    "runId": "20261012T104220Z-80210",
+    "sourceFingerprint": "7bc5a62788bb4eb94433436a3e7b42e6eda444135d82d05c8b887f16e46fa1ff",
+    "sourceDrift": false,
+    "rawReportFileSha256": "dfe4050723be432aaf3e834118e5ab04686b0d4018d41fe55f3988f8467ff4f5",
+    "canonicalReportSha256": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df",
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutationScorePercent": 94.85,
+    "minimumKilledPercent": 90,
+    "criticalSurvivors": 0
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "b5254fa64dff0a9b162a953f49647294bd6d03032063240237eeddb2aee8ef6d",
+    "updatedPolicyFileSha256": "57361b8c529e040e1d0d685fc07893bf1e79acd5b49efe23ec3f648938b3c656",
+    "sourceFingerprint": {
+      "from": "a1827a06d9d641ec6ce836c352bcb2ef4793cc9f5c0cde5ab8661d303758caaa",
+      "to": "7bc5a62788bb4eb94433436a3e7b42e6eda444135d82d05c8b887f16e46fa1ff"
+    },
+    "canonicalReportSha256": {
+      "from": "d0a1ce4d50128793a2e8f35049e384b8ff1410e386c5ea1c0f04188a8ce78160",
+      "to": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df"
+    },
+    "priorPolicyCanonicalMatchesPriorReport": true,
+    "exactAllMutantKeysAndStatusesMatch": true,
+    "mutationSourceFileCount": 6,
+    "mutationSourceHashesMatch": true,
+    "policyEntries": 211,
+    "policyEntriesMatchedExactlyToCurrentNonKilledMutants": 211,
+    "missingPolicyEntries": 0,
+    "extraPolicyEntries": 0,
+    "policyClassificationsChanged": 0,
+    "policyEvidenceChanged": 0,
+    "canonicalReportDifferences": [
+      "testFiles.tests/commands/amazon-photos-commands.test.ts.source"
+    ],
+    "thresholdsChanged": false
+  },
+  "limitations": [
+    "The preceding release run remains FAIL because its mutation check read the stale policy binding before this metadata-only rebind.",
+    "A fresh release run is required to validate the updated policy binding.",
+    "This local mutation evidence does not establish exact-package Chrome runtime, live provider round-trips, or production policy configuration."
+  ]
+}

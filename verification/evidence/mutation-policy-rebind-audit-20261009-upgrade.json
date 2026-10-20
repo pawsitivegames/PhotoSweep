@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-09T22:02:00.675536Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_POLICY_KEY_REVALIDATION",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "version": "2.3.6",
+    "chromeVersion": "2.3.6.1",
+    "sourceFingerprint": "d6476333a80b3e73405f6d8f7d55de67ec2392b81767e7b3f29695d04e260d38",
+    "sourceDirty": true,
+    "formalRunId": "20261009T210559Z-36555"
+  },
+  "mutationCampaign": {
+    "rawReport": "tmp/verification/release-20261009-main-024d56c-candidate-v10/formal-release-source/mutation-run/stryker-raw.json",
+    "canonicalReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "priorBoundCanonicalReportSha256": "acf144aada0584dcbea57ba00e9c24c312c6c7b2bf19785525c701a0ad56822d",
+    "priorAcceptedCanonicalReportSha256": "82a8a83f64e144f27150dbf0711d30b612b5752e8adf87f66e1264b3e76ca8f4",
+    "mutantsTotal": 3996,
+    "mutantsKilled": 3792,
+    "mutantsSurvived": 181,
+    "mutantsNoCoverage": 23,
+    "scorePercent": 94.89,
+    "priorFullMutantIdentityOutcomeSetSha256": "ae94f1e4ab76241ae2153af26fe40ea8940a2f17d770ee5aa5d3cdf833a5b425",
+    "currentFullMutantIdentityOutcomeSetSha256": "ae94f1e4ab76241ae2153af26fe40ea8940a2f17d770ee5aa5d3cdf833a5b425",
+    "identityOutcomeSetsEqual": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "3e1e24157b761a1b4ea9a6bbfa1d09e83389f52c38fc4ef2f483ff7ccedfad10",
+    "previousRawReportSha256": "acf144aada0584dcbea57ba00e9c24c312c6c7b2bf19785525c701a0ad56822d",
+    "newRawReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "sourceFingerprint": "d6476333a80b3e73405f6d8f7d55de67ec2392b81767e7b3f29695d04e260d38",
+    "entriesPreserved": 204,
+    "currentPolicyKeysMatched": 204,
+    "newReviewsAdded": 0,
+    "reasonsForCanonicalHashChange": [
+      "config.concurrency changed from 2 to 1",
+      "framework TypeScript dependency changed from 5.3.3 to 5.9.3",
+      "tests/lib/duplicate-detector.test.ts source changed"
+    ],
+    "newPolicySha256": "4d74b04263734a7b744bc1feb1178075c6c1ca9c11c00e5bb61843e7e87d1e55"
+  },
+  "limitations": [
+    "This rebind validates the unchanged mutant identity and observed outcome set and exact matches for all 204 previously reviewed policy entries; it does not make live provider, exact-package Chrome runtime, store, or production evidence available.",
+    "The report metadata differences are retained in the canonical binding; no canonicalization exclusions were added."
+  ]
+}

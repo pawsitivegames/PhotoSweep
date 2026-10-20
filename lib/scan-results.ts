@@ -96,13 +96,10 @@ export function reusableICloudSyncToken(
 }
 
 export function isValidICloudSyncToken(token: unknown): token is string {
-  return (
-    typeof token === "string" &&
-    token.length > 0 &&
-    token.length <= 4096 &&
-    token.trim() === token &&
-    !/[\u0000-\u001f\u007f]/.test(token)
-  )
+  return (typeof token === "string" &&
+  token.length > 0 &&
+  token.length <= 4096 &&
+  token.trim() === token && !/[\u0000-\u001f\u007f]/.test(token));
 }
 
 /**

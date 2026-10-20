@@ -24,13 +24,17 @@ const traceRunId =
   process.env.MODEL_TRACE_REPLAY_RUN_ID ?? "model-trace-replay-20260915"
 
 describe("bounded TLC to TypeScript trace replay", () => {
+  const replayTest = it.skipIf(
+    process.env.PHOTOSWEEP_SKIP_DEEP_MODEL_REPLAY === "1"
+  )
+
   it("pins the official TLC 1.8.0 jar checksum", () => {
     expect(PINNED_TLC_SHA256).toBe(
       "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d"
     )
   })
 
-  it("replays real TLC modules with provenance, coverage, and a detected negative divergence", async () => {
+  replayTest("replays real TLC modules with provenance, coverage, and a detected negative divergence", async () => {
     const configuredOutputPath = process.env.MODEL_TRACE_REPLAY_OUTPUT
     const ownedOutputDirectory = configuredOutputPath
       ? undefined
@@ -186,6 +190,7 @@ describe("bounded TLC to TypeScript trace replay", () => {
       raw: validChildEnvelope
     })
     expect(validChild.status).toBe("PASS")
+
     const missingReplayStatus = classifyTraceReplayResult({
       supported: true,
       result: { exitCode: 0 },
@@ -346,4 +351,31 @@ describe("bounded TLC to TypeScript trace replay", () => {
     ownedTamperedDirectory.complete(true)
     ownedOutputDirectory?.complete(true)
   }, 90_000)
+
+  it("classifies storage exhaustion as blocked and rejects a forged block", () => {
+    const storageBlocked = classifyTraceReplayResult({
+      supported: true,
+      result: { exitCode: 2 },
+      raw: {
+        status: "BLOCKED",
+        blockedReason: "storage-exhaustion",
+        export: { status: null },
+        test: { exitCode: 1 }
+      }
+    })
+    expect(storageBlocked.status).toBe("BLOCKED")
+    expect(storageBlocked.failed).toBe(false)
+
+    const forgedStorageBlock = classifyTraceReplayResult({
+      supported: true,
+      result: { exitCode: 0 },
+      raw: {
+        status: "BLOCKED",
+        blockedReason: "storage-exhaustion",
+        export: { status: null },
+        test: { exitCode: 1 }
+      }
+    })
+    expect(forgedStorageBlock.status).toBe("FAIL")
+  })
 })

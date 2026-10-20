@@ -26,7 +26,7 @@
     "docs/PLATFORM_PARITY_PLAN.md",
     "tsconfig.json",
     "tsconfig.test.json",
-    "vitest.config.ts",
+    "vitest.config.mts",
     "playwright.config.ts",
     "playwright.e2e.config.ts",
     "build/chrome-mv3-prod/manifest.json"
@@ -901,7 +901,10 @@
         "tests/components/photo-viewer-modal.test.tsx",
         "verification/run-properties.mjs",
         "verification/verification-runner.mjs",
-        "verification/amazon-video-playback-evidence.mjs"
+        "verification/amazon-video-playback-evidence.mjs",
+        "verification/video-playback-evidence.mjs",
+        "tests/verification/video-playback-evidence.test.ts",
+        "verification/VIDEO_PLAYBACK_EVIDENCE.md"
       ],
       "obligations": [
         {
@@ -926,7 +929,7 @@
     },
     {
       "id": "AMAZON-VIDEO-PLAYBACK",
-      "requirement": "Successful playback in the exact current package is independently captured in every marketplace host declared by AMAZON_MARKETPLACE_HOSTS in lib/provider-sites.ts. Every market has a fresh Chrome Stable playback observation bound to the package digest, with an advancing video timeline and no playback error. Missing, stale, incomplete, duplicate, mismatched, or failed market evidence cannot pass.",
+      "requirement": "Successful playback in the exact current package is independently captured for every supported Amazon video-playback marketplace declared by AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS in lib/provider-sites.ts (currently Amazon.ca). Amazon Photos scanning covers a broader marketplace list; full-video retrieval in other regions remains explicitly unavailable and must fail closed. Every supported playback market has a fresh Chrome Stable observation bound to the package digest, with an advancing video timeline and no playback error. Missing, stale, incomplete, duplicate, mismatched, or failed market evidence cannot pass.",
       "seams": [
         "lib/provider-sites.ts",
         "scripts/amazon-photos-commands.js",
@@ -940,7 +943,7 @@
           "scope": "release",
           "proofClass": "live-provider",
           "kind": "provider-fixture",
-          "command": "Externally captured exact-package Amazon video playback evidence for every marketplace host declared in lib/provider-sites.ts",
+          "command": "Externally captured exact-package Amazon video playback evidence for every supported marketplace declared in lib/provider-sites.ts",
           "artifact": "tmp/verification/current/amazon-video-playback.json",
           "mandatory": true
         }

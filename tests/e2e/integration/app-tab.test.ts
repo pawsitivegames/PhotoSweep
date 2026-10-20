@@ -8,6 +8,7 @@
 import { expect, test, type BrowserContext } from "@playwright/test"
 
 import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
+import { ALBUM_LIST_REQUEST_TIMEOUT_MS } from "../../../lib/provider-operations"
 import {
   clearStorage,
   injectScanCheckpoint,
@@ -50,9 +51,7 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
   for (const page of context.pages()) {
-    if (page.url().startsWith("https://photos.google.com/")) {
-      await page.close().catch(() => {})
-    }
+    await page.close().catch(() => {})
   }
   await context.unroute("https://photos.google.com/**").catch(() => {})
 })
@@ -289,7 +288,7 @@ test("filters review groups by exact and similar classification", async () => {
       .getByRole("region", { name: "Cleanup summary" })
       .getByRole("status")
   ).toHaveText(
-    "2 sets selected for cleanup · 2 media items proposed for Trash · 2 sets left to review"
+    "2 sets included · 2 need review"
   )
   await expect(page.getByText("Verified identical", { exact: true })).toBeVisible()
   await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
@@ -338,8 +337,7 @@ test("review next reveals a hidden set and focuses it without authorizing Trash"
   await page.getByRole("button", { name: /Candidates & similar \(1\)/i }).click()
   await expect(
     page.getByText(
-      "Choose a keeper for each set, then include the sets you want to clean up.",
-      { exact: true }
+      /Review each included set, then confirm before anything moves\./
     )
   ).toBeVisible()
   const target = page.locator(`[data-review-group-id="${groups[1].id}"]`)
@@ -553,6 +551,129 @@ test("drops a delayed old-account trash result after identity changes", async ()
     await expect(
       page.getByRole("button", { name: /Undo moved items/i })
     ).not.toBeVisible()
+  } finally {
+    await page.close()
+    await stub.close()
+  }
+})
+
+test("reconciles a pending Trash result after retry resets a disconnected app", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 5)
+  await injectScanResults(
+    context,
+    groups,
+    mediaItems,
+    Object.keys(mediaItems).length,
+    "alice@example.com"
+  )
+
+  const stub = await openGptkStubPage(context, {
+    healthCheck: {
+      data: {
+        hasGptk: true,
+        hasWizData: true,
+        accountEmail: "alice@example.com"
+      }
+    },
+    trashItems: { holdResponse: true }
+  })
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "2 Duplicate Sets to Review",
+        exact: true
+      })
+    ).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+    await page
+      .getByRole("button", {
+        name: /^Include all [0-9]+ shown sets? in cleanup$/i
+      })
+      .click()
+    await reviewShownKeepers(page)
+    await page
+      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .click()
+    await expect(
+      page.getByRole("heading", { name: "Move to Trash" })
+    ).toBeVisible()
+    await page.getByLabel("Type 8 to confirm").fill("8")
+    await page
+      .getByRole("checkbox", {
+        name: "I understand these items may be favorites"
+      })
+      .check()
+    await page
+      .getByRole("button", { name: /^Move to Trash$/i })
+      .last()
+      .click()
+
+    let pendingRequestId: string | null = null
+    await expect
+      .poll(async () => {
+        pendingRequestId = await stub.evaluate(() => {
+          const stubWindow = window as unknown as {
+            __gptkCommandLog?: Array<{ command: string; requestId: string }>
+            __gptkHeldResponses?: Record<string, () => void>
+          }
+          const request = stubWindow.__gptkCommandLog?.find(
+            (entry) => entry.command === "trashItems"
+          )
+          return request && stubWindow.__gptkHeldResponses?.[request.requestId]
+            ? request.requestId
+            : null
+        })
+        return pendingRequestId
+      })
+      .toEqual(expect.any(String))
+    if (!pendingRequestId) {
+      throw new Error("The stub did not hold the Trash result.")
+    }
+
+    const serviceWorker = context.serviceWorkers()[0]
+    await serviceWorker.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          chrome.runtime.sendMessage(
+            { app: "GPD", action: "gptkLog", level: "error" },
+            () => resolve()
+          )
+        })
+    )
+    await page.getByRole("button", { name: /Retry connection/i }).click()
+    await expect(
+      page.getByRole("button", {
+        name: /^Scan (all dates|the last 30 days|this date range)$/i
+      })
+    ).toBeVisible({ timeout: 8_000 })
+
+    await stub.evaluate((requestId) => {
+      const held = (window as unknown as {
+        __gptkHeldResponses?: Record<string, () => void>
+      }).__gptkHeldResponses?.[requestId]
+      held?.()
+    }, pendingRequestId)
+
+    await expect
+      .poll(async () => {
+        const stored = await readLocalStorage(context, "trashResultReports")
+        const reports = stored.trashResultReports
+        if (!Array.isArray(reports)) return []
+        return reports.map((report) => {
+          const candidate = report as {
+            status?: string
+            movedCount?: number
+          }
+          return {
+            status: candidate.status,
+            movedCount: candidate.movedCount
+          }
+        })
+      })
+      .toEqual([{ status: "complete", movedCount: 8 }])
   } finally {
     await page.close()
     await stub.close()
@@ -988,7 +1109,7 @@ test("does not open a stale checkout tab after results reset", async () => {
     await page
       .getByRole("button", { name: "Keep reviewing free results" })
       .click()
-    await page.getByRole("button", { name: "New scan", exact: true }).click()
+    await page.getByRole("button", { name: "Scan again", exact: true }).click()
 
     releaseCheckout()
     await page.waitForTimeout(300)
@@ -1605,11 +1726,8 @@ test("resumes duplicate detection from a checkpointed media list without refetch
     page.getByText("How was your PhotoSweep cleanup?")
   ).not.toBeVisible()
 
-  const ratingPrompt = await context.serviceWorkers()[0].evaluate(
-    () =>
-      new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.local.get("ratingPrompt", resolve)
-      })
+  const ratingPrompt = await context.serviceWorkers()[0].evaluate(() =>
+    chrome.storage.local.get(["ratingPrompt"])
   )
   expect(ratingPrompt.ratingPrompt).toBeUndefined()
 
@@ -1666,6 +1784,228 @@ test("loads albums and allows choosing an album scan scope", async () => {
   await clearStorage(context)
 })
 
+test("recovers the album picker after a lost refresh response", async () => {
+  await clearStorage(context)
+  const gpPage = await openGptkStubPage(context, {
+    listAlbums: {
+      sequence: [
+        {
+          data: [
+            {
+              mediaKey: "late-album",
+              title: "Late album",
+              isShared: false
+            }
+          ],
+          holdResponse: true
+        },
+        {
+          data: [
+            {
+              mediaKey: "recovered-album",
+              title: "Recovered album",
+              isShared: false
+            }
+          ]
+        }
+      ]
+    }
+  })
+  const page = await context.newPage()
+  await page.addInitScript((timeoutMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window)
+    let accelerated = false
+    Object.defineProperty(window, "setTimeout", {
+      configurable: true,
+      value: (
+        handler: TimerHandler,
+        delay?: number,
+        ...args: unknown[]
+      ) => {
+        const shouldAccelerate =
+          !accelerated && Number(delay) === timeoutMs
+        if (shouldAccelerate) accelerated = true
+        return originalSetTimeout(
+          handler,
+          shouldAccelerate ? 0 : delay,
+          ...args
+        )
+      }
+    })
+  }, ALBUM_LIST_REQUEST_TIMEOUT_MS)
+  let firstRequestId: string | null = null
+
+  try {
+    await page.goto(`chrome-extension://${extensionId}/tabs/app.html`)
+    await page.getByRole("button", { name: /Advanced matching/i }).click()
+    await expect
+      .poll(async () => {
+        firstRequestId = await gpPage.evaluate(() => {
+          const stub = window as unknown as {
+            __gptkCommandLog?: Array<{
+              command: string
+              requestId: string
+            }>
+            __gptkHeldResponses?: Record<string, () => void>
+          }
+          const request = stub.__gptkCommandLog?.find(
+            (entry) =>
+              entry.command === "listAlbums" &&
+              stub.__gptkHeldResponses?.[entry.requestId]
+          )
+          return request?.requestId ?? null
+        })
+        return firstRequestId
+      })
+      .toEqual(expect.any(String))
+
+    if (!firstRequestId) {
+      throw new Error("The stub did not hold the first listAlbums response.")
+    }
+
+    await expect(
+      page.getByText(/album list request timed out/i)
+    ).toBeVisible({ timeout: 5_000 })
+    const refreshButton = page.getByRole("button", { name: /Refresh/i })
+    await expect(refreshButton).toBeEnabled()
+    await refreshButton.click()
+    await expect(
+      page.getByText("1 album available.", { exact: true })
+    ).toBeVisible({ timeout: 5_000 })
+
+    await gpPage.evaluate((requestId) => {
+      const stub = window as unknown as {
+        __gptkHeldResponses?: Record<string, () => void>
+      }
+      stub.__gptkHeldResponses?.[requestId]?.()
+    }, firstRequestId)
+    await page.getByRole("combobox", { name: /Library area/i }).click()
+    await expect(
+      page.getByRole("option", { name: "Recovered album" })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("option", { name: "Late album" })
+    ).toHaveCount(0)
+  } finally {
+    if (firstRequestId) {
+      await gpPage.evaluate((requestId) => {
+        const stub = window as unknown as {
+          __gptkHeldResponses?: Record<string, () => void>
+        }
+        stub.__gptkHeldResponses?.[requestId]?.()
+      }, firstRequestId)
+    }
+    await page.close()
+    await gpPage.close()
+    await clearStorage(context)
+  }
+})
+
+test("re-enables album refresh after the service worker rejects a request", async () => {
+  await clearStorage(context)
+  const gpPage = await openGptkStubPage(context, {
+    listAlbums: {
+      data: [
+        {
+          mediaKey: "recovered-album",
+          title: "Recovered album",
+          isShared: false
+        }
+      ]
+    }
+  })
+  const page = await context.newPage()
+  await page.addInitScript(() => {
+    const runtime = chrome.runtime
+    const originalSendMessage = runtime.sendMessage.bind(runtime)
+    let rejectFirstAlbumRequest = true
+    Object.defineProperty(runtime, "sendMessage", {
+      configurable: true,
+      value: (message: unknown, ...args: unknown[]) => {
+        const request = message as { action?: string; command?: string }
+        if (
+          rejectFirstAlbumRequest &&
+          request?.action === "gptkCommand" &&
+          request.command === "listAlbums"
+        ) {
+          rejectFirstAlbumRequest = false
+          return Promise.reject(new Error("Simulated service worker loss"))
+        }
+        return originalSendMessage(message, ...args)
+      }
+    })
+  })
+
+  try {
+    await page.goto(`chrome-extension://${extensionId}/tabs/app.html`)
+    await page.getByRole("button", { name: /Advanced matching/i }).click()
+    await expect(
+      page.getByText(/Could not reach the provider page to load albums/i)
+    ).toBeVisible()
+    const refreshButton = page.getByRole("button", { name: /Refresh/i })
+    await expect(refreshButton).toBeEnabled()
+    await refreshButton.click()
+    await expect(
+      page.getByText("1 album available.", { exact: true })
+    ).toBeVisible()
+    await page.getByRole("combobox", { name: /Library area/i }).click()
+    await expect(
+      page.getByRole("option", { name: "Recovered album" })
+    ).toBeVisible()
+  } finally {
+    await page.close()
+    await gpPage.close()
+    await clearStorage(context)
+  }
+})
+
+test("keeps provider retry available after album refresh health checks fail", async () => {
+  await clearStorage(context)
+  const gpPage = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+
+  try {
+    await expect(page.getByText("1 album available.", { exact: true })).toBeVisible({
+      timeout: 8_000
+    })
+    await page.getByRole("button", { name: /Advanced matching/i }).click()
+    await gpPage.evaluate(() => {
+      ;(
+        window as unknown as {
+          __gptkOverrides: Record<string, unknown>
+        }
+      ).__gptkOverrides.healthCheck = {
+        success: false,
+        error: "The provider page is unavailable."
+      }
+    })
+
+    await page.getByRole("button", { name: /Refresh/i }).click()
+    await expect(
+      page.getByText("The provider page is unavailable.", { exact: true })
+    ).toBeVisible({ timeout: 5_000 })
+    const retryConnectionButton = page.getByRole("button", {
+      name: "Retry connection"
+    })
+    await expect(retryConnectionButton).toBeEnabled()
+    await gpPage.evaluate(() => {
+      delete (
+        window as unknown as {
+          __gptkOverrides: Record<string, unknown>
+        }
+      ).__gptkOverrides.healthCheck
+    })
+    await retryConnectionButton.click()
+    await expect(page.getByText("1 album available.", { exact: true })).toBeVisible({
+      timeout: 5_000
+    })
+  } finally {
+    await page.close()
+    await gpPage.close()
+    await clearStorage(context)
+  }
+})
+
 test("drops a delayed Google album response after the same account gets a new page session", async () => {
   await clearStorage(context)
   const firstSession = "google-page-session-first"
@@ -1689,7 +2029,7 @@ test("drops a delayed Google album response after the same account gets a new pa
               isShared: false
             }
           ],
-          delayMs: 1_200
+          holdResponse: true
         },
         {
           data: [
@@ -1723,6 +2063,31 @@ test("drops a delayed Google album response after the same account gets a new pa
         )
       )
       .toBe(1)
+
+    let firstAlbumRequestId: string | null = null
+    await expect
+      .poll(async () => {
+        firstAlbumRequestId = await gpPage.evaluate(() => {
+          const stub = window as unknown as {
+            __gptkCommandLog?: Array<{
+              command: string
+              requestId: string
+            }>
+            __gptkHeldResponses?: Record<string, () => void>
+          }
+          const request = stub.__gptkCommandLog?.find(
+            (entry) => entry.command === "listAlbums"
+          )
+          return request && stub.__gptkHeldResponses?.[request.requestId]
+            ? request.requestId
+            : null
+        })
+        return firstAlbumRequestId
+      })
+      .toEqual(expect.any(String))
+    if (!firstAlbumRequestId) {
+      throw new Error("The stub did not hold the first listAlbums response.")
+    }
 
     await gpPage.evaluate((sessionId) => {
       ;(
@@ -1770,7 +2135,46 @@ test("drops a delayed Google album response after the same account gets a new pa
     await expect(
       page.getByRole("option", { name: "New page album" })
     ).toBeVisible({ timeout: 5_000 })
-    await page.waitForTimeout(1_300)
+
+    await page.evaluate(() => {
+      const win = window as unknown as {
+        __deliveredListAlbumRequestIds?: string[]
+      }
+      win.__deliveredListAlbumRequestIds = []
+      chrome.runtime.onMessage.addListener((message: {
+        app?: string
+        action?: string
+        command?: string
+        requestId?: string
+      }) => {
+        if (
+          message.app === "GPD" &&
+          message.action === "gptkResult" &&
+          message.command === "listAlbums" &&
+          typeof message.requestId === "string"
+        ) {
+          win.__deliveredListAlbumRequestIds?.push(message.requestId)
+        }
+      })
+    })
+    await gpPage.evaluate((requestId) => {
+      const stub = window as unknown as {
+        __gptkHeldResponses?: Record<string, () => void>
+      }
+      stub.__gptkHeldResponses?.[requestId]?.()
+    }, firstAlbumRequestId as string)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (requestId) =>
+            (window as unknown as {
+              __deliveredListAlbumRequestIds?: string[]
+            }).__deliveredListAlbumRequestIds?.includes(requestId) ?? false,
+          firstAlbumRequestId as string
+        ),
+        { timeout: 10_000 }
+      )
+      .toBe(true)
     await expect(
       page.getByRole("option", { name: "Old page album" })
     ).toHaveCount(0)
@@ -1933,7 +2337,7 @@ test("persists group selections through page reload", async () => {
   await expect(checkboxes.nth(1)).toBeChecked()
   await expect(checkboxes.nth(2)).toBeChecked()
   await expect(
-    page.getByText("3 media items proposed for Trash", { exact: true })
+    page.getByText("3 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review & move 3 to Trash/i })
@@ -2257,7 +2661,7 @@ test("applies all six keep strategies through the app toolbar", async () => {
         .getByRole("region", { name: "Cleanup summary" })
         .getByRole("status")
     ).toHaveText(
-      "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
+      "1 set included · 1 need review"
     )
     await expect(page.getByRole("checkbox", { name: /Include this set of [0-9]+ photos for cleanup/ })).toHaveAttribute(
       "aria-checked",
@@ -2330,7 +2734,7 @@ test("applies all six keep strategies through the app toolbar", async () => {
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
+    "1 set included · 1 need review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -2458,7 +2862,7 @@ test("applies Best quality independently across two completed duplicate sets", a
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "0 sets selected for cleanup · 0 media items proposed for Trash · 2 sets left to review"
+    "0 sets included · 2 need review"
   )
 
   const expectedKeeperStates = [
@@ -2506,7 +2910,7 @@ test("applies Best quality independently across two completed duplicate sets", a
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "0 sets selected for cleanup · 0 media items proposed for Trash · 2 sets left to review"
+    "0 sets included · 2 need review"
   )
   for (const [fileName, isKept] of expectedKeeperStates) {
     const filePattern = fileName.replaceAll(".", "\\.")
@@ -2620,7 +3024,7 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "0 sets selected for cleanup · 0 media items proposed for Trash · 1 set left to review"
+    "0 sets included · 1 need review"
   )
 
   await expect
@@ -2651,7 +3055,7 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "0 sets selected for cleanup · 0 media items proposed for Trash · 1 set left to review"
+    "0 sets included · 1 need review"
   )
   const restoredSettings = await readLocalStorage(context, ["settings"])
   expect(restoredSettings.settings).toMatchObject({
@@ -2740,7 +3144,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   ).toBeVisible({ timeout: 5000 })
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
+    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
 
   await page
@@ -2754,7 +3158,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   ).toHaveAttribute("aria-pressed", "true")
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
+    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -2780,11 +3184,11 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
   ).toBeVisible()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets selected for cleanup · 0 media items proposed for Trash")
+  ).toHaveText("0 sets included")
 
   await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
   await expect(
-    page.getByText("1 media item proposed for Trash", { exact: true })
+    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -2792,7 +3196,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
 
   await expect(page.getByRole("button", { name: /^All [0-9]+ shown sets? already included in cleanup$/i })).toBeDisabled()
   await expect(
-    page.getByText("1 media item proposed for Trash", { exact: true })
+    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -2815,12 +3219,12 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   await page.reload()
   await expect(
-    page.getByText("1 media item proposed for Trash", { exact: true })
+    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
+    "1 set included · 1 need review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -2877,7 +3281,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   await page.reload()
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
+    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review & move 1 to Trash/i })
@@ -2979,16 +3383,32 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
     })
   ).toHaveAttribute("aria-pressed", "true")
 
+  const selectionsKey = providerReviewStorageKey("google", "selections")
   await expect
-    .poll(async () => {
-      const stored = await readLocalStorage(context, ["selections"])
-      return (
-        stored.selections as {
-          keptOverrides?: Record<string, string[]>
-          selectedGroupIds?: string[]
-        } | undefined
+    .poll(() =>
+      page.evaluate(
+        (key) =>
+          new Promise<
+            | {
+                keptOverrides?: Record<string, string[]>
+                selectedGroupIds?: string[]
+              }
+            | undefined
+          >((resolve) => {
+            chrome.storage.local.get(key, (stored) => {
+              resolve(
+                stored[key] as
+                  | {
+                      keptOverrides?: Record<string, string[]>
+                      selectedGroupIds?: string[]
+                    }
+                  | undefined
+              )
+            })
+          }),
+        selectionsKey
       )
-    })
+    )
     .toMatchObject({
       keptOverrides: { g1: ["key1", "key2"] },
       selectedGroupIds: ["g1"]
@@ -3028,7 +3448,7 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
 
   await page.getByRole("button", { name: "Skip cleanup for this set" }).click()
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
+    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review & move 1 to Trash/i })
@@ -3050,7 +3470,7 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
     })
   await page.reload()
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
+    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", {
@@ -3115,7 +3535,7 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
     })
     .click()
   await expect(
-    page.getByText("1 media item proposed for Trash", { exact: true })
+    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect
     .poll(async () => {
@@ -3142,7 +3562,7 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
+    "1 set included · 1 need review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -3174,7 +3594,7 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
   ).toHaveText(
-    "1 set selected for cleanup · 1 media item proposed for Trash · 1 set left to review"
+    "1 set included · 1 need review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -3265,7 +3685,7 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
     .poll(() =>
       skipButton.evaluate((button) => {
         const bounds = button.getBoundingClientRect()
-        const row = button.closest('div[style*="top"]')
+        const row = button.closest('[role="listitem"]')
         const rowBounds = row?.getBoundingClientRect()
         const hit = document.elementFromPoint(
           bounds.x + bounds.width / 2,
@@ -3286,7 +3706,7 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
 
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets selected for cleanup · 0 media items proposed for Trash")
+  ).toHaveText("0 sets included")
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -3301,7 +3721,7 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
 
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets selected for cleanup · 0 media items proposed for Trash")
+  ).toHaveText("0 sets included")
   await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeDisabled()
@@ -3343,7 +3763,7 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
   await page.reload()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets selected for cleanup · 0 media items proposed for Trash")
+  ).toHaveText("0 sets included")
   await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeDisabled()
@@ -3467,7 +3887,7 @@ test("keeps all current copies when every saved keeper key is stale", async () =
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeVisible()
   await expect(
-    page.getByText("0 media items proposed for Trash", { exact: true })
+    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
   ).toBeVisible()
   await expect(page.locator(".MuiCard-root").nth(0)).not.toContainText(
     "Proposed for Trash"
@@ -3497,6 +3917,9 @@ test("keeps all current copies when every saved keeper key is stale", async () =
 })
 
 test("shows the stale-keeper keep-all fallback in the compact scanner panel", async () => {
+  // The shared extension context can take longer to restore saved review data
+  // after earlier integration cases have suspended its service worker.
+  test.setTimeout(60_000)
   await clearStorage(context)
   await injectScanResults(
     context,
@@ -3529,7 +3952,7 @@ test("shows the stale-keeper keep-all fallback in the compact scanner panel", as
     page.getByText("Keeping all copies until saved keeper data is reviewed", {
       exact: true
     })
-  ).toBeVisible({ timeout: 5000 })
+  ).toBeVisible({ timeout: 15_000 })
   await expect(
     page.getByText("Proposed for Trash", { exact: true })
   ).not.toBeVisible()

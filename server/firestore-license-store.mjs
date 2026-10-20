@@ -1,4 +1,5 @@
 import { Firestore } from "@google-cloud/firestore"
+import { ANALYTICS_RETENTION_MS } from "./analytics-retention.mjs"
 
 const DEFAULT_COLLECTION_PREFIX = "photosweep"
 const MAX_STORED_ANALYTICS_EVENTS = 1000
@@ -44,17 +45,35 @@ function purchasesForLicense(license) {
 }
 
 export function createFirestoreLicenseStore({
-  firestore = new Firestore(),
+  firestore = undefined,
+  firestoreFactory = undefined,
+  databaseId = undefined,
   collectionPrefix = process.env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ??
     DEFAULT_COLLECTION_PREFIX
 } = {}) {
-  const licenses = firestore.collection(`${collectionPrefix}_licenses`)
-  const indexes = firestore.collection(`${collectionPrefix}_license_indexes`)
-  const stripeEvents = firestore.collection(`${collectionPrefix}_stripe_events`)
-  const pendingRevocations = firestore.collection(
+  const createFirestore = firestoreFactory ?? ((options) =>
+    options ? new Firestore(options) : new Firestore()
+  )
+  const firestoreClient =
+    firestore ??
+    (databaseId
+      ? createFirestore({ databaseId })
+      : createFirestore())
+  const licenses = firestoreClient.collection(
+    `${collectionPrefix}_licenses`
+  )
+  const indexes = firestoreClient.collection(
+    `${collectionPrefix}_license_indexes`
+  )
+  const stripeEvents = firestoreClient.collection(
+    `${collectionPrefix}_stripe_events`
+  )
+  const pendingRevocations = firestoreClient.collection(
     `${collectionPrefix}_pending_stripe_revocations`
   )
-  const analytics = firestore.collection(`${collectionPrefix}_analytics_events`)
+  const analytics = firestoreClient.collection(
+    `${collectionPrefix}_analytics_events`
+  )
 
   async function setIndex(kind, value, sessionId, transaction) {
     if (!value) return
@@ -83,7 +102,7 @@ export function createFirestoreLicenseStore({
 
     async upsertLicense(license) {
       const cleanLicense = stripUndefined(license)
-      await firestore.runTransaction(async (transaction) => {
+      await firestoreClient.runTransaction(async (transaction) => {
         transaction.set(licenses.doc(cleanLicense.sessionId), cleanLicense, {
           merge: true
         })
@@ -124,7 +143,7 @@ export function createFirestoreLicenseStore({
 
     async deactivateLicense(sessionId, reason) {
       const ref = licenses.doc(sessionId)
-      await firestore.runTransaction(async (transaction) => {
+      await firestoreClient.runTransaction(async (transaction) => {
         const snapshot = await transaction.get(ref)
         if (!snapshot.exists) return
         transaction.set(
@@ -141,7 +160,7 @@ export function createFirestoreLicenseStore({
 
     async claimRecoveryEmailCooldown(email, currentTime, cooldownMs) {
       const ref = indexes.doc(`email_${encodeKey(email)}`)
-      return firestore.runTransaction(async (transaction) => {
+      return firestoreClient.runTransaction(async (transaction) => {
         const snapshot = await transaction.get(ref)
         const sentAt = snapshot.exists
           ? Number(snapshot.data()?.recoveryEmailSentAt)
@@ -184,7 +203,7 @@ export function createFirestoreLicenseStore({
         ...revocation,
         recordedAt: revocation.recordedAt ?? now()
       })
-      await firestore.runTransaction(async (transaction) => {
+      await firestoreClient.runTransaction(async (transaction) => {
         for (const key of keys) {
           transaction.set(
             pendingRevocations.doc(encodeKey(key)),
@@ -214,10 +233,16 @@ export function createFirestoreLicenseStore({
     },
 
     async recordAnalyticsEvent(event) {
-      await analytics.add(stripUndefined({ ...event, recordedAt: now() }))
+      const recordedAt = now()
+      const cleanEvent = stripUndefined({ ...event, recordedAt })
+      await analytics.add({
+        ...cleanEvent,
+        expiresAt: new Date(recordedAt + ANALYTICS_RETENTION_MS)
+      })
     },
 
     async snapshot() {
+      const currentTime = now()
       const [licenseDocs, indexDocs, eventDocs, pendingDocs, analyticsDocs] =
         await Promise.all([
           licenses.get(),
@@ -225,7 +250,8 @@ export function createFirestoreLicenseStore({
           stripeEvents.get(),
           pendingRevocations.get(),
           analytics
-            .orderBy("recordedAt", "desc")
+            .where("expiresAt", ">", new Date(currentTime))
+            .orderBy("expiresAt", "desc")
             .limit(MAX_STORED_ANALYTICS_EVENTS)
             .get()
         ])

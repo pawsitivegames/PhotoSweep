@@ -49,6 +49,11 @@ Run all three checks with:
 node verification/run-recovery-authority-tlc.mjs --out-dir tmp/verification/runs/recovery-authority-<fresh-id>
 ```
 
+The runner uses up to four TLC workers, bounded by the CPU capacity visible to
+Node. TLC still exhaustively explores the full graph; per-action evaluation
+counts can vary with worker scheduling, while every required action must remain
+covered.
+
 The runner requires the pinned TLC 1.8.0 JAR, disables trace-spec generation
 beside model source, and fingerprints the model, all three configs, runner,
 JAR, and listed current worker/helper/app/test/registry sources before and

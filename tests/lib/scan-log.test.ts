@@ -7,7 +7,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { ScanLogger, StabilityTracker } from "../../lib/scan-log"
+import { getScanLogs, ScanLogger, StabilityTracker } from "../../lib/scan-log"
 
 // ============================================================
 // chrome.storage.local mock
@@ -72,6 +72,17 @@ describe("ScanLogger", () => {
       expect(entry.groupsFound).toBe(42)
       expect(entry.totalItems).toBe(1000)
       expect(store["scanLogActive"]).toBeUndefined()
+    })
+
+    it("replaces malformed stored data while preserving the new entry", async () => {
+      store["scanLogs"] = { corrupted: true }
+      const logger = new ScanLogger()
+
+      await logger.start(25)
+      await logger.finalize("complete")
+
+      expect(store["scanLogs"]).toHaveLength(1)
+      expect(store["scanLogs"][0]).toMatchObject({ totalItems: 25 })
     })
 
     it("sets status to 'error' and records error string on finalize", async () => {
@@ -197,6 +208,24 @@ describe("ScanLogger", () => {
       const estimates = active?.["stableEstimates"] as unknown[]
       expect(estimates).toHaveLength(1)
       expect(estimates[0]).toMatchObject({ phase: "computing_embeddings", atPercent: 15 })
+    })
+  })
+
+  describe("getScanLogs", () => {
+    it("filters malformed persisted entries", async () => {
+      const validEntry = {
+        timestamp: 1,
+        status: "complete",
+        totalItems: 1,
+        candidates: 0,
+        cacheHits: 0,
+        phaseTimings: {},
+        totalMs: 10,
+        stableEstimates: []
+      }
+      store["scanLogs"] = [validEntry, null, { ...validEntry, timestamp: "bad" }]
+
+      await expect(getScanLogs()).resolves.toEqual([validEntry])
     })
   })
 })

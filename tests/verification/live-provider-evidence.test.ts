@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -46,6 +47,113 @@ function validEvidence() {
     },
     expectedExtensionVersion: "2.3.0.2",
     expectedSourceFingerprint: "current-source-sha256"
+  }
+}
+
+function exactPackageRoundTrip(provider: "google" | "icloud" | "amazon") {
+  const input = validEvidence()
+  const buildId = "123e4567-e89b-42d3-a456-426614174000"
+  const artifactSha256 = "a".repeat(64)
+  const targetPhotoId = "target-media-id"
+  const targetDedupKey = "target-dedup-key"
+  const keeperPhotoId = "keeper-media-id"
+  const keeperDedupKey = "keeper-dedup-key"
+  const trashAlias = "provider-trash-alias"
+  const aliasSha256 = createHash("sha256").update(trashAlias).digest("hex")
+  const baselineHashes = ["b".repeat(64), "c".repeat(64)]
+  const disposableAssetIds =
+    provider === "amazon"
+      ? [
+          targetDedupKey,
+          keeperDedupKey,
+          "asset-c",
+          "asset-d",
+          "asset-e",
+          "asset-f"
+        ]
+      : [
+          targetPhotoId,
+          keeperPhotoId,
+          "asset-c",
+          "asset-d",
+          "asset-e",
+          "asset-f"
+        ]
+  const evidence = input.evidence as Record<string, unknown>
+  const roundTrip = input.roundTrip as unknown as Record<string, any>
+
+  evidence.itemCount = disposableAssetIds.length
+  roundTrip.schemaVersion = 2
+  roundTrip.provider = provider
+  roundTrip.artifactSha256 = artifactSha256
+  roundTrip.disposableAssetIds = disposableAssetIds
+  roundTrip.runtime.buildId = buildId
+  roundTrip.trash = {
+    selectedCount: 1,
+    targetPhotoId,
+    targetDedupKey,
+    keeperPhotoId,
+    keeperDedupKey,
+    providerTrashObserved: true,
+    providerTrashUrl:
+      provider === "google"
+        ? `https://photos.google.com/trash/${trashAlias}`
+        : provider === "icloud"
+          ? "https://www.icloud.com/photos/#/recentlydeleted/"
+          : "https://www.amazon.ca/photos/trash",
+    ...(provider !== "amazon" ? { providerTrashItemId: trashAlias } : {}),
+    providerTrashDelta:
+      provider === "amazon"
+        ? {
+            method: "amazon-photos-trash-count-delta",
+            provider,
+            beforeCount: 32,
+            afterCount: 33,
+            afterUndoCount: 32,
+            selectedCount: 1,
+            itemMediaKind: "photo",
+            undoRestoredToBaseline: true
+          }
+        : {
+            method:
+              provider === "google"
+                ? "google-photos-trash-item-id-delta"
+                : "icloud-photos-recently-deleted-item-id-delta",
+            provider,
+            beforeCount: baselineHashes.length,
+            afterCount: baselineHashes.length + 1,
+            afterUndoCount: baselineHashes.length,
+            addedCount: 1,
+            removedCount: 0,
+            beforeItemIdSha256: baselineHashes,
+            afterItemIdSha256: [...baselineHashes, aliasSha256],
+            afterUndoItemIdSha256: baselineHashes,
+            itemMediaKind: "photo",
+            undoRestoredToBaseline: true
+          }
+  }
+
+  return {
+    ...input,
+    roundTrip,
+    expectedBuildId: buildId,
+    expectedArtifactSha256: artifactSha256,
+    trustedDevToolsInventory: { ...trustedDevToolsInventory },
+    supportedAmazonHosts: ["amazon.ca"],
+    deleteReport: {
+      totalGroupsAffected: 1,
+      totalItemsKept: 1,
+      totalItemsSelectedForTrash: 1,
+      items: [
+        {
+          action: "trash",
+          mediaKey: targetPhotoId,
+          dedupKey: targetDedupKey,
+          duplicateGroupId: "synthetic-duplicate-group",
+          mediaKind: "photo"
+        }
+      ]
+    }
   }
 }
 
@@ -118,6 +226,104 @@ function validEmptyAlbumScenario() {
 }
 
 describe("live provider evidence binding", () => {
+  it("binds Google Trash's remapped item ID to exactly one added and later restored Trash entry", () => {
+    const input = exactPackageRoundTrip("google")
+
+    expect(validateLiveProviderBinding(input).valid).toBe(true)
+
+    input.roundTrip.trash.providerTrashItemId = "copied-unrelated-id"
+    const result = validateLiveProviderBinding(input)
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "Google Photos Trash alias does not match the single added Trash item"
+    )
+  })
+
+  it("binds iCloud Recently Deleted to the one-item inventory delta and restored baseline", () => {
+    const input = exactPackageRoundTrip("icloud")
+
+    expect(validateLiveProviderBinding(input)).toEqual({
+      valid: true,
+      problems: []
+    })
+
+    input.roundTrip.trash.providerTrashItemId = "copied-unrelated-id"
+    const result = validateLiveProviderBinding(input)
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "iCloud Photos Trash alias does not match the single added Trash item"
+    )
+
+    const wrongRouteInput = exactPackageRoundTrip("icloud")
+    wrongRouteInput.roundTrip.trash.providerTrashUrl =
+      "https://www.icloud.com/photos/#/albums/a,synthetic/"
+    const wrongRouteResult = validateLiveProviderBinding(wrongRouteInput)
+
+    expect(wrongRouteResult.valid).toBe(false)
+    expect(wrongRouteResult.problems).toContain(
+      "provider Trash URL does not match the selected provider's secure Trash route"
+    )
+  })
+
+  it("binds Amazon's dedup inventory key to the selected media key and one-item Trash/Undo count delta", () => {
+    const input = exactPackageRoundTrip("amazon")
+
+    expect(validateLiveProviderBinding(input)).toEqual({
+      valid: true,
+      problems: []
+    })
+
+    input.deleteReport.items[0].dedupKey = "another-target"
+    const result = validateLiveProviderBinding(input)
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "Trash report does not bind the selected media and deduplication keys"
+    )
+  })
+
+  it("rejects a Google Trash inventory with more than one added item", () => {
+    const input = exactPackageRoundTrip("google")
+    const delta = input.roundTrip.trash.providerTrashDelta
+    delta.afterItemIdSha256.push("d".repeat(64))
+    delta.afterCount += 1
+    delta.addedCount += 1
+
+    const result = validateLiveProviderBinding(input)
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "google Trash inventory must show one addition, no removals, and Undo to baseline"
+    )
+  })
+
+  it("rejects an Amazon Undo that does not restore the observed Trash count", () => {
+    const input = exactPackageRoundTrip("amazon")
+    input.roundTrip.trash.providerTrashDelta.afterUndoCount = 34
+
+    const result = validateLiveProviderBinding(input)
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "Amazon Photos Trash must increase by one item and Undo must restore the baseline count"
+    )
+  })
+
+  it("rejects a provider Trash route outside the configured marketplace", () => {
+    const input = exactPackageRoundTrip("amazon")
+    input.roundTrip.trash.providerTrashUrl =
+      "https://www.amazon.ca.example.invalid/photos/trash"
+
+    const result = validateLiveProviderBinding(input)
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "provider Trash URL does not match the selected provider's secure Trash route"
+    )
+  })
+
   it("[PARITY-06] accepts a disposable round trip bound to this source and build", () => {
     expect(validateLiveProviderBinding(validEvidence())).toEqual({
       valid: true,
@@ -198,6 +404,65 @@ describe("live provider evidence binding", () => {
       "runtime extension ID does not match the trusted DevTools inventory"
     )
   })
+
+  it("[PARITY-08] binds a dynamic read-only fixture identity to the exact package and trusted inventory", () => {
+    const input = validEmptyAlbumScenario()
+    const fixture = input.evidence as unknown as Record<string, unknown>
+    fixture.extensionId = null
+    fixture.extensionBinding = "trusted-devtools"
+
+    expect(validateLiveProviderBinding(input)).toEqual({
+      valid: true,
+      status: "PASS",
+      problems: []
+    })
+  })
+
+  it.each(["inventory ID", "package digest"] as const)(
+    "[PARITY-08] rejects a dynamic read-only fixture when the %s does not match",
+    (mismatch) => {
+      const input = validEmptyAlbumScenario()
+      const fixture = input.evidence as unknown as Record<string, unknown>
+      fixture.extensionId = null
+      fixture.extensionBinding = "trusted-devtools"
+
+      if (mismatch === "inventory ID") {
+        input.trustedDevToolsInventory.extensionId = mismatchedTrustedExtensionId
+      } else {
+        input.expectedArtifactSha256 = "b".repeat(64)
+      }
+
+      const result = validateLiveProviderBinding(input)
+
+      expect(result.valid).toBe(false)
+      expect(result.problems).toContain(
+        mismatch === "inventory ID"
+          ? "runtime extension ID does not match the trusted DevTools inventory"
+          : "live evidence artifact SHA-256 does not match the current package metadata"
+      )
+    }
+  )
+
+  it.each([
+    { packageField: "expectedBuildId", label: "build ID" },
+    { packageField: "expectedArtifactSha256", label: "artifact SHA-256" }
+  ])(
+    "[PARITY-08] blocks a dynamic read-only fixture without expected $label metadata",
+    ({ packageField }) => {
+      const input = validEmptyAlbumScenario()
+      const fixture = input.evidence as unknown as Record<string, unknown>
+      fixture.extensionId = null
+      fixture.extensionBinding = "trusted-devtools"
+      delete (input as unknown as Record<string, unknown>)[packageField]
+
+      const result = validateLiveProviderBinding(input)
+
+      expect(result.valid).toBe(false)
+      expect(result.problems).toContain(
+        "dynamic fixture identity requires expected package build ID and artifact SHA-256"
+      )
+    }
+  )
 
   it("[PARITY-06] binds complete multi-page listing and membership to the scanned IDs", () => {
     const input = validEmptyAlbumScenario()
@@ -341,6 +606,85 @@ describe("live provider evidence binding", () => {
     expect(result.valid).toBe(false)
     expect(result.problems).toContain(
       "trusted DevTools extension inventory identity is missing or invalid"
+    )
+  })
+
+  it("[PARITY-08] binds dynamic exact-package fixture identity to trusted DevTools inventory", () => {
+    const input = exactPackageRoundTrip("google")
+    const fixture = input.evidence as unknown as Record<string, unknown>
+    fixture.extensionId = null
+    fixture.extensionBinding = "trusted-devtools"
+
+    const result = validateLiveProviderBinding({
+      ...input,
+      trustedDevToolsInventory: { ...trustedDevToolsInventory }
+    })
+
+    expect(result).toEqual({ valid: true, problems: [] })
+  })
+
+  it("[PARITY-08] does not let the dynamic identity marker override an explicit fixture ID", () => {
+    const input = exactPackageRoundTrip("google")
+    const fixture = input.evidence as unknown as Record<string, unknown>
+    fixture.extensionId = mismatchedTrustedExtensionId
+    fixture.extensionBinding = "trusted-devtools"
+
+    const result = validateLiveProviderBinding({
+      ...input,
+      trustedDevToolsInventory: { ...trustedDevToolsInventory }
+    })
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "runtime extension ID does not match the fixture record"
+    )
+  })
+
+  it.each([
+    { packageField: "expectedBuildId", label: "build ID" },
+    { packageField: "expectedArtifactSha256", label: "artifact SHA-256" }
+  ])(
+    "[PARITY-08] blocks a dynamic destructive fixture without expected $label metadata",
+    ({ packageField }) => {
+      const input = exactPackageRoundTrip("google")
+      const fixture = input.evidence as unknown as Record<string, unknown>
+      fixture.extensionId = null
+      fixture.extensionBinding = "trusted-devtools"
+      delete (input as unknown as Record<string, unknown>)[packageField]
+
+      const result = validateLiveProviderBinding(input)
+
+      expect(result.valid).toBe(false)
+      expect(result.problems).toContain(
+        "dynamic fixture identity requires expected package build ID and artifact SHA-256"
+      )
+    }
+  )
+
+  it("[PARITY-08] rejects a dynamic fixture identity without a matching trusted DevTools inventory", () => {
+    const input = validEvidence()
+    const fixture = input.evidence as unknown as Record<string, unknown>
+    const runtime = input.roundTrip.runtime as Record<string, unknown>
+    const roundTrip = input.roundTrip as Record<string, unknown>
+    fixture.extensionId = null
+    fixture.extensionBinding = "trusted-devtools"
+    roundTrip.schemaVersion = 2
+    runtime.buildId = "123e4567-e89b-42d3-a456-426614174000"
+    roundTrip.artifactSha256 = "a".repeat(64)
+
+    const result = validateLiveProviderBinding({
+      ...input,
+      expectedBuildId: "123e4567-e89b-42d3-a456-426614174000",
+      expectedArtifactSha256: "a".repeat(64),
+      trustedDevToolsInventory: {
+        ...trustedDevToolsInventory,
+        extensionId: mismatchedTrustedExtensionId
+      }
+    })
+
+    expect(result.valid).toBe(false)
+    expect(result.problems).toContain(
+      "runtime extension ID does not match the trusted DevTools inventory"
     )
   })
 

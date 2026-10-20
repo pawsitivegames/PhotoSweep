@@ -136,25 +136,38 @@ describe("iCloud account identity", () => {
 
   it("reads the signed-in email from the account popover when available", async () => {
     const originalBody = document.body.innerHTML
-    document.body.innerHTML = '<div>Photo from unrelated@example.test</div><button aria-label="Account"></button>'
-    const accountButton = document.querySelector(
-      '[aria-label="Account"]'
-    ) as HTMLButtonElement
-    accountButton.addEventListener("click", () => {
-      const menu = document.createElement("ui-menu-item")
-      menu.setAttribute(
-        "aria-label",
-        "You are signed in as Pawsitive Games, pawsitivegames@gmail.com"
-      )
-      document.body.append(menu)
-    })
+    document.body.innerHTML =
+      '<div>Photo from unrelated@example.test</div><ui-menu-item aria-label="You are signed in as Pawsitive Games, pawsitivegames@gmail.com"></ui-menu-item>'
     const api = (window as any).__GPD_ICLOUD_COMMAND_TEST_API__ as {
       discoverIcloudAccountEmail: () => Promise<string>
     }
-    await expect(api.discoverIcloudAccountEmail()).resolves.toBe(
-      "pawsitivegames@gmail.com"
-    )
-    document.body.innerHTML = originalBody
+    try {
+      await expect(api.discoverIcloudAccountEmail()).resolves.toBe(
+        "pawsitivegames@gmail.com"
+      )
+    } finally {
+      document.body.innerHTML = originalBody
+    }
+  })
+
+  it("does not open the account menu when iCloud hides identity from page DOM", async () => {
+    const originalBody = document.body.innerHTML
+    document.body.innerHTML = '<button aria-label="Account"></button>'
+    const accountButton = document.querySelector(
+      '[aria-label="Account"]'
+    ) as HTMLButtonElement
+    const clickSpy = vi.spyOn(accountButton, "click")
+    const api = (window as any).__GPD_ICLOUD_COMMAND_TEST_API__ as {
+      discoverIcloudAccountEmail: () => Promise<string>
+    }
+
+    try {
+      await expect(api.discoverIcloudAccountEmail()).resolves.toBe("")
+      expect(clickSpy).not.toHaveBeenCalled()
+    } finally {
+      clickSpy.mockRestore()
+      document.body.innerHTML = originalBody
+    }
   })
 
   it.each(["listAlbums", "getAllMediaItems"])("[PARITY-02] rejects a %s response after an account change", async (command) => {
@@ -233,14 +246,7 @@ describe("iCloud account identity", () => {
     ;(window as any).happyDOM.setURL("https://www.icloud.com/photos/#/")
 
     const setAccountEmail = (email: string) => {
-      document.body.innerHTML = '<button aria-label="Account"></button>'
-      document
-        .querySelector('[aria-label="Account"]')
-        ?.addEventListener("click", () => {
-          const menu = document.createElement("ui-menu-item")
-          menu.setAttribute("aria-label", `Signed in as ${email}`)
-          document.body.append(menu)
-        })
+      document.body.innerHTML = `<ui-menu-item aria-label="Signed in as ${email}"></ui-menu-item>`
     }
 
     try {
@@ -332,6 +338,7 @@ describe("iCloud account identity", () => {
       .spyOn(window.performance, "getEntriesByType")
       .mockReturnValue([])
     const { messages, restore } = collectMessages()
+    const delaySpy = mockProviderDelay()
 
     try {
       ;(window as any).happyDOM.setURL("https://www.icloud.com/photos/#/")
@@ -339,16 +346,11 @@ describe("iCloud account identity", () => {
       sendCommand("listAlbums", "icloud-session-fallback", {
         providerSessionId: (window as any).__GPD_COMMAND_HOST__.providerSessionId
       })
-      // The adapter deliberately waits briefly for a CloudKit query resource;
-      // let that bounded discovery finish before restoring the test fixture.
-      await new Promise((resolve) => setTimeout(resolve, 2200))
-
-      const result = messages.find(
-        (msg) =>
-          msg.action === "gptkResult" &&
-          msg.command === "listAlbums" &&
-          msg.requestId === "icloud-session-fallback"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-session-fallback"
       )
+      expect(delaySpy.mock.calls.filter(([, delay]) => delay === 100)).toHaveLength(20)
       expect(result).toMatchObject({
         success: false,
         error: expect.stringMatching(/needs a signed-in CloudKit session/i)
@@ -357,6 +359,7 @@ describe("iCloud account identity", () => {
     } finally {
       ;(window as any).happyDOM.setURL(originalUrl)
       document.body.innerHTML = originalBody
+      delaySpy.mockRestore()
       performanceSpy.mockRestore()
       restore()
     }
@@ -429,6 +432,14 @@ function collectMessages(): { messages: any[]; restore: () => void } {
   return { messages, restore: () => spy.mockRestore() }
 }
 
+function mockProviderDelay() {
+  const originalSetTimeout = window.setTimeout.bind(window)
+  return vi.spyOn(window, "setTimeout").mockImplementation(
+    (callback, delay, ...args) =>
+      originalSetTimeout(callback, delay === 100 ? 0 : delay, ...args)
+  )
+}
+
 async function flush() {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -437,16 +448,24 @@ async function flushProviderWork() {
   for (let attempt = 0; attempt < 6; attempt += 1) await flush()
 }
 
-async function waitForProviderResult(messages: any[], requestId: string) {
-  for (let attempt = 0; attempt < 500; attempt += 1) {
+async function waitForProviderResult(
+  messages: any[],
+  requestId: string,
+  timeoutMs = 5000
+) {
+  const pollIntervalMs = 10
+  const attempts = Math.ceil(timeoutMs / pollIntervalMs)
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     const result = messages.find(
       (message) =>
         message.requestId === requestId && message.action === "gptkResult"
     )
     if (result) return result
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
   }
-  throw new Error(`Timed out waiting for provider request ${requestId}.`)
+  throw new Error(
+    `Timed out waiting ${timeoutMs} ms for provider request ${requestId}.`
+  )
 }
 
 describe("iCloud album listing capability", () => {
@@ -1676,13 +1695,10 @@ describe("iCloud album scans", () => {
           title: "Capped album"
         }
       })
-      await new Promise((resolve) => setTimeout(resolve, 900))
-
-      const result = messages.find(
-        (msg) =>
-          msg.action === "gptkResult" &&
-          msg.command === "getAllMediaItems" &&
-          msg.requestId === "icloud-album-capped"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-album-capped",
+        900
       )
       expect(result?.success).toBe(true)
       expect(result?.data.map((item: { dedupKey: string }) => item.dedupKey)).toEqual([
@@ -1827,13 +1843,10 @@ describe("iCloud album scans", () => {
           title: "Known 216-item album"
         }
       })
-      await new Promise((resolve) => setTimeout(resolve, 1200))
-
-      const result = messages.find(
-        (msg) =>
-          msg.action === "gptkResult" &&
-          msg.command === "getAllMediaItems" &&
-          msg.requestId === "icloud-album-216-members"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-album-216-members",
+        1200
       )
       const returnedIds = result?.data.map(
         (item: { dedupKey: string }) => item.dedupKey
@@ -1912,6 +1925,7 @@ describe("iCloud album scans", () => {
       .spyOn(window.performance, "getEntriesByType")
       .mockReturnValue([])
     const fetchSpy = vi.spyOn(window, "fetch")
+    const delaySpy = mockProviderDelay()
     try {
       sendCommand("getAllMediaItems", "icloud-album-no-cloudkit", {
         albumScope: {
@@ -1919,24 +1933,11 @@ describe("iCloud album scans", () => {
           title: "Personal album"
         }
       })
-      await vi.waitFor(
-        () =>
-          expect(
-            messages.some(
-              (message) =>
-                message.action === "gptkResult" &&
-                message.command === "getAllMediaItems" &&
-                message.requestId === "icloud-album-no-cloudkit"
-            )
-          ).toBe(true),
-        { timeout: 4000 }
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-album-no-cloudkit"
       )
-      const result = messages.find(
-        (msg) =>
-          msg.action === "gptkResult" &&
-          msg.command === "getAllMediaItems" &&
-          msg.requestId === "icloud-album-no-cloudkit"
-      )
+      expect(delaySpy.mock.calls.filter(([, delay]) => delay === 100)).toHaveLength(20)
       expect(result).toMatchObject({
         success: false,
         scanCoverage: { status: "failed" },
@@ -1944,6 +1945,7 @@ describe("iCloud album scans", () => {
       })
       expect(fetchSpy).not.toHaveBeenCalled()
     } finally {
+      delaySpy.mockRestore()
       performanceSpy.mockRestore()
       restore()
     }
@@ -2550,7 +2552,33 @@ describe("iCloud mutation response reconciliation", () => {
         .spyOn(window.performance, "getEntriesByType")
         .mockReturnValue([{ name: queryUrl } as PerformanceEntry])
       let modifyCalls = 0
-      const fetchSpy = installMutationResponse((body) => {
+      const fetchSpy = vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
+        const path = new URL(String(url)).pathname
+        const body = JSON.parse(String(init?.body || "{}"))
+        if (path.endsWith("/records/lookup")) {
+          const isDeleted = command === "restoreItems" ? 1 : 0
+          return {
+            ok: true,
+            json: async () => ({
+              records: (body.records || []).map((record: any) => ({
+                recordName: record.recordName,
+                recordType: "CPLAsset",
+                recordChangeTag: `readback-${record.recordName}`,
+                zoneID: {
+                  zoneName: "PrimarySync",
+                  ownerRecordName: "_defaultOwner"
+                },
+                fields: {
+                  isFavorite: { value: 0 },
+                  isDeleted: { value: isDeleted }
+                }
+              }))
+            })
+          } as Response
+        }
+        if (!path.endsWith("/records/modify")) {
+          throw new Error("Unexpected iCloud Photos mutation route.")
+        }
         modifyCalls += 1
         if (modifyCalls !== 1) {
           return { ok: true, json: async () => ({}) } as Response
@@ -3985,10 +4013,15 @@ describe("iCloud metadata and pagination evidence", () => {
       ...(property.failed ? {
         counterexample: property.counterexample,
         counterexamplePath: property.counterexamplePath,
-        error: property.error
+        error: property.errorInstance
       } : {})
     }))
-    expect(property.failed, property.error || "Generated identity contract failed").toBe(false)
+    const failureMessage = property.failed
+      ? property.errorInstance instanceof Error
+        ? property.errorInstance.message
+        : String(property.errorInstance)
+      : "Generated identity contract failed"
+    expect(property.failed, failureMessage).toBe(false)
     expect(Object.keys(partitions).sort()).toEqual([
       "blank-id", "control-id", "dangling-master", "duplicate-id", "foreign-zone",
       "missing-id", "partial-envelope", "provider-error", "shared-master", "unpaired-master"
@@ -4318,14 +4351,7 @@ describe("iCloud trashItems dry-run", () => {
     document.body.innerHTML = ""
     ;(window as any).happyDOM.setURL("https://icloud.com/applications/photos")
     const setAccountEmail = (email: string) => {
-      document.body.innerHTML = '<button aria-label="Account"></button>'
-      document
-        .querySelector('[aria-label="Account"]')
-        ?.addEventListener("click", () => {
-          const menu = document.createElement("ui-menu-item")
-          menu.setAttribute("aria-label", `Signed in as ${email}`)
-          document.body.append(menu)
-        })
+      document.body.innerHTML = `<ui-menu-item aria-label="Signed in as ${email}"></ui-menu-item>`
     }
     setAccountEmail("icloud-fixture-before@example.test")
     const { messages, restore } = collectMessages()
@@ -4476,11 +4502,9 @@ describe("iCloud trashItems dry-run", () => {
 
     try {
       sendCommand("healthCheck", "icloud-retrieval-health", {}, "icloud")
-      await flushProviderWork()
-      const sessionMessage = messages.find(
-        (message) =>
-          message.requestId === "icloud-retrieval-health" &&
-          message.action === "gptkResult"
+      const sessionMessage = await waitForProviderResult(
+        messages,
+        "icloud-retrieval-health"
       )
       expect(sessionMessage).toMatchObject({ success: true })
       const providerSessionId = sessionMessage.providerSessionId
@@ -4497,11 +4521,9 @@ describe("iCloud trashItems dry-run", () => {
         },
         "icloud"
       )
-      await flushProviderWork()
-      const scan = messages.find(
-        (message) =>
-          message.requestId === "icloud-original-scan" &&
-          message.action === "gptkResult"
+      const scan = await waitForProviderResult(
+        messages,
+        "icloud-original-scan"
       )
       expect(scan).toMatchObject({
         success: true,
@@ -5648,10 +5670,10 @@ describe("iCloud trashItems dry-run", () => {
       })
 
     sendCommand("getAllMediaItems", "icloud-cloudkit-pagination", {})
-    await new Promise((resolve) => setTimeout(resolve, 900))
-
-    const result = messages.find(
-      (msg) => msg.action === "gptkResult" && msg.command === "getAllMediaItems"
+    const result = await waitForProviderResult(
+      messages,
+      "icloud-cloudkit-pagination",
+      900
     )
     expect(result.success).toBe(true)
     expect(
@@ -5741,13 +5763,10 @@ describe("iCloud trashItems dry-run", () => {
       sendCommand("getAllMediaItems", "icloud-incremental", {
         sinceTimestamp: 2000
       })
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-incremental"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-incremental",
+        250
       )
       expect(result).toMatchObject({
         success: true,
@@ -5805,13 +5824,10 @@ describe("iCloud trashItems dry-run", () => {
         providerSyncToken: "stored-zone-token",
         cachedTotalItems: 42
       })
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-zone-unchanged"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-zone-unchanged",
+        250
       )
       expect(result).toMatchObject({
         success: true,
@@ -5951,13 +5967,10 @@ describe("iCloud trashItems dry-run", () => {
         providerSyncToken: "stored-zone-token",
         cachedTotalItems: 40
       })
-      await new Promise((resolve) => setTimeout(resolve, 600))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-zone-delta"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-zone-delta",
+        600
       )
       expect(result).toMatchObject({
         success: true,
@@ -6072,13 +6085,10 @@ describe("iCloud trashItems dry-run", () => {
       sendCommand("getAllMediaItems", "icloud-delta-race", {
         providerSyncToken: "stored-zone-token"
       })
-      await new Promise((resolve) => setTimeout(resolve, 600))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-delta-race"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-delta-race",
+        600
       )
       expect(result).toMatchObject({
         success: true,
@@ -6299,13 +6309,10 @@ describe("iCloud trashItems dry-run", () => {
       sendCommand("getAllMediaItems", "icloud-zone-changed", {
         providerSyncToken: "stored-zone-token"
       })
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-zone-changed"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-zone-changed",
+        250
       )
       expect(result).toMatchObject({
         success: true,
@@ -6366,13 +6373,10 @@ describe("iCloud trashItems dry-run", () => {
         providerSyncToken: "stored-zone-token",
         dateRange: { from: "2024-06-15", to: "2024-06-15" }
       })
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-date-scoped-token"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-date-scoped-token",
+        250
       )
       expect(result?.success).toBe(true)
       expect(result?.providerSyncToken).toBeUndefined()
@@ -6452,13 +6456,10 @@ describe("iCloud trashItems dry-run", () => {
           title: "Personal album"
         }
       })
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-album-scoped-token"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-album-scoped-token",
+        250
       )
       expect(result).toMatchObject({
         success: true,
@@ -6548,13 +6549,10 @@ describe("iCloud trashItems dry-run", () => {
         providerSyncToken: "stored-zone-token",
         limit: 1
       })
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-limited-scan-token"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-limited-scan-token",
+        250
       )
       expect(result).toMatchObject({
         success: true,
@@ -6642,13 +6640,10 @@ describe("iCloud trashItems dry-run", () => {
 
     try {
       sendCommand("getAllMediaItems", "icloud-token-page-drift", {})
-      await new Promise((resolve) => setTimeout(resolve, 600))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-token-page-drift"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-token-page-drift",
+        600
       )
       expect(result).toMatchObject({
         success: true,
@@ -6765,14 +6760,12 @@ describe("iCloud trashItems dry-run", () => {
 
     try {
       sendCommand("getAllMediaItems", "icloud-repeated-page", {})
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-repeated-page"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-repeated-page",
+        300
       )
+
       expect(
         fetchSpy.mock.calls.filter(
           ([url]) => !String(url).includes("/internal/records/query/batch?")
@@ -6820,14 +6813,12 @@ describe("iCloud trashItems dry-run", () => {
 
     try {
       sendCommand("getAllMediaItems", "icloud-empty-pages", {})
-      await new Promise((resolve) => setTimeout(resolve, 600))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-empty-pages"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-empty-pages",
+        600
       )
+
       expect(
         fetchSpy.mock.calls.filter(
           ([url]) => !String(url).includes("/internal/records/query/batch?")
@@ -6985,12 +6976,10 @@ describe("iCloud trashItems dry-run", () => {
       sendCommand("getAllMediaItems", "icloud-local-date-coverage", {
         dateRange: { from: "2024-06-15", to: "2024-06-15" }
       })
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-local-date-coverage",
+        300
       )
       expect(result).toMatchObject({ success: true })
       expect(
@@ -7094,13 +7083,10 @@ describe("iCloud trashItems dry-run", () => {
       sendCommand("getAllMediaItems", "icloud-v3-mixed-date", {
         dateRange: fixture.dateRange
       })
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const result = messages.find(
-        (message) =>
-          message.action === "gptkResult" &&
-          message.command === "getAllMediaItems" &&
-          message.requestId === "icloud-v3-mixed-date"
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-v3-mixed-date",
+        300
       )
       expect(result?.success).toBe(true)
       expect(result?.data.map((item: { fileName: string }) => item.fileName)).toEqual(
@@ -7148,45 +7134,36 @@ describe("iCloud trashItems dry-run", () => {
     const performanceSpy = vi
       .spyOn(window.performance, "getEntriesByType")
       .mockReturnValue([])
+    const delaySpy = mockProviderDelay()
 
-    sendCommand("getAllMediaItems", "icloud-loaded-fallback", {})
-    await vi.waitFor(
-      () =>
-        expect(
-          messages.some(
-            (message) =>
-              message.action === "gptkResult" &&
-              message.command === "getAllMediaItems" &&
-              message.requestId === "icloud-loaded-fallback"
-          )
-        ).toBe(true),
-      { timeout: 4000 }
-    )
+    try {
+      sendCommand("getAllMediaItems", "icloud-loaded-fallback", {})
+      const result = await waitForProviderResult(
+        messages,
+        "icloud-loaded-fallback"
+      )
+      expect(delaySpy.mock.calls.filter(([, delay]) => delay === 100)).toHaveLength(20)
 
-    const result = messages.find(
-      (message) =>
-        message.action === "gptkResult" &&
-        message.command === "getAllMediaItems" &&
-        message.requestId === "icloud-loaded-fallback"
-    )
-    expect(result).toMatchObject({
-      success: false,
-      scanCoverage: {
-        status: "failed",
-        stopReason: "auth_expired",
-        itemsVisited: 0,
-        itemsReturned: 0,
-        itemsSkipped: 0,
-        unknownDateItemsSkipped: 0,
-        mediaTypesCovered: { photos: false, videos: false },
-        canResume: false
-      }
-    })
-    expect(result.error).toMatch(/complete CloudKit library session/i)
-
-    document.body.innerHTML = originalBody
-    performanceSpy.mockRestore()
-    restore()
+      expect(result).toMatchObject({
+        success: false,
+        scanCoverage: {
+          status: "failed",
+          stopReason: "auth_expired",
+          itemsVisited: 0,
+          itemsReturned: 0,
+          itemsSkipped: 0,
+          unknownDateItemsSkipped: 0,
+          mediaTypesCovered: { photos: false, videos: false },
+          canResume: false
+        }
+      })
+      expect(result.error).toMatch(/complete CloudKit library session/i)
+    } finally {
+      document.body.innerHTML = originalBody
+      delaySpy.mockRestore()
+      performanceSpy.mockRestore()
+      restore()
+    }
   })
 
   it("counts out-of-date CloudKit records toward the visit limit", async () => {
@@ -7512,6 +7489,183 @@ describe("iCloud trashItems dry-run", () => {
 })
 
 describe("restoreItems", () => {
+  it("reconciles an ambiguous atomic restore from a fresh provider readback without retrying the mutation", async () => {
+    const { messages, restore } = collectMessages()
+    const performanceSpy = vi
+      .spyOn(window.performance, "getEntriesByType")
+      .mockReturnValue([
+        {
+          name: "https://p167-ckdatabasews.icloud.com/database/1/com.apple.photos.cloud/production/private/records/query?remapEnums=true"
+        } as PerformanceEntry
+      ])
+    const fetchSpy = vi.spyOn(window, "fetch").mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname
+      if (path.endsWith("/records/modify")) {
+        return {
+          ok: true,
+          json: async () => ({ records: [] })
+        } as Response
+      }
+      if (path.endsWith("/records/lookup")) {
+        return {
+          ok: true,
+          json: async () => ({
+            records: [
+              {
+                recordName: "asset-a",
+                recordType: "CPLAsset",
+                recordChangeTag: "tag-after-readback",
+                // Live CloudKit omits default-false isDeleted and clears
+                // dateExpunged when Restore succeeds.
+                deleted: false,
+                fields: {},
+                zoneID: {
+                  zoneName: "PrimarySync",
+                  ownerRecordName: "_defaultOwner"
+                }
+              }
+            ]
+          })
+        } as Response
+      }
+      throw new Error("Unexpected iCloud Photos mutation route.")
+    })
+
+    sendCommand("restoreItems", "icloud-restore-readback", {
+      dedupKeys: ["icloud-a"],
+      icloudAssetRefs: [
+        {
+          recordName: "asset-a",
+          changeTag: "tag-after-trash",
+          zoneName: "PrimarySync",
+          ownerRecordName: "_defaultOwner"
+        }
+      ]
+    })
+    await flush()
+    await flush()
+
+    const result = messages.find(
+      (message) =>
+        message.action === "gptkResult" &&
+        message.command === "restoreItems" &&
+        message.requestId === "icloud-restore-readback"
+    )
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        restoredCount: 1,
+        restoredDedupKeys: ["icloud-a"],
+        outcomes: [
+          { operation: "restore", targetKey: "icloud-a", status: "confirmed" }
+        ],
+        icloudAssetRefs: [
+          {
+            recordName: "asset-a",
+            changeTag: "tag-after-readback",
+            zoneName: "PrimarySync",
+            ownerRecordName: "_defaultOwner"
+          }
+        ]
+      }
+    })
+    expect(
+      fetchSpy.mock.calls.filter(([url]) =>
+        String(url).includes("/records/modify?")
+      )
+    ).toHaveLength(1)
+    expect(
+      fetchSpy.mock.calls.filter(([url]) =>
+        String(url).includes("/records/lookup?")
+      )
+    ).toHaveLength(1)
+
+    fetchSpy.mockRestore()
+    performanceSpy.mockRestore()
+    restore()
+  })
+
+  it.each([
+    ["an unmarked record", { fields: {} }],
+    ["a CloudKit tombstone", { deleted: true, fields: {} }],
+    [
+      "a record that remains expunged",
+      { deleted: false, fields: { dateExpunged: { value: 1 } } }
+    ]
+  ])("keeps an implicit restore readback unknown for %s", async (_label, state) => {
+    const { messages, restore } = collectMessages()
+    const performanceSpy = vi
+      .spyOn(window.performance, "getEntriesByType")
+      .mockReturnValue([
+        {
+          name: "https://p167-ckdatabasews.icloud.com/database/1/com.apple.photos.cloud/production/private/records/query?remapEnums=true"
+        } as PerformanceEntry
+      ])
+    const fetchSpy = vi.spyOn(window, "fetch").mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname
+      if (path.endsWith("/records/modify")) {
+        return { ok: true, json: async () => ({ records: [] }) } as Response
+      }
+      if (path.endsWith("/records/lookup")) {
+        return {
+          ok: true,
+          json: async () => ({
+            records: [
+              {
+                recordName: "asset-a",
+                recordType: "CPLAsset",
+                recordChangeTag: "tag-after-readback",
+                ...state
+              }
+            ]
+          })
+        } as Response
+      }
+      throw new Error("Unexpected iCloud Photos mutation route.")
+    })
+
+    sendCommand("restoreItems", "icloud-restore-implicit-unknown", {
+      dedupKeys: ["icloud-a"],
+      icloudAssetRefs: [
+        {
+          recordName: "asset-a",
+          changeTag: "tag-after-trash",
+          zoneName: "PrimarySync",
+          ownerRecordName: "_defaultOwner"
+        }
+      ]
+    })
+    await flush()
+    await flush()
+
+    const result = messages.find(
+      (message) =>
+        message.action === "gptkResult" &&
+        message.command === "restoreItems" &&
+        message.requestId === "icloud-restore-implicit-unknown"
+    )
+    expect(result).toMatchObject({
+      success: false,
+      data: {
+        restoredCount: 0,
+        restoredDedupKeys: [],
+        outcomes: [
+          { operation: "restore", targetKey: "icloud-a", status: "unknown" }
+        ]
+      }
+    })
+    expect(
+      fetchSpy.mock.calls.filter(([url]) => String(url).includes("/records/modify?"))
+    ).toHaveLength(1)
+    expect(
+      fetchSpy.mock.calls.filter(([url]) => String(url).includes("/records/lookup?"))
+    ).toHaveLength(1)
+
+    fetchSpy.mockRestore()
+    performanceSpy.mockRestore()
+    restore()
+  })
+
   it("[PARITY-04] restores iCloud items with fresh CloudKit asset refs and exact result identities", async () => {
     const { messages, restore } = collectMessages()
     const performanceSpy = vi

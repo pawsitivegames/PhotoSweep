@@ -39,6 +39,23 @@ function benchmarkOutput(means: Record<string, number> | number) {
   }
 }
 
+function vitestFiveBenchmarkOutput(means: Record<string, number>) {
+  return {
+    testResults: [
+      {
+        assertionResults: Object.entries(means).map(([name, mean]) => ({
+          benchmarks: [
+            {
+              name: `DuplicateGroups perf > ${name}`,
+              tasks: [{ name, latency: { mean } }]
+            }
+          ]
+        }))
+      }
+    ]
+  }
+}
+
 function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(value), "utf8")
@@ -69,6 +86,38 @@ afterEach(() => {
 })
 
 describe("benchmark regression tools", () => {
+  it("reads Vitest 5 benchmark means and compares them to history", () => {
+    const dir = makeTempDir()
+    writeJson(
+      join(dir, "bench-output.json"),
+      vitestFiveBenchmarkOutput({ load: 121 })
+    )
+    writeJson(
+      join(dir, "tests/perf/bench-history.json"),
+      rollingHistory([
+        { load: 100, render: 100 },
+        { load: 100, render: 100 },
+        { load: 100, render: 100 }
+      ])
+    )
+
+    const result = runTool("check-bench.mjs", dir)
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('"load": 121ms vs rolling median 100ms')
+    expect(result.stderr).toContain("REGRESSION")
+  })
+
+  it("fails closed when the benchmark report has no supported results", () => {
+    const dir = makeTempDir()
+    writeJson(join(dir, "bench-output.json"), { testResults: [] })
+
+    const result = runTool("check-bench.mjs", dir)
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("No benchmark means found")
+  })
+
   it("skips a benchmark until three history samples exist", () => {
     const dir = makeTempDir()
     writeJson(join(dir, "bench-output.json"), benchmarkOutput(120))

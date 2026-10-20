@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_AFTER_NORMAL_INCREMENTAL_REPLAY",
+  "createdAtUtc": "2026-10-17T02:45:58.966Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "8b6b1f678a7d0bf5a99f60b0cf55a13272b41c6f263b1fe3465dea828d00af44",
+    "sourceFileCount": 339,
+    "node": "v24.20.0",
+    "version": "2.3.6.6",
+    "workingTreeDirty": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "fd6d3a11b99f16316ebabafc4d438f2a3822f431f9f1a964b0f873e11a46d05e",
+    "currentPolicySha256": "35d1d5f3e5545f80eb5c7dbbac820c17d97e1c0fa8a024ff4dfecf570fe6a223",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "42f11b029da30cf2f0761aa46423e70a355ecefe304b20b1fd83c855637e7fb2",
+    "sourceFingerprintTo": "8b6b1f678a7d0bf5a99f60b0cf55a13272b41c6f263b1fe3465dea828d00af44",
+    "canonicalReportSha256": "bd25be95b9b9a4da2bae2a28d1391d06b6c7c83c52a124727182151c4f10847e",
+    "reviewedEntries": 211,
+    "thresholdsUnchanged": true
+  },
+  "scopeContinuity": {
+    "targetHashesMatchAcceptedRun": true,
+    "mutationTestFilesMatchAcceptedRun": true,
+    "mutationTestFiles": 20,
+    "mutationTestCases": 1165,
+    "mutantsInAcceptedRun": 4108,
+    "allNonKilledEntriesReviewed": true
+  },
+  "cacheReuse": {
+    "priorFingerprint": "9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3",
+    "currentFingerprint": "9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3",
+    "normalizedFingerprint": "9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3",
+    "normalization": "unchanged declared mutation target and test scope; provider fixture evidence paths are outside the mutation target set",
+    "priorCacheCopiedToCurrentFingerprint": false,
+    "priorCachePath": "tmp/verification/mutation-incremental/9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3-node-24.20.0.json",
+    "currentCachePath": "tmp/verification/mutation-incremental/9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3-node-24.20.0.json"
+  },
+  "checks": {
+    "policyChangedOnlyBySourceFingerprint": true,
+    "scopeTargetsAndTestsMatch": true,
+    "canonicalReportRemainsPriorAcceptedHash": true,
+    "thresholdsUnchanged": true,
+    "normalReplayRequired": true,
+    "normalReplayPasses": true,
+    "sourceFingerprintStable": true,
+    "incrementalCacheWasValidated": true,
+    "allReviewedNonKilledResolve": true
+  },
+  "normalReplay": {
+    "command": "npm run test:mutation",
+    "resultPath": "tmp/verification/runs/20261017T023500Z-release-final/mutation.json",
+    "rawReportPath": "tmp/verification/runs/20261017T023500Z-release-final/mutation-run/stryker-raw.json",
+    "rawReportSha256": "56036840834f6857add8cbe794f7542ac3a169bc8c2ca6ff47b87434cd2c1021",
+    "triageSha256": "f945db4d06abb2a6f499b2f227b2752364a34bb5c2b3acff79e6daa6940c9ab1",
+    "sourceFingerprint": "8b6b1f678a7d0bf5a99f60b0cf55a13272b41c6f263b1fe3465dea828d00af44",
+    "sourceDrift": false,
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "incrementalCacheFingerprint": "9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3",
+    "incrementalCacheFile": "tmp/verification/mutation-incremental/9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3-node-24.20.0.json",
+    "mutants": {
+      "total": 4108,
+      "killed": 3897,
+      "survived": 187,
+      "noCoverage": 24,
+      "scorePercent": 94.86,
+      "reviewed": 211,
+      "resolved": 211,
+      "unresolved": 0,
+      "criticalSurvivors": 0,
+      "timedOut": 0,
+      "errored": 0
+    }
+  }
+}

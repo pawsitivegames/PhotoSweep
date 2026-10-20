@@ -145,12 +145,20 @@ function ReviewHarness({
         totalItems={3}
         groupCount={1}
         totalGroupCount={1}
+        availableGroupCount={GROUPS.length}
+        includedGroupCount={session.selectedGroupIds.size}
         reviewedGroupCount={session.reviewedGroupIds.size}
         selectedShownGroupCount={session.selectedGroupIds.size}
         exactGroupCount={1}
         similarGroupCount={0}
         reviewFilter="all"
         onReviewFilterChange={() => undefined}
+        onIncludeAllEligible={() =>
+          updateReviewSelections({
+            type: "select_groups",
+            groupIds: GROUPS.map((group) => group.id)
+          })
+        }
         onSelectAll={() =>
           updateReviewSelections({
             type: "select_groups",
@@ -333,13 +341,14 @@ describe("Selection strategy application in the review UI", () => {
       })
       fireEvent.click(
         screen.getByRole("button", {
-          name: "Include all 1 shown set in cleanup"
+          name: "Include all 1 available set in cleanup"
         })
       )
       expect(checkbox).toHaveAttribute("aria-checked", "true")
+      fireEvent.click(screen.getByRole("button", { name: "More review actions" }))
       fireEvent.click(
-        screen.getByRole("button", {
-          name: "Remove 1 shown set from cleanup"
+        screen.getByRole("menuitem", {
+          name: "Remove shown sets from cleanup"
         })
       )
       expect(checkbox).toHaveAttribute("aria-checked", "false")

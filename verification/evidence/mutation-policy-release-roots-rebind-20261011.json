@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-11T17:59:59.968Z",
+  "status": "REBOUND_TO_RELEASE_SOURCE_ROOTS_AFTER_PACKAGE_BUILD",
+  "package": {
+    "artifactFile": "build/photosweep-cws-v2.3.6.1-sha256-a185a01d165c.zip",
+    "artifactSha256": "a185a01d165cc16122ad000df339980b462d8bb2eb8d6e867bf51415d8198e7e",
+    "chromeVersion": "2.3.6.1",
+    "sourceFingerprint": "d27bd63c8426ba3293fbdd7f05e69a842a7137f30a1a153a8c0bee4140b96861",
+    "sourceFileCount": 320,
+    "buildId": "5b327a7e-2c5f-4e0d-a2f5-db6774a53ecb",
+    "sourceDirty": true
+  },
+  "sourceFingerprint": {
+    "previousMutationRunnerDefault": "21521b9bc8f2e1962d6bd0129e88ea6351d38a21ee00ff6af16a4cf5688d69ed",
+    "currentRegistryBound": "d27bd63c8426ba3293fbdd7f05e69a842a7137f30a1a153a8c0bee4140b96861",
+    "sourceRootsCount": 27,
+    "sourceFileCount": 320,
+    "matchesPackageProvenance": true
+  },
+  "mutationPolicy": {
+    "canonicalReportSha256": "06c5258c2a8f93f5829cfce013ae90eddd6fd271c854c9916b42d0112fd38efe",
+    "policyEntries": 211,
+    "entriesReclassified": 0,
+    "thresholdsChanged": false,
+    "policySha256": "cc4232806fb256127dc9e38b34ad26927184db4f412accaf044b292145217264"
+  },
+  "limitations": [
+    "The standalone mutation report used the default source-root list; the final release runner must validate this policy under the registry-bound source roots and reproduce the canonical report hash.",
+    "The package build changed generated build inputs outside the six mutated source files; the final release runner is required for fresh evidence on the packaged source.",
+    "Exact-package Chrome runtime, live provider round-trip, video playback, and cleanup remain separate checks."
+  ]
+}

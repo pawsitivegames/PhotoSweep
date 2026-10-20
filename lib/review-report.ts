@@ -166,14 +166,14 @@ export function buildReviewReport(params: {
     totalItemsSelectedForTrash: items.filter((item) => item.selectedForTrash)
       .length,
     items
-  }
+  };
 }
 
 function csvValue(value: unknown): string {
   if (value === null || value === undefined) return ""
   const text = String(value)
   if (!/[",\n\r]/.test(text)) return text
-  return `"${text.replace(/"/g, '""')}"`
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 export function reviewReportToCsv(report: ReviewReport): string {

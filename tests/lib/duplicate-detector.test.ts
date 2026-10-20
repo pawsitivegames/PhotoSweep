@@ -412,7 +412,10 @@ function stubBlockComparisonWorker() {
 }
 
 function makeFullScanBoundaryChain(): Float32Array[] {
-  const embeddings = Array.from({ length: 1001 }, () => new Float32Array(4))
+  const embeddings: Float32Array[] = Array.from(
+    { length: 1001 },
+    () => new Float32Array(4)
+  )
   const firstPair = unitVector(4, 2)
   const secondPair = unitVector(4, 3)
   embeddings[0] = firstPair
@@ -615,6 +618,106 @@ describe("fullDetectDuplicates — candidate filtering", () => {
     ).rejects.toThrow(/Only 0 of 2 candidate items could be processed/)
 
     vi.stubGlobal("fetch", originalFetch)
+  })
+})
+
+describe("detector candidate completeness", () => {
+  async function expectIncompleteScanToFail(
+    detect: (items: GpdMediaItem[]) => Promise<unknown>
+  ) {
+    const originalChrome = globalThis.chrome
+    const originalFetch = globalThis.fetch
+    const originalIndexedDB = globalThis.indexedDB
+    const originalNavigator = globalThis.navigator
+    const originalWorker = globalThis.Worker
+    const failedThumbnailUrl = "https://example.com/unavailable"
+    const fetchMock = vi.fn(async (input: unknown) => {
+      const url = String(input)
+      if (url.startsWith("chrome-extension://")) {
+        return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }
+      }
+      if (url === failedThumbnailUrl) {
+        return { ok: false, body: { cancel: vi.fn() } }
+      }
+      return { ok: true, blob: async () => new Blob(["thumbnail"]) }
+    })
+
+    class DetectorTestWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: ErrorEvent) => void) | null = null
+
+      postMessage(
+        message: {
+          type: string
+          data?: { items?: Array<{ localIdx: number }> }
+        }
+      ) {
+        const emit = (data: Record<string, unknown>) =>
+          queueMicrotask(() => this.onmessage?.({ data } as MessageEvent))
+
+        if (message.type === "init") {
+          emit({ type: "ready" })
+        } else if (message.type === "embed") {
+          emit({
+            type: "results",
+            results: (message.data?.items ?? []).map(({ localIdx }) => ({
+              localIdx,
+              embedding: new Float32Array([1, 0, 0, 0]).buffer
+            }))
+          })
+        } else if (message.type === "detectBlock") {
+          emit({ type: "blockResults", pairs: [] })
+        } else if (message.type === "detectSmart") {
+          emit({ type: "detectionResults", groups: [] })
+        }
+      }
+
+      terminate() {}
+    }
+
+    const items = [
+      makeItem("icloud-a", 1000, 0, { provider: "icloud" }),
+      makeItem("icloud-b", 1000, 0, { provider: "icloud" }),
+      makeItem("icloud-c", 1000, 0, {
+        provider: "icloud",
+        thumb: failedThumbnailUrl
+      })
+    ]
+
+    vi.stubGlobal("chrome", {
+      runtime: { getURL: (path: string) => `chrome-extension://test/${path}` }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    vi.stubGlobal("indexedDB", undefined)
+    vi.stubGlobal("navigator", { hardwareConcurrency: 1 })
+    vi.stubGlobal("Worker", DetectorTestWorker)
+
+    try {
+      await expect(detect(items)).rejects.toThrow(
+        /Only 2 of 3 candidate items could be processed/)
+      expect(fetchMock).toHaveBeenCalledWith(
+        failedThumbnailUrl,
+        expect.objectContaining({ credentials: "include" })
+      )
+    } finally {
+      vi.stubGlobal("chrome", originalChrome)
+      vi.stubGlobal("fetch", originalFetch)
+      vi.stubGlobal("indexedDB", originalIndexedDB)
+      vi.stubGlobal("navigator", originalNavigator)
+      vi.stubGlobal("Worker", originalWorker)
+    }
+  }
+
+  it("fails a Full scan when one candidate thumbnail cannot be fetched", async () => {
+    await expectIncompleteScanToFail((items) =>
+      fullDetectDuplicates(items, 0.95).then(({ groups }) => groups)
+    )
+  })
+
+  it("fails a Smart scan when one candidate thumbnail cannot be fetched", async () => {
+    await expectIncompleteScanToFail((items) =>
+      smartDetectDuplicates(items, 0.95)
+    )
   })
 })
 

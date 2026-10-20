@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_AFTER_NORMAL_REPLAY",
+  "createdAtUtc": "2026-10-16T13:01:31Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "branch": "main",
+    "sourceFingerprint": "0cdad2a7a7833520c476509f8473038041fe7b3a8d7eae0350f6775c82319cd8",
+    "sourceFileCount": 336,
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "version": "2.3.6",
+    "chromeVersion": "2.3.6.6"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "94bf9a3aae162e650f85b5e2c9b108aee2954be730dd120e76703888cc58b5e9",
+    "currentPolicySha256": "66aa8bfd2481a7f5fec8c57c48f2b101dd6b8ec28a229d80402efa4e9dba0074",
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256"
+    ],
+    "sourceFingerprintFrom": "569a49aee6c7bab10f487b96a4603502b7a1aff3351a2083e0b53772bf52361d",
+    "sourceFingerprintTo": "0cdad2a7a7833520c476509f8473038041fe7b3a8d7eae0350f6775c82319cd8",
+    "canonicalReportSha256From": "03a3bf02e8733ab362d858537b2469c69eb28af7761a60d165be96e1d0ad5395",
+    "canonicalReportSha256To": "bd25be95b9b9a4da2bae2a28d1391d06b6c7c83c52a124727182151c4f10847e",
+    "rawReportFileSha256": "204b941e022ba60c8e874ede0bce166781f9c6a20419375bebd30047963c2a4b",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    },
+    "statusClassifications": {
+      "Survived:EQUIVALENT": 145,
+      "Survived:UNREACHABLE": 15,
+      "NoCoverage:UNREACHABLE": 22,
+      "NoCoverage:EQUIVALENT": 2,
+      "Survived:DUPLICATE": 27
+    }
+  },
+  "comparison": {
+    "priorRawReportPath": "tmp/verification/20261016T083706Z/mutation-run/stryker-raw.json",
+    "currentRawReportPath": "tmp/verification/diagnostic-refresh/8ed0949d-8030-4c57-8dd4-7a579d4f0dc7/mutation-run/stryker-raw.json",
+    "priorMutantCount": 4108,
+    "currentMutantCount": 4108,
+    "mutantIdentityOrStatusChanges": 0,
+    "mutationTargetSourceHashes": {
+      "lib/duplicate-review-session.ts": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+      "lib/keep-strategy.ts": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "lib/trash-lifecycle.ts": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+      "scripts/photo-provider-command-host.js": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+      "lib/review-preflight.ts": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+      "lib/trash-dispatch-guard.ts": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a"
+    },
+    "mutationTargetSourceHashesUnchanged": true,
+    "testInventoryChanges": [
+      "tests/commands/google-photos-commands.test.ts added (119 tests)"
+    ],
+    "thresholdsUnchanged": true
+  },
+  "diagnosticRun": {
+    "resultPath": "tmp/verification/diagnostic-refresh/8ed0949d-8030-4c57-8dd4-7a579d4f0dc7/mutation.json",
+    "node": "v24.20.0",
+    "sourceDrift": false,
+    "diagnosticStatus": "FAIL_BY_DESIGN",
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "criticalSurvivors": 0,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "canonicalReportSha256": "bd25be95b9b9a4da2bae2a28d1391d06b6c7c83c52a124727182151c4f10847e",
+    "cannotBeAcceptedAsPass": true
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 90,
+    "break": 90,
+    "maximumCriticalSurvivors": 0
+  },
+  "checks": {
+    "currentSourceMatchesDiagnosticAndNormalReplay": true,
+    "allCurrentNonKilledMutantsMatchPreviouslyReviewedPolicy": true,
+    "all4108MutantIdentitiesAndStatusesMatchPriorReport": true,
+    "targetSourceHashesUnchanged": true,
+    "reviewedClassificationsUnchanged": true,
+    "thresholdValuesUnchanged": true,
+    "diagnosticRunNotAcceptedAsPass": true,
+    "normalMutationReplayAccepted": true,
+    "policyStatusValid": true,
+    "policyChangedOnlyBySourceAndCanonicalReportHashes": true
+  },
+  "normalMutationReplay": {
+    "resultPath": "tmp/verification/mutation-rebind-replay-0cdad2-20261016-login/mutation.json",
+    "runId": "20261016T-login-0cdad2",
+    "node": "v24.20.0",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "tests": 1165,
+    "testFiles": 20,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "reviewedNonKilled": 211,
+    "resolvedNonKilled": 211,
+    "unresolvedNonKilled": 0,
+    "rawReportSha256": "9e4546e700cd20ab2de9abb6fc2fce84000875136d3bbe4308079208ff6691cb",
+    "mutationTriageSha256": "c0c3fd80cf435a91c2213388429bfe8cd4cdbd045bca8677bf48af03f9696972",
+    "incrementalCacheFingerprint": "39401ccedc8f53563a29af64fad717c26b508238cb40d1560018b0f1460cb8c1",
+    "incrementalCacheFile": "tmp/verification/mutation-incremental/39401ccedc8f53563a29af64fad717c26b508238cb40d1560018b0f1460cb8c1-node-24.20.0.json",
+    "elapsedSeconds": 27
+  }
+}

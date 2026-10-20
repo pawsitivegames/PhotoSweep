@@ -1,11 +1,31 @@
 // MAIN world command handler for iCloud Photos pages.
 
 (() => {
-  if (window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__) {
+  const ownerId = (() => {
+    try {
+      const src = document.currentScript?.src
+      const owner = src ? new URL(src).searchParams.get("owner") : null
+      if (owner) return owner
+    } catch {
+      // Chrome executeScript uses the owner marker set by the service worker.
+    }
+    return (
+      window.__GPD_PROVIDER_COMMAND_OWNER_ID__ ||
+      window.__GPD_COMMAND_HOST_OWNER_ID__ ||
+      ""
+    )
+  })()
+  if (
+    window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__ &&
+    (!ownerId || window.__GPD_ICLOUD_COMMAND_HANDLER_OWNER_ID__ === ownerId)
+  ) {
     console.log("GPD: iCloud command handler already loaded")
     return
   }
-  window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__ = true
+  if (window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__) {
+    delete window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__
+    delete window.__GPD_ICLOUD_COMMAND_HANDLER_OWNER_ID__
+  }
 
 const commandHost = window.__GPD_COMMAND_HOST__
 if (!commandHost) {
@@ -165,45 +185,10 @@ function accountEmailFromDocuments(documents) {
 }
 
 async function discoverIcloudAccountEmail() {
-  const documents = sameOriginDocuments()
-  const existingEmail = accountEmailFromDocuments(documents)
-  if (existingEmail) return existingEmail
-
-  // iCloud exposes the signed-in email in the account popover rather than in
-  // the library document. Open it briefly so healthCheck can bind results to
-  // the same account when the provider exposes that signal.
-  const accountButton = documents
-    .flatMap((candidateDocument) =>
-      Array.from(
-        candidateDocument.querySelectorAll(
-          'button, [role="button"], ui-button'
-        )
-      )
-    )
-    .find((element) =>
-      /^(account|account menu)$/i.test(
-        element.getAttribute("aria-label") || ""
-      )
-    )
-  if (!accountButton || typeof accountButton.click !== "function") return ""
-  try {
-    accountButton.click()
-    await sleep(0)
-    const email = accountEmailFromDocuments(sameOriginDocuments())
-    const closeButton = sameOriginDocuments()
-      .flatMap((candidateDocument) =>
-        Array.from(
-          candidateDocument.querySelectorAll(
-            '[aria-label="Close menu"], [aria-label="Close pane"]'
-          )
-        )
-      )
-      .find((element) => typeof element.click === "function")
-    closeButton?.click()
-    return email
-  } catch {
-    return ""
-  }
+  // When iCloud hides identity behind its account UI, opening the menu does
+  // not expose the label to this page context and can leave the popover open.
+  // Use an explicit label only when the provider already exposes it in the DOM.
+  return accountEmailFromDocuments(sameOriginDocuments())
 }
 
 async function assertIcloudProviderSession(args) {
@@ -431,7 +416,8 @@ function evaluateModifyResponse(
   data,
   requestedTargets,
   expectedDeletedState,
-  atomic = true
+  atomic = true,
+  allowImplicitActiveRestore = false
 ) {
   const outcomesByDedupKey = Object.create(null)
   const refsByRecordName = Object.create(null)
@@ -550,13 +536,22 @@ function evaluateModifyResponse(
     }
 
     const changeTag = record.recordChangeTag
+    const returnedDeletedState = normalizedDeletedState(
+      fieldValue(record, "isDeleted")
+    )
+    const implicitActiveRestore =
+      allowImplicitActiveRestore &&
+      expectedState === 0 &&
+      returnedDeletedState === undefined &&
+      record.deleted === false &&
+      fieldValue(record, "dateExpunged") === undefined
     if (
       record.recordType !== "CPLAsset" ||
       (record.operationType !== undefined && record.operationType !== "update") ||
       typeof changeTag !== "string" ||
       !changeTag.trim() ||
       changeTag === previousRef.changeTag ||
-      normalizedDeletedState(fieldValue(record, "isDeleted")) !== expectedState
+      (returnedDeletedState !== expectedState && !implicitActiveRestore)
     ) {
       outcomesByDedupKey[target.dedupKey] = {
         status: "unknown",
@@ -3245,7 +3240,32 @@ async function restoreItems(requestId, args) {
       )
       const data = await modifyRequest
       await assertIcloudMutationSession(args)
-      const responseOutcome = evaluateModifyResponse(data, chunk, 0, true)
+      let responseOutcome = evaluateModifyResponse(data, chunk, 0, true)
+      if (!responseOutcome.success && responseOutcome.status === "unknown") {
+        // An atomic modify can reach CloudKit even when its response omits the
+        // updated records. Reconcile that ambiguous outcome with a fresh read;
+        // never repeat the mutation request.
+        try {
+          await assertIcloudMutationSession(args)
+          const records = await fetchCloudKitTrashPreflightRecords(
+            queryUrl,
+            chunk,
+            zoneId
+          )
+          await assertIcloudMutationSession(args)
+          const readbackOutcome = evaluateModifyResponse(
+            { records },
+            chunk,
+            0,
+            true,
+            true
+          )
+          if (readbackOutcome.success) responseOutcome = readbackOutcome
+        } catch {
+          // The original ambiguous outcome stays unknown if provider readback
+          // cannot confirm every target in the same account session.
+        }
+      }
       let chunkConfirmed = true
       for (const target of chunk) {
         const targetOutcome =
@@ -3396,6 +3416,9 @@ commandHost.register({
   unsupportedMessage: (command) => `Unsupported iCloud command: ${command}`
 })
 
+window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__ = true
+window.__GPD_ICLOUD_COMMAND_HANDLER_OWNER_ID__ =
+  ownerId || window.__GPD_COMMAND_HOST_OWNER_ID__ || ""
 console.log("GPD: iCloud command handler loaded")
 
 })();

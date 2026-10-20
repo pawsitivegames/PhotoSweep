@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-09T16:56:09.419840Z",
+  "status": "REBOUND_AFTER_MUTATION_ARRAY_CANONICALIZATION_AND_CURRENT_MUTANT_REVIEW",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "version": "2.3.6",
+    "chromeVersion": "2.3.6.1",
+    "registeredSourceFingerprint": "5e213b320ad5043b039146a701d4eaecd0863f60cd36a85d68b015e176476f98",
+    "registeredSourceFileCount": 316,
+    "standaloneDefaultRootFingerprint": "1efd47d8e08bbcb6157fc60df68710094cdb3a0c6128ef30ba6db0810e4af827",
+    "standaloneSourceStable": true
+  },
+  "sourceFingerprintScope": {
+    "note": "The release registry adds docs/PLATFORM_PARITY_PLAN.md to the default roots. The verification change also makes the canonical mutation hash independent of Stryker mutant-array ordering; the policy binds to the registered release fingerprint.",
+    "additionalReleaseRoot": "docs/PLATFORM_PARITY_PLAN.md"
+  },
+  "mutationCampaign": {
+    "directory": "tmp/verification/20261009T-mutation-release-candidate-v4",
+    "rawReport": "tmp/verification/20261009T-mutation-release-candidate-v4/stryker-raw.json",
+    "rawReportBytesSha256": "249ac7cc8ed5268e94a6ab1ad5033d07935cdff8ae4dd80f0c6deadd40d868d9",
+    "canonicalRawReportSha256": "82a8a83f64e144f27150dbf0711d30b612b5752e8adf87f66e1264b3e76ca8f4",
+    "scorePercent": 94.89,
+    "thresholdPercent": 90,
+    "mutantsTotal": 3996,
+    "mutantsKilled": 3792,
+    "mutantsSurvived": 181,
+    "mutantsNoCoverage": 23,
+    "timedOut": 0,
+    "errored": 0,
+    "canonicalizationNote": "After removing documented volatile report fields, mutant arrays are sorted by their complete canonical mutant object before hashing. The v4 and formal v6 reports then have the same canonical hash."
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "7ba0b26de339172db7c932cecf2631782db1cd185c6b892ccf1b1e62d4d7522b",
+    "newPolicySha256": "2f9b0fa4ea37fc1d139bee9b395b438789e95696d331388b2954db35c26c4690",
+    "sourceFingerprint": "5e213b320ad5043b039146a701d4eaecd0863f60cd36a85d68b015e176476f98",
+    "canonicalRawReportSha256": "82a8a83f64e144f27150dbf0711d30b612b5752e8adf87f66e1264b3e76ca8f4",
+    "entries": 204,
+    "reusedAfterExactLineAlignment": 203,
+    "newlyReviewed": 1,
+    "newlyReviewedMutants": [
+      {
+        "file": "scripts/photo-provider-command-host.js",
+        "id": "3971",
+        "line": 1232,
+        "classification": "EQUIVALENT"
+      }
+    ],
+    "reviewer": "Codex release-gate review on 2026-10-09"
+  },
+  "lineAlignedSourceRevisions": {
+    "lib/duplicate-review-session.ts": "582c0d438f002ff4e94a54b06284e1e3a7402a84",
+    "lib/keep-strategy.ts": "582c0d438f002ff4e94a54b06284e1e3a7402a84",
+    "lib/trash-lifecycle.ts": "3596547fdb4d52ba2157fc1e72f1086acf512564",
+    "scripts/photo-provider-command-host.js": "3596547fdb4d52ba2157fc1e72f1086acf512564"
+  },
+  "limitations": [
+    "The formal v6 release run remains preserved as failed mutation evidence because it predates the report-order canonicalization repair.",
+    "The fresh formal v7 mutation campaign passes with the rebound policy; the overall release run remains BLOCKED by five missing live provider and video evidence records.",
+    "The working tree is dirty, so the generated ZIP is bound to this exact source fingerprint and status digest rather than a committed release snapshot.",
+    "CWS upload, privacy-retention decision, exact-package Chrome runtime, live payment and email checks, and hosted CI remain outstanding."
+  ],
+  "updatedAtUtc": "2026-10-09T18:15:30Z",
+  "formalObservedReport": {
+    "run": "tmp/verification/20261009-main-024d56c-candidate-v6",
+    "rawReport": "tmp/verification/20261009T165644Z/mutation-run/stryker-raw.json",
+    "rawReportBytesSha256": "be78b0df78c0e74bf73159aba0fb54060d31dd53c432a3335caf595dc6336310",
+    "orderSensitiveCanonicalSha256": "45710a2f947b8e4805a297eba7772ab4806798008b32f0984b69b8448784f076",
+    "stableCanonicalSha256": "82a8a83f64e144f27150dbf0711d30b612b5752e8adf87f66e1264b3e76ca8f4",
+    "sameSourceAcrossMutatedFiles": true,
+    "matchedMutantSignatures": 3996,
+    "unmatchedMutantSignatures": 0,
+    "ambiguousMutantSignatures": 0,
+    "statusCounts": {
+      "Killed": 3792,
+      "Survived": 181,
+      "NoCoverage": 23
+    }
+  },
+  "canonicalizationRegression": {
+    "implementation": "verification/run-mutation.mjs sorts each file mutant array before canonical report hashing",
+    "test": "tests/verification/mutation-runner-integrity.test.ts: keeps triage bindings stable when mutant arrays are reordered",
+    "focusedResult": "PASS 23/23 tests",
+    "validatedReports": [
+      "tmp/verification/20261009T-mutation-release-candidate-v4/stryker-raw.json",
+      "tmp/verification/20261009T165644Z/mutation-run/stryker-raw.json"
+    ],
+    "sharedStableCanonicalSha256": "82a8a83f64e144f27150dbf0711d30b612b5752e8adf87f66e1264b3e76ca8f4"
+  },
+  "finalFormalMutationValidation": {
+    "runDirectory": "tmp/verification/release-20261009-main-024d56c-candidate-v7",
+    "sourceFingerprint": "5e213b320ad5043b039146a701d4eaecd0863f60cd36a85d68b015e176476f98",
+    "status": "PASS",
+    "mutationScorePercent": 94.89,
+    "mutantsTotal": 3996,
+    "mutantsKilled": 3792,
+    "mutantsSurvived": 181,
+    "mutantsNoCoverage": 23,
+    "mutantsUnresolved": 0,
+    "mutantsUnreviewed": 0,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "policyStatus": "VALID",
+    "canonicalRawReportSha256": "82a8a83f64e144f27150dbf0711d30b612b5752e8adf87f66e1264b3e76ca8f4"
+  },
+  "finalPackage": {
+    "artifact": "build/photosweep-cws-v2.3.6.1-sha256-4094c5bd0b9e.zip",
+    "sha256": "4094c5bd0b9e515b922c701cdd56594579bdcfbe20db4c0efcb81272b75a4fb1",
+    "sourceFingerprint": "5e213b320ad5043b039146a701d4eaecd0863f60cd36a85d68b015e176476f98",
+    "sourceDirty": true,
+    "separateSidecarAudit": "PASS"
+  }
+}

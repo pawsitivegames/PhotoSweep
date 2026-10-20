@@ -34,9 +34,18 @@ export interface ProviderHealthOutcome {
 export class ProviderConnectionSession {
   private readonly tabMap = new Map<number, number>()
   private readonly providerByTab = new Map<number, PhotoProvider>()
+  private readonly sidePanelConnections = new Map<
+    string,
+    {
+      hostTabId: number | null
+      providerTabId: number | null
+      provider: PhotoProvider
+    }
+  >()
   private sidePanelHost: number | null = null
   private sidePanelProviderTab: number | null = null
   private sidePanelProvider: PhotoProvider = "google"
+  private sidePanelProviderClientId?: string
 
   get hostTabId(): number | null {
     return this.sidePanelHost
@@ -44,6 +53,19 @@ export class ProviderConnectionSession {
 
   setHostTab(tabId: number | null): void {
     this.sidePanelHost = tabId
+  }
+
+  setSidePanelHost(clientId: string, tabId: number | null): void {
+    const current = this.sidePanelConnections.get(clientId)
+    this.sidePanelConnections.set(clientId, {
+      hostTabId: tabId,
+      providerTabId: current?.providerTabId ?? null,
+      provider: current?.provider ?? "google"
+    })
+  }
+
+  getSidePanelHostTabId(clientId: string): number | null {
+    return this.sidePanelConnections.get(clientId)?.hostTabId ?? null
   }
 
   linkTabs(firstTabId: number, secondTabId: number): void {
@@ -54,11 +76,22 @@ export class ProviderConnectionSession {
   remember(
     appTabId: number | null,
     providerTabId: number,
-    provider: PhotoProvider
+    provider: PhotoProvider,
+    clientId?: string
   ): void {
     if (appTabId === null) {
+      if (clientId) {
+        const current = this.sidePanelConnections.get(clientId)
+        this.sidePanelConnections.set(clientId, {
+          hostTabId: current?.hostTabId ?? providerTabId,
+          providerTabId,
+          provider
+        })
+        return
+      }
       this.sidePanelProviderTab = providerTabId
       this.sidePanelProvider = provider
+      this.sidePanelProviderClientId = undefined
       return
     }
     this.linkTabs(appTabId, providerTabId)
@@ -66,17 +99,36 @@ export class ProviderConnectionSession {
     this.providerByTab.set(providerTabId, provider)
   }
 
-  rememberSidePanelProvider(providerTabId: number, provider: PhotoProvider): void {
+  rememberSidePanelProvider(
+    providerTabId: number,
+    provider: PhotoProvider,
+    clientId?: string
+  ): void {
     this.sidePanelHost = providerTabId
     this.sidePanelProviderTab = providerTabId
     this.sidePanelProvider = provider
+    this.sidePanelProviderClientId = clientId
+    if (clientId) {
+      this.sidePanelConnections.set(clientId, {
+        hostTabId: providerTabId,
+        providerTabId,
+        provider
+      })
+    }
   }
 
   mappedProviderTabId(
     appTabId: number | null,
-    provider: PhotoProvider
+    provider: PhotoProvider,
+    clientId?: string
   ): number | null {
     if (appTabId === null) {
+      if (clientId) {
+        const connection = this.sidePanelConnections.get(clientId)
+        return connection?.provider === provider
+          ? connection.providerTabId
+          : null
+      }
       return this.sidePanelProvider === provider
         ? this.sidePanelProviderTab
         : null
@@ -97,9 +149,10 @@ export class ProviderConnectionSession {
   async resolveProviderTab(
     appTabId: number | null,
     provider: PhotoProvider,
-    adapter: ProviderConnectionAdapter
+    adapter: ProviderConnectionAdapter,
+    clientId?: string
   ): Promise<number | null> {
-    const mappedTabId = this.mappedProviderTabId(appTabId, provider)
+    const mappedTabId = this.mappedProviderTabId(appTabId, provider, clientId)
     if (mappedTabId !== null) {
       try {
         if (await adapter.ensureReachable(mappedTabId, provider)) {
@@ -108,15 +161,19 @@ export class ProviderConnectionSession {
       } catch {
         // A stale or unavailable tab falls through to provider discovery.
       }
-      this.forgetProviderTab(appTabId)
+      this.forgetProviderTab(appTabId, clientId)
     }
 
+    const preferredTabId =
+      appTabId === null && clientId
+        ? (this.sidePanelConnections.get(clientId)?.hostTabId ?? null)
+        : this.sidePanelHost
     const providerTabId = await adapter.findProviderTab(
       provider,
-      this.sidePanelHost
+      preferredTabId
     )
     if (providerTabId === null) return null
-    this.remember(appTabId, providerTabId, provider)
+    this.remember(appTabId, providerTabId, provider, clientId)
     return providerTabId
   }
 
@@ -194,9 +251,20 @@ export class ProviderConnectionSession {
     }
   }
 
-  forgetProviderTab(appTabId: number | null): void {
+  forgetProviderTab(appTabId: number | null, clientId?: string): void {
     if (appTabId === null) {
+      if (clientId) {
+        const current = this.sidePanelConnections.get(clientId)
+        if (current) {
+          this.sidePanelConnections.set(clientId, {
+            ...current,
+            providerTabId: null
+          })
+        }
+        return
+      }
       this.sidePanelProviderTab = null
+      this.sidePanelProviderClientId = undefined
       return
     }
     this.forgetPair(appTabId)
@@ -204,13 +272,36 @@ export class ProviderConnectionSession {
 
   stopClient(clientId?: string): void {
     if (!clientId) return
-    this.sidePanelProviderTab = null
-    this.sidePanelHost = null
+    this.sidePanelConnections.delete(clientId)
+    if (this.sidePanelProviderClientId === clientId) {
+      const providerTabId = this.sidePanelProviderTab
+      this.sidePanelProviderTab = null
+      this.sidePanelProviderClientId = undefined
+      if (this.sidePanelHost === providerTabId) this.sidePanelHost = null
+    }
   }
 
   removeTab(tabId: number): number | null {
     if (this.sidePanelHost === tabId) this.sidePanelHost = null
-    if (this.sidePanelProviderTab === tabId) this.sidePanelProviderTab = null
+    if (this.sidePanelProviderTab === tabId) {
+      this.sidePanelProviderTab = null
+      this.sidePanelProviderClientId = undefined
+    }
+    for (const [clientId, connection] of this.sidePanelConnections) {
+      if (
+        connection.hostTabId !== tabId &&
+        connection.providerTabId !== tabId
+      ) {
+        continue
+      }
+      this.sidePanelConnections.set(clientId, {
+        ...connection,
+        hostTabId:
+          connection.hostTabId === tabId ? null : connection.hostTabId,
+        providerTabId:
+          connection.providerTabId === tabId ? null : connection.providerTabId
+      })
+    }
 
     const mappedTabId = this.tabMap.get(tabId) ?? null
     this.forgetPair(tabId)

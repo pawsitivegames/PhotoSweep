@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-20T00:04:16Z",
+  "status": "PASS",
+  "purpose": "Rebind reviewed mutation dispositions after the TypeScript 7 and Vitest ESM configuration update, using a fresh diagnostic report.",
+  "previousPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "c88cc1ae6d213c307024ced8522967ab9d595faadf73115fc1025ea79feb7a8a",
+    "sourceFingerprint": "5e4a43c9d3abd4d17f1d115ab397efb392fa7e3ce3c766669d4ad6353ec398c2",
+    "canonicalReportSha256": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c",
+    "reviewedEntries": 215
+  },
+  "currentPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "925bcd3b778f6fcd1f1f2d6953afaa5326677bf9e0121bb4c46439cdddce7d01",
+    "sourceFingerprint": "dbde77742b0bc8a5013d2f69e8ad1b24105b050416b9f5c1eb749cd34712e109",
+    "canonicalReportSha256": "d3c8a2c7dc5c7ac877e472d7b82b942a5329841a6b4daef2ff8e2f72862fca99",
+    "reviewedEntries": 215
+  },
+  "diagnosticRefresh": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "outputDirectory": "tmp/verification/diagnostic-refresh/55b71f07-4578-49a2-92a6-67074239cecd",
+    "resultUse": "Diagnostic only; the diagnostic runner always fails its gate and is not accepted as a mutation PASS.",
+    "status": "FAIL",
+    "sourceFingerprint": "dbde77742b0bc8a5013d2f69e8ad1b24105b050416b9f5c1eb749cd34712e109",
+    "sourceDrift": false,
+    "nodeVersion": "24.20.0",
+    "typescriptVersion": "7.0.2",
+    "strykerVersion": "10.0.0",
+    "vitestVersion": "5.0.5",
+    "rawReportSha256": "c9700550fcc5ba6a7ebe02c8e9f3f9305fd9990fdc42dfde56fdb517d28f2a09",
+    "canonicalReportSha256": "d3c8a2c7dc5c7ac877e472d7b82b942a5329841a6b4daef2ff8e2f72862fca99",
+    "testFileCount": 20,
+    "testCaseCount": 1172,
+    "filesMutated": 6,
+    "mutantsTotal": 4171,
+    "mutantsKilled": 3956,
+    "mutantsSurvived": 191,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "mutationScorePercent": 94.85,
+    "triagePolicyStatus": "STALE_OR_INVALID"
+  },
+  "policyRebind": {
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256"
+    ],
+    "canonicalReportDifferencePaths": [
+      "config.vitest.configFile",
+      "framework.dependencies.typescript"
+    ],
+    "previousVitestConfig": "vitest.config.ts",
+    "currentVitestConfig": "vitest.config.mts",
+    "previousTypescriptVersion": "6.0.3",
+    "currentTypescriptVersion": "7.0.2",
+    "exactFullMutantInventoryMatches": true,
+    "previousMutantsTotal": 4171,
+    "currentMutantsTotal": 4171,
+    "matchedNonKilledEntries": 215,
+    "previousReviewedEntries": 215,
+    "missingEntries": 0,
+    "newUnreviewedNonKilledMutants": 0,
+    "classificationChanges": 0,
+    "classificationCounts": {
+      "EQUIVALENT": 151,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    },
+    "allReviewedEntriesRemainCritical": true,
+    "thresholdsChanged": false,
+    "registeredSourceRootsChanged": false,
+    "sourceFingerprintIncludedPolicyFile": false,
+    "existingPeerAndBehaviorReviewPreserved": "verification/evidence/mutation-waiver-peer-audit-20261017-owner-marker.json"
+  },
+  "normalMutationReplay": {
+    "status": "PASS",
+    "purpose": "The final release run replayed the normal mutation gate against this rebound policy and its incremental cache.",
+    "completedAtUtc": "2026-10-20T00:05:31Z",
+    "command": "npm run verify:release -- --out-dir tmp/verification/release-final-ts7-20261019",
+    "outputDirectory": "tmp/verification/release-final-ts7-20261019",
+    "sourceFingerprint": "dbde77742b0bc8a5013d2f69e8ad1b24105b050416b9f5c1eb749cd34712e109",
+    "sourceDrift": false,
+    "policyStatus": "VALID",
+    "testFileCount": 20,
+    "testCaseCount": 1172,
+    "mutantsTotal": 4171,
+    "mutantsKilled": 3956,
+    "mutantsSurvived": 191,
+    "mutantsNoCoverage": 24,
+    "mutationScorePercent": 94.85,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "rawReportSha256": "4c64d7dafd14609b00081dee3a1200095a6c31273c449ff4531bc134cbe0bcb4"
+  }
+}

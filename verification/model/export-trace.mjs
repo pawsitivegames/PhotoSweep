@@ -564,17 +564,13 @@ export function exportTraceBundle({
   const tracesPath = join(outputDirectory, "traces.json")
   writeFileSync(
     tracesPath,
-    `${JSON.stringify(
-      {
-        schemaVersion: TRACE_SCHEMA_VERSION,
-        artifactType: "photosweep.tlc-traces",
-        runId,
-        buildId,
-        traces: parsedTraces
-      },
-      null,
-      2
-    )}\n`
+    `${JSON.stringify({
+      schemaVersion: TRACE_SCHEMA_VERSION,
+      artifactType: "photosweep.tlc-traces",
+      runId,
+      buildId,
+      traces: parsedTraces
+    })}\n`
   )
 
   const exitCode = processResult.status ?? 1

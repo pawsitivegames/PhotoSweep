@@ -1,4 +1,5 @@
 import { APP_ID } from "./types"
+import { BUILD_ID } from "./generated/build-flags"
 import type {
   ProviderCommandKeyResultMessage,
   ProviderCommandPublicKey
@@ -33,13 +34,20 @@ export function injectProviderScript(
   publicKey?: ProviderCommandPublicKey
 ): Promise<void> {
   const url = chrome.runtime.getURL(fileName)
-  const version = chrome.runtime.getManifest().version
-  const query =
-    fileName === COMMAND_HOST_FILE
-      ? `?publicKey=${encodeURIComponent(JSON.stringify(publicKey))}&v=${version}-${Date.now()}`
-      : `?v=${version}-${Date.now()}`
+  const buildId =
+    typeof BUILD_ID === "string" && BUILD_ID.length > 0
+      ? BUILD_ID
+      : chrome.runtime.getManifest().version
+  const ownerId = `${chrome.runtime.id}:${buildId}`
+  const params = new URLSearchParams({
+    owner: ownerId,
+    v: `${buildId}-${Date.now()}`
+  })
+  if (fileName === COMMAND_HOST_FILE) {
+    params.set("publicKey", JSON.stringify(publicKey))
+  }
   const script = document.createElement("script")
-  script.src = url + query
+  script.src = `${url}?${params.toString()}`
   script.type = "text/javascript"
   script.async = false
   const loaded = new Promise<void>((resolve, reject) => {

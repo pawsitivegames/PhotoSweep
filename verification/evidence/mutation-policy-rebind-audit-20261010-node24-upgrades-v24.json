@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-10T21:43:31Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_SOURCE_HASH_REVALIDATION",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.1",
+    "packageSha256": "16625794dc806ea309664da2c8258e7f11492f70b7f5769bcbae30bc2f8fbe6e",
+    "sourceFingerprint": "ef70adf82d8e8814daa133e3b86f16d595a5d67913fc6d3da8c6988cf6f289ea",
+    "sourceFileCount": 319,
+    "gptkSubmoduleCommit": "cd1db961c6eacc5a3bc20304b559770ea152d930",
+    "gptkWorkingTreeDirty": true,
+    "buildId": "740ea990-5c3a-40b4-8487-e0c01849a843"
+  },
+  "mutationComparison": {
+    "policyBoundReport": "tmp/verification/release-20261010-node24-posttriage-v20/mutation-run/stryker-raw.json",
+    "currentReport": "tmp/verification/release-20261010-node24-upgrades-v24/mutation-run/stryker-raw.json",
+    "policyBoundCanonicalReportSha256": "3fd09c0708e0eabdd2efa63fe492fcb51536e3371338da433cab9741f3689f19",
+    "currentCanonicalReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "canonicalDifferencePaths": [
+      "$.config.concurrency"
+    ],
+    "concurrency": {
+      "policyBoundReport": 4,
+      "currentReport": 1,
+      "nextRun": 4
+    },
+    "currentCanonicalMatchesAcceptedPriorReport": "tmp/verification/release-20261010-node24-final-v19/mutation-run/stryker-raw.json",
+    "mutantsTotal": 3996,
+    "statusCounts": {
+      "NoCoverage": 23,
+      "Killed": 3792,
+      "Survived": 181
+    },
+    "policyEntries": 204,
+    "policyEntriesMatchedExactlyToCurrentNonKilledMutants": 204,
+    "policyEntrySourceHashesMatchCurrentFiles": true,
+    "missingPolicyEntries": 0,
+    "extraPolicyEntries": 0,
+    "sourceFingerprintChangedOutsideTheMutatedFiles": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "32fc720739fe9db2b07acb66fa0e07abbac36201eadf0fe670ba58906261ad5e",
+    "updatedPolicyFileSha256": "35489606f3a93a8c9923f1666062e76314488301de35b9ea1f3ca58f8c2a020f",
+    "sourceFingerprint": {
+      "from": "7f9a7c85518dfd18e9ca57a0bc3d7d36d2795cce01cb9876d0ba1b5303c1a7e8",
+      "to": "ef70adf82d8e8814daa133e3b86f16d595a5d67913fc6d3da8c6988cf6f289ea"
+    },
+    "rawReportSha256": {
+      "from": "3fd09c0708e0eabdd2efa63fe492fcb51536e3371338da433cab9741f3689f19",
+      "to": "3fd09c0708e0eabdd2efa63fe492fcb51536e3371338da433cab9741f3689f19"
+    },
+    "policyEntriesChanged": 0,
+    "classificationChanges": 0,
+    "evidenceChanges": 0,
+    "thresholdsChanged": false,
+    "nextRunConcurrency": 4
+  },
+  "limitations": [
+    "This rebind preserves the reviewed mutant classifications and threshold. A fresh release run must validate the concurrency-four report against this binding.",
+    "This mutation review does not establish exact-package Chrome runtime, live provider round-trips, or external video-playback evidence."
+  ]
+}

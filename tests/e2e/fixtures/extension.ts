@@ -13,6 +13,7 @@ import {
 
 import type { PlanId } from "../../../lib/entitlement"
 import type { KeepDecisionProvenance } from "../../../lib/duplicate-review-session"
+import { BUILD_ID } from "../../../lib/generated/build-flags"
 import { buildScanScopeFingerprint } from "../../../lib/review-preflight"
 import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../../../lib/privacy-disclosure"
@@ -386,8 +387,14 @@ export async function readLocalStorage(
             return
           }
           const requested = Array.isArray(keys) ? keys : [keys]
-          chrome.storage.local.get("settings", (settingsResult) => {
-            const configuredProvider = settingsResult.settings?.sourceProvider
+          chrome.storage.local.get(["settings"]).then((settingsResult) => {
+            const settingsValue = settingsResult.settings
+            const configuredProvider =
+              settingsValue !== null &&
+              typeof settingsValue === "object" &&
+              "sourceProvider" in settingsValue
+                ? settingsValue.sourceProvider
+                : undefined
             const provider =
               configuredProvider === "icloud" || configuredProvider === "amazon"
                 ? configuredProvider
@@ -500,6 +507,37 @@ export async function openGptkStubPage(
 
   const page = await context.newPage()
   await page.goto("https://photos.google.com/")
+
+  // The stub supplies its own provider command handler. Mark it with the same
+  // owner identity used by the service worker so test setup does not inject a
+  // second, real command handler that races the stub's responses.
+  const extensionId = extensionIds.get(context)
+  if (!extensionId) {
+    throw new Error("Extension ID is unavailable for the GPTK stub page.")
+  }
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(extensionPath, "manifest.json"), "utf-8")
+  ) as { version?: unknown }
+  const ownerVersion =
+    typeof BUILD_ID === "string" && BUILD_ID.length > 0
+      ? BUILD_ID
+      : typeof manifest.version === "string"
+        ? manifest.version
+        : undefined
+  if (!ownerVersion) {
+    throw new Error("Extension build identity is unavailable for the GPTK stub.")
+  }
+  const ownerId = `${extensionId}:${ownerVersion}`
+  await page.evaluate((commandOwnerId) => {
+    const stubWindow = window as unknown as {
+      __GPD_COMMAND_HOST__?: unknown
+      __GPD_COMMAND_HOST_OWNER_ID__?: string
+      __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+    }
+    stubWindow.__GPD_COMMAND_HOST__ = { register: () => undefined }
+    stubWindow.__GPD_COMMAND_HOST_OWNER_ID__ = commandOwnerId
+    stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
+  }, ownerId)
 
   // Inject overrides so the stub responds as configured
   if (Object.keys(overrides).length > 0) {

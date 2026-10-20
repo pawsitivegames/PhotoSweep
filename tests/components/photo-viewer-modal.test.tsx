@@ -1,8 +1,9 @@
 /**
  * Component tests for PhotoViewerModal.
  *
- * We mock global fetch so useGroupBlobUrls resolves immediately with a
- * stable blob URL, letting us test navigation and UI state synchronously.
+ * Preview fetches stay pending by default so unrelated UI tests do not leave
+ * asynchronous React updates behind. Tests that cover preview loading settle
+ * the request through Testing Library's async queries.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
@@ -18,18 +19,15 @@ import type { GpdMediaItem } from "../../lib/types"
 // Stub fetch → immediately resolves with a Blob so useGroupBlobUrls populates fast.
 // URL.createObjectURL is not available in happy-dom; stub it too.
 const mockObjectUrl = "blob:mock"
+const revokeObjectUrlMock = vi.fn()
 vi.stubGlobal("URL", {
   ...URL,
   createObjectURL: () => mockObjectUrl,
-  revokeObjectURL: () => {},
+  revokeObjectURL: revokeObjectUrlMock,
 })
 
-const fetchMock = vi.fn((_url: string) =>
-  Promise.resolve({
-    ok: true,
-    blob: () => Promise.resolve(new Blob(["img"], { type: "image/jpeg" })),
-  } as Response)
-)
+const pendingPreviewFetch = () => new Promise<Response>(() => {})
+const fetchMock = vi.fn((_url: string) => pendingPreviewFetch())
 
 vi.stubGlobal("fetch", fetchMock)
 
@@ -75,12 +73,7 @@ const defaultProps = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  fetchMock.mockImplementation((_url: string) =>
-    Promise.resolve({
-      ok: true,
-      blob: () => Promise.resolve(new Blob(["img"], { type: "image/jpeg" })),
-    } as Response)
-  )
+  fetchMock.mockImplementation(() => pendingPreviewFetch())
 })
 
 // ============================================================
@@ -112,6 +105,22 @@ describe("PhotoViewerModal", () => {
     wrap(<PhotoViewerModal {...defaultProps} />)
     expect(screen.getByText(/3024×4032/)).toBeInTheDocument()
     expect(screen.getByText(/Taken/)).toBeInTheDocument()
+  })
+
+  it("renders the blob URL after a successful preview fetch", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(["img"], { type: "image/jpeg" }))
+    } as Response)
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[makeItem("preview", { fileName: "preview.jpg" })]}
+      />
+    )
+    expect(
+      await screen.findByRole("img", { name: "preview.jpg" })
+    ).toHaveAttribute("src", mockObjectUrl)
   })
 })
 
@@ -260,7 +269,7 @@ describe("[VIDEO-PLAYBACK] PhotoViewerModal — video playback", () => {
       mediaKey: "vid1",
       scopeFingerprint: "scope-a",
       playbackUrl:
-        "https://download-photos.amazon.ca/v2/download/signed/vid1?ownerId=owner",
+        "https://download-photos.amazon.ca/v2/download/signed/vid1/alt/video_transcode?ownerId=owner&y=720",
       mimeType: "video/mp4"
     })
 
@@ -283,10 +292,41 @@ describe("[VIDEO-PLAYBACK] PhotoViewerModal — video playback", () => {
     const player = await screen.findByLabelText("Play clip.mp4")
     expect(player).toHaveAttribute(
       "src",
-      "https://download-photos.amazon.ca/v2/download/signed/vid1?ownerId=owner"
+      "https://download-photos.amazon.ca/v2/download/signed/vid1/alt/video_transcode?ownerId=owner&y=720"
     )
     fireEvent.click(screen.getByRole("button", { name: "Stop full video playback" }))
     await waitFor(() => expect(screen.queryByLabelText("Play clip.mp4")).not.toBeInTheDocument())
+  })
+
+  it("revokes the temporary playback URL when full video playback stops", async () => {
+    const video = makeItem("vid1", {
+      provider: "amazon",
+      mediaKind: "video",
+      mimeType: "video/mp4",
+      duration: 12_000,
+      fileName: "clip.mp4"
+    })
+    const onLoadVideo = vi.fn().mockResolvedValue({
+      mediaKey: "vid1",
+      scopeFingerprint: "scope-a",
+      playbackUrl: mockObjectUrl,
+      mimeType: "video/mp4"
+    })
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[video]}
+        onLoadVideo={onLoadVideo}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Load full video" }))
+    await screen.findByLabelText("Play clip.mp4")
+    fireEvent.click(screen.getByRole("button", { name: "Stop full video playback" }))
+
+    await waitFor(() =>
+      expect(revokeObjectUrlMock).toHaveBeenCalledWith(mockObjectUrl)
+    )
   })
 
   it("clears a failed video URL and offers retry and provider fallback", async () => {
@@ -301,7 +341,8 @@ describe("[VIDEO-PLAYBACK] PhotoViewerModal — video playback", () => {
     const onLoadVideo = vi.fn().mockResolvedValue({
       mediaKey: "vid1",
       scopeFingerprint: "scope-a",
-      playbackUrl: "https://download-photos.amazon.ca/v2/download/signed/vid1",
+      playbackUrl:
+        "https://download-photos.amazon.ca/v2/download/signed/vid1/alt/video_transcode?ownerId=owner&y=720",
       mimeType: "video/mp4"
     })
     wrap(

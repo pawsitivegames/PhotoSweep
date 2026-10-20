@@ -1,7 +1,7 @@
 import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { render } from "@testing-library/react"
 import React from "react"
-import { bench, describe, vi } from "vitest"
+import { describe, it, vi } from "vitest"
 
 import { DuplicateGroups } from "../../components/DuplicateGroups"
 import type { DuplicateGroup } from "../../lib/types"
@@ -48,9 +48,8 @@ function renderGroups(props: React.ComponentProps<typeof DuplicateGroups>) {
 }
 
 describe("DuplicateGroups perf", () => {
-  bench(
-    "load: 10k groups initial render",
-    () => {
+  it("load: 10k groups initial render", async ({ bench }) => {
+    await bench("load: 10k groups initial render", () => {
       const { unmount } = renderGroups({
         groups,
         mediaItems,
@@ -64,13 +63,13 @@ describe("DuplicateGroups perf", () => {
         onTrashAll: () => {}
       })
       unmount()
-    },
-    { time: 1000 }
-  )
+    }).run({ time: 1000 })
+  })
 
-  bench(
-    "toggle-group: re-render after one group deselect",
-    () => {
+  it("toggle-group: re-render after one group deselect", async ({ bench }) => {
+    await bench(
+      "toggle-group: re-render after one group deselect",
+      () => {
       const { rerender, unmount } = renderGroups({
         groups,
         mediaItems,
@@ -101,13 +100,16 @@ describe("DuplicateGroups perf", () => {
         </ThemeProvider>
       )
       unmount()
-    },
-    { time: 1000 }
-  )
+      }
+    ).run({ time: 1000 })
+  })
 
-  bench(
+  it(
     "toggle-kept: re-render after one kept toggle on big group",
-    () => {
+    async ({ bench }) => {
+      await bench(
+        "toggle-kept: re-render after one kept toggle on big group",
+        () => {
       const { rerender, unmount } = renderGroups({
         groups,
         mediaItems,
@@ -138,7 +140,8 @@ describe("DuplicateGroups perf", () => {
         </ThemeProvider>
       )
       unmount()
-    },
-    { time: 1000 }
+        }
+      ).run({ time: 1000 })
+    }
   )
 })

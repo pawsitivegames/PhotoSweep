@@ -47,19 +47,11 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jre-headless
           fi
-          mkdir -p tmp/verification/ci-tlc/tooling
-          curl --fail --location --retry 3 \
-            --output tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar \
-            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-          echo "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
+          node verification/install-pinned-tlc.mjs
 
       # Unit tests (Vitest — pure JS, no browser)
       - name: Unit tests
         run: npm test
-
-      # Build extension (required before integration tests)
-      - name: Build extension for dev-entitlement integration tests
-        run: PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1 npm run build
 
       # Integration tests require a headed browser; use Xvfb on Linux.
       # Cache the browser binaries so we only hit the CDN when the Playwright
@@ -141,7 +133,7 @@ jobs:
         run: npm ci
 
       - name: Run benchmarks
-        run: npx vitest bench --run --outputJson bench-output.json
+        run: npx vitest bench --run --reporter=json --outputFile=bench-output.json
 
       # Restore the rolling history of recent main-branch runs.
       # restore-keys falls back to the latest matching entry when no exact hit.

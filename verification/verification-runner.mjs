@@ -20,11 +20,15 @@ import {
   validateCwsArtifactMetadata
 } from "../tools/cws-artifact.mjs"
 import { validateLiveProviderBinding } from "./live-provider-evidence.mjs"
+import { validateVideoPlaybackEvidence } from "./video-playback-evidence.mjs"
 import {
   MUTATION_OUTCOME_REQUIRED_ACTIONS,
   validateMutationOutcomeModelEvidence
 } from "./mutation-outcome-model-evidence.mjs"
-import { validateAmazonVideoPlaybackEvidence } from "./amazon-video-playback-evidence.mjs"
+import {
+  sourceDeclaredAmazonMarketplaceHosts,
+  validateAmazonVideoPlaybackEvidence
+} from "./amazon-video-playback-evidence.mjs"
 import { parseArgs } from "./parse-args.mjs"
 import {
   expectedRecoveryAuthorityBinding,
@@ -33,6 +37,7 @@ import {
 } from "./recovery-authority-model-evidence.mjs"
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
 import { classifyTraceReplayResult } from "./trace-replay-status.mjs"
+import { createReleasePackageEnvironment } from "./package-environment.mjs"
 
 const root = resolve(process.env.VERIFICATION_ROOT ?? process.cwd())
 const scopeOrder = ["fast", "nightly", "release"]
@@ -51,6 +56,32 @@ if (
 ) {
   throw new Error(
     "--candidate-package requires release scope and an explicit hash-named ZIP path"
+  )
+}
+const videoPlaybackEvidenceFlagProvided = Object.hasOwn(
+  args,
+  "video-playback-evidence"
+)
+const videoPlaybackEvidencePath =
+  args["video-playback-evidence"] ??
+  process.env.PHOTOSWEEP_VIDEO_PLAYBACK_EVIDENCE
+const videoPlaybackEvidenceProvided =
+  videoPlaybackEvidenceFlagProvided ||
+  process.env.PHOTOSWEEP_VIDEO_PLAYBACK_EVIDENCE !== undefined
+if (
+  videoPlaybackEvidenceFlagProvided &&
+  typeof args["video-playback-evidence"] !== "string"
+) {
+  throw new Error("--video-playback-evidence requires a manifest path")
+}
+if (videoPlaybackEvidenceProvided && scope !== "release") {
+  throw new Error(
+    "--video-playback-evidence and PHOTOSWEEP_VIDEO_PLAYBACK_EVIDENCE require release scope"
+  )
+}
+if (videoPlaybackEvidenceProvided && !frozenCandidatePath) {
+  throw new Error(
+    "Video playback evidence requires --candidate-package so it can bind to the frozen runtime candidate"
   )
 }
 const runId =
@@ -93,6 +124,13 @@ mkdirSync(outputDirectory, { recursive: true })
 const registry = JSON.parse(
   readFileSync(resolve(root, "verification/requirements.json"), "utf8")
 )
+const releasePackageEnvironment =
+  scope === "release"
+    ? createReleasePackageEnvironment({
+        environment: process.env,
+        exampleSource: readFileSync(resolve(root, ".env.example"), "utf8")
+      })
+    : { PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0" }
 
 function runPath(...parts) {
   return relative(root, join(outputDirectory, ...parts))
@@ -562,7 +600,9 @@ function traceReplayArtifact({ obligation, rawPath, result, supported }) {
     ...(status === "BLOCKED"
       ? {
           message:
-            unsupportedActions.length > 0
+            raw?.blockedReason === "storage-exhaustion"
+              ? "Trace replay stopped because local storage was exhausted; the replay result is incomplete."
+              : unsupportedActions.length > 0
               ? `Replay retains unsupported action seams: ${unsupportedActions.join(", ")}.`
               : raw?.proofBoundary ??
                 "Trace replay did not produce a supported projection."
@@ -602,6 +642,21 @@ function readJsonIfPresent(path) {
   } catch {
     return null
   }
+}
+
+function readEvidenceJson(path) {
+  if (typeof path !== "string" || path.length === 0) return null
+  const resolvedPath = resolve(root, path)
+  const pathFromRoot = relative(root, resolvedPath)
+  if (
+    pathFromRoot.length === 0 ||
+    pathFromRoot === ".." ||
+    pathFromRoot.startsWith("../") ||
+    pathFromRoot.startsWith("..\\")
+  ) {
+    return null
+  }
+  return readJsonIfPresent(resolvedPath)
 }
 
 function currentPackageBinding(roundTrip, expectedChromeVersion) {
@@ -700,6 +755,68 @@ function currentPackageBinding(roundTrip, expectedChromeVersion) {
   return { metadata, problems }
 }
 
+function currentVideoPlaybackPackageBinding() {
+  const manifestPath = resolve(root, "build/chrome-mv3-prod/manifest.json")
+  const archivePath = resolve(root, "build/chrome-mv3-prod.zip")
+  const manifest = readJsonIfPresent(manifestPath)
+  const problems = []
+  if (!manifest || typeof manifest.version !== "string") {
+    problems.push("current production manifest is missing or invalid")
+  }
+  if (!existsSync(archivePath)) {
+    problems.push("current production package ZIP is missing")
+  }
+  if (problems.length > 0) {
+    return { metadata: null, problems }
+  }
+
+  const artifactSha256 = sha256File(archivePath)
+  let artifactFileName
+  try {
+    artifactFileName = cwsArtifactFileName(manifest.version, artifactSha256)
+  } catch (error) {
+    return {
+      metadata: null,
+      problems: [error instanceof Error ? error.message : String(error)]
+    }
+  }
+  const artifactPath = resolve(root, "build", artifactFileName)
+  const metadataPath = resolve(
+    root,
+    "build",
+    cwsArtifactMetadataFileName(artifactFileName)
+  )
+  const metadata = readJsonIfPresent(metadataPath)
+  if (!metadata) {
+    problems.push(`package metadata sidecar is missing: ${relative(root, metadataPath)}`)
+    return { metadata: null, problems }
+  }
+
+  problems.push(
+    ...validateCwsArtifactMetadata(metadata, {
+      chromeVersion: manifest.version,
+      artifactSha256,
+      sourceFingerprint: sourceFingerprint.digest
+    })
+  )
+  if (metadata.sourceFileCount !== sourceFingerprint.fileCount) {
+    problems.push(
+      "Package source file count does not match the current source fingerprint"
+    )
+  }
+  if (metadata.artifactFile !== relative(root, artifactPath)) {
+    problems.push("package metadata artifact path does not match its hash-derived filename")
+  }
+  if (!existsSync(artifactPath) || sha256File(artifactPath) !== artifactSha256) {
+    problems.push("hash-named candidate ZIP does not match the current production package ZIP")
+  }
+  if (sha256File(manifestPath) !== metadata.manifestSha256) {
+    problems.push("package metadata manifest SHA-256 does not match the production manifest")
+  }
+
+  return { metadata, artifactSha256, problems }
+}
+
 function liveProviderArtifact(obligation, fixture) {
   const evidence = fixture?.evidence
   const roundTripPath = evidence?.roundTrip
@@ -713,9 +830,18 @@ function liveProviderArtifact(obligation, fixture) {
     roundTrip,
     extensionManifest?.version
   )
+  const deleteReport = readEvidenceJson(roundTrip?.trash?.deleteReport)
+  const supportedAmazonHosts =
+    roundTrip?.provider === "amazon"
+      ? sourceDeclaredAmazonMarketplaceHosts(
+          readFileSync(resolve(root, "lib/provider-sites.ts"), "utf8")
+        )
+      : []
   const liveBinding = validateLiveProviderBinding({
     evidence,
     roundTrip,
+    deleteReport,
+    supportedAmazonHosts,
     expectedExtensionVersion: extensionManifest?.version,
     expectedSourceFingerprint: sourceFingerprint.digest,
     expectedBuildId: packageBinding.metadata?.buildId,
@@ -730,17 +856,10 @@ function liveProviderArtifact(obligation, fixture) {
         }
       : undefined
   })
-  const deleteReportPath = roundTrip?.trash?.deleteReport
-  const deleteReport = readJsonIfPresent(deleteReportPath)
   const targetPhotoId = roundTrip?.trash?.targetPhotoId
-  const providerTrashItemId = roundTrip?.trash?.providerTrashItemId
   const trashItems = Array.isArray(deleteReport?.items)
     ? deleteReport.items.filter((item) => item?.action === "trash")
     : []
-  const providerTrashLocationValid =
-    roundTrip?.trash?.providerTrashUrl?.includes(targetPhotoId) ||
-    (typeof providerTrashItemId === "string" &&
-      providerTrashItemId === targetPhotoId)
   const valid =
     fixture?.configured === true &&
     fixture.status === "PASS" &&
@@ -776,7 +895,6 @@ function liveProviderArtifact(obligation, fixture) {
     targetPhotoId.length > 0 &&
     typeof roundTrip.trash?.keeperPhotoId === "string" &&
     roundTrip.trash.providerTrashObserved === true &&
-    providerTrashLocationValid &&
     roundTrip.restore?.method === "PhotoSweep Undo" &&
     roundTrip.restore.albumItemCountAfterUndo === evidence.itemCount &&
     roundTrip.restore.targetReappearedInAlbum === true &&
@@ -900,10 +1018,11 @@ if (scope === "release") {
   buildResult = frozenCandidatePath
     ? runCommand("frozen-candidate", process.execPath, [
         "verification/release-candidate.mjs",
-        frozenCandidatePath
+        frozenCandidatePath,
+        "--allow-static-identity-blocked"
       ])
     : runCommand("production-package", "npm", ["run", "package:cws"], {
-        PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+        ...releasePackageEnvironment
       })
   if (frozenCandidatePath && buildResult.exitCode !== 0) {
     throw new Error(
@@ -1641,7 +1760,8 @@ if (scope === "release") {
       restoreFrozenCandidate()
       buildResult = runCommand("frozen-candidate-final", process.execPath, [
         "verification/release-candidate.mjs",
-        frozenCandidatePath
+        frozenCandidatePath,
+        "--allow-static-identity-blocked"
       ])
     } else {
       buildResult = runCommand(
@@ -1649,7 +1769,7 @@ if (scope === "release") {
         "npm",
         ["run", "package:cws"],
         {
-          PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+          ...releasePackageEnvironment
         }
       )
     }
@@ -1662,28 +1782,12 @@ if (scope === "release") {
     (item) => item.id === "SAFE-09-package"
   )
   if (packageObligation) {
-    const example = readFileSync(resolve(root, ".env.example"), "utf8")
-    const envFromExample = Object.fromEntries(
-      [...example.matchAll(/^([A-Z0-9_]+)=(.*)$/gm)].map((match) => [
-        match[1],
-        match[2]
-      ])
-    )
     const packageCommand = runCommand(
       "package-audit",
       process.execPath,
       ["tools/audit-extension-package.mjs"],
       {
-        PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL:
-          process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL ??
-          envFromExample.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL,
-        PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION:
-          process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION ??
-          envFromExample.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION,
-        PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY:
-          process.env.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY ??
-          envFromExample.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY,
-        PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+        ...releasePackageEnvironment
       }
     )
     const artifact = {
@@ -1737,12 +1841,76 @@ if (scope === "release") {
   const videoPlaybackObligation = activeObligations().find(
     (item) => item.id === "VIDEO-PLAYBACK-live"
   )
+  const currentPackageTreeDigest =
+    buildResult?.exitCode === 0 ? buildDigest?.digest ?? null : null
   if (videoPlaybackObligation) {
-    const artifact = makeBlockedArtifact(
-      videoPlaybackObligation,
-      "Exact-current-package video playback evidence for all three providers is missing. Local mock tests and provider scan coverage do not prove playback in the packaged extension.",
-      videoPlaybackObligation.command
-    )
+    const packageBinding = currentVideoPlaybackPackageBinding()
+    const trustedExtensionId =
+      process.env.PHOTOSWEEP_TRUSTED_DEVTOOLS_EXTENSION_ID
+    const validation = validateVideoPlaybackEvidence({
+      evidencePath:
+        typeof videoPlaybackEvidencePath === "string" &&
+        videoPlaybackEvidencePath.length > 0
+          ? resolve(root, videoPlaybackEvidencePath)
+          : undefined,
+      expectedPackageDigest: currentPackageTreeDigest,
+      expectedArtifactSha256: packageBinding.artifactSha256 ?? null,
+      expectedBuildId: packageBinding.metadata?.buildId ?? null,
+      expectedSourceFingerprint:
+        buildResult?.exitCode === 0 ? sourceBefore.digest : null,
+      expectedExtensionVersion:
+        readJsonIfPresent(
+          resolve(root, "build/chrome-mv3-prod/manifest.json")
+        )?.version ?? null,
+      trustedDevToolsInventory: trustedExtensionId
+        ? {
+            source: "chrome-devtools.list_extensions",
+            extensionId: trustedExtensionId
+          }
+        : undefined,
+      sourceText: readFileSync(
+        resolve(root, "lib/provider-sites.ts"),
+        "utf8"
+      )
+    })
+    const packageBindingIsValid =
+      buildResult?.exitCode === 0 && packageBinding.problems.length === 0
+    const status =
+      validation.status === "PASS" && !packageBindingIsValid
+        ? "FAIL"
+        : validation.status
+    const bindingProblems = packageBindingIsValid
+      ? []
+      : packageBinding.problems
+    const artifact = {
+      schemaVersion: 1,
+      id: videoPlaybackObligation.id,
+      requirementId: videoPlaybackObligation.requirementId,
+      proofClass: videoPlaybackObligation.proofClass,
+      kind: videoPlaybackObligation.kind,
+      status,
+      exitCode: status === "PASS" ? 0 : status === "BLOCKED" ? 2 : 1,
+      checksRun: validation.checksRun,
+      command: videoPlaybackObligation.command,
+      sourceFingerprint: sourceBefore.digest,
+      message:
+        status === "PASS"
+          ? validation.message
+          : validation.status === "PASS"
+            ? "Video playback evidence could not be attributed to a valid current release package."
+            : validation.message,
+      problems: [...validation.problems, ...bindingProblems],
+      packageBindingProblems: bindingProblems,
+      candidatePackage: frozenCandidatePath ?? null,
+      packageDigest: validation.packageDigest ?? currentPackageTreeDigest,
+      artifactSha256:
+        validation.artifactSha256 ?? packageBinding.artifactSha256 ?? null,
+      buildId: validation.buildId ?? packageBinding.metadata?.buildId ?? null,
+      manifestSha256: validation.manifestSha256 ?? null,
+      expectedProviders: validation.expectedProviders ?? [],
+      validatedProviders: validation.validatedProviders ?? 0,
+      captures: validation.captures ?? []
+    }
     const artifactPath = runPath("video-playback.json")
     writeEvidenceArtifact(artifactPath, artifact)
     evidenceEntries.push(buildEntry(artifactPath, artifact))
@@ -1761,8 +1929,7 @@ if (scope === "release") {
         suppliedEvidencePath.length > 0
           ? resolve(root, suppliedEvidencePath)
           : suppliedEvidencePath,
-      expectedPackageDigest:
-        buildResult?.exitCode === 0 ? buildDigest : null,
+      expectedPackageDigest: currentPackageTreeDigest,
       sourceText: readFileSync(
         resolve(root, "lib/provider-sites.ts"),
         "utf8"

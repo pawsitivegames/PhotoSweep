@@ -1201,6 +1201,21 @@ export class TrashLifecycle {
     )
   }
 
+  /**
+   * A review/account context can change after a provider mutation was already
+   * dispatched. Preserve that pending Trash record so its terminal response
+   * or timeout can still be durably reconciled; otherwise use the ordinary
+   * reset path.
+   */
+  invalidateContext(): boolean {
+    if (!this.pending) {
+      this.reset()
+      return false
+    }
+    this.pendingRestore = null
+    return true
+  }
+
   cancel(requestId: string): boolean {
     if (!this.pending || this.pending.requestId !== requestId) return false
     this.pending = null

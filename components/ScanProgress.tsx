@@ -143,10 +143,14 @@ export function ScanProgress({
           }}>
           <Typography
             variant={compact ? "subtitle2" : "h5"}
-            fontWeight={800}>
+            sx={{
+              fontWeight: 800
+            }}>
             Finding Duplicates
           </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
+          <Typography variant="caption" noWrap sx={{
+            color: "text.secondary"
+          }}>
             Step {stepNum} of {TOTAL_STEPS}
           </Typography>
         </Box>
@@ -170,9 +174,13 @@ export function ScanProgress({
           <Box sx={{ minWidth: 0 }}>
             <Typography
               variant={compact ? "caption" : "body2"}
-              color="primary.main"
-              fontWeight={800}
-              sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              sx={{
+                color: "primary.main",
+                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.75
+              }}>
               {phase !== "complete" && (
                 <CircularProgress size={13} thickness={5} />
               )}
@@ -180,8 +188,11 @@ export function ScanProgress({
             </Typography>
             <Typography
               variant={compact ? "h5" : "h4"}
-              fontWeight={850}
-              sx={{ mt: 0.5, letterSpacing: "-0.03em" }}>
+              sx={{
+                fontWeight: 850,
+                mt: 0.5,
+                letterSpacing: "-0.03em"
+              }}>
               {itemsProcessed.toLocaleString()}{" "}
               <Box
                 component="span"
@@ -196,7 +207,9 @@ export function ScanProgress({
             </Typography>
           </Box>
           {isDeterminate && (
-            <Typography variant="caption" color="text.secondary" noWrap>
+            <Typography variant="caption" noWrap sx={{
+              color: "text.secondary"
+            }}>
               {etaText ? `${progress}% · ${etaText}` : `${progress}%`}
             </Typography>
           )}
@@ -211,8 +224,11 @@ export function ScanProgress({
 
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", lineHeight: 1.45 }}>
+          sx={{
+            color: "text.secondary",
+            display: "block",
+            lineHeight: 1.45
+          }}>
           {isDeterminate
             ? `${itemsProcessed.toLocaleString()} of ${totalEstimate.toLocaleString()} checked. `
             : ""}
@@ -253,8 +269,8 @@ export function ScanProgress({
             <Box component="summary">Technical activity</Box>
             <Typography
               variant="caption"
-              color="text.secondary"
               sx={{
+                color: "text.secondary",
                 display: "block",
                 px: 1.25,
                 pb: 1.25,
@@ -266,5 +282,5 @@ export function ScanProgress({
         )}
       </Paper>
     </Box>
-  )
+  );
 }

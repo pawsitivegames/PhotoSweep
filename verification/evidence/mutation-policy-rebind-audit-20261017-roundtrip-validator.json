@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-17T13:33:31Z",
+  "status": "PASS",
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "52ffbfcfa2c46988d59220bff93547aa4265eb17b06172e6e5d12fb7ca629843",
+    "currentPolicySha256": "2c6ca5a76e3fa361d97f5b095f3734b0e32afc02d484a5c8fcf27474bdf34aec",
+    "changedFields": ["sourceFingerprint"],
+    "sourceFingerprintFrom": "89d4259da826a39ccf9a2979c29efd05c4a7a1ccb50ef767a830785754e0d5b5",
+    "sourceFingerprintTo": "54ef4d93a4055d8bdc52e843b1fdd0f0588451c0b8241bcd85421794cd698b4e",
+    "canonicalReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+    "priorReviewedEntries": 211,
+    "entriesMatchingCurrentMutantKeys": 211,
+    "newUnreviewedNonKilledMutants": 0,
+    "thresholdsChanged": false,
+    "registeredSourceRootsChanged": false
+  },
+  "diagnosticRefresh": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "runId": "e7152dd0-ed52-4985-9004-ec9f1abc329d",
+    "resultUse": "diagnostic-only; not accepted as PASS",
+    "sourceFingerprint": "54ef4d93a4055d8bdc52e843b1fdd0f0588451c0b8241bcd85421794cd698b4e",
+    "canonicalReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+    "rawReportFileSha256": "49c5d18f491bdb669948dd64321018b9629e62b0b02aeee1c7e441795b06d38f",
+    "sourceDrift": false,
+    "mutants": {
+      "total": 4108,
+      "killed": 3897,
+      "survived": 187,
+      "noCoverage": 24,
+      "timedOut": 0,
+      "errored": 0
+    }
+  },
+  "normalReplay": {
+    "command": "npm run test:mutation",
+    "outputDirectory": "tmp/verification/fix-all-mutation-normal-20261017T1332Z",
+    "sourceFingerprint": "54ef4d93a4055d8bdc52e843b1fdd0f0588451c0b8241bcd85421794cd698b4e",
+    "canonicalReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+    "rawReportFileSha256": "be9ebdaa331491d69747dab25b8b38dab7e96fdf0435b1bd76b92686af902bf1",
+    "incrementalCacheFingerprint": "7352f72007ccbefd972da89baeecebd38334d26ee1e90961217748e963a361b1",
+    "testFileCount": 20,
+    "testCaseCount": 1166,
+    "mutants": {
+      "total": 4108,
+      "killed": 3897,
+      "survived": 187,
+      "noCoverage": 24,
+      "scorePercent": 94.86,
+      "nonKilledReviewedAndResolved": 211,
+      "unresolved": 0,
+      "criticalSurvivors": 0,
+      "timedOut": 0,
+      "errored": 0
+    },
+    "sourceDrift": false,
+    "status": "PASS"
+  }
+}

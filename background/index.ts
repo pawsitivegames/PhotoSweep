@@ -19,6 +19,7 @@ import {
   getProviderCommandPublicKey,
   withProviderCommandCapability
 } from "../lib/provider-command-capability"
+import { BUILD_ID } from "../lib/generated/build-flags"
 import { attachRuntimeBuildIdentity } from "../lib/runtime-build-identity"
 import { handleRecoveryHistoryTransaction } from "./recovery-history-transactions"
 import {
@@ -221,6 +222,18 @@ function isProviderPhotosPage(
   return providerMatchesUrl(tab?.url, provider, true)
 }
 
+function isAmazonPhotosLibraryPage(
+  tab: Pick<chrome.tabs.Tab, "url"> | undefined
+): boolean {
+  if (!isProviderPhotosPage(tab, "amazon") || !tab?.url) return false
+  try {
+    const pathname = new URL(tab.url).pathname.toLowerCase()
+    return !/^\/photos\/(?:trash|(?:recently)?deleted)(?:\/|$)/.test(pathname)
+  } catch {
+    return false
+  }
+}
+
 function tabMatchesProvider(
   tab: Pick<chrome.tabs.Tab, "url"> | undefined,
   provider: PhotoProvider
@@ -236,7 +249,7 @@ function canInjectProviderBridge(
   // other providers already scope their bridge behavior to their provider tab
   // and retain their established origin matching here.
   return provider === "amazon"
-    ? isProviderPhotosPage(tab, provider)
+    ? isAmazonPhotosLibraryPage(tab)
     : tabMatchesProvider(tab, provider)
 }
 
@@ -458,7 +471,7 @@ async function findProviderTab(
 
   for (const candidate of sorted) {
     if (!hasTabId(candidate)) continue
-    if (provider === "amazon" && !isProviderPhotosPage(candidate, provider)) {
+    if (provider === "amazon" && !isAmazonPhotosLibraryPage(candidate)) {
       continue
     }
     if (await ensureProviderBridge(candidate.id, provider)) {
@@ -480,7 +493,16 @@ async function pingProviderBridge(tabId: number): Promise<boolean> {
   }
 }
 
+function currentProviderCommandOwnerId(): string {
+  const buildId =
+    typeof BUILD_ID === "string" && BUILD_ID.length > 0
+      ? BUILD_ID
+      : chrome.runtime.getManifest().version
+  return `${chrome.runtime.id}:${buildId}`
+}
+
 async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
+  const ownerId = currentProviderCommandOwnerId()
   const [ready] = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
@@ -499,7 +521,15 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
             __GPD_GOOGLE_COMMAND_HANDLER_LOADED__?: boolean
           }
         ).__GPD_GOOGLE_COMMAND_HANDLER_LOADED__
-      )
+      ),
+      commandHostOwnerId: (
+        window as typeof window & { __GPD_COMMAND_HOST_OWNER_ID__?: string }
+      ).__GPD_COMMAND_HOST_OWNER_ID__,
+      googleCommandHandlerOwnerId: (
+        window as typeof window & {
+          __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+        }
+      ).__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__
     })
   })
   const state = ready?.result as
@@ -507,9 +537,17 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
         hasGptk?: boolean
         hasCommandHost?: boolean
         hasCommandHandler?: boolean
+        commandHostOwnerId?: string
+        googleCommandHandlerOwnerId?: string
       }
     | undefined
-  if (state?.hasGptk && state.hasCommandHost && state.hasCommandHandler) {
+  if (
+    state?.hasGptk &&
+    state.hasCommandHost &&
+    state.hasCommandHandler &&
+    state.commandHostOwnerId === ownerId &&
+    state.googleCommandHandlerOwnerId === ownerId
+  ) {
     return true
   }
 
@@ -526,20 +564,31 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
     }
   }
 
-  if (!state?.hasCommandHost) {
+  if (
+    !state?.hasCommandHost ||
+    state.commandHostOwnerId !== ownerId ||
+    state.googleCommandHandlerOwnerId !== ownerId
+  ) {
     const publicKey = await getProviderCommandPublicKey()
     await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
-      func: (key: unknown) => {
-        ;(
-          window as typeof window & {
-            __GPD_PROVIDER_COMMAND_PUBLIC_KEY__?: unknown
-          }
-        ).__GPD_PROVIDER_COMMAND_PUBLIC_KEY__ = key
+      func: (currentOwnerId: string, key: unknown) => {
+        const page = window as typeof window & {
+          __GPD_PROVIDER_COMMAND_OWNER_ID__?: string
+          __GPD_PROVIDER_COMMAND_PUBLIC_KEY__?: unknown
+        }
+        page.__GPD_PROVIDER_COMMAND_OWNER_ID__ = currentOwnerId
+        page.__GPD_PROVIDER_COMMAND_PUBLIC_KEY__ = key
       },
-      args: [publicKey]
+      args: [ownerId, publicKey]
     })
+  }
+
+  if (
+    !state?.hasCommandHost ||
+    state.commandHostOwnerId !== ownerId
+  ) {
     await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
@@ -547,7 +596,11 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
     })
   }
 
-  if (!state?.hasCommandHandler) {
+  if (
+    !state?.hasCommandHandler ||
+    state.googleCommandHandlerOwnerId !== ownerId ||
+    state.commandHostOwnerId !== ownerId
+  ) {
     await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
@@ -573,7 +626,15 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
             __GPD_GOOGLE_COMMAND_HANDLER_LOADED__?: boolean
           }
         ).__GPD_GOOGLE_COMMAND_HANDLER_LOADED__
-      )
+      ),
+      commandHostOwnerId: (
+        window as typeof window & { __GPD_COMMAND_HOST_OWNER_ID__?: string }
+      ).__GPD_COMMAND_HOST_OWNER_ID__,
+      googleCommandHandlerOwnerId: (
+        window as typeof window & {
+          __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+        }
+      ).__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__
     })
   })
   const afterState = after?.result as
@@ -581,14 +642,22 @@ async function ensureGoogleMainWorldScripts(tabId: number): Promise<boolean> {
         hasGptk?: boolean
         hasCommandHost?: boolean
         hasCommandHandler?: boolean
+        commandHostOwnerId?: string
+        googleCommandHandlerOwnerId?: string
       }
     | undefined
   return afterState
-    ? Boolean(afterState.hasCommandHost && afterState.hasCommandHandler)
+    ? Boolean(
+        afterState.hasCommandHost &&
+          afterState.hasCommandHandler &&
+          afterState.commandHostOwnerId === ownerId &&
+          afterState.googleCommandHandlerOwnerId === ownerId
+      )
     : true
 }
 
 async function ensureAmazonMainWorldScripts(tabId: number): Promise<boolean> {
+  const ownerId = currentProviderCommandOwnerId()
   const readState = async () => {
     const [result] = await chrome.scripting.executeScript({
       target: { tabId },
@@ -607,46 +676,57 @@ async function ensureAmazonMainWorldScripts(tabId: number): Promise<boolean> {
               __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
             }
           ).__GPD_AMAZON_COMMAND_HANDLER_LOADED__
-        )
+        ),
+        commandHostOwnerId: (
+          window as typeof window & {
+            __GPD_COMMAND_HOST_OWNER_ID__?: string
+          }
+        ).__GPD_COMMAND_HOST_OWNER_ID__,
+        amazonCommandHandlerOwnerId: (
+          window as typeof window & {
+            __GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__?: string
+          }
+        ).__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__
       })
     })
     return result?.result as
-      | { hasCommandHost?: boolean; hasCommandHandler?: boolean }
+      | {
+          hasCommandHost?: boolean
+          hasCommandHandler?: boolean
+          commandHostOwnerId?: string
+          amazonCommandHandlerOwnerId?: string
+        }
       | undefined
   }
 
   let state = await readState()
-  if (!state?.hasCommandHost) {
-    // Older Amazon handlers set this marker before checking whether the shared
-    // command host existed. Clear that stale marker so the handler can register
-    // after the host is restored.
-    if (state?.hasCommandHandler) {
-      await chrome.scripting.executeScript({
-        target: { tabId },
-        world: "MAIN",
-        func: () => {
-          delete (
-            window as typeof window & {
-              __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
-            }
-          ).__GPD_AMAZON_COMMAND_HANDLER_LOADED__
-        }
-      })
-    }
+  if (
+    state?.hasCommandHost &&
+    state.hasCommandHandler &&
+    state.commandHostOwnerId === ownerId &&
+    state.amazonCommandHandlerOwnerId === ownerId
+  ) {
+    return true
+  }
 
-    const publicKey = await getProviderCommandPublicKey()
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      world: "MAIN",
-      func: (key: unknown) => {
-        ;(
-          window as typeof window & {
-            __GPD_PROVIDER_COMMAND_PUBLIC_KEY__?: unknown
-          }
-        ).__GPD_PROVIDER_COMMAND_PUBLIC_KEY__ = key
-      },
-      args: [publicKey]
-    })
+  const publicKey = await getProviderCommandPublicKey()
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    func: (currentOwnerId: string, key: unknown) => {
+      const page = window as typeof window & {
+        __GPD_PROVIDER_COMMAND_OWNER_ID__?: string
+        __GPD_PROVIDER_COMMAND_PUBLIC_KEY__?: unknown
+      }
+      page.__GPD_PROVIDER_COMMAND_OWNER_ID__ = currentOwnerId
+      page.__GPD_PROVIDER_COMMAND_PUBLIC_KEY__ = key
+    },
+    args: [ownerId, publicKey]
+  })
+
+  const hostNeedsReload =
+    !state?.hasCommandHost || state.commandHostOwnerId !== ownerId
+  if (hostNeedsReload) {
     await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
@@ -654,7 +734,11 @@ async function ensureAmazonMainWorldScripts(tabId: number): Promise<boolean> {
     })
   }
 
-  if (!state?.hasCommandHandler || !state?.hasCommandHost) {
+  if (
+    hostNeedsReload ||
+    !state?.hasCommandHandler ||
+    state.amazonCommandHandlerOwnerId !== ownerId
+  ) {
     await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
@@ -663,7 +747,12 @@ async function ensureAmazonMainWorldScripts(tabId: number): Promise<boolean> {
   }
 
   state = await readState()
-  return Boolean(state?.hasCommandHost && state?.hasCommandHandler)
+  return Boolean(
+    state?.hasCommandHost &&
+      state.hasCommandHandler &&
+      state.commandHostOwnerId === ownerId &&
+      state.amazonCommandHandlerOwnerId === ownerId
+  )
 }
 
 function contentScriptFilesForProvider(provider: PhotoProvider): string[] {
@@ -686,6 +775,9 @@ async function ensureProviderBridge(
   tabId: number,
   provider: PhotoProvider
 ): Promise<boolean> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined)
+  if (!canInjectProviderBridge(tab, provider)) return false
+
   if (await pingProviderBridge(tabId)) {
     if (provider !== "google") return true
     return ensureGoogleMainWorldScripts(tabId)
@@ -716,7 +808,8 @@ async function ensureProviderBridge(
 
 async function resolveProviderTab(
   appTabId: number | null,
-  provider: PhotoProvider
+  provider: PhotoProvider,
+  clientId?: string
 ): Promise<number | null> {
   return connectionSession.resolveProviderTab(appTabId, provider, {
     ensureReachable: ensureProviderBridge,
@@ -724,7 +817,7 @@ async function resolveProviderTab(
       const tab = await findProviderTab(requestedProvider, preferredTabId)
       return tab && hasTabId(tab) ? tab.id : null
     }
-  })
+  }, clientId)
 }
 
 /**
@@ -853,7 +946,20 @@ async function openProviderInCurrentTab(
         url: providerOpenUrlForTab(provider, targetTab),
         active: true
       })
-      return { tab: openedTab, alreadyOpen }
+      if (isProviderPhotosPage(openedTab, provider)) {
+        return { tab: openedTab, alreadyOpen }
+      }
+
+      // Chrome may resolve tabs.update while the old page is still exposed by
+      // the returned Tab. Re-read the tab before binding it to the provider;
+      // if navigation is still pending, let provider discovery choose a page
+      // that already belongs to the requested account.
+      const currentTab = await chrome.tabs
+        .get(targetTab.id)
+        .catch(() => undefined)
+      return isProviderPhotosPage(currentTab, provider)
+        ? { tab: currentTab, alreadyOpen }
+        : null
     } catch {
       // Some Chrome-owned pages reject tab updates. Try another real tab in
       // the same window before falling back to create/failure behavior.
@@ -1014,6 +1120,10 @@ chrome.runtime.onConnect.addListener((port) => {
     ) {
       clientId = payload.clientId
       activeSidePanelClientIds.add(clientId)
+      connectionSession.setSidePanelHost(
+        clientId,
+        typeof payload.activeTabId === "number" ? payload.activeTabId : null
+      )
     }
     if (typeof payload.activeTabId === "number") {
       connectionSession.setHostTab(payload.activeTabId)
@@ -1022,7 +1132,11 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => {
     if (clientId) {
       activeSidePanelClientIds.delete(clientId)
-      const providerTabId = connectionSession.mappedProviderTabId(null, "google")
+      const providerTabId = connectionSession.mappedProviderTabId(
+        null,
+        "google",
+        clientId
+      )
       if (providerTabId !== null) {
         cancelGoogleOriginalRequestsForOwner(null, clientId, providerTabId)
       }
@@ -1051,7 +1165,8 @@ chrome.runtime.onMessage.addListener(
         handleLaunchProvider(
           message.provider ?? "google",
           sender,
-          message.hostTabId
+          message.hostTabId,
+          message.clientId
         )
           .then(sendResponse)
           .catch((error) => {
@@ -1154,11 +1269,20 @@ async function handleLaunchApp(
 async function handleLaunchProvider(
   provider: PhotoProvider,
   sender: chrome.runtime.MessageSender,
-  hostTabId?: number
+  hostTabId?: number,
+  clientId?: string
 ): Promise<LaunchProviderResult> {
   const fromSidePanel = isSidePanelSender(sender)
+  const panelClientId =
+    fromSidePanel && typeof clientId === "string" && clientId.length <= 128
+      ? clientId
+      : undefined
   const preferredTabId =
-    typeof hostTabId === "number" ? hostTabId : connectionSession.hostTabId
+    typeof hostTabId === "number"
+      ? hostTabId
+      : panelClientId
+        ? connectionSession.getSidePanelHostTabId(panelClientId)
+        : connectionSession.hostTabId
   const providerOpenResult = await openProviderInCurrentTab(
     provider,
     fromSidePanel ? undefined : sender.tab,
@@ -1173,7 +1297,11 @@ async function handleLaunchProvider(
     )
   }
 
-  connectionSession.rememberSidePanelProvider(providerTab.id, provider)
+  connectionSession.rememberSidePanelProvider(
+    providerTab.id,
+    provider,
+    panelClientId
+  )
   try {
     await openSidePanelForTab(providerTab.id)
   } catch (error) {
@@ -1211,7 +1339,16 @@ async function handleHealthCheck(
   const checkProvider = async (): Promise<ProviderHealthOutcome> => {
     senderTabId = await getSenderTabId(sender)
     ensureBeforeDeadline()
-    const providerTabId = await resolveProviderTab(senderTabId, provider)
+    const sidePanelClientId = isSidePanelSender(sender)
+      ? (typeof clientId === "string" && clientId.length <= 128
+          ? clientId
+          : undefined)
+      : undefined
+    const providerTabId = await resolveProviderTab(
+      senderTabId,
+      provider,
+      sidePanelClientId
+    )
     ensureBeforeDeadline()
     if (providerTabId === null) {
       return { success: false, hasGptk: false }
@@ -1321,7 +1458,11 @@ async function handleGptkCommand(
     return
   }
 
-  const providerTabId = await resolveProviderTab(senderTabId, provider)
+  const providerTabId = await resolveProviderTab(
+    senderTabId,
+    provider,
+    trustedUi?.clientId
+  )
   if (providerTabId === null) {
     sendToAppContext(
       senderTabId,

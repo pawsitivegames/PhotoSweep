@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { createFirestoreLicenseStore } from "../../server/firestore-license-store.mjs"
 
@@ -37,6 +37,28 @@ class FakeDocRef {
 
 class FakeQuery {
   constructor(private docs: FakeDocSnapshot[]) {}
+  where(field: string, op: string, expected: unknown) {
+    if (op !== ">") throw new Error(`Unsupported fake query operator: ${op}`)
+    const expectedTime =
+      expected instanceof Date ? expected.getTime() : Number(expected)
+    return new FakeQuery(
+      this.docs.filter((doc) => {
+        const value = (doc.data() as Record<string, unknown>)?.[field]
+        const actualTime = value instanceof Date ? value.getTime() : Number(value)
+        return actualTime > expectedTime
+      })
+    )
+  }
+  orderBy(field: string, direction: "asc" | "desc") {
+    const docs = [...this.docs].sort((a, b) => {
+      const value = (doc: FakeDocSnapshot) => {
+        const item = (doc.data() as Record<string, unknown>)?.[field]
+        return item instanceof Date ? item.getTime() : Number(item ?? 0)
+      }
+      return direction === "desc" ? value(b) - value(a) : value(a) - value(b)
+    })
+    return new FakeQuery(docs)
+  }
   limit(count: number) {
     return new FakeQuery(this.docs.slice(0, count))
   }
@@ -63,21 +85,18 @@ class FakeCollectionRef {
       )
     )
   }
+  where(field: string, op: string, expected: unknown) {
+    return this.query().where(field, op, expected)
+  }
   orderBy(field: string, direction: "asc" | "desc") {
-    const docs = [...this.store.entries()]
-      .map(([id, value]) => new FakeDocSnapshot(id, value))
-      .sort((a, b) => {
-        const av = (a.data() as Record<string, unknown>)?.[field] as
-          | number
-          | undefined
-        const bv = (b.data() as Record<string, unknown>)?.[field] as
-          | number
-          | undefined
-        return direction === "desc"
-          ? (bv ?? 0) - (av ?? 0)
-          : (av ?? 0) - (bv ?? 0)
-      })
-    return new FakeQuery(docs)
+    return this.query().orderBy(field, direction)
+  }
+  private query() {
+    return new FakeQuery(
+      [...this.store.entries()].map(
+        ([id, value]) => new FakeDocSnapshot(id, value)
+      )
+    )
   }
 }
 
@@ -298,5 +317,34 @@ describe("createFirestoreLicenseStore", () => {
       extensionVersion: "2.3.0.1",
       dayKey: "2026-09-23"
     })
+  })
+
+  it("sets a 90-day Firestore TTL expiry and omits expired analytics rows", async () => {
+    vi.useFakeTimers()
+    try {
+      const currentTime = Date.parse("2026-10-12T12:00:00.000Z")
+      const retentionMs = 90 * 24 * 60 * 60 * 1000
+      vi.setSystemTime(currentTime)
+      const firestore = new FakeFirestore()
+      const store = createFirestoreLicenseStore({ firestore: firestore as never })
+      const analyticsRows = firestore.collections.get("photosweep_analytics_events")!
+      analyticsRows.set("expired", {
+        name: "expired",
+        recordedAt: currentTime - retentionMs - 1,
+        expiresAt: new Date(currentTime - 1)
+      })
+
+      await store.recordAnalyticsEvent({ name: "app_opened", planId: "free" })
+      const stored = analyticsRows.get("auto_1") as Record<string, unknown>
+      expect(stored).toMatchObject({ name: "app_opened", recordedAt: currentTime })
+      expect(stored.expiresAt).toEqual(new Date(currentTime + retentionMs))
+
+      const snapshot = await store.snapshot()
+      expect(snapshot.analyticsEvents.map((event) => event.name)).toEqual([
+        "app_opened"
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

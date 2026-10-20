@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-19T20:46:55Z",
+  "status": "PASS",
+  "purpose": "Bind the existing reviewed mutation dispositions to the current source after comparing the exact diagnostic mutant inventory.",
+  "previousPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "9de369ce8cdb459eddc15734302a036e3bb491190683d92266f413ba36114e4d",
+    "sourceFingerprint": "ce9977cd888c28217d9cedfe9f5906d3fe118897b3d48ad0924879d503d2b7d2",
+    "canonicalReportSha256": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c",
+    "reviewedEntries": 215
+  },
+  "currentPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "c88cc1ae6d213c307024ced8522967ab9d595faadf73115fc1025ea79feb7a8a",
+    "sourceFingerprint": "5e4a43c9d3abd4d17f1d115ab397efb392fa7e3ce3c766669d4ad6353ec398c2",
+    "canonicalReportSha256": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c",
+    "reviewedEntries": 215
+  },
+  "diagnosticRefresh": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "outputDirectory": "tmp/verification/diagnostic-refresh/c6ada751-d505-43c1-89ef-873a1fe1e5fa",
+    "resultUse": "Diagnostic only; this result is not accepted as a mutation PASS.",
+    "sourceFingerprint": "5e4a43c9d3abd4d17f1d115ab397efb392fa7e3ce3c766669d4ad6353ec398c2",
+    "rawReportSha256": "a225884638da46ea4a994001673e156d4ce136b40a886946519bead870ce3ec5",
+    "canonicalReportSha256": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c",
+    "strykerVersion": "10.0.0",
+    "testFileCount": 20,
+    "testCaseCount": 1172,
+    "filesMutated": 6,
+    "mutantsTotal": 4171,
+    "mutantsKilled": 3956,
+    "mutantsSurvived": 191,
+    "mutantsNoCoverage": 24,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "mutationScorePercent": 94.85
+  },
+  "policyRebind": {
+    "changedFields": ["sourceFingerprint"],
+    "canonicalReportHashUnchanged": true,
+    "priorReviewedEntries": 215,
+    "entriesMatchingCurrentNonKilledMutantKeys": 215,
+    "missingEntries": 0,
+    "newUnreviewedNonKilledMutants": 0,
+    "classificationChanges": 0,
+    "thresholdsChanged": false,
+    "registeredSourceRootsChanged": false,
+    "sourceFingerprintIncludedPolicyFile": false,
+    "normalMutationReplay": {
+      "completedAtUtc": "2026-10-19T20:55:34Z",
+      "command": "npm run verify:release -- --candidate-package build/photosweep-cws-v2.3.6.15-sha256-e109c074486a.zip --out-dir tmp/verification/release-final-e109c074-20261019-run2",
+      "outputDirectory": "tmp/verification/release-final-e109c074-20261019-run2",
+      "status": "PASS",
+      "sourceFingerprint": "5e4a43c9d3abd4d17f1d115ab397efb392fa7e3ce3c766669d4ad6353ec398c2",
+      "sourceDrift": false,
+      "policyStatus": "VALID",
+      "testFileCount": 20,
+      "testCaseCount": 1172,
+      "mutantsTotal": 4171,
+      "mutantsKilled": 3956,
+      "mutantsSurvived": 191,
+      "mutantsNoCoverage": 24,
+      "mutationScorePercent": 94.85,
+      "criticalSurvivors": 0,
+      "timedOut": 0,
+      "errored": 0,
+      "rawReportSha256": "adb3b5585ff1e0b85e8e339a77fe85c625721a804a6c919781e5b933cb2da902"
+    }
+  },
+  "finalReleaseGate": {
+    "status": "BLOCKED",
+    "outputDirectory": "tmp/verification/release-final-e109c074-20261019-run2",
+    "evidenceEntries": { "pass": 51, "blocked": 3, "fail": 0 },
+    "blockedRequirements": [
+      "LIVE-GOOGLE-01",
+      "LIVE-ICLOUD-01",
+      "LIVE-AMAZON-01"
+    ],
+    "reason": "The configured destructive round-trip records are bound to superseded package ZIPs. This run was kept scan-only and did not create replacement Trash/Undo evidence."
+  }
+}

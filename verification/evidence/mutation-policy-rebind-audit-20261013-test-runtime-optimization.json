@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_CACHED_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-13T20:31:06.342Z",
+  "candidate": {
+    "sourceFingerprint": "f73a4073270f64280526fe460dc6d0b99341d12c24e44f1385f5d1f9731c72f6",
+    "node": "v24.20.0",
+    "dirtyWorkingTree": true
+  },
+  "mutationRun": {
+    "resultPath": "tmp/verification/runs/20261013T-mutation-opt/mutation.json",
+    "rawReportPath": "tmp/verification/runs/20261013T-mutation-opt/mutation-run/stryker-raw.json",
+    "canonicalReportSha256": "64843b59ad38ba840bd4c48457fc5af74fa52e3c31e2ab8ad1da252a9beaef1e",
+    "rawStrykerFileSha256": "0fcd404d7e6c61d5d18293fe6a23dacc774ca243d82877d9689f9c9b7666727e",
+    "strykerVersion": "10.0.0",
+    "concurrency": 4,
+    "incremental": true,
+    "incrementalFile": "tmp/verification/mutation-incremental/f73a4073270f64280526fe460dc6d0b99341d12c24e44f1385f5d1f9731c72f6-node-24.20.0.json",
+    "testFileCount": 19,
+    "changedTestFiles": [
+      "tests/commands/amazon-photos-commands.test.ts"
+    ],
+    "mutatedFileCount": 6,
+    "mutantCount": 4100,
+    "statusCounts": {
+      "NoCoverage": 24,
+      "Killed": 3889,
+      "Survived": 187
+    },
+    "mutationScorePercent": 94.85,
+    "coveredMutationScorePercent": 95.41,
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "comparison": {
+    "priorReportPath": "tmp/verification/diagnostic-refresh/786a801f-95dd-4a61-8122-f1596a800c76/mutation-run/stryker-raw.json",
+    "priorCanonicalReportSha256": "ba6f988bc3806997e056e5ca2490bbe14f31a9859208f58ec33005b136edd178",
+    "currentCanonicalReportSha256": "64843b59ad38ba840bd4c48457fc5af74fa52e3c31e2ab8ad1da252a9beaef1e",
+    "exactAllMutantKeysAndStatusesMatchPrior": true,
+    "policyEntries": 211,
+    "currentNonKilledMutants": 211,
+    "exactCurrentNonKilledKeysMatchPolicy": true,
+    "mutationSourceHashesMatchCheckout": true,
+    "mutationTestFileSetMatchesPrior": true,
+    "classificationsAndEvidencePreserved": true,
+    "thresholdsChanged": false
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "2cd23e2c3c793b8d90fe10952210b94604b47d74ff156c291d13ea4b24a1b6fa",
+    "updatedPolicyFileSha256": "774b688f670c9878d1a17ec33ab80229ab751feb28f8c48b9c69b7ad8aea556e",
+    "changedFields": [
+      "rawReportSha256"
+    ],
+    "sourceFingerprintUnchanged": true,
+    "rawReportSha256": {
+      "from": "ba6f988bc3806997e056e5ca2490bbe14f31a9859208f58ec33005b136edd178",
+      "to": "64843b59ad38ba840bd4c48457fc5af74fa52e3c31e2ab8ad1da252a9beaef1e"
+    }
+  },
+  "limitations": [
+    "This evidence covers the scoped mutation campaign and cached replay; separate exact-build browser/provider and broader release gates remain independent."
+  ],
+  "validationReplay": {
+    "resultPath": "tmp/verification/runs/20261013T-mutation-opt-replay/mutation.json",
+    "rawReportPath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/runs/20261013T-mutation-opt-replay/mutation-run/stryker-raw.json",
+    "rawReportSha256": "03699135978a178d0ef78a0f30414d8b7840eb957a4e6e8cdd28479485bb349a",
+    "triagePolicyStatus": "VALID",
+    "sourceFingerprint": "f73a4073270f64280526fe460dc6d0b99341d12c24e44f1385f5d1f9731c72f6",
+    "sourceDrift": false,
+    "mutationScorePercent": 94.85,
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "mutantsResolved": 211,
+    "mutantsUnresolved": 0,
+    "strykerLogPath": "tmp/verification/runs/20261013T-mutation-opt-replay/mutation-run/stryker.log",
+    "incrementalReuse": "4100 existing mutants; 1042 tests",
+    "strykerDuration": "40 seconds",
+    "wallDurationSeconds": 41.69
+  }
+}

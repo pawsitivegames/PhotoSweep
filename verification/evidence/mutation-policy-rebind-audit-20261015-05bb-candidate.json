@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_RELEASE_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-15T04:02:01Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "55980fc68a6f7a0647ed09364b80bd88264ac705af17ba8bbfd57e67adb67a1f",
+    "sourceFileCount": 328,
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "packagePath": "build/photosweep-cws-v2.3.6.6-sha256-05bbfd91a96a.zip",
+    "packageSha256": "05bbfd91a96ae24f1fa2adcdcf8f352464d8dc04b5f37eb096354c2a6917d5bc",
+    "buildId": "95201459-d44c-4cb4-ac35-d8b2d4397e23",
+    "productionTreeDigest": "d7de1042bc187be01366b557d54e6c321ffe425b7deca2d3d8a6a837daec278d"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "74827d992c62fec73f384cf785bb169f88ce3e80ccb0475af612bc9ca41a2819",
+    "currentPolicySha256": "2cf9ab17fbbfc766e3ba37c4a1880f6a275346101aff97303c55f915beee28df",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "dff4c4a17281bd1632d7f82f4bf8974563ff0fb96952504c11f8a73215925c8c",
+    "sourceFingerprintTo": "55980fc68a6f7a0647ed09364b80bd88264ac705af17ba8bbfd57e67adb67a1f",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "reviewedEntries": 211,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    },
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "diagnosticRun": {
+    "command": "node verification/run-mutation.mjs --diagnostic-refresh-triage",
+    "resultPath": "tmp/verification/diagnostic-refresh/024e1b96-3b6f-4c5e-a2c1-325f41ef8b8a/mutation.json",
+    "rawReportPath": "tmp/verification/diagnostic-refresh/024e1b96-3b6f-4c5e-a2c1-325f41ef8b8a/mutation-run/stryker-raw.json",
+    "status": "DIAGNOSTIC_ONLY_MANUAL_REVIEW_GATE",
+    "rawReportFileSha256": "3bf389e1b3b763c600f3581f31e1fcff5e0810023f6195c9cb9c28f9ecb340a7",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "canonicalReportMatchedPolicy": true,
+    "currentNonKilledMutants": 211,
+    "policyIdentityKeysMatch": true,
+    "sourceDrift": false
+  },
+  "validationReplay": {
+    "command": "npm run verify:release -- --candidate-package build/photosweep-cws-v2.3.6.6-sha256-05bbfd91a96a.zip --out-dir tmp/verification/runs/20261015T060000Z-candidate-05bb-node24-rebound",
+    "resultPath": "tmp/verification/runs/20261015T060000Z-candidate-05bb-node24-rebound/mutation.json",
+    "runId": "20261015T035744Z-845",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "rawReportFileSha256": "509c91b7e753291b186dee92de6e1622c5fb0c0e399e0c0daedfa2033de02ec4",
+    "testFileCount": 19,
+    "testCaseCount": 1044,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsResolved": 211,
+    "mutantsUnresolved": 0,
+    "criticalSurvivors": 0,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "thresholdsUnchanged": true
+  },
+  "releaseRun": {
+    "path": "tmp/verification/runs/20261015T060000Z-candidate-05bb-node24-rebound",
+    "status": "BLOCKED",
+    "sourceDrift": false,
+    "evidenceEntries": 54,
+    "passed": 49,
+    "blocked": 5,
+    "blockers": [
+      "LIVE-GOOGLE-01",
+      "LIVE-ICLOUD-01",
+      "LIVE-AMAZON-01",
+      "VIDEO-PLAYBACK-live",
+      "AMAZON-VIDEO-PLAYBACK-live"
+    ]
+  },
+  "checks": {
+    "policyChangedOnlyBySourceFingerprint": true,
+    "canonicalReportMatchesPriorPolicy": true,
+    "allCurrentNonKilledMutantsHaveReviewedTriage": true,
+    "exactTriageSetResolved": true,
+    "mutationThresholdsUnchanged": true,
+    "normalReleaseMutationReplayPasses": true,
+    "sourceStableDuringReplay": true,
+    "packageAuditPasses": true
+  }
+}

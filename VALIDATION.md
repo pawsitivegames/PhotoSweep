@@ -96,7 +96,7 @@ Run this after Stripe test-mode checkout and license refresh are working.
 
 Environment:
 
-- Chrome normal profile, signed in to Google Photos as `mustumasti@gmail.com`.
+- Chrome normal profile, signed in to Google Photos as `[redacted test account]`.
 - Unpacked dev extension loaded from `build/chrome-mv3-dev`.
 - Runtime extension id: `efdneecimbdbeafpllggkmahiehhimhn`.
 - No Trash/delete operation was performed.
@@ -108,7 +108,7 @@ Evidence:
   - `scripts/unsafewindow-shim.js`
   - `scripts/google-photos-toolkit.user.js`
   - `scripts/google-photos-commands.js`
-- Bridge health check returned `hasGptk=true`, `hasWizData=true`, and account email `mustumasti@gmail.com`.
+- Bridge health check returned `hasGptk=true`, `hasWizData=true`, and account email `[redacted test account]`.
 - Direct scoped fetch for taken date `2026-06-21` returned 7 media items with thumbnails.
 - App scoped Smart scan for `2026-06-21` reached 7 processed items and completed with `No duplicates found in your library.`
 - App scoped Full scan for `2026-06-21` reached 7 processed items and completed with `No duplicates found in your library.`
@@ -121,7 +121,7 @@ Current caveat:
 
 Environment:
 
-- Chrome normal profile, signed in to Google Photos as `mustafa.dungar@gmail.com`.
+- Chrome normal profile, signed in to Google Photos as `[redacted test account]`.
 - Unpacked dev extension loaded from `build/chrome-mv3-dev`.
 - Runtime extension id: `efdneecimbdbeafpllggkmahiehhimhn`.
 - No Trash/delete operation was performed.
@@ -156,7 +156,7 @@ Required cleanup:
 
 Environment:
 
-- Chrome normal profile, signed in to Google Photos as `mustafa.dungar@gmail.com`.
+- Chrome normal profile, signed in to Google Photos as `[redacted test account]`.
 - Unpacked dev extension loaded from `build/chrome-mv3-dev`.
 - Runtime extension id: `efdneecimbdbeafpllggkmahiehhimhn`.
 - Automated `.chrome-live-validation` profile was not signed in; it redirected to
@@ -201,8 +201,7 @@ Current caveat:
 
 Environment:
 
-- Chrome normal profile, signed in to Amazon Photos Canada as `Mustafa
-  Dungarpurwala`.
+- Chrome normal profile, signed in to Amazon Photos Canada as `[redacted test account]`.
 - Unpacked dev extension loaded from `build/chrome-mv3-dev`.
 - Page URL: `https://www.amazon.ca/photos?sf=1`.
 - No Trash/delete operation was performed.
@@ -234,8 +233,8 @@ Live synthetic Trash/Restore evidence:
 - Live Amazon command `getAllMediaItems` with `{ "limit": 10 }` returned all
   three synthetic items as the newest library rows.
 - Moved only `gpd-live-duplicate-copy-2.png` to Trash via live Amazon command:
-  - `dedupKey`: `PM18UFQPTiGPbcjRm18MYg`
-  - `mediaKey`: `amazon-PM18UFQPTiGPbcjRm18MYg`
+  - `dedupKey`: `[redacted synthetic item id]`
+  - `mediaKey`: `[redacted synthetic item id]`
   - result: `trashedCount=1`
 - A follow-up live library fetch returned only the remaining two synthetic
   items, proving the trashed synthetic duplicate dropped out of the normal
@@ -269,15 +268,15 @@ Evidence:
   owner record, dimensions, size, timestamp, and fingerprint.
 - Moved only `gpd-live-duplicate-copy-2.jpg` to Recently Deleted via live
   CloudKit `records/modify`:
-  - asset record: `8c9ecddb-6431-48b3-9ab0-fae37849a61e`
-  - pre-trash change tag: `n`
-  - result: HTTP 200, `isDeleted=1`, post-trash change tag `r`
+  - asset record: `[redacted synthetic record id]`
+  - pre-trash change tag: `[redacted change tag]`
+  - result: HTTP 200, `isDeleted=1`, post-trash change tag `[redacted change tag]`
 - A follow-up live normal-library query returned only:
   - `gpd-live-control.jpg`
   - `gpd-live-duplicate-copy-1.jpg`
 - Restored the same synthetic asset via live CloudKit `records/modify`:
-  - post-trash change tag used: `r`
-  - result: HTTP 200, post-restore change tag `y`
+  - post-trash change tag used: `[redacted change tag]`
+  - result: HTTP 200, post-restore change tag `[redacted change tag]`
 - Final live normal-library query returned all three synthetic JPGs again.
 
 App-driven validation:

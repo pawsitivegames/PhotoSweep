@@ -35,7 +35,7 @@ function presentValues<T>(
 function fileStem(fileName: string | undefined): string | undefined {
   const normalized = fileName?.trim().toLowerCase()
   if (!normalized) return undefined
-  return normalized.replace(/\.[a-z0-9]{1,8}$/i, "")
+  return normalized.replace(/\.[a-z0-9]{1,8}$/i, "");
 }
 
 function fileExtension(fileName: string | undefined): string | undefined {
@@ -81,10 +81,10 @@ export function isTrustedContentHash(
     return false
   }
 
-  if (candidate.algorithm === "md5") return /^[a-f0-9]{32}$/i.test(hash)
-  if (candidate.algorithm === "sha256") return /^[a-f0-9]{64}$/i.test(hash)
+  if (candidate.algorithm === "md5") return /^[a-f0-9]{32}$/i.test(hash);
+  if (candidate.algorithm === "sha256") return /^[a-f0-9]{64}$/i.test(hash);
   if (candidate.algorithm === "provider-fingerprint") {
-    return /^\S{8,}$/i.test(hash)
+    return /^\S{8,}$/i.test(hash);
   }
   return false
 }
@@ -107,7 +107,7 @@ export function normalizedMediaKind(item: GpdMediaItem):
 
 function normalizedHashValue(value: string): string {
   const trimmed = value.trim()
-  return /^[a-f0-9]+$/i.test(trimmed) ? trimmed.toLowerCase() : trimmed
+  return /^[a-f0-9]+$/i.test(trimmed) ? trimmed.toLowerCase() : trimmed;
 }
 
 /**

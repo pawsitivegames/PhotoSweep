@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_AFTER_NORMAL_REPLAY",
+  "createdAtUtc": "2026-10-16T10:41:36.425Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "569a49aee6c7bab10f487b96a4603502b7a1aff3351a2083e0b53772bf52361d",
+    "sourceFileCount": 336,
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "version": "2.3.6"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "8381806565be57868aadd3fbb5e7248644e65090246b80c4440b47e20442f742",
+    "currentPolicySha256": "94bf9a3aae162e650f85b5e2c9b108aee2954be730dd120e76703888cc58b5e9",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "2c5036aab71b69cb2a5ed374eed539283716ddedae8f7b75560a4dad5adc2437",
+    "sourceFingerprintTo": "569a49aee6c7bab10f487b96a4603502b7a1aff3351a2083e0b53772bf52361d",
+    "canonicalReportSha256Unchanged": "03a3bf02e8733ab362d858537b2469c69eb28af7761a60d165be96e1d0ad5395",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211
+  },
+  "scopeComparison": {
+    "priorAcceptedResultPath": "tmp/verification/mutation-google-test-discovery-20261016/mutation.json",
+    "priorRawReportPath": "tmp/verification/mutation-google-test-discovery-20261016/stryker-raw.json",
+    "mutantCount": 4108,
+    "filesMutated": 6,
+    "mutationTargets": [
+      "lib/duplicate-review-session.ts",
+      "lib/keep-strategy.ts",
+      "lib/review-preflight.ts",
+      "lib/trash-dispatch-guard.ts",
+      "lib/trash-lifecycle.ts",
+      "scripts/photo-provider-command-host.js"
+    ],
+    "targetSourceHashes": {
+      "lib/duplicate-review-session.ts": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+      "lib/keep-strategy.ts": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "lib/review-preflight.ts": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+      "lib/trash-dispatch-guard.ts": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a",
+      "lib/trash-lifecycle.ts": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+      "scripts/photo-provider-command-host.js": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c"
+    },
+    "targetSourceHashesUnchanged": true,
+    "selectedMutationTests": [
+      "tests/commands/amazon-photos-commands.test.ts",
+      "tests/commands/google-photos-commands.test.ts",
+      "tests/commands/icloud-photos-commands.test.ts",
+      "tests/commands/provider-capability-host.test.ts",
+      "tests/commands/provider-command-host-injection.test.ts",
+      "tests/commands/provider-session-host.test.ts",
+      "tests/lib/decision-memory.test.ts",
+      "tests/lib/duplicate-detector.test.ts",
+      "tests/lib/keep-strategy.test.ts",
+      "tests/lib/keeper-decisions.test.ts",
+      "tests/lib/multi-keep.test.ts",
+      "tests/lib/mutation-closure.test.ts",
+      "tests/lib/review-preflight.test.ts",
+      "tests/lib/review-report.test.ts",
+      "tests/lib/stored-review-scope.test.ts",
+      "tests/lib/trash-dispatch-guard.test.ts",
+      "tests/lib/trash-lifecycle.test.ts",
+      "tests/verification/fault-boundary.test.ts",
+      "tests/verification/model-conformance.test.ts",
+      "tests/verification/safety-properties.test.ts"
+    ],
+    "selectedMutationTestInventoryUnchanged": true,
+    "changedTestFile": "tests/components/photo-viewer-modal.test.tsx",
+    "changedTestIsInMutationScope": false,
+    "incrementalCacheFingerprintBefore": "5f942c04a171b25de3bd9a8043f217c512002e4b42301c39f73a1f1c9839719f",
+    "incrementalCacheFingerprintNow": "5f942c04a171b25de3bd9a8043f217c512002e4b42301c39f73a1f1c9839719f"
+  },
+  "priorAcceptedRun": {
+    "resultPath": "tmp/verification/mutation-google-test-discovery-20261016/mutation.json",
+    "sourceFingerprint": "2c5036aab71b69cb2a5ed374eed539283716ddedae8f7b75560a4dad5adc2437",
+    "status": "PASS",
+    "mutationScorePercent": 94.86,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "policyStatus": "VALID"
+  },
+  "checks": {
+    "mutationTargetsUnchanged": true,
+    "selectedMutationTestInventoryUnchanged": true,
+    "incrementalCacheFingerprintUnchanged": true,
+    "canonicalMutationReportHashUnchanged": true,
+    "normalMutationReplayRequired": true,
+    "normalMutationReplayAccepted": true,
+    "currentSourceFingerprintMatchesAcceptedRun": true,
+    "triagePolicyValidAndAllNonKilledResolved": true,
+    "registeredSourceDeltaContainsOnlyUnselectedTest": true,
+    "policyAndAuditEvidenceExcludedFromSourceFingerprint": true
+  },
+  "normalMutationReplay": {
+    "resultPath": "tmp/verification/mutation-photo-viewer-clean-20261016/mutation.json",
+    "node": "v24.20.0",
+    "runId": "20261016T-photo-viewer-clean-01",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsCovered": 4084,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "testFiles": 20,
+    "testCases": 1164,
+    "mutationScorePercent": 94.86,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "reviewedNonKilled": 211,
+    "resolvedNonKilled": 211,
+    "unresolvedNonKilled": 0,
+    "canonicalReportSha256": "03a3bf02e8733ab362d858537b2469c69eb28af7761a60d165be96e1d0ad5395",
+    "rawReportFileSha256": "eaead892684cd8708cf97700e4412cf1e2c675b100877ec76404773bd79ba64e",
+    "mutationTriageSha256": "dcff8469687e0248e88e62515a9075ff8cf3dffd2663fef4e7227df6e9087798",
+    "incrementalCacheFingerprint": "5f942c04a171b25de3bd9a8043f217c512002e4b42301c39f73a1f1c9839719f",
+    "dryRun": "1,166 tests in 24 seconds",
+    "strykerRuntime": "27 seconds"
+  },
+  "otherTestValidation": {
+    "fullUnit": {
+      "logPath": "tmp/verification/mutation-photo-viewer-clean-20261016/full-unit-after-act-fix.log",
+      "node": "v24.20.0",
+      "testFiles": 117,
+      "tests": 2230,
+      "durationSeconds": 30.97,
+      "reactActWarnings": 0,
+      "viteConfigLoaderDeprecationWarning": true
+    },
+    "photoViewerFocused": {
+      "logPath": "tmp/verification/mutation-google-test-discovery-20261016/photo-viewer-test.log",
+      "testFiles": 1,
+      "tests": 58,
+      "durationSeconds": 1.2,
+      "reactActWarnings": 0
+    },
+    "typecheck": {
+      "logPath": "tmp/verification/mutation-photo-viewer-clean-20261016/typecheck.log",
+      "status": "PASS"
+    },
+    "productionBuildFlagsRestored": true
+  },
+  "registeredSourceDeltaAfterPriorAcceptedRun": [
+    "tests/components/photo-viewer-modal.test.tsx"
+  ],
+  "changesOutsideRegisteredSource": [
+    "docs/TESTING.md",
+    "docs/REMAINING_GATES_STATUS.md",
+    "verification/evidence/mutation-triage-policy.json",
+    "verification/evidence/mutation-policy-rebind-audit-20261016-google-test-discovery.json",
+    "verification/evidence/mutation-policy-rebind-audit-20261016-photo-viewer-test-harness.json"
+  ]
+}

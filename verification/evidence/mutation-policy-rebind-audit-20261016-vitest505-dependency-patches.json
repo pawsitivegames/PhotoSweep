@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AFTER_EXACT_MUTANT_REVIEW",
+  "createdAtUtc": "2026-10-16T09:28:39.953Z",
+  "sourceBinding": {
+    "sourceFingerprint": "dc41d6cceddd8f1d73e0b24f11e1e32eab59a7a7424f7f5e96f5681f986073e2",
+    "sourceFingerprintBefore": "dc41d6cceddd8f1d73e0b24f11e1e32eab59a7a7424f7f5e96f5681f986073e2",
+    "sourceFingerprintAfter": "dc41d6cceddd8f1d73e0b24f11e1e32eab59a7a7424f7f5e96f5681f986073e2",
+    "node": "v26.10.0",
+    "workingTreeDirty": true
+  },
+  "changedDependencyInputs": [
+    {
+      "path": "package.json",
+      "changes": [
+        "vitest 5.0.4 -> 5.0.5",
+        "@vitest/ui 5.0.4 -> 5.0.5",
+        "jsdom 30.1.2 -> 30.1.3"
+      ]
+    },
+    {
+      "path": "package-lock.json",
+      "changes": [
+        "Vitest 5.0.4 -> 5.0.5 and compatible transitive lock updates"
+      ]
+    },
+    {
+      "path": "Google-Photos-Toolkit/package.json",
+      "changes": [
+        "vitest ^5.0.3 -> ^5.0.5"
+      ]
+    },
+    {
+      "path": "Google-Photos-Toolkit/package-lock.json",
+      "changes": [
+        "Vitest 5.0.4 -> 5.0.5",
+        "Rollup 4.64.6 -> 4.64.7 and platform package updates"
+      ]
+    }
+  ],
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "8b34123400465a81db79bf12c2eac73d7cb03ef9b7b39aed07ab93d89b84cd9e",
+    "currentPolicySha256": "028a12b101f807ff09c7c68a306b306b9acef9403a132ce7d81f6e0b7561ce2c",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "5ee8ebb99cd2ff2b8a117b894c901b6b029e9bcacd2f2f096dd57b2cd38f7889",
+    "sourceFingerprintTo": "dc41d6cceddd8f1d73e0b24f11e1e32eab59a7a7424f7f5e96f5681f986073e2",
+    "canonicalReportSha256": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114",
+    "rawReportFileSha256": "a7474f96d8f43c5031ef5ca38e0f463844ca7972378a36dcf245e584651929ae",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    }
+  },
+  "diagnosticRun": {
+    "command": "node verification/run-mutation.mjs --diagnostic-refresh-triage",
+    "resultPath": "tmp/verification/diagnostic-refresh/37b2b490-6903-4aa4-b7e1-5a6b5114644c/mutation.json",
+    "rawReportPath": "tmp/verification/diagnostic-refresh/37b2b490-6903-4aa4-b7e1-5a6b5114644c/mutation-run/stryker-raw.json",
+    "status": "DIAGNOSTIC_ONLY_MANUAL_REVIEW_GATE",
+    "sourceDrift": false,
+    "currentNonKilledMutants": 211,
+    "policyIdentityKeysMatch": true,
+    "canonicalReportMatchedPriorPolicy": true,
+    "testFileCount": 19,
+    "testCaseCount": 1046
+  },
+  "mutationResult": {
+    "strykerVersion": "10.0.0",
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "thresholdPercent": 90
+  },
+  "checks": {
+    "policyChangedOnlyBySourceFingerprint": true,
+    "canonicalReportMatchesPriorPolicy": true,
+    "allCurrentNonKilledMutantsMatchReviewedIdentityKeys": true,
+    "mutationScoreThresholdUnchanged": true,
+    "mutationSourcesUnchangedDuringDiagnostic": true,
+    "normalMutationReplayRequired": true
+  }
+}

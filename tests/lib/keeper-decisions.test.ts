@@ -66,6 +66,23 @@ function hydrateSelections(
 }
 
 describe("keeper decision contract", () => {
+  it("marks only known groups reviewed without selecting them", () => {
+    const initial = session({
+      selectedGroupIds: new Set(),
+      reviewedGroupIds: new Set(),
+      keptOverrides: {}
+    })
+
+    const updated = initial.update({
+      type: "mark_groups_reviewed",
+      groupIds: [g1.id, "outside-scan"]
+    })
+
+    expect(updated.selectedGroupIds).toEqual(new Set())
+    expect(updated.reviewedGroupIds).toEqual(new Set([g1.id]))
+    expect(updated.keptOverrides).toEqual({})
+  })
+
   it("keeps newly included groups in Needs review for shown and scan-wide inclusion", () => {
     const initial = session({
       selectedGroupIds: new Set([g2.id]),
@@ -669,6 +686,7 @@ describe("keeper decision contract", () => {
         mediaKey: "a"
       })
     )
+    expect(manualMulti.reviewedGroupIds).toEqual(new Set(["g1"]))
     const manualMultiAfterStrategy = session(
       manualMulti.update({
         type: "apply_keep_strategy",

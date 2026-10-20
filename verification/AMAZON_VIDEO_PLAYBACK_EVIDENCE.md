@@ -1,20 +1,22 @@
 # Amazon regional video playback evidence
 
 `AMAZON-VIDEO-PLAYBACK-live` is a separate release gate for successful
-playback on every host listed in `AMAZON_MARKETPLACE_HOSTS` in
-`lib/provider-sites.ts`. The runner derives that list from source at run time;
-the current declaration contains 22 marketplaces. The existing
-`VIDEO-PLAYBACK-live` obligation remains in place for exact-package playback
-across Google Photos, iCloud Photos, and Amazon Photos.
+playback on every host listed in `AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS` in
+`lib/provider-sites.ts`. The current supported list contains Amazon.ca.
+Amazon Photos scans cover 22 marketplaces, while full-video retrieval remains
+explicitly unavailable outside Canada. The existing `VIDEO-PLAYBACK-live`
+obligation remains in place for exact-package playback across Google Photos,
+iCloud Photos, and Amazon Photos.
 
 The release runner builds the production package first and calculates its
 `buildDigest` from the complete packaged file tree. Playback evidence must name
 that exact digest. The runner does not discover Amazon routes, contact Amazon,
 create capture records, or turn mock tests into live evidence. This manifest
 feeds only `AMAZON-VIDEO-PLAYBACK-live`; it does not satisfy the separate
-all-provider `VIDEO-PLAYBACK-live` obligation. Without a manifest, the Amazon
-obligation stays `BLOCKED`, and the current runner also keeps the all-provider
-obligation `BLOCKED` pending its own exact-package evidence.
+all-provider `VIDEO-PLAYBACK-live` obligation. The all-provider gate accepts a
+separate exact-package manifest described in
+[`VIDEO_PLAYBACK_EVIDENCE.md`](./VIDEO_PLAYBACK_EVIDENCE.md). Without supplied
+evidence, each gate stays `BLOCKED`.
 
 ## Supplying evidence
 
@@ -50,9 +52,9 @@ Use two release runs so the captures and final gate refer to the same package:
    for the manifest's `packageDigest`. It is distinct from the ZIP SHA-256 in
    the package metadata sidecar.
 
-2. Install that exact ZIP in Chrome Stable and capture all source-declared
-   markets. Bind the manifest and every capture sidecar to the `buildDigest`
-   from step 1.
+2. Install that exact ZIP in Chrome Stable and capture each supported Amazon
+   video-playback marketplace. Bind the manifest and every capture sidecar to
+   the `buildDigest` from step 1.
 
 3. Run release verification again with the unchanged candidate ZIP and the
    external playback manifest:
@@ -72,8 +74,8 @@ Use two release runs so the captures and final gate refer to the same package:
    the candidate sidecar.
 
 Any source-root or package change after step 1 invalidates the frozen
-candidate's source/package binding. Repackage and capture all markets again
-before running the gate. The runner records `VIDEO-PLAYBACK-live` and
+candidate's source/package binding. Repackage and recapture supported Amazon
+playback markets before running the gate. The runner records `VIDEO-PLAYBACK-live` and
 `AMAZON-VIDEO-PLAYBACK-live` in separate `video-playback.json` and
 `amazon-video-playback.json` artifacts.
 
@@ -85,7 +87,7 @@ The manifest is JSON with exactly these top-level fields:
 | `evidenceType` | `photosweep.amazon-video-playback` |
 | `captureMethod` | `chrome-devtools-mcp` |
 | `packageDigest` | The release run's 64-character `buildDigest` |
-| `captures` | One record per source-declared marketplace, with no duplicates or extras |
+| `captures` | One record per supported source-declared playback marketplace, with no duplicates or extras |
 
 Each `captures` record contains exactly `marketplaceHost`, `captureId`,
 `captureArtifact`, and `captureSha256`. `captureArtifact` is a relative path
@@ -103,7 +105,7 @@ Each sidecar contains exactly:
 | `evidenceType` | `photosweep.amazon-video-playback-capture` |
 | `captureMethod` | `chrome-devtools-mcp` |
 | `captureId` | The same unique ID as its manifest record |
-| `marketplaceHost` | The exact source-declared host for this capture |
+| `marketplaceHost` | The exact supported playback host for this capture |
 | `packageDigest` | The same digest as the freshly built release package |
 | `capturedAt` | A full ISO-8601 timestamp with `Z` or a numeric timezone offset; within the last 7 days and at most 5 minutes in the future |
 | `browser` | `Chrome Stable` |
@@ -117,7 +119,8 @@ needs its own capture ID and sidecar. Keep the sidecars sanitized: do not
 include account identifiers, media identifiers, page URLs, signed URLs, or
 credentials. The strict field allowlists reject additional fields.
 
-The validator checks the source list, package digest, capture hashes, per-market
+The validator checks the supported playback list and ensures it is a subset of
+the 22 Amazon scan marketplaces, package digest, capture hashes, per-market
 uniqueness and completeness, strict timezone-bearing timestamp freshness, and
 the playback observations reported in the sidecars. Browser, capture method,
 and playback fields are self-reported; the validator does not authenticate that

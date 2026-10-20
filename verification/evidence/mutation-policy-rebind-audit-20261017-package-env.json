@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "purpose": "Rebind the reviewed mutation triage policy after release-package environment plumbing changed the overall source fingerprint.",
+  "previousSourceFingerprint": "687afb4950cb7b647a1a6e151520c12dee53f4954dc2168632fee135e47033a2",
+  "intermediateSourceFingerprint": "c9c3a90817482b7e532c44db8ff9d9b2477d4e31b2b892af6855804186e929b6",
+  "sourceFingerprint": "80437cd41117d8897162fc532a3875ced05b8a7c71002a6810f1c8a7a3dd1722",
+  "packageSourceFingerprint": "80437cd41117d8897162fc532a3875ced05b8a7c71002a6810f1c8a7a3dd1722",
+  "candidatePackage": "build/photosweep-cws-v2.3.6.10-sha256-5c174becf2a6.zip",
+  "candidatePackageSha256": "5c174becf2a6ccb4bfedfb9bdbea57c578679f192cb5b23a3eeab35426d8dc4c",
+  "canonicalMutationReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+  "mutationIncrementalCacheFingerprint": "6238fe406f39f1d36b7c85953f37fa23da18f61071281bbfc2c309fa89cff095",
+  "diagnosticRun": "tmp/verification/diagnostic-refresh/caa5b4b6-74e7-4917-aeb7-77e81c7ca9e7/mutation.json",
+  "previousAcceptedRun": "tmp/verification/runs/20261017T074550Z-mutation-policy-pass/mutation.json",
+  "prePackageMutationRun": "tmp/verification/runs/20261017T093000Z-mutation-final/mutation.json",
+  "finalPolicyRun": "tmp/verification/runs/20261017T103000Z-mutation-package-source/mutation.json",
+  "verification": {
+    "mutationTargetFilesUnchanged": 6,
+    "configuredMutationTestFilesUnchanged": 20,
+    "configuredMutationTestCases": 1166,
+    "mutants": 4108,
+    "killed": 3897,
+    "survived": 187,
+    "noCoverage": 24,
+    "reviewedNonKilledEntries": 211,
+    "policyEntriesBeforeAndAfter": 211,
+    "policyEntriesAddedOrRemoved": 0,
+    "mutationScorePercent": 94.86,
+    "timeouts": 0,
+    "errors": 0,
+    "sourceDrift": false
+  },
+  "policyChanges": {
+    "sourceFingerprint": "updated to the current verification source fingerprint",
+    "canonicalMutationReportHash": "unchanged",
+    "thresholds": "unchanged",
+    "entryClassifications": "unchanged",
+    "entryEvidence": "unchanged"
+  },
+  "note": "The Chrome manifest version patch changes the post-package source fingerprint. Rebound the same triage policy to the exact audited candidate source after confirming the package fingerprint, six mutation targets, all 20 configured mutation test files, and all 211 reviewed non-killed mutant keys remain unchanged. The normal mutation-policy gate then passed against this exact package fingerprint."
+}

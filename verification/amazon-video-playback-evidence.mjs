@@ -119,6 +119,43 @@ export function sourceDeclaredAmazonMarketplaceHosts(sourceText) {
   return hosts
 }
 
+/** Read Amazon marketplaces where in-app video playback is supported. */
+export function sourceDeclaredAmazonVideoPlaybackMarketplaceHosts(sourceText) {
+  const match = sourceText.match(
+    /export const AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS = \[([\s\S]*?)\] as const/
+  )
+  if (!match) {
+    throw new Error(
+      "AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS source declaration is missing"
+    )
+  }
+
+  const hosts = []
+  for (const line of match[1].split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (trimmed.length === 0) continue
+    const hostMatch = trimmed.match(/^"([a-z0-9.-]+)",?$/)
+    if (!hostMatch || !hostMatch[1].includes(".")) {
+      throw new Error(
+        "AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS is not a literal host list"
+      )
+    }
+    hosts.push(hostMatch[1])
+  }
+
+  const scanHosts = sourceDeclaredAmazonMarketplaceHosts(sourceText)
+  if (
+    hosts.length === 0 ||
+    new Set(hosts).size !== hosts.length ||
+    hosts.some((host) => !scanHosts.includes(host))
+  ) {
+    throw new Error(
+      "AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS is empty, duplicated, or outside Amazon scan coverage"
+    )
+  }
+  return hosts
+}
+
 function readJsonFile(path) {
   const bytes = readFileSync(path)
   return { bytes, value: JSON.parse(bytes.toString("utf8")) }
@@ -242,10 +279,11 @@ export function validateAmazonVideoPlaybackEvidence({
 
   let expectedHosts
   try {
-    expectedHosts = sourceDeclaredAmazonMarketplaceHosts(sourceText)
+    expectedHosts =
+      sourceDeclaredAmazonVideoPlaybackMarketplaceHosts(sourceText)
   } catch {
     return failResult([
-      "The source-declared Amazon marketplace list could not be read safely."
+      "The source-declared Amazon video playback marketplace list could not be read safely."
     ])
   }
 
@@ -485,7 +523,7 @@ export function validateAmazonVideoPlaybackEvidence({
     checksRun: expectedHosts.length,
     problems: [],
     message:
-      "Fresh independent Chrome Stable playback captures cover every source-declared Amazon marketplace for the exact current package.",
+      "Fresh independent Chrome Stable playback captures cover every supported Amazon video playback marketplace for the exact current package.",
     evidenceFileSha256: sha256(manifestBytes),
     packageDigest: expectedPackageDigest,
     expectedMarketplaces: expectedHosts.length,

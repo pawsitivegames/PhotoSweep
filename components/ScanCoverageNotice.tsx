@@ -40,7 +40,9 @@ export function ScanCoverageNotice({
   if (!coverage) {
     return (
       <Alert severity="warning" sx={{ mb: compact ? 1 : 2 }}>
-        <Typography variant="body2" fontWeight={700}>
+        <Typography variant="body2" sx={{
+          fontWeight: 700
+        }}>
           Scan coverage was not recorded
         </Typography>
         <Typography variant="body2">
@@ -48,7 +50,7 @@ export function ScanCoverageNotice({
           scope was examined.
         </Typography>
       </Alert>
-    )
+    );
   }
 
   const severity = coverage.status === "complete" ? "info" : "warning"
@@ -59,7 +61,9 @@ export function ScanCoverageNotice({
 
   const coverageDetails = (
     <>
-      <Typography variant="body2" fontWeight={700}>
+      <Typography variant="body2" sx={{
+        fontWeight: 700
+      }}>
         {stopReasonText(coverage)}
       </Typography>
       <Box
@@ -74,20 +78,27 @@ export function ScanCoverageNotice({
           ["Skipped", coverage.itemsSkipped]
         ].map(([label, value]) => (
           <Box key={label} sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle2" fontWeight={700}>
+            <Typography variant="subtitle2" sx={{
+              fontWeight: 700
+            }}>
               {Number(value).toLocaleString()}
             </Typography>
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", lineHeight: 1.3 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                lineHeight: 1.3
+              }}>
               {label}
             </Typography>
           </Box>
         ))}
       </Box>
       <Divider />
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{
+        color: "text.secondary"
+      }}>
         Media coverage: {mediaTypes}.
         {coverage.unknownDateItemsSkipped > 0 &&
           ` ${coverage.unknownDateItemsSkipped.toLocaleString()} items had missing or invalid dates.`}
@@ -114,7 +125,9 @@ export function ScanCoverageNotice({
           "& .MuiAlert-icon": { py: 0.35, mr: 0.75 }
         }}>
         <Box sx={{ display: "grid", gap: 0.15 }}>
-          <Typography variant="caption" fontWeight={800}>
+          <Typography variant="caption" sx={{
+            fontWeight: 800
+          }}>
             Scan complete · {coverage.itemsReturned.toLocaleString()} in scope
             {coverage.itemsSkipped > 0 &&
               ` · ${coverage.itemsSkipped.toLocaleString()} skipped`}
@@ -136,7 +149,7 @@ export function ScanCoverageNotice({
           </Box>
         </Box>
       </Alert>
-    )
+    );
   }
 
   return (

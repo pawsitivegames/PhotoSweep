@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_FOR_FRESH_CURRENT_MUTATION_GATE_RECHECK",
+  "createdAtUtc": "2026-10-13T11:32:49.473Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "workingTreeSourceFingerprint": "a74d10e751bdb6dfd1e73c0f0f4033b428ee07c9954e456e5b44290e7f8ff5b8",
+    "workingTreeDirty": true
+  },
+  "mutationRun": {
+    "path": "tmp/verification/diagnostic-refresh/786a801f-95dd-4a61-8122-f1596a800c76/mutation-run",
+    "command": "PATH=<Node 24.20.0 bin>:$PATH VERIFICATION_MUTATION_CONCURRENCY=2 npm run test:mutation -- --diagnostic-refresh-triage",
+    "concurrency": 2,
+    "sourceFingerprint": "a74d10e751bdb6dfd1e73c0f0f4033b428ee07c9954e456e5b44290e7f8ff5b8",
+    "sourceDrift": false,
+    "framework": "10.0.0",
+    "testFiles": 19,
+    "mutationSourceCount": 6,
+    "canonicalReportSha256": "ba6f988bc3806997e056e5ca2490bbe14f31a9859208f58ec33005b136edd178",
+    "rawStrykerFileSha256": "0552c641e0c16aae0d6801c92c4083773878495fc15d1afa02ed38bb6025600e",
+    "rawReportPath": "tmp/verification/diagnostic-refresh/786a801f-95dd-4a61-8122-f1596a800c76/mutation-run/stryker-raw.json",
+    "triagePath": "tmp/verification/diagnostic-refresh/786a801f-95dd-4a61-8122-f1596a800c76/mutation-run/mutation-triage.json",
+    "resultPath": "tmp/verification/diagnostic-refresh/786a801f-95dd-4a61-8122-f1596a800c76/mutation.json",
+    "mutantsTotal": 4100,
+    "statusCounts": {
+      "Killed": 3889,
+      "NoCoverage": 24,
+      "Survived": 187
+    },
+    "mutationScorePercent": 94.85,
+    "coveredMutationScorePercent": 95.41,
+    "minimumKilledPercent": 90,
+    "criticalSurvivors": 0,
+    "workerExitCode": 0,
+    "diagnosticGateStatus": "FAIL"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "e9b9613034e5f1cc578a540c4453648cf914f919907de43cb761236f60dff308",
+    "updatedPolicyFileSha256": "db260e4d4a602c5496574e15d8c96b1f92fc6c84c20f60676664eb47a678cc7b",
+    "sourceFingerprint": {
+      "from": "dd42f0f10056e1f200e12c8e63e665d4fe38e4036580f58e4348a31268112806",
+      "to": "a74d10e751bdb6dfd1e73c0f0f4033b428ee07c9954e456e5b44290e7f8ff5b8"
+    },
+    "canonicalReportSha256": {
+      "from": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df",
+      "to": "ba6f988bc3806997e056e5ca2490bbe14f31a9859208f58ec33005b136edd178"
+    },
+    "priorReportPath": "tmp/verification/diagnostic-refresh/8a7b5442-94f3-44f7-a32d-e93ba8bf6e3b/mutation-run/stryker-raw.json",
+    "policyEntries": 211,
+    "currentNonKilledMutants": 211,
+    "exactAllNonKilledKeysAndStatusesMatch": true,
+    "unmatchedPolicyEntries": 0,
+    "unmatchedCurrentEntries": 0,
+    "mutationSourceHashesMatchCurrent": true,
+    "mutationSourceHashes": [
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "reportSourceSha256": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "currentSourceSha256": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "matches": true
+      },
+      {
+        "file": "lib/trash-dispatch-guard.ts",
+        "reportSourceSha256": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a",
+        "currentSourceSha256": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a",
+        "matches": true
+      },
+      {
+        "file": "lib/review-preflight.ts",
+        "reportSourceSha256": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+        "currentSourceSha256": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+        "matches": true
+      },
+      {
+        "file": "lib/duplicate-review-session.ts",
+        "reportSourceSha256": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "currentSourceSha256": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "matches": true
+      },
+      {
+        "file": "lib/keep-strategy.ts",
+        "reportSourceSha256": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "currentSourceSha256": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "matches": true
+      },
+      {
+        "file": "scripts/photo-provider-command-host.js",
+        "reportSourceSha256": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+        "currentSourceSha256": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+        "matches": true
+      }
+    ],
+    "classificationsAndEvidencePreserved": true,
+    "classificationCounts": {
+      "DUPLICATE": 27,
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37
+    },
+    "thresholdsChanged": false
+  },
+  "limitations": [
+    "The diagnostic run always returns FAIL by design; its worker completed successfully and exceeded the mutation score threshold, but the normal mutation gate must be rerun to validate this policy binding.",
+    "Exact-build Chrome and live provider checks remain separate from this mutation campaign."
+  ]
+}

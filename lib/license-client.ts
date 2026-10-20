@@ -62,7 +62,7 @@ export interface LoadStoredEntitlementOptions {
   allowDevEntitlement?: boolean
 }
 
-function base64UrlToBytes(value: string): Uint8Array {
+function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
   const padded = value
     .replace(/-/g, "+")
     .replace(/_/g, "/")

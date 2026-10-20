@@ -58,6 +58,27 @@ export function classifyTraceReplayResult({ raw, result, supported }) {
   const resultRecord = isRecord(result)
   const replay = rawRecord && isRecord(raw.replay) ? raw.replay : null
 
+  const storageBlocked =
+    rawRecord &&
+    raw.status === "BLOCKED" &&
+    raw.blockedReason === "storage-exhaustion" &&
+    resultRecord &&
+    result.exitCode === 2 &&
+    isSafeNonnegativeInteger(raw.test?.exitCode) &&
+    raw.test.exitCode !== 0
+  if (storageBlocked) {
+    return {
+      status: "BLOCKED",
+      failed: false,
+      failureReasons: [],
+      hasUnsupported: false,
+      unsupportedActions: [],
+      expectedBlockedExit: true,
+      supportedProjectionPassed: false,
+      blockedReason: "storage-exhaustion"
+    }
+  }
+
   if (!rawRecord || !replay) {
     failureReasons.push("missing child result or replay report")
   }

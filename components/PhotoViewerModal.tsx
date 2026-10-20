@@ -2,7 +2,7 @@ import { keyframes } from "@emotion/react"
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"
 import ChevronRightIcon from "@mui/icons-material/ChevronRight"
 import CloseIcon from "@mui/icons-material/Close"
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline"
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlined"
 import OpenInNewIcon from "@mui/icons-material/OpenInNew"
 import PlayCircleFilledWhiteIcon from "@mui/icons-material/PlayCircleFilledWhite"
 import Box from "@mui/material/Box"
@@ -168,6 +168,11 @@ interface FullResMediaProps {
 }
 
 function FullResMedia({ item, blob, playbackUrl, onPlaybackError }: FullResMediaProps) {
+  useEffect(() => {
+    if (!playbackUrl?.startsWith("blob:")) return
+    return () => URL.revokeObjectURL(playbackUrl)
+  }, [playbackUrl])
+
   const isVideo = isVideoItem(item)
   if (isVideo && playbackUrl) {
     return (
@@ -651,11 +656,12 @@ export function PhotoViewerModal({
           <Typography
             key={safeIndex}
             variant="body2"
-            fontWeight={600}
             sx={{
+              fontWeight: 600,
               color: "white",
               textAlign: "center",
               letterSpacing: "0.05em",
+
               animation: prefersReducedMotion
                 ? "none"
                 : `${slideDir === "forward" ? slideInFromRight : slideInFromLeft} 150ms ease-out`
@@ -996,12 +1002,14 @@ export function PhotoViewerModal({
         maxWidth="xs"
         fullWidth
         aria-label="Keyboard shortcuts"
-        PaperProps={{
-          sx: {
-            bgcolor: photoSweepColors.viewerSurface,
-            color: "white",
-            borderRadius: 3,
-            backdropFilter: "saturate(180%) blur(24px)"
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: photoSweepColors.viewerSurface,
+              color: "white",
+              borderRadius: 3,
+              backdropFilter: "saturate(180%) blur(24px)"
+            }
           }
         }}>
         <Box
@@ -1089,5 +1097,5 @@ export function PhotoViewerModal({
         </DialogContent>
       </Dialog>
     </Dialog>
-  )
+  );
 }

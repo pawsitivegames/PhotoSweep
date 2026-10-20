@@ -45,5 +45,5 @@ export function buildCacheDiagnosticsReport(
     totalRecords: items.length,
     recordsWithMetadata: items.filter((item) => item.metadata !== null).length,
     items
-  }
+  };
 }

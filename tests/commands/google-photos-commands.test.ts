@@ -21,7 +21,6 @@ import {
   providerParityFixtureTimestamp,
   providerParityMixedMediaDatesV3
 } from "../fixtures/provider-parity-mixed-media-dates-v3"
-import gptkBatchMediaInfoFixture from "../../Google-Photos-Toolkit/tests/fixtures/parser/EWgK9e.json"
 
 const realSetTimeout = globalThis.setTimeout.bind(globalThis)
 
@@ -494,6 +493,33 @@ describe("getAllMediaItems — field mapping", () => {
         mediaKey: "google-hash-unknown",
         originalContentVerificationCapability: "unavailable"
       }
+    ])
+    restore()
+  })
+
+  it("tags Google scan rows with the provider used by session-bound retrieval", async () => {
+    setupGptkApi([
+      {
+        mediaKey: "google-session-bound-video",
+        dedupKey: "google-session-bound-video",
+        thumb: "https://thumb/google-session-bound-video",
+        mimeType: "video/mp4",
+        isVideo: true
+      }
+    ])
+    const { messages, restore } = collectMessages()
+
+    sendCommand("getAllMediaItems", "google-session-bound-provider", {})
+    await waitForMessage(messages, "google-session-bound-provider")
+
+    const result = messages.find(
+      (message: any) =>
+        message.action === "gptkResult" &&
+        message.command === "getAllMediaItems" &&
+        message.requestId === "google-session-bound-provider"
+    ) as any
+    expect(result?.data).toMatchObject([
+      { mediaKey: "google-session-bound-video", provider: "google" }
     ])
     restore()
   })
@@ -1122,9 +1148,40 @@ describe("getAllMediaItems — field mapping", () => {
     restore()
   })
 
-  it("enriches the captured EWgK9e response and leaves unknown quality codes unknown", async () => {
+  it("enriches raw EWgK9e rows and leaves unknown quality codes unknown", async () => {
     type RawBatchItem = [string, unknown[], ...unknown[]]
-    const fixtureRows = gptkBatchMediaInfoFixture as unknown as RawBatchItem[]
+    // Keep the bridge contract test independent of the GPTK submodule so it
+    // remains runnable in Stryker's sandbox, which intentionally omits GPTK.
+    const fixtureRows: RawBatchItem[] = [
+      [
+        "AF1QipUTORt0UuUoEnf3LUfylqNvwB42tg6aR7tBD7nY",
+        [
+          null, null, "", "file_164.mp4", null, null, 1761753048000,
+          3600000, 1761755803160, 39680079, 100, null, null, null, null,
+          null, null, null, 2, null, null, null, null, 1, null, 53246,
+          null, null, null, null, null, null, null, [2, 0, 2, 0, null, 1]
+        ],
+        null, null, null,
+        [
+          "AF1QipUTORt0UuUoEnf3LUfylqNvwB42tg6aR7tBD7nY",
+          ["100000000001", null, "100000000002"]
+        ]
+      ],
+      [
+        "AF1QipLkYTUgbg9ka8ItDAvHrtMNtriIYQMvOhDOvYlO",
+        [
+          null, null, "", "file_165.mp4", null, null, 1761738241000,
+          3600000, 1761755126639, 57266147, 100, null, null, null, null,
+          null, null, null, 2, null, null, null, null, 1, null, 53242,
+          null, null, null, null, null, null, null, [2, 0, 2, 0, null, 1]
+        ],
+        null, null, null,
+        [
+          "AF1QipLkYTUgbg9ka8ItDAvHrtMNtriIYQMvOhDOvYlO",
+          ["100000000001", null, "100000000003"]
+        ]
+      ]
+    ]
     const originalQualityRow = fixtureRows[0]
     const unknownQualityRow = [...fixtureRows[1]] as RawBatchItem
     const unknownProviderFields = [...unknownQualityRow[1]]
@@ -1158,16 +1215,8 @@ describe("getAllMediaItems — field mapping", () => {
 
     const { messages, restore } = collectMessages()
     try {
-      // Production uses parseResponse=false so raw codes survive to enrichment;
-      // the generic parser classifies every defined non-2 code as false.
-      const { default: GooglePhotosApi } = await import(
-        "../../Google-Photos-Toolkit/src/api/api"
-      )
-      const api = new GooglePhotosApi()
-      const makeApiRequest = vi
-        .spyOn(api, "makeApiRequest")
-        .mockResolvedValue([[null, rawBatchResponse]])
-      const getBatchMediaInfo = vi.spyOn(api, "getBatchMediaInfo")
+      const getBatchMediaInfo = vi.fn().mockResolvedValue(rawBatchResponse)
+      const api = { getBatchMediaInfo }
       ;(window as any).gptkApiUtils = { api, infoSize: 5_000 }
 
       sendCommand("getAllMediaItems", "req-ewgk9e-quality", {})
@@ -1182,10 +1231,6 @@ describe("getAllMediaItems — field mapping", () => {
       expect(getBatchMediaInfo).toHaveBeenCalledWith(
         mediaItems.map((item) => item.mediaKey),
         false
-      )
-      expect(makeApiRequest).toHaveBeenCalledWith(
-        "EWgK9e",
-        expect.any(Array)
       )
       expect(result?.data.map((item: any) => item.isOriginalQuality)).toEqual([
         true,
@@ -3123,6 +3168,135 @@ describe("Google original media retrieval", () => {
       expect(JSON.stringify(result)).not.toContain("secret=unsafe")
     }
     expect(getItemInfo).toHaveBeenCalledTimes(2)
+    restore()
+  })
+
+  it("[VIDEO-PLAYBACK] requests a provider download URL when item info has no playback URL", async () => {
+    const scopeFingerprint = "google-playback-download-url-fallback-scope"
+    const mediaKey = "google-video-download-url-fallback"
+    const playbackUrl =
+      "https://video-downloads.googleusercontent.com/synthetic-playback-route?token=fixture"
+    const { messages, restore } = collectMessages()
+    const getItemInfo = vi.fn(async (requestedMediaKey: string) => ({
+      mediaKey: requestedMediaKey,
+      downloadUrl: null
+    }))
+    const getDownloadUrl = vi.fn(async (mediaKeys: string[]) => {
+      expect(mediaKeys).toEqual([mediaKey])
+      return playbackUrl
+    })
+    ;(window as any).gptkApiUtils = {
+      api: { ...mockApi, getItemInfo, getDownloadUrl }
+    }
+    await scanWithMessages(
+      messages,
+      [makeItem(mediaKey, { mediaKind: "video", mimeType: "video/mp4" })],
+      "google-playback-download-url-fallback-scan",
+      scopeFingerprint
+    )
+
+    sendCommand("getVideoPlaybackUrl", "google-playback-download-url-fallback", {
+      requestId: "google-playback-download-url-fallback",
+      mediaKey,
+      userOptIn: true,
+      providerSessionId: googleTestSessionId,
+      scanScopeFingerprint: scopeFingerprint
+    })
+
+    expect(await waitForMessage(messages, "google-playback-download-url-fallback")).toMatchObject({
+      success: true,
+      data: { mediaKey, scopeFingerprint, playbackUrl }
+    })
+    expect(getItemInfo).toHaveBeenCalledWith(mediaKey)
+    expect(getDownloadUrl).toHaveBeenCalledTimes(1)
+    restore()
+  })
+
+  it("[VIDEO-PLAYBACK] accepts the exact Google player route and rejects other paths or hosts", async () => {
+    const scopeFingerprint = "google-native-playback-route-scope"
+    const validPlaybackUrl =
+      "https://photos.fife.usercontent.google.com/pw/synthetic-token=mm,dash?signature=playback-secret"
+    const invalidRoutes = new Map([
+      [
+        "google-video-wrong-path",
+        "https://photos.fife.usercontent.google.com/preview/synthetic-token?signature=wrong-path"
+      ],
+      [
+        "google-video-lookalike-host",
+        "https://evil.photos.fife.usercontent.google.com/pw/synthetic-token?signature=lookalike"
+      ],
+      [
+        "google-video-nested-path",
+        "https://photos.fife.usercontent.google.com/pw/synthetic-token/extra?signature=nested-path"
+      ],
+      [
+        "google-video-encoded-separator",
+        "https://photos.fife.usercontent.google.com/pw/synthetic-token%2fextra?signature=encoded-separator"
+      ]
+    ])
+    const getItemInfo = vi.fn(async (mediaKey: string) => ({
+      mediaKey,
+      downloadUrl:
+        mediaKey === "google-video-native-route"
+          ? validPlaybackUrl
+          : invalidRoutes.get(mediaKey)
+    }))
+    const { messages, restore } = collectMessages()
+    ;(window as any).gptkApiUtils = {
+      api: { ...mockApi, getItemInfo }
+    }
+    await scanWithMessages(
+      messages,
+      [
+        "google-video-native-route",
+        ...invalidRoutes.keys()
+      ].map((mediaKey) =>
+        makeItem(mediaKey, {
+          mediaKind: "video",
+          mimeType: "video/mp4"
+        })
+      ),
+      "google-native-playback-route-scan",
+      scopeFingerprint
+    )
+
+    sendCommand("getVideoPlaybackUrl", "google-native-playback-valid", {
+      requestId: "google-native-playback-valid",
+      mediaKey: "google-video-native-route",
+      userOptIn: true,
+      providerSessionId: googleTestSessionId,
+      scanScopeFingerprint: scopeFingerprint
+    })
+    expect(await waitForMessage(messages, "google-native-playback-valid")).toMatchObject({
+      success: true,
+      data: { playbackUrl: validPlaybackUrl }
+    })
+
+    for (const [requestId, mediaKey] of [
+      ["google-native-playback-wrong-path", "google-video-wrong-path"],
+      ["google-native-playback-lookalike", "google-video-lookalike-host"],
+      ["google-native-playback-nested-path", "google-video-nested-path"],
+      [
+        "google-native-playback-encoded-separator",
+        "google-video-encoded-separator"
+      ]
+    ]) {
+      sendCommand("getVideoPlaybackUrl", requestId, {
+        requestId,
+        mediaKey,
+        userOptIn: true,
+        providerSessionId: googleTestSessionId,
+        scanScopeFingerprint: scopeFingerprint
+      })
+      const result = await waitForMessage(messages, requestId)
+      expect(result).toMatchObject({
+        success: false,
+        error: expect.stringMatching(/verified video playback resource/i)
+      })
+      expect(JSON.stringify(result)).not.toContain("photos.fife.usercontent.google.com")
+      expect(JSON.stringify(result)).not.toContain("signature=")
+    }
+    expect(getItemInfo).toHaveBeenCalledTimes(5)
     restore()
   })
 

@@ -1,0 +1,16 @@
+{
+  "name": "fast-glob",
+  "version": "3.3.3",
+  "private": true,
+  "description": "PhotoSweep's narrow fast-glob adapter backed by tinyglobby",
+  "main": "index.cjs",
+  "types": "index.d.cts",
+  "type": "commonjs",
+  "files": [
+    "index.cjs",
+    "index.d.cts"
+  ],
+  "dependencies": {
+    "tinyglobby": "0.2.17"
+  }
+}

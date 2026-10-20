@@ -371,10 +371,12 @@ function withRecoveryEmailSender(store, recoveryEmailSender) {
   }
 }
 
-function createDefaultLicenseStore(env) {
+function createDefaultLicenseStore(env, firestoreFactory) {
   if (env.PHOTOSWEEP_LICENSE_STORE === "firestore") {
     return createFirestoreLicenseStore({
-      collectionPrefix: env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX
+      collectionPrefix: env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX,
+      databaseId: env.PHOTOSWEEP_FIRESTORE_DATABASE_ID,
+      ...(firestoreFactory ? { firestoreFactory } : {})
     })
   }
   return createJsonFileLicenseStore(
@@ -388,9 +390,10 @@ export function createNodeRequestHandler({
   store = undefined,
   fetchImpl = fetch,
   recoveryEmailSender = undefined,
-  api = undefined
+  api = undefined,
+  firestoreFactory = undefined
 } = {}) {
-  const baseStore = store ?? createDefaultLicenseStore(env)
+  const baseStore = store ?? createDefaultLicenseStore(env, firestoreFactory)
   const licenseStore = withRecoveryEmailSender(
     baseStore,
     recoveryEmailSender ??

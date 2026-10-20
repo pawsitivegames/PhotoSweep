@@ -337,6 +337,39 @@ function request(
 }
 
 describe("node license server adapter", () => {
+  it("passes the configured Firestore database ID through the public handler", () => {
+    const firestore = { collection: vi.fn(() => ({})) }
+    const firestoreFactory = vi.fn(() => firestore)
+
+    createNodeRequestHandler({
+      env: {
+        NODE_ENV: "development",
+        PHOTOSWEEP_LICENSE_STORE: "firestore",
+        PHOTOSWEEP_FIRESTORE_DATABASE_ID: "photosweep-test"
+      },
+      firestoreFactory,
+      api: async () => new Response("ok")
+    })
+
+    expect(firestoreFactory).toHaveBeenCalledWith({
+      databaseId: "photosweep-test"
+    })
+    expect(firestore.collection).toHaveBeenCalledTimes(5)
+  })
+
+  it("keeps the default Firestore database when no database ID is configured", () => {
+    const firestore = { collection: vi.fn(() => ({})) }
+    const firestoreFactory = vi.fn(() => firestore)
+
+    createNodeRequestHandler({
+      env: { NODE_ENV: "development", PHOTOSWEEP_LICENSE_STORE: "firestore" },
+      firestoreFactory,
+      api: async () => new Response("ok")
+    })
+
+    expect(firestoreFactory).toHaveBeenCalledWith()
+  })
+
   it("forwards node HTTP requests to the Web Request API handler", async () => {
     const observed: Array<{
       method: string

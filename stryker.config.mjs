@@ -1,6 +1,28 @@
+import { availableParallelism } from "node:os"
+import {
+  MUTATION_TARGETS,
+  MUTATION_TEST_FILES
+} from "./verification/mutation-scope.mjs"
+
 const mutationOutput =
   process.env.VERIFICATION_MUTATION_DIR ??
   "tmp/verification/current/mutation-run"
+const rawMutationConcurrency = process.env.VERIFICATION_MUTATION_CONCURRENCY
+const mutationConcurrency =
+  rawMutationConcurrency === undefined
+    ? Math.min(4, availableParallelism())
+    : Number(rawMutationConcurrency)
+const incrementalFile = process.env.VERIFICATION_MUTATION_INCREMENTAL_FILE
+
+if (
+  !Number.isInteger(mutationConcurrency) ||
+  mutationConcurrency < 1 ||
+  mutationConcurrency > 4
+) {
+  throw new Error(
+    "VERIFICATION_MUTATION_CONCURRENCY must be an integer between 1 and 4."
+  )
+}
 
 /**
  * The mutation scope is intentionally limited to the destructive-operation
@@ -11,45 +33,21 @@ export default {
   testRunner: "vitest",
   plugins: ["@stryker-mutator/vitest-runner"],
   vitest: {
-    configFile: "vitest.config.ts",
+    configFile: "vitest.config.mts",
     related: false
   },
-  mutate: [
-    "lib/trash-lifecycle.ts",
-    "lib/trash-dispatch-guard.ts",
-    "lib/review-preflight.ts",
-    "lib/duplicate-review-session.ts",
-    "lib/keep-strategy.ts",
-    "scripts/photo-provider-command-host.js"
-  ],
-  testFiles: [
-    "tests/lib/trash-lifecycle.test.ts",
-    "tests/lib/trash-dispatch-guard.test.ts",
-    "tests/lib/review-preflight.test.ts",
-    "tests/lib/keep-strategy.test.ts",
-    "tests/lib/keeper-decisions.test.ts",
-    "tests/lib/multi-keep.test.ts",
-    "tests/lib/decision-memory.test.ts",
-    "tests/lib/stored-review-scope.test.ts",
-    "tests/lib/review-report.test.ts",
-    "tests/lib/duplicate-detector.test.ts",
-    "tests/lib/mutation-closure.test.ts",
-    "tests/commands/google-photos-commands.test.ts",
-    "tests/commands/icloud-photos-commands.test.ts",
-    "tests/commands/amazon-photos-commands.test.ts",
-    "tests/commands/provider-session-host.test.ts",
-    "tests/commands/provider-capability-host.test.ts",
-    "tests/verification/safety-properties.test.ts",
-    "tests/verification/model-conformance.test.ts",
-    "tests/verification/fault-boundary.test.ts"
-  ],
+  ...(incrementalFile
+    ? { incremental: true, incrementalFile }
+    : {}),
+  mutate: MUTATION_TARGETS,
+  testFiles: MUTATION_TEST_FILES,
   coverageAnalysis: "perTest",
   reporters: ["clear-text", "progress", "json"],
   jsonReporter: {
     fileName: `${mutationOutput}/stryker-raw.json`
   },
   packageManager: "pnpm",
-  concurrency: 1,
+  concurrency: mutationConcurrency,
   timeoutFactor: 3,
   timeoutMS: 20_000,
   thresholds: {
@@ -72,10 +70,14 @@ export default {
     "/log/**/*.log*",
     "/playwright-report/**",
     "/tmp",
+    "/tmp/**",
     "/tmp-live-duplicate-test/**",
     "/venv/**",
     "/build",
     "/Google-Photos-Toolkit",
+    // The selected mutation tests do not run TLC; avoid copying its pinned JAR
+    // into every disposable worker sandbox.
+    "/verification/tooling/tla2tools-1.8.0.jar",
     "/test-results",
     "/states"
   ],

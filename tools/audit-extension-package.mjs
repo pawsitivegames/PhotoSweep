@@ -125,6 +125,20 @@ if (manifest.side_panel?.default_path !== "tabs/scanner-panel.html") {
 const hostPermissions = manifest.host_permissions ?? []
 if (!Array.isArray(hostPermissions))
   fail("manifest.host_permissions must be an array")
+const optionalHostPermissions = manifest.optional_host_permissions ?? []
+const amazonVideoHostPermission = "https://download-photos.amazon.ca/*"
+if (!Array.isArray(optionalHostPermissions)) {
+  fail("manifest.optional_host_permissions must be an array")
+} else if (!optionalHostPermissions.includes(amazonVideoHostPermission)) {
+  fail(`missing optional Amazon video host permission: ${amazonVideoHostPermission}`)
+} else if (
+  optionalHostPermissions.some((permission) => permission !== amazonVideoHostPermission)
+) {
+  fail("optional_host_permissions contains an unapproved host")
+}
+if (hostPermissions.includes(amazonVideoHostPermission)) {
+  fail("Amazon video download access must remain optional")
+}
 if (!hostPermissions.includes(expectedHostPermission)) {
   fail(`missing expected backend host permission: ${expectedHostPermission}`)
 }

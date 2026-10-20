@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_CACHED_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-14T01:34:59.163Z",
+  "candidate": {
+    "sourceFingerprint": "4019b0d1f0a092cdee483ae0055ed5e3837638f512c1139605b3434da61a0bf3",
+    "node": "v24.20.0",
+    "dirtyWorkingTree": true
+  },
+  "mutationRun": {
+    "resultPath": "tmp/verification/diagnostic-refresh/b932c163-6e0f-4bfa-af6b-149672bf357b/mutation.json",
+    "rawReportPath": "tmp/verification/diagnostic-refresh/b932c163-6e0f-4bfa-af6b-149672bf357b/mutation-run/stryker-raw.json",
+    "command": "node verification/run-mutation.mjs --diagnostic-refresh-triage",
+    "sourceFingerprintBefore": "4019b0d1f0a092cdee483ae0055ed5e3837638f512c1139605b3434da61a0bf3",
+    "sourceFingerprintAfter": "4019b0d1f0a092cdee483ae0055ed5e3837638f512c1139605b3434da61a0bf3",
+    "rawStrykerFileSha256": "2162f05fa6653e505073045a994da87fffe669113b49fea31b93f092dab0391d",
+    "canonicalReportSha256": "f182daef864a64f234aea8cc3148c1a75a18f5772858362bf40ff347b47eff25",
+    "strykerVersion": "10.0.0",
+    "incremental": true,
+    "incrementalFile": "tmp/verification/mutation-incremental/321e3598bce3d83cbab814a6f64300521a7bfe0d5c3d6db5ebf6dcb4954f98ad-node-24.20.0.json",
+    "incrementalCacheFingerprint": "321e3598bce3d83cbab814a6f64300521a7bfe0d5c3d6db5ebf6dcb4954f98ad",
+    "compatibilitySourceFingerprint": "3a7dda8205f7d6e7f607e64929e4894a71d96dabc9227b2e5831c6c475e2897d",
+    "mutantCount": 4100,
+    "statusCounts": {
+      "Killed": 3889,
+      "Survived": 187,
+      "NoCoverage": 24
+    },
+    "mutationScorePercent": 94.85,
+    "criticalSurvivors": 0,
+    "minimumKilledPercent": 90
+  },
+  "comparison": {
+    "priorResultPath": "tmp/verification/runs/20261013T-mutation-cache-rebind/normal-final/mutation.json",
+    "priorCanonicalReportSha256": "f182daef864a64f234aea8cc3148c1a75a18f5772858362bf40ff347b47eff25",
+    "currentCanonicalReportSha256": "f182daef864a64f234aea8cc3148c1a75a18f5772858362bf40ff347b47eff25",
+    "exactAllMutantKeysAndStatusesMatchPrior": true,
+    "priorMutantCount": 4100,
+    "currentMutantCount": 4100,
+    "policyEntries": 211,
+    "currentNonKilledMutants": 211,
+    "exactCurrentNonKilledKeysMatchPolicy": true,
+    "mutationSourceHashesMatchPrior": true,
+    "classificationsAndEvidencePreserved": true,
+    "classificationCounts": {
+      "UNREACHABLE": 37,
+      "EQUIVALENT": 147,
+      "DUPLICATE": 27
+    },
+    "thresholdsChanged": false,
+    "sourceDrift": false
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "cf1b39987416d15066149a1c4c21187ca2f458eac2608714bd364906ec1d81bc",
+    "updatedPolicyFileSha256": "6785ab3f41a6b7d699bfe6636f7902af4d3d1eec03422290c846d177487075b1",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "priorSourceFingerprint": "9bec957023f23547f7848e6cbec20fa725e79bfc2ceb71ab04a6b3578ba9c840",
+    "sourceFingerprint": "4019b0d1f0a092cdee483ae0055ed5e3837638f512c1139605b3434da61a0bf3",
+    "canonicalReportSha256Unchanged": true
+  },
+  "limitations": [
+    "The diagnostic refresh intentionally returns FAIL; the normal release mutation gate must be rerun against this source fingerprint.",
+    "This mutation evidence does not replace exact-package Chrome or live-provider checks."
+  ]
+}

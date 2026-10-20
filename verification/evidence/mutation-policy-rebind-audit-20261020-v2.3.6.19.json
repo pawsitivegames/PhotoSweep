@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-20T11:26:17.408Z",
+  "status": "REBIND_COMPLETE_NORMAL_REPLAY_PENDING",
+  "purpose": "Rebind the reviewed mutation dispositions to the frozen v2.3.6.19 source after a complete diagnostic report and exact non-killed mutant inventory comparison.",
+  "candidate": {
+    "artifactFile": "build/photosweep-cws-v2.3.6.19-sha256-a48d23b57d5d.zip",
+    "artifactSha256": "a48d23b57d5d83e281a6c63121a8aeca66165ec7ac51bdbda45615d1bb5725fc",
+    "manifestSha256": "ac8929243d161256dac54c20529832778622fa0a11c10e32364d2dc0d5f1621a",
+    "buildId": "4dd1537d-5bd3-41e4-902e-75e7741c1c97",
+    "chromeVersion": "2.3.6.19",
+    "sourceFingerprint": "ac34c34445aa7da066196aae7669f54aae26596e9f4626f881cd07c3e713ef80",
+    "sourceFileCount": 345
+  },
+  "previousPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "backupPath": "tmp/verification/runs/mutation-triage-diag-v2.3.6.19-20261020-01/mutation-triage-policy-before.json",
+    "sha256": "c1d1f0cfc29860042a528c57dc4616ba8a9e4cfb98c4cbf98684704c4b244abc",
+    "sourceFingerprint": "7329c97d7a55aba9abfbcb51ba16a9469b577b165b9b314e6be16e7885945c71",
+    "canonicalMutationReportSha256": "d3c8a2c7dc5c7ac877e472d7b82b942a5329841a6b4daef2ff8e2f72862fca99",
+    "reviewedEntries": 215
+  },
+  "diagnosticRefresh": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "nodeVersion": "24.20.0",
+    "strykerVersion": "10.0.0",
+    "mutationRunDirectory": "tmp/verification/runs/mutation-triage-diag-v2.3.6.19-20261020-01/mutation-run",
+    "resultPath": "tmp/verification/diagnostic-refresh/35cf8f46-3c69-4604-8768-7c353c7409a7/mutation.json",
+    "resultSha256": "b34f16f69bad370749519ed0effd5b8ee678479d9682dc3e568aa63b7665805a",
+    "resultUse": "Diagnostic only; intentional exit code 1 cannot be accepted as mutation PASS.",
+    "strykerExitCode": 0,
+    "sourceFingerprintBefore": "ac34c34445aa7da066196aae7669f54aae26596e9f4626f881cd07c3e713ef80",
+    "sourceFingerprintAfter": "ac34c34445aa7da066196aae7669f54aae26596e9f4626f881cd07c3e713ef80",
+    "rawFileSha256": "34b6d043c0ce05e3d666b5edf908fbc4ca4aa76e28aaf4d4f104d71e166c5d64",
+    "canonicalMutationReportSha256": "d3c8a2c7dc5c7ac877e472d7b82b942a5329841a6b4daef2ff8e2f72862fca99",
+    "mutationTriageSha256": "dc6dfdded3c6d465ea8d0e00323e3a99de805b8269902ec562d606d9554fcedf",
+    "testFileCount": 20,
+    "testCaseCount": 1172,
+    "mutantsTotal": 4171,
+    "mutantsKilled": 3956,
+    "mutantsSurvived": 191,
+    "mutantsNoCoverage": 24,
+    "mutationScorePercent": 94.85,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "sourceDrift": false,
+    "incrementalCacheFingerprint": "ae5b959dce7c942b2a8578824cec002f41c60ec31a967692d4ee3c347d3d5152",
+    "incrementalCacheFile": "tmp/verification/mutation-incremental/ae5b959dce7c942b2a8578824cec002f41c60ec31a967692d4ee3c347d3d5152-node-24.20.0.json"
+  },
+  "policyRebind": {
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "previousDispositionEntries": 215,
+    "currentNonKilledMutants": 215,
+    "exactKeyMatches": 215,
+    "missingEntries": 0,
+    "newUnreviewedNonKilledMutants": 0,
+    "duplicatePreviousEntries": 0,
+    "duplicateCurrentMutants": 0,
+    "canonicalMutationReportSha256Changed": false,
+    "thresholdsChanged": false,
+    "dispositionsChanged": false,
+    "sourceRootRegistryEditedByRebind": false,
+    "previousPolicySha256": "c1d1f0cfc29860042a528c57dc4616ba8a9e4cfb98c4cbf98684704c4b244abc",
+    "currentPolicySha256": "45502b9282281089a2c364a6a2e3bcd5ff4535ba5f816e8782726f9b26ba7251",
+    "sourceFingerprintFrom": "7329c97d7a55aba9abfbcb51ba16a9469b577b165b9b314e6be16e7885945c71",
+    "sourceFingerprintTo": "ac34c34445aa7da066196aae7669f54aae26596e9f4626f881cd07c3e713ef80"
+  },
+  "normalMutationReplay": {
+    "status": "PENDING",
+    "command": "npm run verify:release with this frozen candidate"
+  },
+  "acceptance": {
+    "minimumMutationScorePercent": 90,
+    "maximumCriticalSurvivors": 0,
+    "normalMutationReplayPending": true
+  }
+}

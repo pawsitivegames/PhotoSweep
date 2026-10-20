@@ -1755,6 +1755,60 @@ describe("provider fault and message boundaries", () => {
     }
   })
 
+  it("SAFE-10 consumes an early cancellation before a scan ID is reused", async () => {
+    const fixture = commandHostFixture()
+    const scanSignals: AbortSignal[] = []
+    fixture.host.register({
+      handlers: {
+        getAllMediaItems: async (_requestId, _args, signal) => {
+          if (signal) scanSignals.push(signal)
+        }
+      }
+    })
+
+    vi.useFakeTimers()
+    try {
+      await fixture.dispatch({
+        source: fixture.source,
+        data: {
+          app: "GPD",
+          action: "gptkCommand",
+          command: "cancelScan",
+          requestId: "cancel-reused-scan",
+          args: { targetRequestId: "reused-scan" }
+        }
+      })
+      await fixture.dispatch({
+        source: fixture.source,
+        data: {
+          app: "GPD",
+          action: "gptkCommand",
+          command: "getAllMediaItems",
+          requestId: "reused-scan",
+          args: validScanArgs(fixture)
+        }
+      })
+      await fixture.dispatch({
+        source: fixture.source,
+        data: {
+          app: "GPD",
+          action: "gptkCommand",
+          command: "getAllMediaItems",
+          requestId: "reused-scan",
+          args: validScanArgs(fixture)
+        }
+      })
+
+      expect(scanSignals).toHaveLength(2)
+      expect(scanSignals[0]?.aborted).toBe(true)
+      expect(scanSignals[1]?.aborted).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+
   it("SAFE-10 expires a pending cancellation that never matches a scan", async () => {
     const fixture = commandHostFixture()
     let scanWasAlreadyAborted: boolean | undefined

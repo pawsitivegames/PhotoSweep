@@ -139,7 +139,12 @@ export function UpgradeDialog({
         {reasonTitle(reason)}
       </DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 2
+          }}>
           {reasonBody(reason)}
         </Typography>
         {valueLines.length > 0 && (
@@ -207,10 +212,14 @@ export function UpgradeDialog({
                 p: 1.25
               }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle2" fontWeight={800}>
+                <Typography variant="subtitle2" sx={{
+                  fontWeight: 800
+                }}>
                   {PLAN_LABELS[planId]}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {planId === "mini_cleanup"
                     ? "Permanent limited unlock: 2,500 photos, 75 groups, and 100 Trash moves per session."
                     : planId === "cleanup_pass"
@@ -265,13 +274,21 @@ export function UpgradeDialog({
         </Stack>
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mt: 1.5 }}>
+          sx={{
+            color: "text.secondary",
+            display: "block",
+            mt: 1.5
+          }}>
           One-time payments through Stripe. Prices are in USD; taxes may apply.
           Purchases follow PhotoSweep&apos;s 7-day refund policy.
         </Typography>
         <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 800,
+              mb: 1
+            }}>
             Restore purchase
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -293,8 +310,11 @@ export function UpgradeDialog({
           {recoveryMessage && (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 0.75 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                mt: 0.75
+              }}>
               {recoveryMessage}
             </Typography>
           )}
@@ -327,5 +347,5 @@ export function UpgradeDialog({
         <Button onClick={onClose}>Keep reviewing free results</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

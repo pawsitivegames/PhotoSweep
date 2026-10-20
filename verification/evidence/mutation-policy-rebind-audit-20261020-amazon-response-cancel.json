@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-20T03:28:02Z",
+  "status": "PASS",
+  "purpose": "Rebind the existing reviewed mutation dispositions to the current source after exact mutant-inventory comparison.",
+  "candidate": {
+    "artifactFile": "build/photosweep-cws-v2.3.6.15-sha256-236364a83e68.zip",
+    "artifactSha256": "236364a83e6872180236907187492bd13880fee7c3c18ebac6494c2b511d1ccd",
+    "buildId": "f720af23-71dc-4abb-b317-3722e9730cc6",
+    "sourceFingerprint": "470ab7cb23eb87770af38c1548b18be47b5484a2453b2b1084c6921d3f3ce586"
+  },
+  "previousPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "925bcd3b778f6fcd1f1f2d6953afaa5326677bf9e0121bb4c46439cdddce7d01",
+    "sourceFingerprint": "dbde77742b0bc8a5013d2f69e8ad1b24105b050416b9f5c1eb749cd34712e109",
+    "rawReportSha256": "d3c8a2c7dc5c7ac877e472d7b82b942a5329841a6b4daef2ff8e2f72862fca99",
+    "reviewedEntries": 215
+  },
+  "diagnosticRefresh": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "outputDirectory": "tmp/verification/diagnostic-refresh/25adb2cc-5553-4013-a9f0-e525aba9b8cd",
+    "resultUse": "Diagnostic only; the command exits nonzero by design and is not a mutation PASS.",
+    "strykerVersion": "10.0.0",
+    "strykerExitCode": 0,
+    "sourceFingerprint": "470ab7cb23eb87770af38c1548b18be47b5484a2453b2b1084c6921d3f3ce586",
+    "sourceFingerprintBefore": "470ab7cb23eb87770af38c1548b18be47b5484a2453b2b1084c6921d3f3ce586",
+    "sourceFingerprintAfter": "470ab7cb23eb87770af38c1548b18be47b5484a2453b2b1084c6921d3f3ce586",
+    "rawFileSha256": "8577dd68aeeb8ddd0c3525c817d72eef67c086f02759e36c7f14a245066ea709",
+    "canonicalMutationReportSha256": "d3c8a2c7dc5c7ac877e472d7b82b942a5329841a6b4daef2ff8e2f72862fca99",
+    "mutationTriageSha256": "5ac23ccefbf70438f918a0757ee99e6b784da2e4cf98d2e5bfa871c6051e6d4b",
+    "testFileCount": 20,
+    "testCaseCount": 1172,
+    "mutantsTotal": 4171,
+    "mutantsKilled": 3956,
+    "mutantsSurvived": 191,
+    "mutantsNoCoverage": 24,
+    "mutationScorePercent": 94.85,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0
+  },
+  "policyRebind": {
+    "changedFields": ["sourceFingerprint"],
+    "previousDispositionEntries": 215,
+    "currentNonKilledMutants": 215,
+    "exactKeyMatches": 215,
+    "missingEntries": 0,
+    "newUnreviewedNonKilledMutants": 0,
+    "duplicatePreviousEntries": 0,
+    "duplicateCurrentMutants": 0,
+    "canonicalMutationReportSha256Changed": false,
+    "thresholdsChanged": false,
+    "dispositionsChanged": false,
+    "registeredSourceRootsChanged": false
+  },
+  "acceptance": {
+    "minimumMutationScorePercent": 90,
+    "maximumCriticalSurvivors": 0,
+    "normalMutationReplayPending": true
+  }
+}

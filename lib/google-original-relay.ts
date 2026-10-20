@@ -45,12 +45,9 @@ function appOwnerKey(appTabId: number | null, clientId?: string): string {
 }
 
 function validScopeValue(value: string): boolean {
-  return (
-    value.length > 0 &&
-    value.length <= 512 &&
-    value.trim() === value &&
-    !/[\u0000-\u001f\u007f]/.test(value)
-  )
+  return (value.length > 0 &&
+  value.length <= 512 &&
+  value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value));
 }
 
 /**

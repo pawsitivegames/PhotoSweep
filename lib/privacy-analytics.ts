@@ -212,7 +212,7 @@ function optionalExtensionVersion(
     value.length <= 32 &&
     /^\d{1,5}\.\d{1,5}\.\d{1,5}(?:\.\d{1,5})?$/.test(value)
     ? value
-    : undefined
+    : undefined;
 }
 
 function optionalDayKey(value: string | undefined): string | undefined {

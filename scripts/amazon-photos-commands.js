@@ -1,9 +1,30 @@
 // MAIN world command handler for Amazon Photos pages.
 
 ;(() => {
-  if (window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__) {
+  const ownerId = (() => {
+    try {
+      const src = document.currentScript?.src
+      const owner = src ? new URL(src).searchParams.get("owner") : null
+      if (owner) return owner
+    } catch {
+      // Chrome executeScript uses the owner marker set by the service worker.
+    }
+    return (
+      window.__GPD_PROVIDER_COMMAND_OWNER_ID__ ||
+      window.__GPD_COMMAND_HOST_OWNER_ID__ ||
+      ""
+    )
+  })()
+  if (
+    window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ &&
+    (!ownerId || window.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ === ownerId)
+  ) {
     console.log("GPD: Amazon Photos command handler already loaded")
     return
+  }
+  if (window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__) {
+    delete window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__
+    delete window.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__
   }
   // Uses Amazon Photos' private web API from the signed-in page context.
 
@@ -28,8 +49,8 @@
   const AMAZON_APP_ID =
     "YW16bjEuYXBwbGljYXRpb24uMjllMmU2YjgxZDE3NDhjYWIxZjM4MDQwZGZmMjJkYmY"
   const AMAZON_TRASH_BATCH_SIZE = 50
-  const AMAZON_TRASH_VERIFY_ATTEMPTS = 3
-  const AMAZON_TRASH_VERIFY_DELAYS_MS = [0, 250, 1000]
+  const AMAZON_TRASH_VERIFY_ATTEMPTS = 5
+  const AMAZON_TRASH_VERIFY_DELAYS_MS = [0, 250, 750, 1500, 3000]
   const AMAZON_API_TIMEOUT_MS = 45000
   const AMAZON_HEALTH_CHECK_API_TIMEOUT_MS = 10000
   const AMAZON_API_RETRY_COUNT = 2
@@ -497,6 +518,13 @@
     return url
   }
 
+  function amazonVideoTranscodeUrl(nodeId, ownerId) {
+    const url = amazonDownloadUrl(nodeId, ownerId)
+    url.pathname += "/alt/video_transcode"
+    url.searchParams.set("y", "720")
+    return url
+  }
+
   function isAmazonCanadaMediaRoute(locationLike = location) {
     return (
       locationLike.protocol === "https:" &&
@@ -753,13 +781,17 @@
         throw new Error("Amazon Photos could not verify this exact video in the current personal library.")
       }
 
-      const playbackUrl = amazonDownloadUrl(resource.nodeId, ownerId)
+      const playbackUrl = amazonVideoTranscodeUrl(resource.nodeId, ownerId)
       if (
         playbackUrl.protocol !== "https:" ||
         playbackUrl.hostname !== "download-photos.amazon.ca" ||
-        playbackUrl.pathname !== `/v2/download/signed/${encodeURIComponent(resource.nodeId)}` ||
+        playbackUrl.pathname !== `/v2/download/signed/${encodeURIComponent(resource.nodeId)}/alt/video_transcode` ||
         playbackUrl.searchParams.get("ownerId") !== ownerId ||
-        [...playbackUrl.searchParams.keys()].some((name) => name !== "ownerId")
+        playbackUrl.searchParams.get("y") !== "720" ||
+        [...playbackUrl.searchParams.keys()].some(
+          (name) => name !== "ownerId" && name !== "y"
+        ) ||
+        [...playbackUrl.searchParams.keys()].length !== 2
       ) {
         throw new Error("Amazon Photos did not provide an approved exact-video route.")
       }
@@ -2078,6 +2110,87 @@
     }
   }
 
+  async function readAmazonTrashAfterMutation(requestId, dedupKeys, operation, signal) {
+    let afterTrash = null
+    let lastError = null
+    const isConfirmed = (ids) =>
+      dedupKeys.every((key) =>
+        operation === "trash" ? ids.has(key) : !ids.has(key)
+      )
+
+    for (const delayMs of AMAZON_TRASH_VERIFY_DELAYS_MS.slice(
+      0,
+      AMAZON_TRASH_VERIFY_ATTEMPTS
+    )) {
+      await commandHost.delay(delayMs, signal)
+      try {
+        afterTrash = await readAmazonTrashIds(requestId, signal)
+        lastError = null
+        if (isConfirmed(afterTrash)) {
+          return { afterTrash, transitionObserved: true }
+        }
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    if (!afterTrash && lastError) throw lastError
+    if (!afterTrash) {
+      throw new Error("Amazon Photos did not return a verifiable Trash state.")
+    }
+    return { afterTrash, transitionObserved: false }
+  }
+
+  async function readAmazonRestoreStateAfterMutation(
+    requestId,
+    dedupKeys,
+    ownerId,
+    signal
+  ) {
+    let afterTrash = null
+    let lastError = null
+    const libraryState = new Map()
+
+    for (const delayMs of AMAZON_TRASH_VERIFY_DELAYS_MS.slice(
+      0,
+      AMAZON_TRASH_VERIFY_ATTEMPTS
+    )) {
+      await commandHost.delay(delayMs, signal)
+      try {
+        afterTrash = await readAmazonTrashIds(requestId, signal)
+        lastError = null
+      } catch (error) {
+        lastError = error
+        continue
+      }
+
+      for (const key of dedupKeys) {
+        if (afterTrash.has(key)) continue
+        try {
+          libraryState.set(
+            key,
+            Boolean(await readAmazonPersonalNode(requestId, key, ownerId, signal))
+          )
+        } catch {
+          libraryState.set(key, null)
+        }
+      }
+      if (
+        dedupKeys.every(
+          (key) => !afterTrash.has(key) && libraryState.get(key) === true
+        )
+      ) {
+        return { afterTrash, libraryState }
+      }
+    }
+
+    if (!afterTrash && lastError) throw lastError
+    if (!afterTrash) {
+      throw new Error("Amazon Photos did not return a verifiable Trash state.")
+    }
+    return { afterTrash, libraryState }
+  }
+
   function setAmazonMutationOutcome(outcomes, operation, targetKey, status, reason) {
     outcomes.set(targetKey, {
       operation,
@@ -2222,7 +2335,7 @@
     return node
   }
 
-  async function trashItems(requestId, args) {
+  async function trashItems(requestId, args, signal) {
     const dedupKeys = validateStringArray(
       "trashItems",
       requestId,
@@ -2295,7 +2408,7 @@
     }
     let ownerId
     try {
-      ownerId = await getVerifiedAmazonMutationOwner(args)
+      ownerId = await getVerifiedAmazonMutationOwner(args, signal)
     } catch {
       for (const key of dedupKeys) setAmazonMutationOutcome(outcomes, "trash", key, "failed", "session-unverified-before-dispatch")
       publishAmazonMutation("trashItems", requestId, "trash", dedupKeys, outcomes, mediaKeysToTrash, dispatchedKeys)
@@ -2310,14 +2423,14 @@
       const chunk = chunks[index]
       let beforeTrash
       try {
-        beforeTrash = await readAmazonTrashIds(requestId)
+        beforeTrash = await readAmazonTrashIds(requestId, signal)
       } catch {
         for (const key of chunk) setAmazonMutationOutcome(outcomes, "trash", key, "failed", "preflight-trash-state-unavailable")
         publishAmazonMutationProgress(requestId, "trashItems", "trash", dedupKeys, outcomes, confirmedCount, dedupKeys.length)
         continue
       }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) {
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) {
           throw new Error("Amazon owner changed before dispatch.")
         }
       } catch {
@@ -2334,7 +2447,7 @@
           continue
         }
         try {
-          const node = await readAmazonPersonalNode(requestId, key, ownerId)
+          const node = await readAmazonPersonalNode(requestId, key, ownerId, signal)
           const favorite = amazonFavoriteValue(node)
           if (!node) {
             setAmazonMutationOutcome(outcomes, "trash", key, "failed", "favorite-or-personal-scope-unavailable")
@@ -2354,7 +2467,7 @@
         continue
       }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) {
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) {
           throw new Error("Amazon owner changed before dispatch.")
         }
       } catch {
@@ -2381,7 +2494,8 @@
             resourceVersion: "V2",
             ContentType: "JSON"
           },
-          `Moving Amazon trash batch ${index + 1}`
+          `Moving Amazon trash batch ${index + 1}`,
+          signal
         )
       } catch (error) {
         dispatchError = error
@@ -2389,14 +2503,19 @@
 
       let afterTrash
       try {
-        afterTrash = await readAmazonTrashIds(requestId)
+        ;({ afterTrash } = await readAmazonTrashAfterMutation(
+          requestId,
+          candidates.filter((key) => !beforeTrash.has(key)),
+          "trash",
+          signal
+        ))
       } catch {
         for (const key of candidates) setAmazonMutationOutcome(outcomes, "trash", key, "unknown", "post-dispatch-trash-state-unavailable")
         stopAfterChunk = true
         continue
       }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) {
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) {
           throw new Error("Amazon owner changed after dispatch.")
         }
       } catch {
@@ -2436,7 +2555,7 @@
     publishAmazonMutation("trashItems", requestId, "trash", dedupKeys, outcomes, mediaKeysToTrash, dispatchedKeys)
   }
 
-  async function restoreItems(requestId, args) {
+  async function restoreItems(requestId, args, signal) {
     const dedupKeys = validateStringArray(
       "restoreItems",
       requestId,
@@ -2460,7 +2579,7 @@
     }
     let ownerId
     try {
-      ownerId = await getVerifiedAmazonMutationOwner(args)
+      ownerId = await getVerifiedAmazonMutationOwner(args, signal)
     } catch {
       for (const key of dedupKeys) setAmazonMutationOutcome(outcomes, "restore", key, "failed", "session-unverified-before-dispatch")
       publishAmazonMutation("restoreItems", requestId, "restore", dedupKeys, outcomes, undefined, dispatchedKeys)
@@ -2475,14 +2594,14 @@
       const chunk = chunks[index]
       let beforeTrash
       try {
-        beforeTrash = await readAmazonTrashIds(requestId)
+        beforeTrash = await readAmazonTrashIds(requestId, signal)
       } catch {
         for (const key of chunk) setAmazonMutationOutcome(outcomes, "restore", key, "failed", "preflight-trash-state-unavailable")
         publishAmazonMutationProgress(requestId, "restoreItems", "restore", dedupKeys, outcomes, confirmedCount, dedupKeys.length)
         continue
       }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) throw new Error("Amazon owner changed before dispatch.")
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) throw new Error("Amazon owner changed before dispatch.")
       } catch {
         for (const key of chunk) setAmazonMutationOutcome(outcomes, "restore", key, "failed", "session-changed-before-dispatch")
         publishAmazonMutationProgress(requestId, "restoreItems", "restore", dedupKeys, outcomes, confirmedCount, dedupKeys.length)
@@ -2496,7 +2615,7 @@
           continue
         }
         try {
-          const node = await readAmazonPersonalNode(requestId, key, ownerId)
+          const node = await readAmazonPersonalNode(requestId, key, ownerId, signal)
           setAmazonMutationOutcome(
             outcomes,
             "restore",
@@ -2513,7 +2632,7 @@
         continue
       }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) throw new Error("Amazon owner changed before dispatch.")
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) throw new Error("Amazon owner changed before dispatch.")
       } catch {
         for (const key of candidates) setAmazonMutationOutcome(outcomes, "restore", key, "failed", "session-changed-before-dispatch")
         publishAmazonMutationProgress(requestId, "restoreItems", "restore", dedupKeys, outcomes, confirmedCount, dedupKeys.length)
@@ -2531,41 +2650,36 @@
             conflictResolution: "RENAME",
             value: candidates
           },
-          `Restoring Amazon batch ${index + 1}`
+          `Restoring Amazon batch ${index + 1}`,
+          signal
         )
       } catch (error) {
         dispatchError = error
       }
       let afterTrash
+      let libraryState
       try {
-        afterTrash = await readAmazonTrashIds(requestId)
+        ;({ afterTrash, libraryState } = await readAmazonRestoreStateAfterMutation(
+          requestId,
+          candidates,
+          ownerId,
+          signal
+        ))
       } catch {
         for (const key of candidates) setAmazonMutationOutcome(outcomes, "restore", key, "unknown", "post-dispatch-trash-state-unavailable")
         stopAfterChunk = true
         continue
       }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) throw new Error("Amazon owner changed after dispatch.")
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) throw new Error("Amazon owner changed after dispatch.")
       } catch {
         for (const key of candidates) setAmazonMutationOutcome(outcomes, "restore", key, "unknown", "session-changed-after-dispatch")
         stopAfterChunk = true
         continue
       }
 
-      const libraryState = new Map()
-      for (const key of candidates) {
-        if (afterTrash.has(key)) continue
-        try {
-          libraryState.set(
-            key,
-            Boolean(await readAmazonPersonalNode(requestId, key, ownerId))
-          )
-        } catch {
-          libraryState.set(key, null)
-        }
-      }
       try {
-        if ((await getVerifiedAmazonMutationOwner(args)) !== ownerId) {
+        if ((await getVerifiedAmazonMutationOwner(args, signal)) !== ownerId) {
           throw new Error("Amazon owner changed after readback.")
         }
       } catch {
@@ -2658,5 +2772,7 @@
   })
 
   window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
+  window.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ =
+    ownerId || window.__GPD_COMMAND_HOST_OWNER_ID__ || ""
   console.log("GPD: Amazon Photos command handler loaded")
 })()

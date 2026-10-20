@@ -32,6 +32,13 @@ test.beforeAll(async () => {
   ;({ context, extensionId } = await launchExtension())
 })
 
+test.afterEach(async () => {
+  for (const page of context.pages()) {
+    await page.close().catch(() => {})
+  }
+  await context.unroute("https://photos.google.com/**").catch(() => {})
+})
+
 test.afterAll(async () => {
   await context.close()
 })
@@ -53,7 +60,7 @@ async function sendAppMessage(
 }
 
 function scanLibraryButton(page: Page) {
-  return page.getByRole("button", { name: /^Scan (all dates|the last 30 days|this date range)$/i })
+  return page.getByRole("button", { name: /^Scan (all dates|the last 30 days|this date range)$/i });
 }
 
 // ============================================================

@@ -26,6 +26,9 @@ import type { ScanSettings } from "../../lib/types"
 function renderConfig(
   settings: Partial<ScanSettings> = {},
   options: {
+    albumsError?: string
+    albumsLoading?: boolean
+    onRefreshAlbums?: () => void
     amazonProfileName?: string
     compact?: boolean
     hasGptk?: boolean
@@ -67,6 +70,9 @@ function renderConfig(
             isShared: true
           }
         ]}
+        albumsError={options.albumsError}
+        albumsLoading={options.albumsLoading}
+        onRefreshAlbums={options.onRefreshAlbums}
         entitlement={options.entitlement}
         amazonProfileName={options.amazonProfileName}
         compact={options.compact}
@@ -453,6 +459,26 @@ describe("ScanConfig — photo source", () => {
       }
       cleanup()
     }
+  })
+
+  it("lets the user refresh iCloud albums after a provider session change", () => {
+    const onRefreshAlbums = vi.fn()
+    renderConfig(
+      { sourceProvider: "icloud" },
+      {
+        compact: true,
+        albumsError:
+          "The photo-provider page session changed. Reconnect and retry.",
+        onRefreshAlbums
+      }
+    )
+
+    expect(screen.getByText("Albums unavailable")).toHaveAttribute(
+      "title",
+      "The photo-provider page session changed. Reconnect and retry."
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }))
+    expect(onRefreshAlbums).toHaveBeenCalledOnce()
   })
 
   it("[PARITY-03] exposes Amazon personal albums in both scan layouts", () => {

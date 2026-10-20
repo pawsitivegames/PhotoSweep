@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-10T19:33:23.327Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_SOURCE_HASH_REVALIDATION",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.1",
+    "sourceFingerprint": "7f9a7c85518dfd18e9ca57a0bc3d7d36d2795cce01cb9876d0ba1b5303c1a7e8",
+    "sourceFileCount": 319,
+    "gptkSubmoduleCommit": null,
+    "gptkWorkingTreeDirty": true,
+    "buildId": "1578bee8-bae4-4490-81a7-9ceac1298e25"
+  },
+  "mutationRun": {
+    "sourceFingerprint": "7f9a7c85518dfd18e9ca57a0bc3d7d36d2795cce01cb9876d0ba1b5303c1a7e8",
+    "rawReport": "tmp/verification/release-20261010-node24-final-v19/mutation-run/stryker-raw.json",
+    "rawReportFileSha256": "9dfc87d702ca09cf2bfeb6b5f2cad5d3b5da121f89a456318b2adf8afce23c2f",
+    "canonicalMutationReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "mutantsTotal": 3996,
+    "statusCounts": {
+      "NoCoverage": 23,
+      "Killed": 3792,
+      "Survived": 181
+    },
+    "nonKilledPolicyEntries": 204,
+    "exactKeySetMatch": true,
+    "policyEntrySourceHashesMatchCurrentMutatedSources": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "fieldChanged": "sourceFingerprint",
+    "from": "61988af5c4b4079ff05eb93da21d0eec97a3bc9cf5ae7c8e7598ff7a43bfda70",
+    "to": "7f9a7c85518dfd18e9ca57a0bc3d7d36d2795cce01cb9876d0ba1b5303c1a7e8",
+    "canonicalMutationReportSha256Preserved": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "reviewedEntriesPreserved": 204,
+    "newReviewsAdded": 0,
+    "classificationChanges": 0,
+    "thresholdsChanged": false
+  },
+  "limitations": [
+    "This rebind validates only mutation triage alignment. It does not establish exact-package Chrome runtime or live provider evidence."
+  ]
+}

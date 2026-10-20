@@ -78,6 +78,9 @@ function syntheticPackageFixture(root: string) {
   writeFileSync(join(root, "build", cwsArtifactMetadataFileName(artifactName)), JSON.stringify(metadata))
 
   const disposableAssetIds = ["target", "keeper", "control-a", "control-b", "pair-b-a", "pair-b-b"]
+  const providerTrashItemId = "google-trash-alias"
+  const trashBaselineHashes = ["e".repeat(64), "f".repeat(64)]
+  const providerTrashItemHash = sha256(providerTrashItemId)
   const roundTrip = {
     schemaVersion: 2,
     status: "PASS",
@@ -88,7 +91,31 @@ function syntheticPackageFixture(root: string) {
     artifactSha256,
     disposableAssetIds,
     preAction: { itemCount: 6, allItemsSynthetic: true, scanStatus: "Done", checkedCount: 6, controlsSelected: false, pairBSelected: false },
-    trash: { selectedCount: 1, targetPhotoId: "target", keeperPhotoId: "keeper", providerTrashObserved: true, providerTrashItemId: "target", deleteReport: join(root, "delete-report.json") },
+    trash: {
+      selectedCount: 1,
+      targetPhotoId: "target",
+      targetDedupKey: "target-dedup-key",
+      keeperPhotoId: "keeper",
+      keeperDedupKey: "keeper-dedup-key",
+      providerTrashObserved: true,
+      providerTrashItemId,
+      providerTrashUrl: `https://photos.google.com/trash/${providerTrashItemId}`,
+      providerTrashDelta: {
+        method: "google-photos-trash-item-id-delta",
+        provider: "google",
+        beforeCount: trashBaselineHashes.length,
+        afterCount: trashBaselineHashes.length + 1,
+        afterUndoCount: trashBaselineHashes.length,
+        addedCount: 1,
+        removedCount: 0,
+        beforeItemIdSha256: trashBaselineHashes,
+        afterItemIdSha256: [...trashBaselineHashes, providerTrashItemHash],
+        afterUndoItemIdSha256: trashBaselineHashes,
+        itemMediaKind: "photo",
+        undoRestoredToBaseline: true
+      },
+      deleteReport: join(root, "delete-report.json")
+    },
     restore: { method: "PhotoSweep Undo", albumItemCountAfterUndo: 6, targetReappearedInAlbum: true, keeperPreserved: true, controlsPreserved: true, freshScanStatus: "Done", freshCheckedCount: 6 },
     noPermanentDelete: true
   }
@@ -97,7 +124,7 @@ function syntheticPackageFixture(root: string) {
   writeFileSync(join(root, "round-trip.json"), JSON.stringify(roundTrip))
   writeFileSync(join(root, "delete-report.json"), JSON.stringify({
     totalGroupsAffected: 1, totalItemsKept: 1, totalItemsSelectedForTrash: 1,
-    items: [{ action: "trash", mediaKey: "target" }]
+    items: [{ action: "trash", mediaKey: "target", dedupKey: "target-dedup-key", mediaKind: "photo" }]
   }))
   return {
     metadata,

@@ -4,7 +4,7 @@ import crypto from "node:crypto"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   importEntitlementPublicKey,
@@ -85,6 +85,16 @@ async function verifyToken(token: string, publicKeyValue: string) {
 }
 
 describe("license API", () => {
+  it("returns an unauthenticated health response", async () => {
+    const api = createLicenseApi({ env: {} as NodeJS.ProcessEnv })
+    const response = await api(
+      new Request("https://license.test/health", { method: "GET" })
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+  })
+
   it("creates checkout, activates entitlement from webhook, and signs extension-verifiable tokens", async () => {
     const keys = testKeys()
     const env = envFor(keys.privateKey)
@@ -1866,5 +1876,73 @@ describe("analytics outcome contract", () => {
     expect(store.snapshot().analyticsEvents[0]).toMatchObject(fields)
     expect(store.snapshot().analyticsEvents[0]).not.toHaveProperty("eventId")
     expect(store.snapshot().analyticsEvents[0]).not.toHaveProperty("photoUrl")
+  })
+})
+
+describe("analytics retention", () => {
+  const retentionMs = 90 * 24 * 60 * 60 * 1000
+
+  it("expires memory-store events after 90 days and retains the boundary", async () => {
+    vi.useFakeTimers()
+    try {
+      const currentTime = Date.parse("2026-01-01T00:00:00.000Z")
+      vi.setSystemTime(currentTime)
+      const store = createMemoryLicenseStore({
+        analyticsEvents: [
+          { name: "expired", recordedAt: currentTime - retentionMs - 1 },
+          { name: "boundary", recordedAt: currentTime - retentionMs }
+        ]
+      })
+
+      await store.recordAnalyticsEvent({ name: "fresh" })
+      expect(store.snapshot().analyticsEvents.map((event) => event.name)).toEqual([
+        "boundary",
+        "fresh"
+      ])
+
+      vi.setSystemTime(currentTime + retentionMs + 1)
+      expect(store.snapshot().analyticsEvents).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("persists JSON-store pruning when events pass the 90-day window", async () => {
+    vi.useFakeTimers()
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "photosweep-analytics-retention-"))
+    const storePath = path.join(dir, "licenses.json")
+    try {
+      const currentTime = Date.parse("2026-01-01T00:00:00.000Z")
+      vi.setSystemTime(currentTime)
+      await fs.writeFile(
+        storePath,
+        JSON.stringify({
+          licensesBySessionId: {},
+          sessionByEmail: {},
+          sessionByStripeCustomerId: {},
+          sessionByStripeCheckoutSessionId: {},
+          sessionByStripePaymentIntentId: {},
+          pendingStripeRevocations: {},
+          processedStripeEvents: [],
+          analyticsEvents: [
+            { name: "expired", recordedAt: currentTime - retentionMs - 1 }
+          ]
+        })
+      )
+      const store = createJsonFileLicenseStore(storePath)
+
+      await store.recordAnalyticsEvent({ name: "fresh" })
+      expect((await store.snapshot()).analyticsEvents.map((event) => event.name)).toEqual([
+        "fresh"
+      ])
+
+      vi.setSystemTime(currentTime + retentionMs + 1)
+      expect((await store.snapshot()).analyticsEvents).toEqual([])
+      const persisted = JSON.parse(await fs.readFile(storePath, "utf8"))
+      expect(persisted.analyticsEvents).toEqual([])
+    } finally {
+      vi.useRealTimers()
+      await fs.rm(dir, { recursive: true, force: true })
+    }
   })
 })

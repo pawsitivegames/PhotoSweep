@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-11T12:19:20Z",
+  "status": "REBOUND_AFTER_MUTATION_COMPARISON",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.1",
+    "packageSha256": "3eeca37ea9497271ff5f36787fffc28cb0306cd2cfb4c4632427c4ab7c38e4db",
+    "sourceFingerprint": "cf319520b1f67efe2a5e7970bf1c435c87e7f3745be6e5e0f346e91e1db539c0",
+    "sourceFileCount": 319,
+    "buildId": "cb9ca185-5fc7-49fa-bd73-c75505ced922",
+    "gptkSubmoduleCommit": "cd1db961c6eacc5a3bc20304b559770ea152d930"
+  },
+  "releaseRun": {
+    "runId": "20261011T110124Z-39666",
+    "path": "tmp/verification/release-20261011T1115Z-svelte5-3eeca",
+    "statusBeforeRebind": "FAIL",
+    "failure": "The mutation runner read the previous source fingerprint before this policy rebind."
+  },
+  "mutationComparison": {
+    "policyBoundReport": "tmp/verification/release-20261011T1006Z-rebound-219ac/mutation-run/stryker-raw.json",
+    "currentReport": "tmp/verification/release-20261011T1115Z-svelte5-3eeca/mutation-run/stryker-raw.json",
+    "policyBoundCanonicalReportSha256": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002",
+    "currentCanonicalReportSha256": "d7d060031543e6109e36ea400ee9b75a04e34294c827176304d4c95546c0b32c",
+    "currentRawReportFileSha256": "87591d1ff87801c7be688c91e2e4303e211789fcc0f312f755991c9e2be12b63",
+    "mutantSetComparedToPolicyBoundReport": 3996,
+    "exactAllMutantKeysAndStatusesMatch": true,
+    "mutationSourceFileCount": 6,
+    "mutationSourceHashesMatchPolicyBoundReport": true,
+    "policyEntries": 204,
+    "policyEntriesMatchedExactlyToCurrentNonKilledMutants": 204,
+    "policyEntriesCanonicalSha256": "2f9b1f90fc6e545c0bb1c8711ed7aa1ce57a53ef73ff0c882e4d7c7c8744e7fb",
+    "policyEntrySourceHashesMatchCurrentFiles": true,
+    "missingPolicyEntries": 0,
+    "extraPolicyEntries": 0,
+    "statusCounts": {
+      "Killed": 3792,
+      "Survived": 181,
+      "NoCoverage": 23
+    },
+    "mutationScorePercent": 94.89,
+    "minimumKilledPercent": 90,
+    "criticalSurvivors": 0,
+    "canonicalReportDifferences": {
+      "concurrency": {
+        "policyBoundReport": 2,
+        "currentReport": 1
+      }
+    }
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "3d00bbbbb528e716bcd37b5f668acaafd677a29216100280c10d54e70c9068d1",
+    "updatedPolicyFileSha256": "fdd8aef32c7f726ee1f54f6ffbea426e46719f00ddf65f055a2a02b1c5357bf2",
+    "sourceFingerprint": {
+      "from": "ec307824eed777f63136fd49cd3af1ae2d7475cd56bd3aac4432b33792cb2079",
+      "to": "cf319520b1f67efe2a5e7970bf1c435c87e7f3745be6e5e0f346e91e1db539c0"
+    },
+    "rawReportSha256": {
+      "from": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002",
+      "to": "d7d060031543e6109e36ea400ee9b75a04e34294c827176304d4c95546c0b32c"
+    },
+    "policyEntriesChanged": 0,
+    "classificationChanges": 0,
+    "evidenceChanges": 0,
+    "thresholdsChanged": false
+  },
+  "limitations": [
+    "This metadata rebind does not change the already completed release run status; that run remains FAIL because it read the stale policy before the rebind.",
+    "A fresh release run is needed to validate the updated policy binding.",
+    "This audit does not establish exact-build Chrome runtime, live provider round-trip, or external video playback evidence."
+  ]
+}

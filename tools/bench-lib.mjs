@@ -5,13 +5,38 @@ import { readFileSync } from "fs"
 export function extractMeans(jsonPath) {
   const data = JSON.parse(readFileSync(jsonPath, "utf8"))
   const means = {}
-  for (const file of data.files) {
-    for (const group of file.groups) {
-      for (const bench of group.benchmarks) {
-        means[bench.name] = bench.mean
+
+  // Vitest 4 emits the legacy files/groups/benchmarks tree. Vitest 5's JSON
+  // reporter stores benchmark tasks under testResults/assertionResults.
+  if (Array.isArray(data.files)) {
+    for (const file of data.files) {
+      for (const group of file.groups ?? []) {
+        for (const bench of group.benchmarks ?? []) {
+          if (typeof bench.name === "string" && Number.isFinite(bench.mean)) {
+            means[bench.name] = bench.mean
+          }
+        }
+      }
+    }
+  } else if (Array.isArray(data.testResults)) {
+    for (const result of data.testResults) {
+      for (const assertion of result.assertionResults ?? []) {
+        for (const benchmark of assertion.benchmarks ?? []) {
+          for (const task of benchmark.tasks ?? []) {
+            const mean = task.latency?.mean
+            if (typeof task.name === "string" && Number.isFinite(mean)) {
+              means[task.name] = mean
+            }
+          }
+        }
       }
     }
   }
+
+  if (Object.keys(means).length === 0) {
+    throw new Error(`No benchmark means found in ${jsonPath}`)
+  }
+
   return means
 }
 

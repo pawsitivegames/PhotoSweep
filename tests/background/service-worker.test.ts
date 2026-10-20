@@ -11,6 +11,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { APP_ID } from "../../lib/types"
+import { providerTabPatterns } from "../../lib/provider-operations"
 import type { RecoveryHistoryTransactionMessage } from "../../lib/types"
 import {
   RECOVERY_HISTORY_STORAGE_KEY,
@@ -35,10 +36,10 @@ type MessageListener = (
   sendResponse: (r?: unknown) => void
 ) => boolean | void
 type TabRemovedListener = (tabId: number) => void
-type TabActivatedListener = (activeInfo: chrome.tabs.TabActiveInfo) => void
+type TabActivatedListener = (activeInfo: chrome.tabs.OnActivatedInfo) => void
 type TabUpdatedListener = (
   tabId: number,
-  changeInfo: chrome.tabs.TabChangeInfo,
+  changeInfo: chrome.tabs.OnUpdatedInfo,
   tab: chrome.tabs.Tab
 ) => void
 type ActionClickListener = (tab: chrome.tabs.Tab) => void
@@ -153,6 +154,15 @@ const mockChrome = {
   storage: {
     local: storageLocal
   }
+}
+
+const CURRENT_PROVIDER_COMMAND_OWNER_ID =
+  `${mockChrome.runtime.id}:123e4567-e89b-42d3-a456-426614174000`
+const CURRENT_PROVIDER_COMMAND_READY_STATE = {
+  hasCommandHost: true,
+  hasCommandHandler: true,
+  commandHostOwnerId: CURRENT_PROVIDER_COMMAND_OWNER_ID,
+  amazonCommandHandlerOwnerId: CURRENT_PROVIDER_COMMAND_OWNER_ID
 }
 
 vi.stubGlobal("chrome", mockChrome)
@@ -321,6 +331,14 @@ function dispatchMessageAndWaitForResponse(
       listener(message, sender as chrome.runtime.MessageSender, respond)
     }
   })
+}
+
+function fastForwardIcloudActivationDelay() {
+  const originalSetTimeout = globalThis.setTimeout.bind(globalThis)
+  return vi.spyOn(globalThis, "setTimeout").mockImplementation(
+    (callback, delay, ...args) =>
+      originalSetTimeout(callback, delay === 1500 ? 0 : delay, ...args)
+  )
 }
 
 function createRestorableAmazonRecord(
@@ -513,7 +531,25 @@ beforeEach(() => {
       licenseStorage.delete(key)
     }
   })
-  mockChrome.tabs.get.mockResolvedValue(undefined)
+  mockChrome.tabs.get.mockImplementation(async (tabId: number) => {
+    for (const provider of ["google", "icloud", "amazon"] as const) {
+      for (const url of providerTabPatterns(provider)) {
+        const tabs = await mockChrome.tabs.query({ url })
+        const match = tabs.find((candidate: chrome.tabs.Tab) => candidate.id === tabId)
+        if (match) {
+          const origin = url.replace(/\/\*$/, "")
+          const providerPage =
+            provider === "google"
+              ? `${origin}/`
+              : provider === "icloud"
+                ? `${origin}/photos`
+                : `${origin}/photos?sf=1`
+          return { ...match, url: match.url ?? providerPage }
+        }
+      }
+    }
+    return undefined
+  })
   mockChrome.tabs.update.mockResolvedValue({})
   mockChrome.tabs.create.mockResolvedValue({})
   mockChrome.sidePanel.setOptions.mockResolvedValue(undefined)
@@ -695,6 +731,54 @@ describe("launch flow", () => {
     expect(mockChrome.tabs.create).not.toHaveBeenCalled()
   })
 
+  it("launches a provider in the requesting side panel's host tab", async () => {
+    for (const [clientId, activeTabId] of [
+      ["panel-launch-a", 31],
+      ["panel-launch-b", 32]
+    ] as const) {
+      const port = createMockPort()
+      connectListeners.forEach((fn) =>
+        fn(port as unknown as chrome.runtime.Port)
+      )
+      port.dispatchMessage({
+        app: APP_ID,
+        action: "sidePanel.ready",
+        clientId,
+        activeTabId
+      })
+    }
+
+    mockChrome.tabs.get.mockImplementation(async (tabId: number) => ({
+      id: tabId,
+      url: "https://example.com/"
+    }))
+    mockChrome.tabs.update.mockImplementation(async (tabId: number) => ({
+      id: tabId,
+      url: "https://www.icloud.com/photos"
+    }))
+
+    const response = await dispatchMessageWithResponse(
+      {
+        app: APP_ID,
+        action: "launchProvider",
+        provider: "icloud",
+        clientId: "panel-launch-a"
+      },
+      { url: "chrome-extension://test/tabs/scanner-panel.html" }
+    )
+
+    expect(mockChrome.tabs.get).toHaveBeenCalledWith(31)
+    expect(mockChrome.tabs.update).toHaveBeenCalledWith(31, {
+      url: "https://www.icloud.com/photos",
+      active: true
+    })
+    expect(response).toMatchObject({
+      success: true,
+      provider: "icloud",
+      tabId: 31
+    })
+  })
+
   it("uses the side-panel supplied host tab id when opening a provider", async () => {
     mockChrome.tabs.get.mockResolvedValue({
       id: 52,
@@ -726,6 +810,46 @@ describe("launch flow", () => {
       provider: "amazon",
       tabId: 52,
       alreadyOpen: false
+    })
+  })
+
+  it("does not bind an Amazon launch to a stale Google host tab", async () => {
+    const googleHostTab = { id: 52, url: "https://photos.google.com/" }
+    const amazonTab = {
+      id: 63,
+      url: "https://www.amazon.ca/photos?sf=1"
+    }
+    mockChrome.tabs.get.mockResolvedValue(googleHostTab)
+    mockChrome.tabs.query.mockImplementation((query: unknown) => {
+      const filter = query as { url?: string }
+      return Promise.resolve(filter.url?.includes("amazon") ? [amazonTab] : [])
+    })
+    mockChrome.tabs.update.mockImplementation(async (tabId: number) =>
+      tabId === googleHostTab.id ? googleHostTab : amazonTab
+    )
+
+    const response = await dispatchMessageWithResponse(
+      {
+        app: APP_ID,
+        action: "launchProvider",
+        provider: "amazon",
+        hostTabId: googleHostTab.id
+      },
+      { url: "chrome-extension://test/tabs/scanner-panel.html" }
+    )
+
+    expect(response).toMatchObject({
+      success: true,
+      provider: "amazon",
+      tabId: amazonTab.id,
+      alreadyOpen: true
+    })
+    expect(mockChrome.tabs.update).toHaveBeenCalledWith(googleHostTab.id, {
+      url: "https://www.amazon.com/photos?sf=1",
+      active: true
+    })
+    expect(mockChrome.tabs.update).toHaveBeenCalledWith(amazonTab.id, {
+      active: true
     })
   })
 
@@ -919,6 +1043,86 @@ describe("launch flow", () => {
 // ============================================================
 
 describe("healthCheck", () => {
+  it("does not health-check a provider after its remembered tab changes origin", async () => {
+    const rememberedTabId = 111
+    const replacementAmazonTabId = 112
+    const appTabId = 113
+    const clientId = "amazon-origin-change"
+    const staleGoogleTab = {
+      id: rememberedTabId,
+      url: "https://photos.google.com/"
+    }
+    const amazonTab = {
+      id: replacementAmazonTabId,
+      url: "https://www.amazon.ca/photos?sf=1"
+    }
+
+    mockChrome.tabs.get.mockImplementation(async (tabId: number) => {
+      if (tabId === rememberedTabId) return staleGoogleTab
+      if (tabId === replacementAmazonTabId) return amazonTab
+      return undefined
+    })
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) =>
+      Promise.resolve(
+        query?.url?.includes("amazon") ? [amazonTab] : [{ id: appTabId }]
+      )
+    )
+    mockChrome.tabs.update.mockImplementation(async (tabId: number) =>
+      tabId === rememberedTabId
+        ? { id: rememberedTabId, url: "https://www.amazon.com/photos?sf=1" }
+        : amazonTab
+    )
+    mockChrome.scripting.executeScript.mockResolvedValue([
+      { result: CURRENT_PROVIDER_COMMAND_READY_STATE }
+    ])
+    mockChrome.tabs.sendMessage.mockImplementation(
+      (tabId: number, message: { action?: string; command?: string; requestId?: string }) => {
+        if (message.action === "ping") return Promise.resolve()
+        if (message.command === "healthCheck") {
+          setTimeout(() => {
+            dispatchMessage(
+              {
+                app: APP_ID,
+                action: "gptkResult",
+                command: "healthCheck",
+                requestId: message.requestId,
+                success: true,
+                data: { hasGptk: true }
+              },
+              gpSender(tabId)
+            )
+          }, 0)
+        }
+        return Promise.resolve()
+      }
+    )
+
+    await dispatchMessageWithResponse(
+      {
+        app: APP_ID,
+        action: "launchProvider",
+        provider: "amazon",
+        hostTabId: rememberedTabId,
+        clientId
+      },
+      { url: "chrome-extension://test/tabs/scanner-panel.html" }
+    )
+    dispatchMessage(
+      { app: APP_ID, action: "healthCheck", provider: "amazon", clientId },
+      { url: "chrome-extension://test/tabs/scanner-panel.html" }
+    )
+    await new Promise((resolve) => setTimeout(resolve, 40))
+
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      replacementAmazonTabId,
+      expect.objectContaining({ command: "healthCheck" })
+    )
+    expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+      rememberedTabId,
+      expect.objectContaining({ command: "healthCheck" })
+    )
+  })
+
   it("[PARITY-08] attaches service-worker package identity to app results", async () => {
     const appTabId = 20
 
@@ -961,7 +1165,9 @@ describe("healthCheck", () => {
   })
 
   it("forwards the Amazon Photos profile label to the app context", async () => {
-    mockChrome.scripting.executeScript.mockResolvedValue([{ result: { hasCommandHost: true, hasCommandHandler: true } }])
+    mockChrome.scripting.executeScript.mockResolvedValue([
+      { result: CURRENT_PROVIDER_COMMAND_READY_STATE }
+    ])
     const gpTabId = 10
     const appTabId = 20
 
@@ -1038,12 +1244,18 @@ describe("healthCheck", () => {
                 ? {
                     hasGptk: false,
                     hasCommandHost: true,
-                    hasCommandHandler: true
+                    hasCommandHandler: true,
+                    commandHostOwnerId: CURRENT_PROVIDER_COMMAND_OWNER_ID,
+                    googleCommandHandlerOwnerId:
+                      CURRENT_PROVIDER_COMMAND_OWNER_ID
                   }
                 : {
                     hasGptk: true,
                     hasCommandHost: true,
-                    hasCommandHandler: true
+                    hasCommandHandler: true,
+                    commandHostOwnerId: CURRENT_PROVIDER_COMMAND_OWNER_ID,
+                    googleCommandHandlerOwnerId:
+                      CURRENT_PROVIDER_COMMAND_OWNER_ID
                   }
           }
         ])
@@ -1167,7 +1379,9 @@ describe("healthCheck", () => {
   })
 
   it("reports Amazon sign-in guidance when its health probe is unavailable", async () => {
-    mockChrome.scripting.executeScript.mockResolvedValue([{ result: { hasCommandHost: true, hasCommandHandler: true } }])
+    mockChrome.scripting.executeScript.mockResolvedValue([
+      { result: CURRENT_PROVIDER_COMMAND_READY_STATE }
+    ])
     const amazonTabId = 31
     const appTabId = 32
 
@@ -1227,6 +1441,90 @@ describe("healthCheck", () => {
         error: expect.stringMatching(
           /Amazon Photos is not ready.*sign in again if needed/i
         )
+      })
+    )
+  })
+
+  it("reinitializes Amazon MAIN-world scripts owned by another extension build", async () => {
+    const amazonTabId = 33
+    const appTabId = 34
+    let installedOwner: string | null = null
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) =>
+      Promise.resolve(
+        query?.url?.includes("amazon")
+          ? [{ id: amazonTabId, url: "https://www.amazon.ca/photos/albums" }]
+          : [{ id: appTabId }]
+      )
+    )
+    mockChrome.scripting.executeScript.mockImplementation(
+      ({ args, files }: { args?: unknown[]; files?: string[] }) => {
+        if (args?.length && typeof args[0] === "string") {
+          installedOwner = args[0]
+        }
+        if (files?.includes("scripts/photo-provider-command-host.js")) {
+          expect(installedOwner).not.toBeNull()
+        }
+        return Promise.resolve([
+          {
+            result: {
+              hasCommandHost: true,
+              hasCommandHandler: true,
+              commandHostOwnerId: installedOwner ?? "old-extension:old-build",
+              amazonCommandHandlerOwnerId:
+                installedOwner ?? "old-extension:old-build"
+            }
+          }
+        ])
+      }
+    )
+    mockChrome.tabs.sendMessage.mockImplementation(
+      (tabId: number, message: { action?: string; command?: string; requestId?: string }) => {
+        if (message.action === "ping") return Promise.resolve()
+        if (message.command === "healthCheck") {
+          setTimeout(() => {
+            dispatchMessage(
+              {
+                app: APP_ID,
+                action: "gptkResult",
+                command: "healthCheck",
+                requestId: message.requestId,
+                success: true,
+                data: { hasGptk: true }
+              },
+              gpSender(tabId)
+            )
+          }, 0)
+        }
+        return Promise.resolve()
+      }
+    )
+
+    dispatchMessage(
+      { app: APP_ID, action: "healthCheck", provider: "amazon" },
+      appSender()
+    )
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(installedOwner).toEqual(
+      expect.stringMatching(/^abcdefghijklmnopabcdefghijklmnop:/)
+    )
+    expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: ["scripts/photo-provider-command-host.js"]
+      })
+    )
+    expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: ["scripts/amazon-photos-commands.js"]
+      })
+    )
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      appTabId,
+      expect.objectContaining({
+        action: "healthCheck.result",
+        provider: "amazon",
+        success: true
       })
     )
   })
@@ -1690,6 +1988,116 @@ describe("gptkCommand routing", () => {
     expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalled()
   })
 
+  it("routes concurrent side-panel commands to their own iCloud tabs", async () => {
+    const panels = [
+      { clientId: "icloud-panel-a", providerTabId: 181, requestId: "icloud-a" },
+      { clientId: "icloud-panel-b", providerTabId: 182, requestId: "icloud-b" }
+    ]
+    const sender = {
+      id: mockChrome.runtime.id,
+      url: `chrome-extension://${mockChrome.runtime.id}/tabs/scanner-panel.html`
+    }
+
+    mockChrome.tabs.get.mockImplementation(async (tabId: number) => ({
+      id: tabId,
+      url: "https://www.icloud.com/photos/",
+      active: true
+    }))
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+    mockChrome.webNavigation.getAllFrames.mockResolvedValue([
+      {
+        frameId: 9,
+        parentFrameId: 0,
+        url: "https://www.icloud.com/applications/photos3/current/en-us/index.html"
+      }
+    ])
+
+    const ports = panels.map(({ clientId, providerTabId }) => {
+      const port = createMockPort()
+      connectListeners.forEach((listener) =>
+        listener(port as unknown as chrome.runtime.Port)
+      )
+      port.dispatchMessage({
+        app: APP_ID,
+        action: "sidePanel.ready",
+        clientId,
+        activeTabId: providerTabId
+      })
+      return port
+    })
+
+    const timerSpy = fastForwardIcloudActivationDelay()
+    try {
+      panels.forEach(({ clientId, requestId }) => {
+        dispatchMessage(
+          {
+            app: APP_ID,
+            action: "gptkCommand",
+            command: "getAllMediaItems",
+            provider: "icloud",
+            requestId,
+            clientId,
+            args: { limit: 25 }
+          },
+          sender
+        )
+      })
+
+      await vi.waitFor(
+        () => {
+          const routed = mockChrome.scripting.executeScript.mock.calls.filter(
+            ([details]) => {
+              const injection = details as {
+                args?: unknown[]
+              }
+              const message = injection.args?.[0] as
+                | { requestId?: string }
+                | undefined
+              return panels.some((panel) => panel.requestId === message?.requestId)
+            }
+          )
+          expect(routed).toHaveLength(panels.length)
+        },
+        { timeout: 1000 }
+      )
+
+      const routedTabByRequest = new Map(
+        mockChrome.scripting.executeScript.mock.calls.flatMap(([details]) => {
+          const injection = details as {
+            args?: unknown[]
+            target?: { tabId?: number }
+          }
+          const message = injection.args?.[0] as
+            | { requestId?: string }
+            | undefined
+          return message?.requestId
+            ? [[message.requestId, injection.target.tabId] as const]
+            : []
+        })
+      )
+      expect(routedTabByRequest.get("icloud-a")).toBe(181)
+      expect(routedTabByRequest.get("icloud-b")).toBe(182)
+
+      panels.forEach(({ providerTabId, requestId }) =>
+        dispatchMessage(
+          {
+            app: APP_ID,
+            action: "gptkResult",
+            command: "getAllMediaItems",
+            provider: "icloud",
+            requestId,
+            success: true,
+            data: []
+          },
+          gpSender(providerTabId)
+        )
+      )
+    } finally {
+      timerSpy.mockRestore()
+      ports.forEach((port) => port.dispatchDisconnect())
+    }
+  })
+
   it("routes iCloud scan commands to an iCloud Photos tab", async () => {
     const appTabId = 71
     const icloudTabId = 72
@@ -1710,37 +2118,46 @@ describe("gptkCommand routing", () => {
       }
     ])
 
-    dispatchMessage(
-      {
-        app: APP_ID,
-        action: "gptkCommand",
-        command: "getAllMediaItems",
-        provider: "icloud",
-        requestId,
-        args: { limit: 25 }
-      },
-      appSender()
-    )
-    await new Promise((r) => setTimeout(r, 1600))
+    const timerSpy = fastForwardIcloudActivationDelay()
+    try {
+      dispatchMessage(
+        {
+          app: APP_ID,
+          action: "gptkCommand",
+          command: "getAllMediaItems",
+          provider: "icloud",
+          requestId,
+          args: { limit: 25 }
+        },
+        appSender()
+      )
+      await vi.waitFor(
+        () => expect(mockChrome.scripting.executeScript).toHaveBeenCalled(),
+        { timeout: 1000 }
+      )
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 1500)).toBe(true)
 
-    expect(mockChrome.tabs.update).toHaveBeenCalledWith(icloudTabId, {
-      active: true
-    })
-    expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
-      expect.objectContaining({
-        target: { tabId: icloudTabId, frameIds: [9] },
-        world: "MAIN",
-        func: expect.any(Function),
-        args: [
-          expect.objectContaining({
-            command: "getAllMediaItems",
-            provider: "icloud",
-            requestId,
-            args: expect.objectContaining({ limit: 25 })
-          })
-        ]
+      expect(mockChrome.tabs.update).toHaveBeenCalledWith(icloudTabId, {
+        active: true
       })
-    )
+      expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { tabId: icloudTabId, frameIds: [9] },
+          world: "MAIN",
+          func: expect.any(Function),
+          args: [
+            expect.objectContaining({
+              command: "getAllMediaItems",
+              provider: "icloud",
+              requestId,
+              args: expect.objectContaining({ limit: 25 })
+            })
+          ]
+        })
+      )
+    } finally {
+      timerSpy.mockRestore()
+    }
   })
 
   it("routes iCloud trash dry-run commands to an iCloud Photos tab", async () => {
@@ -1756,39 +2173,48 @@ describe("gptkCommand routing", () => {
     })
     mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
 
-    dispatchMessage(
-      {
-        app: APP_ID,
-        action: "gptkCommand",
-        command: "trashItems",
-        provider: "icloud",
-        requestId,
-        args: {
-          dryRun: true,
-          dedupKeys: ["icloud-a"],
-          mediaKeysToTrash: ["icloud-a"]
-        }
-      },
-      appSender()
-    )
-    await new Promise((r) => setTimeout(r, 1600))
+    const timerSpy = fastForwardIcloudActivationDelay()
+    try {
+      dispatchMessage(
+        {
+          app: APP_ID,
+          action: "gptkCommand",
+          command: "trashItems",
+          provider: "icloud",
+          requestId,
+          args: {
+            dryRun: true,
+            dedupKeys: ["icloud-a"],
+            mediaKeysToTrash: ["icloud-a"]
+          }
+        },
+        appSender()
+      )
+      await vi.waitFor(
+        () => expect(mockChrome.scripting.executeScript).toHaveBeenCalled(),
+        { timeout: 1000 }
+      )
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 1500)).toBe(true)
 
-    expect(mockChrome.tabs.update).toHaveBeenCalledWith(icloudTabId, {
-      active: true
-    })
-    expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
-      expect.objectContaining({
-        target: { tabId: icloudTabId, allFrames: true },
-        args: [
-          expect.objectContaining({
-            command: "trashItems",
-            provider: "icloud",
-            requestId,
-            args: expect.objectContaining({ dryRun: true })
-          })
-        ]
+      expect(mockChrome.tabs.update).toHaveBeenCalledWith(icloudTabId, {
+        active: true
       })
-    )
+      expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { tabId: icloudTabId, allFrames: true },
+          args: [
+            expect.objectContaining({
+              command: "trashItems",
+              provider: "icloud",
+              requestId,
+              args: expect.objectContaining({ dryRun: true })
+            })
+          ]
+        })
+      )
+    } finally {
+      timerSpy.mockRestore()
+    }
   })
 
   it("routes Amazon scan commands without activating the Amazon Photos tab", async () => {
@@ -1834,6 +2260,67 @@ describe("gptkCommand routing", () => {
         provider: "amazon",
         requestId
       })
+    )
+  })
+
+  it("routes Amazon album refresh away from a Trash tab", async () => {
+    const appTabId = 77
+    const trashTabId = 78
+    const libraryTabId = 79
+    const requestId = "test-amazon-album-refresh-from-trash"
+    const trashTab = {
+      id: trashTabId,
+      active: true,
+      lastAccessed: 200,
+      url: "https://www.amazon.ca/photos/trash"
+    }
+    const libraryTab = {
+      id: libraryTabId,
+      active: false,
+      lastAccessed: 100,
+      url: "https://www.amazon.ca/photos/album/synthetic-fixtures"
+    }
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("amazon.ca")) {
+        return Promise.resolve([trashTab, libraryTab])
+      }
+      if (query?.url?.includes("chrome-extension://test/tabs/app.html")) {
+        return Promise.resolve([
+          { id: appTabId, url: "chrome-extension://test/tabs/app.html" }
+        ])
+      }
+      return Promise.resolve([])
+    })
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+
+    dispatchMessage(
+      {
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "listAlbums",
+        provider: "amazon",
+        requestId,
+        args: {}
+      },
+      appSender()
+    )
+
+    await vi.waitFor(
+      () =>
+        expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+          libraryTabId,
+          expect.objectContaining({
+            command: "listAlbums",
+            provider: "amazon",
+            requestId
+          })
+        ),
+      { timeout: 1000 }
+    )
+    expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+      trashTabId,
+      expect.objectContaining({ command: "listAlbums", requestId })
     )
   })
 
@@ -2842,6 +3329,133 @@ describe("recovery history transaction authority", () => {
       ).toMatchObject({ terminal: false })
     }
   )
+
+  it("accepts equivalent recovery history readback when object keys are reordered", async () => {
+    const email = "pawsitivegames@example.test"
+    const stored = createRestorableFingerprintRecord(
+      "icloud",
+      "key-order-operation",
+      "key-order-dedup",
+      "key-order-media",
+      email,
+      "icloud-key-order-session"
+    )
+    stored.record.icloudAssetRefs = [
+      {
+        recordName: "synthetic-record",
+        changeTag: "synthetic-change-tag",
+        zoneName: "synthetic-zone",
+        ownerRecordName: "synthetic-owner"
+      }
+    ]
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [stored.record])
+
+    const reorderObjectKeys = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(reorderObjectKeys)
+      if (value && typeof value === "object") {
+        return Object.fromEntries(
+          Object.entries(value).reverse().map(([key, nested]) => [
+            key,
+            reorderObjectKeys(nested)
+          ])
+        )
+      }
+      return value
+    }
+    let historyReads = 0
+    storageLocal.get.mockImplementation(async (key: string) => {
+      if (key === RECOVERY_HISTORY_STORAGE_KEY) {
+        historyReads += 1
+        if (historyReads === 2) {
+          return {
+            [key]: reorderObjectKeys(
+              structuredClone(licenseStorage.get(key))
+            )
+          }
+        }
+      }
+      const value = licenseStorage.get(key)
+      return value === undefined ? {} : { [key]: value }
+    })
+
+    const response = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(
+        beginFingerprintRestore(
+          "icloud",
+          "key-order-operation",
+          "key-order-dedup",
+          "icloud-key-order-session",
+          email
+        )
+      ),
+      recoveryAppSender()
+    )
+
+    expect(response).toMatchObject({ success: true })
+  })
+
+  it("fails closed when recovery history readback changes an asset reference value", async () => {
+    const email = "pawsitivegames@example.test"
+    const stored = createRestorableFingerprintRecord(
+      "icloud",
+      "value-change-operation",
+      "value-change-dedup",
+      "value-change-media",
+      email,
+      "icloud-value-change-session"
+    )
+    stored.record.icloudAssetRefs = [
+      {
+        recordName: "synthetic-record",
+        changeTag: "synthetic-change-tag",
+        zoneName: "synthetic-zone",
+        ownerRecordName: "synthetic-owner"
+      }
+    ]
+    licenseStorage.set(RECOVERY_HISTORY_STORAGE_KEY, [stored.record])
+
+    let historyReads = 0
+    storageLocal.get.mockImplementation(async (key: string) => {
+      if (key === RECOVERY_HISTORY_STORAGE_KEY) {
+        historyReads += 1
+        if (historyReads === 2) {
+          const readback = structuredClone(
+            licenseStorage.get(key)
+          ) as Array<{
+            icloudAssetRefs?: Array<{ changeTag: string }>
+          }>
+          readback[0]!.icloudAssetRefs![0]!.changeTag = "changed-change-tag"
+          return { [key]: readback }
+        }
+      }
+      const value = licenseStorage.get(key)
+      return value === undefined ? {} : { [key]: value }
+    })
+
+    const response = await dispatchMessageAndWaitForResponse(
+      recoveryMessage(
+        beginFingerprintRestore(
+          "icloud",
+          "value-change-operation",
+          "value-change-dedup",
+          "icloud-value-change-session",
+          email
+        )
+      ),
+      recoveryAppSender()
+    )
+
+    expect(response).toMatchObject({ success: false })
+    expect(
+      (licenseStorage.get(RECOVERY_HISTORY_STORAGE_KEY) as Array<{
+        restorableDedupKeys: string[]
+        restoreOutcomeHistory?: Array<{ terminal?: boolean }>
+      }>)[0]
+    ).toMatchObject({
+      restorableDedupKeys: [],
+      restoreOutcomeHistory: [{ terminal: false }]
+    })
+  })
 
   it("rejects a changed verified account and reserves overlap across refreshed sessions", async () => {
     const email = "pawsitivegames@example.test"

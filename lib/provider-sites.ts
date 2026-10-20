@@ -31,6 +31,14 @@ export const AMAZON_MARKETPLACE_HOSTS = [
   "amazon.ie"
 ] as const
 
+// Full-video retrieval is currently supported only for the Canadian Amazon
+// Photos site. Keep this separate from marketplace coverage for scans.
+export const AMAZON_VIDEO_PLAYBACK_MARKETPLACE_HOSTS = ["amazon.ca"] as const
+
+export const AMAZON_VIDEO_DOWNLOAD_HOST = "download-photos.amazon.ca"
+export const AMAZON_VIDEO_DOWNLOAD_HOST_PERMISSION =
+  `https://${AMAZON_VIDEO_DOWNLOAD_HOST}/*`
+
 export const AMAZON_ORIGINS = AMAZON_MARKETPLACE_HOSTS.flatMap((host) => [
   `https://www.${host}`,
   `https://${host}`

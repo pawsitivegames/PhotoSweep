@@ -31,9 +31,7 @@ test.beforeAll(async () => {
 
 test.afterEach(async () => {
   for (const page of context.pages()) {
-    if (page.url().startsWith("https://photos.google.com/")) {
-      await page.close().catch(() => {})
-    }
+    await page.close().catch(() => {})
   }
   await context.unroute("https://photos.google.com/**").catch(() => {})
 })
@@ -71,7 +69,8 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
 
 async function includeAllAndOpenTrashDialog(
   page: Page,
-  accountEmail = "test@example.com"
+  accountEmail = "test@example.com",
+  reviewAllAtOnce = false
 ): Promise<void> {
   // Trash preflight requires a fresh provider health result. Waiting for the
   // signed-in banner avoids racing the health-check response after the saved
@@ -80,9 +79,19 @@ async function includeAllAndOpenTrashDialog(
     timeout: 8_000
   })
   await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
-  // Inclusion proposes sets; an explicit keeper decision completes review.
-  for (const card of await page.locator("[data-review-group-id]").all()) {
-    await card.getByRole("button", { name: /currently kept; this is the last kept copy/ }).click()
+  if (reviewAllAtOnce) {
+    // Large result lists virtualize review cards. Use the explicit bulk-review
+    // action so offscreen groups are reviewed without changing keeper choices.
+    const reviewAllButton = page.getByRole("button", {
+      name: /^Mark all [0-9]+ eligible sets as reviewed$/i
+    })
+    await expect(reviewAllButton).toBeVisible()
+    await reviewAllButton.click()
+  } else {
+    // Inclusion proposes sets; an explicit keeper decision completes review.
+    for (const card of await page.locator("[data-review-group-id]").all()) {
+      await card.getByRole("button", { name: /currently kept; this is the last kept copy/ }).click()
+    }
   }
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })
@@ -412,7 +421,7 @@ test("shows trashing state for multi-batch trash (> 25 items)", async () => {
     timeout: 8_000
   })
 
-  await includeAllAndOpenTrashDialog(page)
+  await includeAllAndOpenTrashDialog(page, "test@example.com", true)
   await expect(page.getByRole("dialog")).toBeVisible()
   await confirmTrashDialog(page, 300)
 
@@ -1509,6 +1518,12 @@ test("cancel dialog does not trigger trash", async () => {
 
   // Click Cancel in the dialog
   await page.getByRole("button", { name: /^Cancel$/i }).click()
+
+  // Keep the confirmed target count stable while the closing transition is
+  // still visible; clearing the plan must not briefly relabel it as zero.
+  await expect(page.getByLabel("Type 3 to confirm")).toBeVisible({
+    timeout: 100
+  })
 
   // Dialog should close; groups remain intact
   await expect(page.getByRole("dialog")).not.toBeVisible()

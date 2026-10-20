@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_NORMAL_RELEASE_REPLAY",
+  "createdAtUtc": "2026-10-15T01:01:30Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "faf1201821c6d94ee4b221852822c781bb26b2bd88942a812d146024580088b0",
+    "sourceFileCount": 328,
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "packagePath": "build/photosweep-cws-v2.3.6.6-sha256-b81048e4cd51.zip",
+    "packageSha256": "b81048e4cd51cb246fb855a82596d5bfd7020ce5ee4f393b74f1950cc302ee39",
+    "buildId": "cd452508-5615-4b84-9425-27441188d4d6"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "c62ac77a03a153d8c8e73bca58f64435e7ba555dfb28cc9aae2ca1180a9278a4",
+    "currentPolicySha256": "402b015404bdf55c74f495bb8c278a172be0f0bcc00973f8216c1d2a35bcfbd6",
+    "changedFields": ["sourceFingerprint"],
+    "sourceFingerprintFrom": "6fd5d395860e3365d00dde0c2a8cceb38e0ea0304be3e01c5d70ac2ded454702",
+    "sourceFingerprintTo": "faf1201821c6d94ee4b221852822c781bb26b2bd88942a812d146024580088b0",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "reviewedEntries": 211,
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "diagnosticRun": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "path": "tmp/verification/diagnostic-refresh/cee2568a-537e-4f37-9c17-eea2fc56bac1/mutation-run/stryker-raw.json",
+    "status": "DIAGNOSTIC_ONLY_MANUAL_REVIEW_GATE",
+    "rawReportSha256": "168172567206fa08132040262884638afa2691160df84d02a470528d4598b241",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "canonicalReportMatchedPolicy": true
+  },
+  "validationReplay": {
+    "command": "npm run verify:release -- --out-dir tmp/verification/runs/20261015T-release-final-rebound-tlc",
+    "resultPath": "tmp/verification/runs/20261015T-release-final-rebound-tlc/mutation.json",
+    "triagePath": "tmp/verification/runs/20261015T-release-final-rebound-tlc/mutation-run/mutation-triage.json",
+    "runId": "20261015T005338Z-51085",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "durationMs": 23927,
+    "sourceFingerprint": "faf1201821c6d94ee4b221852822c781bb26b2bd88942a812d146024580088b0",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "rawReportFileSha256": "6a18ad9f6a959eba8e79e5a2e0435d33f18369dda12161242842285b8d3c8212",
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "mutants": {
+      "total": 4108,
+      "killed": 3897,
+      "survived": 187,
+      "noCoverage": 24,
+      "reviewed": 211,
+      "resolved": 211,
+      "unresolved": 0,
+      "criticalSurvivors": 0,
+      "timedOut": 0,
+      "errored": 0
+    }
+  },
+  "checks": {
+    "policyChangedOnlyBySourceFingerprint": true,
+    "diagnosticAndAcceptedCanonicalReportsMatch": true,
+    "allNonKilledMutantsHaveReviewedTriage": true,
+    "thresholdsUnchanged": true,
+    "normalReplayPassesWithValidPolicy": true,
+    "sourceStableDuringReplay": true,
+    "packageDigestMatchesSidecar": true
+  }
+}

@@ -55,7 +55,9 @@ export function RatingPromptDialog({
         </Box>
       </DialogTitle>
       <DialogContent>
-        <Typography color="text.secondary">
+        <Typography sx={{
+          color: "text.secondary"
+        }}>
           Whether everything worked well or something could be better, we would
           like to hear about it. Visit the PhotoSweep site for help and product
           updates, or send feedback directly to the team.
@@ -75,5 +77,5 @@ export function RatingPromptDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

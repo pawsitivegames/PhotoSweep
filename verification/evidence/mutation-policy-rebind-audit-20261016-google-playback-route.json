@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_AFTER_NORMAL_REPLAY",
+  "createdAtUtc": "2026-10-16T07:45:17.998Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "5ee8ebb99cd2ff2b8a117b894c901b6b029e9bcacd2f2f096dd57b2cd38f7889",
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "version": "2.3.6.6"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "e98f36b31d5cc12cf3b73842f92a17e1fc6c71bf99e3e49c28012df2f11fd04b",
+    "currentPolicySha256": "8b34123400465a81db79bf12c2eac73d7cb03ef9b7b39aed07ab93d89b84cd9e",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "900e2df75cf23f0ac06423f57dcbb10d16e657fd07525a79ede330aeba886459",
+    "sourceFingerprintTo": "5ee8ebb99cd2ff2b8a117b894c901b6b029e9bcacd2f2f096dd57b2cd38f7889",
+    "canonicalReportSha256Unchanged": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114",
+    "diagnosticRawReportFileSha256": "50bfd75a42dba50af0ff3c5994388e240be3d200cd10951817489a3eac103e10",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    },
+    "statusClassifications": {
+      "Survived:EQUIVALENT": 145,
+      "Survived:UNREACHABLE": 15,
+      "NoCoverage:UNREACHABLE": 22,
+      "NoCoverage:EQUIVALENT": 2,
+      "Survived:DUPLICATE": 27
+    }
+  },
+  "diagnosticRun": {
+    "resultPath": "tmp/verification/diagnostic-refresh/30f31051-1db8-451f-99bd-e5badbd596ae/mutation.json",
+    "rawReportPath": "tmp/verification/diagnostic-refresh/30f31051-1db8-451f-99bd-e5badbd596ae/mutation-run/stryker-raw.json",
+    "rawReportSha256": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "criticalSurvivors": 0
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 90,
+    "break": 90,
+    "maximumCriticalSurvivors": 0
+  },
+  "mutationTargetSourceHashes": {
+    "lib/duplicate-review-session.ts": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+    "lib/keep-strategy.ts": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+    "lib/trash-lifecycle.ts": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+    "scripts/photo-provider-command-host.js": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+    "lib/review-preflight.ts": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+    "lib/trash-dispatch-guard.ts": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a"
+  },
+  "checks": {
+    "allCurrentNonKilledMutantsMatchPreviouslyReviewedIdentityKeys": true,
+    "noPriorReviewedMutantsAreMissing": true,
+    "canonicalReportHashUnchanged": true,
+    "mutationTargetSourceHashesReviewed": true,
+    "thresholdValuesUnchanged": true,
+    "policyChangedOnlyBySourceFingerprint": true,
+    "diagnosticRunCannotBeAcceptedAsPass": true,
+    "normalMutationReplayRequired": true,
+    "normalMutationReplayAccepted": true,
+    "policyPassThresholdsMet": true
+  },
+  "normalMutationReplay": {
+    "resultPath": "tmp/verification/mutation-rebind-replay-20261016/mutation.json",
+    "node": "v24.20.0",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "tests": 1046,
+    "testFiles": 19,
+    "filesMutated": 6,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "criticalSurvivors": 0,
+    "noCoverageResolved": 24,
+    "timedOut": 0,
+    "errored": 0,
+    "reviewedNonKilled": 211,
+    "resolvedNonKilled": 211,
+    "unresolvedNonKilled": 0,
+    "rawReportSha256": "678a24fc1c290ed2a8bc4071923a33c988bc5e4997ed36b68cdc778a99c73ec6",
+    "mutationTriageSha256": "d0feb5fd16302ac6abd4150850d8d7a3299c267ff3e4f240c4cf32a16c314576"
+  }
+}

@@ -17,21 +17,23 @@ The random identifier is stored locally, not derived from a provider account.
 The existing license API request can carry its browser session cookie as
 described in the privacy policy; the event handler does not enrich rows with it.
 
-This repair adds **no persistent event fields**, operation/scan identifiers,
-client occurrence timestamps, event IDs, retries, local event queue, or retention
-policy. It only extends existing allowlists with `undo_attempted`, Undo failure
-categories, and separate `0` / `1-99` count buckets. `0-99` remains accepted for
-historical compatibility but cannot prove positive activity. No retention period
-is established for production; collection/retention changes require a separate
-explicit decision. The existing capped local stores can truncate history and
+This repair adds **no operation/scan identifiers**, client occurrence
+timestamps, event IDs, retries, or local event queue. The owner selected a
+90-day analytics retention period. Stores stamp a server receipt time and
+expiration; the production Firestore TTL policy must be enabled and directly
+verified on the configured analytics collection before this retention contract
+is considered active. The existing capped local stores can truncate history and
 must not be treated as complete D7 evidence.
 
 Each valid row in `${PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ?? "photosweep"}_analytics_events`
-has `name`, `installId`, `extensionVersion`, `dayKey`, server `recordedAt`, and
-optional allowlisted provider/plan/mode/count/reason/outcome/error fields. Unknown
-fields are stripped by the API. Invalid identity/version/day/receipt records are
-excluded and flagged. Payment operational rows without this identity are not
-client funnel observations.
+has `name`, `installId`, `extensionVersion`, `dayKey`, server `recordedAt`, an
+`expiresAt` timestamp 90 days after receipt, and optional allowlisted
+provider/plan/mode/count/reason/outcome/error fields. Unknown fields are
+stripped by the API. Invalid identity/version/day/receipt records are excluded
+and flagged. Payment operational rows without this identity are not client
+funnel observations. Firestore must have TTL enabled on `expiresAt` for the
+configured analytics collection group before claiming production deletion.
+Firestore typically deletes expired documents within 24 hours after expiry.
 
 Client delivery is optional and fire-and-forget: receipt counts are not unique
 operations. Delivery can be missing, reordered or repeated. Consent revocation

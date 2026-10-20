@@ -178,5 +178,5 @@ export function buildTrashResultReport(params: {
     outcomes: alignedOutcomes,
     retryAttempts: Math.max(0, Math.floor(params.retryAttempts ?? 0)),
     error: params.error ?? null
-  }
+  };
 }

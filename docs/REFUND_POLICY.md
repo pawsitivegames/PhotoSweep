@@ -1,6 +1,6 @@
 # PhotoSweep Refund Policy
 
-Last updated: 2026-06-30
+Last updated: 2026-10-13
 
 ## Summary
 
@@ -49,7 +49,8 @@ Trash/Restore validation evidence.
 
 ## How Users Request A Refund
 
-Users can contact support with:
+Users can contact
+[pawsitivegames@gmail.com](mailto:pawsitivegames@gmail.com) with:
 
 - purchase email
 - approximate purchase date
@@ -57,9 +58,7 @@ Users can contact support with:
 - short description of the issue
 - optional paid-user diagnostics export
 
-Support contact:
-
-`pawsitivegames@gmail.com`
+Support contact: [pawsitivegames@gmail.com](mailto:pawsitivegames@gmail.com)
 
 Do not ask users to send photo URLs, thumbnails, filenames, album names, raw
 reports, exact timestamps, people/location labels, or page content for refund

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync, statSync } from "node:fs"
+import { existsSync, lstatSync, readFileSync, readlinkSync, statSync } from "node:fs"
 import { resolve, sep } from "node:path"
 
 export const DEFAULT_SOURCE_ROOTS = [
@@ -26,7 +26,7 @@ export const DEFAULT_SOURCE_ROOTS = [
   "lib/generated/build-flags.ts",
   "tsconfig.json",
   "tsconfig.test.json",
-  "vitest.config.ts",
+  "vitest.config.mts",
   "playwright.config.ts",
   "playwright.e2e.config.ts",
   "build/chrome-mv3-prod/manifest.json"
@@ -85,6 +85,43 @@ function sourceContent(root, file) {
   }
 }
 
+function updateSubmoduleWorkingTree(hash, directory) {
+  const diff = execFileSync(
+    "git",
+    ["-C", directory, "diff", "--binary", "HEAD", "--"],
+    { maxBuffer: 64 * 1024 * 1024 }
+  )
+  if (diff.length > 0) {
+    hash.update("\0submodule-diff\0")
+    hash.update(diff)
+  }
+
+  const untracked = execFileSync(
+    "git",
+    ["-C", directory, "ls-files", "--others", "--exclude-standard", "-z"],
+    { maxBuffer: 64 * 1024 * 1024 }
+  )
+    .toString("utf8")
+    .split("\0")
+    .filter(Boolean)
+
+  if (untracked.length > 0) hash.update("\0submodule-untracked\0")
+  for (const file of untracked) {
+    const absolute = resolve(directory, file)
+    const fileStat = lstatSync(absolute)
+    hash.update(file)
+    hash.update("\0")
+    if (fileStat.isSymbolicLink()) {
+      hash.update(`symlink:${readlinkSync(absolute)}`)
+    } else if (fileStat.isFile()) {
+      hash.update(readFileSync(absolute))
+    } else {
+      hash.update(`entry:${fileStat.mode}`)
+    }
+    hash.update("\0")
+  }
+}
+
 export function listSourceFiles(root, sourceRoots = DEFAULT_SOURCE_ROOTS) {
   const output = execFileSync(
     "git",
@@ -115,10 +152,14 @@ export function listSourceFiles(root, sourceRoots = DEFAULT_SOURCE_ROOTS) {
 
 export function computeSourceFingerprint(
   root = process.cwd(),
-  sourceRoots = DEFAULT_SOURCE_ROOTS
+  sourceRoots = DEFAULT_SOURCE_ROOTS,
+  { excludePaths = [] } = {}
 ) {
   const hash = createHash("sha256")
-  const files = listSourceFiles(root, sourceRoots)
+  const excludedPaths = new Set(excludePaths.map(normalizePath))
+  const files = listSourceFiles(root, sourceRoots).filter(
+    (file) => !excludedPaths.has(normalizePath(file))
+  )
   for (const file of files) {
     const absolute = resolve(root, file)
     hash.update(file)
@@ -137,6 +178,9 @@ export function computeSourceFingerprint(
         // cannot silently validate as a known checkout.
       }
       hash.update(`submodule:${revision}`)
+      if (revision !== "unavailable") {
+        updateSubmoduleWorkingTree(hash, absolute)
+      }
     } else {
       hash.update(sourceContent(root, file))
     }

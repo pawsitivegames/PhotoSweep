@@ -3,6 +3,7 @@ import type {
   GpdMediaItem,
   PhotoProvider
 } from "./types"
+import { AMAZON_VIDEO_DOWNLOAD_HOST } from "./provider-sites"
 
 export const MAX_ORIGINAL_BYTES_PER_ITEM = 25 * 1024 * 1024
 export const MAX_ORIGINAL_BYTES_PER_REVIEW = 100 * 1024 * 1024
@@ -63,6 +64,15 @@ export function isProviderRetrievalResponseBound(
   )
 }
 
+export function getProviderRetrievalSessionError(
+  response: { success: boolean; providerSessionId?: string },
+  expectedProviderSessionId: string
+): string | null {
+  if (response.providerSessionId === expectedProviderSessionId) return null
+  if (!response.success && response.providerSessionId === undefined) return null
+  return "The provider returned a result from a different page session. The item remains unverified."
+}
+
 export function isProviderRetrievalBindingCurrent(
   binding: ProviderRetrievalBinding
 ): boolean {
@@ -120,11 +130,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isMimeType(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length <= 128 &&
-    /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(value)
-  )
+  return (typeof value === "string" &&
+  value.length <= 128 && /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(value));
 }
 
 export function isAllowedProviderPlaybackUrl(
@@ -137,11 +144,22 @@ export function isAllowedProviderPlaybackUrl(
   try {
     const url = new URL(value)
     const host = url.hostname.toLowerCase()
+    const amazonRouteIsApproved =
+      provider !== "amazon" ||
+      (host === AMAZON_VIDEO_DOWNLOAD_HOST &&
+        /^\/v2\/download\/signed\/[^/]+\/alt\/video_transcode$/.test(
+          url.pathname
+        ) &&
+        url.searchParams.getAll("ownerId").length === 1 &&
+        Boolean(url.searchParams.get("ownerId")) &&
+        url.searchParams.getAll("y").length === 1 &&
+        url.searchParams.get("y") === "720" &&
+        [...url.searchParams.keys()].length === 2)
     const allowedHost =
       provider === "google"
         ? host === "video-downloads.googleusercontent.com"
         : provider === "amazon"
-          ? host === "download-photos.amazon.ca"
+          ? host === AMAZON_VIDEO_DOWNLOAD_HOST
           : host === "icloud-content.com" ||
             host.endsWith(".icloud-content.com") ||
             host === "icloud-content.com.cn" ||
@@ -152,10 +170,175 @@ export function isAllowedProviderPlaybackUrl(
       !url.username &&
       !url.password &&
       !url.hash &&
-      allowedHost
+      allowedHost &&
+      amazonRouteIsApproved
     )
   } catch {
     return false
+  }
+}
+
+export const MAX_AMAZON_VIDEO_PLAYBACK_BYTES = 128 * 1024 * 1024
+const AMAZON_VIDEO_PLAYBACK_TIMEOUT_MS = 180_000
+
+function amazonVideoPlaybackAbortError(
+  callerSignal: AbortSignal,
+  timeoutSignal: AbortSignal
+): Error | null {
+  if (callerSignal.aborted) {
+    return new DOMException("Amazon Photos video playback was cancelled.", "AbortError")
+  }
+  if (timeoutSignal.aborted) {
+    return new Error("Amazon Photos video playback timed out. Open this video in Amazon Photos.")
+  }
+  return null
+}
+
+export async function fetchAmazonVideoPlaybackBlob(
+  playbackUrl: string,
+  signal: AbortSignal,
+  options: { maxBytes?: number } = {}
+): Promise<Blob> {
+  const maxBytes = Math.min(
+    options.maxBytes ?? MAX_AMAZON_VIDEO_PLAYBACK_BYTES,
+    MAX_AMAZON_VIDEO_PLAYBACK_BYTES
+  )
+  if (
+    !Number.isSafeInteger(maxBytes) ||
+    maxBytes < 1 ||
+    !isAllowedProviderPlaybackUrl("amazon", playbackUrl)
+  ) {
+    throw new Error("Amazon Photos did not return an approved video stream.")
+  }
+  if (signal.aborted) {
+    throw new DOMException("Amazon Photos video playback was cancelled.", "AbortError")
+  }
+
+  const timeoutSignal = AbortSignal.timeout(AMAZON_VIDEO_PLAYBACK_TIMEOUT_MS)
+  const requestSignal = AbortSignal.any([signal, timeoutSignal])
+  let response: Response
+  try {
+    response = await fetch(playbackUrl, {
+      credentials: "include",
+      redirect: "error",
+      signal: requestSignal
+    })
+  } catch (error) {
+    throw amazonVideoPlaybackAbortError(signal, timeoutSignal) ?? error
+  }
+  let contentType = ""
+  let contentLength: number | null = null
+  let expectedPartialLength: number | null = null
+  try {
+    if (!response.ok || (response.status !== 200 && response.status !== 206)) {
+      throw new Error("Amazon Photos could not provide the selected video.")
+    }
+    if (response.url) {
+      let responseUrl: URL
+      try {
+        responseUrl = new URL(response.url)
+      } catch {
+        throw new Error("Amazon Photos returned an invalid video response.")
+      }
+      if (
+        responseUrl.origin !== `https://${AMAZON_VIDEO_DOWNLOAD_HOST}` ||
+        !isAllowedProviderPlaybackUrl("amazon", responseUrl.href)
+      ) {
+        throw new Error("Amazon Photos redirected the video outside its approved media route.")
+      }
+    }
+
+    const responseContentType = response.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim()
+      ?.toLowerCase()
+    if (!responseContentType?.startsWith("video/")) {
+      throw new Error("Amazon Photos returned a non-video response.")
+    }
+    contentType = responseContentType
+
+    const contentLengthHeader = response.headers.get("content-length")
+    contentLength =
+      contentLengthHeader && /^\d+$/.test(contentLengthHeader)
+        ? Number(contentLengthHeader)
+        : null
+    if (
+      (contentLengthHeader !== null && contentLength === null) ||
+      (contentLength !== null && contentLength > maxBytes)
+    ) {
+      throw new Error("This Amazon video is too large for in-app playback. Open it in Amazon Photos.")
+    }
+
+    if (response.status === 206) {
+      const range = response.headers.get("content-range")
+      const match = range?.match(/^bytes 0-(\d+)\/(\d+)$/i)
+      if (!match || Number(match[2]) > maxBytes) {
+        throw new Error("Amazon Photos returned only part of the selected video.")
+      }
+      expectedPartialLength = Number(match[2])
+      if (Number(match[1]) + 1 !== expectedPartialLength) {
+        throw new Error("Amazon Photos returned only part of the selected video.")
+      }
+    }
+  } catch (error) {
+    try {
+      await response.body?.cancel()
+    } catch {
+      // Header validation remains the primary error even if stream cancellation fails.
+    }
+    throw error
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error("Amazon Photos returned an unreadable video response.")
+  }
+  const chunks: Uint8Array[] = []
+  let byteLength = 0
+  try {
+    while (true) {
+      const abortError = amazonVideoPlaybackAbortError(signal, timeoutSignal)
+      if (abortError) {
+        throw abortError
+      }
+      const result = await reader.read()
+      if (result.done) break
+      if (!result.value) continue
+      byteLength += result.value.byteLength
+      if (byteLength > maxBytes) {
+        throw new Error("This Amazon video is too large for in-app playback. Open it in Amazon Photos.")
+      }
+      chunks.push(result.value)
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => {})
+    for (const chunk of chunks) chunk.fill(0)
+    throw amazonVideoPlaybackAbortError(signal, timeoutSignal) ?? error
+  } finally {
+    reader.releaseLock()
+  }
+
+  try {
+    const abortError = amazonVideoPlaybackAbortError(signal, timeoutSignal)
+    if (abortError) throw abortError
+    if (
+      byteLength === 0 ||
+      (contentLength !== null && byteLength !== contentLength) ||
+      (expectedPartialLength !== null && byteLength !== expectedPartialLength)
+    ) {
+      throw new Error("Amazon Photos returned an incomplete video response.")
+    }
+    const parts: BlobPart[] = chunks.map((chunk) => {
+      const buffer = chunk.buffer
+      if (!(buffer instanceof ArrayBuffer)) {
+        throw new Error("Amazon Photos returned an unsupported video buffer.")
+      }
+      return new Uint8Array(buffer, chunk.byteOffset, chunk.byteLength)
+    })
+    return new Blob(parts, { type: contentType })
+  } finally {
+    for (const chunk of chunks) chunk.fill(0)
   }
 }
 

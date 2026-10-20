@@ -5,6 +5,7 @@ import {
   expectedRecoveryAuthorityBinding,
   validateRecoveryAuthorityModelEvidence
 } from "../../verification/recovery-authority-model-evidence.mjs"
+import { resolveTlcRunOptions } from "../../verification/run-recovery-authority-tlc.mjs"
 
 const root = process.cwd()
 const runId = "authority-verifier-test-run"
@@ -112,6 +113,16 @@ function validate(
 }
 
 describe("[SAFE-12 authority evidence verifier] source-bound service-worker model artifacts", () => {
+  it("uses a fixed seed and serial execution for negative counterexample controls", () => {
+    expect(
+      resolveTlcRunOptions({ negativeControl: true, parallelism: 16 })
+    ).toEqual({ seed: 1, workers: 1 })
+    expect(resolveTlcRunOptions({ parallelism: 16 })).toEqual({
+      seed: 1,
+      workers: 4
+    })
+  })
+
   it("accepts a complete source-bound positive model", () => {
     expect(validate(artifact()).valid).toBe(true)
   })

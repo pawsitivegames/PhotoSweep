@@ -2,6 +2,8 @@
 // Run: npm run test:integration
 import { defineConfig } from "@playwright/test"
 
+const headless = process.env.PHOTOSWEEP_INTEGRATION_HEADLESS === "1"
+
 export default defineConfig({
   testDir: "tests/e2e/integration",
   timeout: 30_000,
@@ -13,7 +15,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-extension",
-      use: { headless: false },
+      use: { headless },
     },
   ],
 })

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "createdAtUtc": "2026-10-16T06:04:26Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "900e2df75cf23f0ac06423f57dcbb10d16e657fd07525a79ede330aeba886459",
+    "sourceFileCount": 336,
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "version": "2.3.6.6"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "2d55c5cfd59df35df8f36a93a1380f391aca6058ccc7b7205a8fc5e6e2b85212",
+    "currentPolicySha256": "e98f36b31d5cc12cf3b73842f92a17e1fc6c71bf99e3e49c28012df2f11fd04b",
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256"
+    ],
+    "sourceFingerprintFrom": "466c5a7647f7ddc2cbc51b5a1cc6c6392ad50e584d6fd191389347c205ec136a",
+    "sourceFingerprintTo": "900e2df75cf23f0ac06423f57dcbb10d16e657fd07525a79ede330aeba886459",
+    "canonicalReportSha256From": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "canonicalReportSha256To": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114",
+    "rawReportFileSha256": "3fddf42e06f0c6ef8e3cfaf28111ce6c073fe69c047ee76f7c7d5546a5645950",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    }
+  },
+  "comparison": {
+    "priorRawReportPath": "tmp/verification/diagnostic-refresh/195748c6-6c66-4274-85d4-0be4f09fc2b9/mutation-run/stryker-raw.json",
+    "currentRawReportPath": "tmp/verification/diagnostic-refresh/95b99ff8-1540-4da1-81cc-aaf9d2cc763e/mutation-run/stryker-raw.json",
+    "priorMutantCount": 4108,
+    "currentMutantCount": 4108,
+    "mutantIdentityOrStatusChanges": 0,
+    "testInventoryChanges": [
+      "tests/lib/duplicate-detector.test.ts added Full-scan candidate-completeness regression",
+      "tests/lib/duplicate-detector.test.ts added Smart-scan candidate-completeness regression"
+    ]
+  },
+  "diagnosticRun": {
+    "command": "mise exec node@24.20.0 -- env PATH=/Users/mustafadungarpurwala/.local/share/mise/installs/node/24.20.0/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin node verification/run-mutation.mjs --diagnostic-refresh-triage",
+    "resultPath": "tmp/verification/diagnostic-refresh/95b99ff8-1540-4da1-81cc-aaf9d2cc763e/mutation.json",
+    "rawReportSha256": "3fddf42e06f0c6ef8e3cfaf28111ce6c073fe69c047ee76f7c7d5546a5645950",
+    "canonicalReportSha256": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114",
+    "diagnosticStatus": "FAIL_BY_DESIGN",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "criticalSurvivors": 0,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42
+  },
+  "normalMutationReplay": {
+    "resultPath": "tmp/verification/release-20261016-4d3161df833a/mutation.json",
+    "releaseRunId": "20261016T060712Z-222",
+    "node": "v24.20.0",
+    "startedAt": "2026-10-16T06:09:10.377Z",
+    "finishedAt": "2026-10-16T06:09:34.280Z",
+    "elapsedMs": 23903,
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "tests": 1046,
+    "testFiles": 19,
+    "filesMutated": 6,
+    "mutationScorePercent": 94.86,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "reviewedNonKilled": 211,
+    "resolvedNonKilled": 211,
+    "rawReportSha256": "1df27c2e4b60f86735a8de66356434eb1dd8391701cdec6a0eb24f5d2edc3109",
+    "canonicalReportSha256": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114"
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 90,
+    "break": 90,
+    "maximumCriticalSurvivors": 0
+  },
+  "checks": {
+    "allCurrentNonKilledMutantsMatchPreviouslyReviewedIdentityKeys": true,
+    "all4108MutantIdentitiesAndStatusesMatchPriorReport": true,
+    "targetSourceHashesUnchanged": true,
+    "canonicalReportChangesConfinedToDuplicateDetectorTestSourceAndTwoAddedCases": true,
+    "mutationThresholdsUnchanged": true,
+    "normalMutationReplayRequired": false,
+    "normalMutationReplayAccepted": true
+  }
+}

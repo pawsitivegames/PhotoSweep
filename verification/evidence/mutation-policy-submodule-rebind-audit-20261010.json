@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-10T02:56:44Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_POLICY_KEY_REVALIDATION",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "version": "2.3.6",
+    "chromeVersion": "2.3.6.1",
+    "sourceFingerprint": "96beb0a79f320a1af260dd08a567eb47379cf4a4f4b82a89bad98df28c13c8ea",
+    "sourceFileCount": 316,
+    "gptkSubmoduleCommit": "cd1db961c6eacc5a3bc20304b559770ea152d930",
+    "gptkWorkingTreeDirty": true
+  },
+  "priorPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "d9c535f1ce87a3ba221d2304516fcd7bb823c45e5eac8deaa9967399df668722",
+    "sourceFingerprint": "4351e571a7fd0f25a4ee0ae945a903c2e5968afd29fbfdfd6cdb082e4de28726",
+    "canonicalMutationReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "reviewedEntries": 204
+  },
+  "comparisonReportSourceFingerprint": "aafec50c78a5d5bb80e140f0f17630805327bbf33ee6b2afe73bbdd1178692c5",
+  "mutationComparison": {
+    "currentReport": "tmp/verification/release-20261010-main-024d56c-candidate-v14/mutation-run/stryker-raw.json",
+    "priorAcceptedReport": "tmp/verification/release-20261009-main-024d56c-candidate-v12/formal-release-source/mutation-run/stryker-raw.json",
+    "currentRawFileSha256": "7f0e744ceac14dd7a922889fc16a6d29cc6c56172a4a11368a537059ced43163",
+    "priorRawFileSha256": "ff6d5bf091f06bbd2a1c12aca171c75f70ce21fd4e3a72f234b4c774fb516a98",
+    "currentCanonicalReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "priorAcceptedCanonicalReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "mutantsTotal": 3996,
+    "statusCounts": {
+      "Killed": 3792,
+      "Survived": 181,
+      "NoCoverage": 23
+    },
+    "identityOutcomeProjection": {
+      "sha256": "5c246d06158054c677f30de0f20d00aa29e9250dd3327ebab97a506b48143dc9",
+      "fields": [
+        "file",
+        "id",
+        "status",
+        "location",
+        "mutatorName",
+        "replacement",
+        "sourceHash"
+      ],
+      "sortedJsonArraysEqual": true
+    },
+    "mutatedSourceHashesMatchCurrentFiles": true,
+    "policyEntries": 204,
+    "policyEntriesMatchedExactlyToCurrentNonKilledMutants": 204,
+    "policyEntrySourceHashesMatchCurrentFiles": true,
+    "missingPolicyEntries": 0
+  },
+  "policyRebind": {
+    "fieldChanged": "sourceFingerprint",
+    "from": "4351e571a7fd0f25a4ee0ae945a903c2e5968afd29fbfdfd6cdb082e4de28726",
+    "to": "96beb0a79f320a1af260dd08a567eb47379cf4a4f4b82a89bad98df28c13c8ea",
+    "canonicalMutationReportSha256Preserved": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "reviewedEntriesPreserved": 204,
+    "newReviewsAdded": 0,
+    "classificationChanges": 0,
+    "thresholdsChanged": false
+  },
+  "limitations": [
+    "The final release run must generate a fresh mutation report against this source fingerprint.",
+    "This audit establishes mutation-policy alignment only; it does not establish exact-package Chrome runtime or live provider evidence."
+  ]
+}

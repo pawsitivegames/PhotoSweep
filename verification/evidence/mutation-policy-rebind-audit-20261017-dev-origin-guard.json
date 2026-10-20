@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_AFTER_NORMAL_INCREMENTAL_REPLAY",
+  "createdAtUtc": "2026-10-17T02:03:20.222Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "3f3ec16a2beda292be70d5bb74021ab2fbc3391d8ffd128eaf92c6546511383a",
+    "sourceFileCount": 339,
+    "node": "v24.20.0",
+    "version": "2.3.6.6",
+    "packagePath": "build/photosweep-cws-v2.3.6.6-sha256-5295e7d89a3d.zip",
+    "packageSha256": "5295e7d89a3d2098db9fbff72119be15fd1b9230f74c673acffbcf673a8e2608",
+    "buildId": "2888b73a-4979-4c4e-ba16-3525b132b01e",
+    "workingTreeDirty": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "c396d40ee8f0c37a228ad487596687d7adf90f09817c63d1edf017eba70c28aa",
+    "currentPolicySha256": "13d50683ede2eed43a49434621da6a6510e78a7f38cebe972b234b800e10d619",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "eab6bdeef98f49d1a2f443b4d575a13d32e246848bced0fe9381bf9382559bd5",
+    "sourceFingerprintTo": "3f3ec16a2beda292be70d5bb74021ab2fbc3391d8ffd128eaf92c6546511383a",
+    "canonicalReportSha256": "bd25be95b9b9a4da2bae2a28d1391d06b6c7c83c52a124727182151c4f10847e",
+    "reviewedEntries": 211,
+    "thresholdsUnchanged": true
+  },
+  "scopeContinuity": {
+    "targetHashesMatchAcceptedRun": true,
+    "mutationTestFilesMatchAcceptedRun": true,
+    "mutationTestFiles": 20,
+    "mutationTestCases": 1165,
+    "mutantsInAcceptedRun": 4108,
+    "allNonKilledEntriesReviewed": true
+  },
+  "cacheReuse": {
+    "priorFingerprint": "0591d2637c9f14eac8214bdc0089233b4ad2269e1c2c84925d576295149ee09b",
+    "currentFingerprint": "9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3",
+    "normalizedFingerprint": "0591d2637c9f14eac8214bdc0089233b4ad2269e1c2c84925d576295149ee09b",
+    "normalization": "only package.json scripts.dev restored from node tools/run-secure-dev.mjs to plasmo dev",
+    "priorCacheCopiedToCurrentFingerprint": false,
+    "priorCachePath": "tmp/verification/mutation-incremental/0591d2637c9f14eac8214bdc0089233b4ad2269e1c2c84925d576295149ee09b-node-24.20.0.json",
+    "currentCachePath": "tmp/verification/mutation-incremental/9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3-node-24.20.0.json"
+  },
+  "diagnosticAttempt": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "status": "INTERRUPTED_AFTER_13_MINUTES",
+    "reason": "Cold-cache replay exceeded the bounded window; the configured target/test scope was unchanged and its prior Stryker cache fingerprint was reproduced by normalizing only the dev npm script.",
+    "partialOutputPath": "tmp/verification/dev-origin-guard-20261017/mutation-diagnostic/mutation-run/stryker-tmp",
+    "exitCode": 130,
+    "partialResult": "The cold diagnostic was interrupted; its partial sandbox remains preserved."
+  },
+  "checks": {
+    "policyChangedOnlyBySourceFingerprint": true,
+    "scopeTargetsAndTestsMatch": true,
+    "canonicalReportRemainsPriorAcceptedHash": true,
+    "thresholdsUnchanged": true,
+    "normalReplayRequired": true,
+    "normalReplayPasses": true,
+    "sourceFingerprintStable": true,
+    "incrementalCacheWasValidated": true,
+    "allReviewedNonKilledResolve": true
+  },
+  "normalReplay": {
+    "command": "npm run test:mutation",
+    "resultPath": "tmp/verification/dev-origin-guard-20261017/mutation.json",
+    "rawReportPath": "tmp/verification/dev-origin-guard-20261017/mutation-run/stryker-raw.json",
+    "rawReportSha256": "bac503e6e814cdbc57627febb0b67884b7bc5ca20ea2ca4fa59d23cdaebcb3df",
+    "triageSha256": "f3fe6b07076912d94361d42d82893e46d0ec834830d1b74fd9c61ab3ae20b5ad",
+    "sourceFingerprint": "3f3ec16a2beda292be70d5bb74021ab2fbc3391d8ffd128eaf92c6546511383a",
+    "sourceDrift": false,
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "incrementalCacheFingerprint": "9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3",
+    "incrementalCacheFile": "tmp/verification/mutation-incremental/9004bbe740a476d835f449ec09868a2793daca5b9d442bcf613df9cd70221da3-node-24.20.0.json",
+    "mutants": {
+      "total": 4108,
+      "killed": 3897,
+      "survived": 187,
+      "noCoverage": 24,
+      "scorePercent": 94.86,
+      "coveredScorePercent": 95.42,
+      "reviewed": 211,
+      "resolved": 211,
+      "unresolved": 0,
+      "criticalSurvivors": 0,
+      "timedOut": 0,
+      "errored": 0
+    }
+  }
+}

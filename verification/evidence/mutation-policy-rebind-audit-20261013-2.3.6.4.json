@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-13T06:00:20.088Z",
+  "status": "BOUND_FOR_FRESH_RELEASE_MUTATION_REPLAY",
+  "candidate": {
+    "package": "build/photosweep-cws-v2.3.6.4-sha256-044643ee0910.zip",
+    "packageSha256": "044643ee0910090232804187bd6cc43fdb6d278666289b651d1bc4237a92dd35",
+    "chromeVersion": "2.3.6.4",
+    "sourceFingerprint": "dd42f0f10056e1f200e12c8e63e665d4fe38e4036580f58e4348a31268112806",
+    "buildId": "1bb728a2-0254-406e-b1ec-b9da021dd7b2"
+  },
+  "priorMutationRun": {
+    "path": "tmp/verification/diagnostic-refresh/8a7b5442-94f3-44f7-a32d-e93ba8bf6e3b/mutation-run",
+    "sourceFingerprint": "5aed62b0af24d6a6c9f74172815bb06512e269ddbd79d769e9e8c702d0c6362b",
+    "canonicalReportSha256": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df",
+    "rawStrykerFileSha256": "a9dd6002d0153b1912fe80fe2b0d587f719692eeb14eacb480fcb062ed4a7a22",
+    "framework": "10.0.0",
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutationScorePercent": 94.85,
+    "mutationSourceCount": 6,
+    "mutationSourceHashesMatchCurrent": true,
+    "testFiles": 19,
+    "testFilesChangedSinceRun": 0,
+    "exactTestFilesMatch": true,
+    "policyStatus": "STALE_OR_INVALID"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "6f9f086895f99821014a56c58b61dac4078f08c58584f1f4b0b61a4ef08917d7",
+    "updatedPolicyFileSha256": "e9b9613034e5f1cc578a540c4453648cf914f919907de43cb761236f60dff308",
+    "sourceFingerprint": {
+      "from": "46125d19a1b6b8170fca03bb9df532cf140081a6031ab05a4e547f97ee5b08b9",
+      "to": "dd42f0f10056e1f200e12c8e63e665d4fe38e4036580f58e4348a31268112806"
+    },
+    "canonicalReportSha256": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df",
+    "entryCount": 211,
+    "classificationAndEvidencePreserved": true
+  },
+  "limitations": [
+    "This metadata rebind only clears the candidate fingerprint preflight after all mutation source files and mutation test files were byte-identical to the reviewed report.",
+    "A fresh release mutation replay remains required; this record does not claim the replay passed."
+  ]
+}

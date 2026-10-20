@@ -1405,10 +1405,33 @@ export function verifyFrozenReleaseCandidate({ root, artifactPath, sourceRoots }
   }
 }
 
+export function releaseCandidateCliExitCode(
+  result,
+  { allowStaticIdentityBlocked = false } = {}
+) {
+  if (result?.status === "PASS") return 0
+  if (
+    result?.status === "BLOCKED" &&
+    allowStaticIdentityBlocked &&
+    Array.isArray(result.problems) &&
+    result.problems.length === 0 &&
+    result.staticIdentityProof?.status === "BLOCKED"
+  ) {
+    return 0
+  }
+  return result?.status === "BLOCKED" ? 2 : 1
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const root = resolve(process.env.VERIFICATION_ROOT ?? process.cwd())
   const registry = JSON.parse(readFileSync(join(root, "verification/requirements.json"), "utf8"))
   const result = verifyFrozenReleaseCandidate({ root, artifactPath: process.argv[2] ?? "", sourceRoots: registry.sourceRoots })
   console.log(JSON.stringify(result, null, 2))
-  process.exitCode = result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1
+  // The release runner uses this mode to validate package structure while it
+  // records runtime identity as a separate, still-blocked evidence obligation.
+  process.exitCode = releaseCandidateCliExitCode(result, {
+    allowStaticIdentityBlocked: process.argv.includes(
+      "--allow-static-identity-blocked"
+    )
+  })
 }

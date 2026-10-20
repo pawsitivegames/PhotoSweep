@@ -49,11 +49,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jre-headless
           fi
-          mkdir -p tmp/verification/ci-tlc/tooling
-          curl --fail --location --retry 3 \
-            --output tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar \
-            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-          echo "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
+          node verification/install-pinned-tlc.mjs
 
       - name: Run fast verification scope
         run: npm run verify:all -- --out-dir tmp/verification/ci-fast
@@ -94,11 +90,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jre-headless
           fi
-          mkdir -p tmp/verification/ci-tlc/tooling
-          curl --fail --location --retry 3 \
-            --output tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar \
-            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-          echo "7beec0f04818732a62fa193731711a99aa4f11279499b2360a7d156c519ea78d  tmp/verification/ci-tlc/tooling/tla2tools-1.8.0.jar" | sha256sum --check
+          node verification/install-pinned-tlc.mjs
 
       - name: Run nightly verification scope
         run: npm run verify:nightly -- --out-dir tmp/verification/ci-nightly

@@ -5,6 +5,7 @@ import {
   getOriginalContentVerificationUnavailableMessage,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
+  getProviderRetrievalSessionError,
   isVideoForPlayback,
   isAllowedProviderPlaybackUrl,
   safeProviderRetrievalError,
@@ -78,6 +79,37 @@ describe("provider retrieval result boundary", () => {
         expected
       )
     ).toBe(false)
+  })
+
+  it("[VIDEO-PLAYBACK] preserves a failed preflight reason when no provider session is returned", () => {
+    const expectedSessionId = "session-a"
+    const sessionError =
+      "The provider returned a result from a different page session. The item remains unverified."
+
+    expect(
+      getProviderRetrievalSessionError(
+        { success: false },
+        expectedSessionId
+      )
+    ).toBeNull()
+    expect(
+      getProviderRetrievalSessionError(
+        { success: false, providerSessionId: "session-b" },
+        expectedSessionId
+      )
+    ).toBe(sessionError)
+    expect(
+      getProviderRetrievalSessionError(
+        { success: true },
+        expectedSessionId
+      )
+    ).toBe(sessionError)
+    expect(
+      getProviderRetrievalSessionError(
+        { success: true, providerSessionId: expectedSessionId },
+        expectedSessionId
+      )
+    ).toBeNull()
   })
 
   it("[VIDEO-PLAYBACK] preserves explicit media kind over legacy duration hints", () => {
@@ -251,9 +283,27 @@ describe("provider retrieval result boundary", () => {
     expect(
       isAllowedProviderPlaybackUrl(
         "amazon",
-        "https://download-photos.amazon.ca/v2/download/signed/item?ownerId=owner"
+        "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720"
       )
     ).toBe(true)
+    expect(
+      isAllowedProviderPlaybackUrl(
+        "amazon",
+        "https://download-photos.amazon.ca/v2/download/signed/item?ownerId=owner"
+      )
+    ).toBe(false)
+    expect(
+      isAllowedProviderPlaybackUrl(
+        "amazon",
+        "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720&extra=1"
+      )
+    ).toBe(false)
+    expect(
+      isAllowedProviderPlaybackUrl(
+        "amazon",
+        "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&ownerId=other&y=720"
+      )
+    ).toBe(false)
     expect(
       isAllowedProviderPlaybackUrl(
         "google",
@@ -284,13 +334,13 @@ describe("provider retrieval result boundary", () => {
     expect(
       isAllowedProviderPlaybackUrl(
         "amazon",
-        "https://download-photos.amazon.ca/video#fragment"
+        "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720#fragment"
       )
     ).toBe(false)
     expect(
       isAllowedProviderPlaybackUrl(
         "amazon",
-        "https://download-photos.amazon.ca:8443/video"
+        "https://download-photos.amazon.ca:8443/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720"
       )
     ).toBe(false)
   })
@@ -299,7 +349,7 @@ describe("provider retrieval result boundary", () => {
     const result = {
       ...expected,
       playbackUrl:
-        "https://download-photos.amazon.ca/v2/download/signed/item?ownerId=owner",
+        "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720",
       mimeType: "video/mp4"
     }
     expect(
@@ -321,7 +371,7 @@ describe("provider retrieval result boundary", () => {
     (expiresAt) => {
       expect(() => validateVideoPlaybackResult("amazon", {
         ...expected,
-        playbackUrl: "https://download-photos.amazon.ca/video",
+        playbackUrl: "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720",
         mimeType: "video/mp4",
         expiresAt
       }, expected)).toThrow(/expired|expiry/i)
@@ -332,7 +382,7 @@ describe("provider retrieval result boundary", () => {
     const expiresAt = Date.now() + 60_000
     expect(validateVideoPlaybackResult("amazon", {
       ...expected,
-      playbackUrl: "https://download-photos.amazon.ca/video",
+      playbackUrl: "https://download-photos.amazon.ca/v2/download/signed/item/alt/video_transcode?ownerId=owner&y=720",
       mimeType: "video/mp4",
       expiresAt
     }, expected)).toMatchObject({ expiresAt })

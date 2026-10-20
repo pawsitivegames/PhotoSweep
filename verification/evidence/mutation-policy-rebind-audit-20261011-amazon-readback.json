@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-11T10:05:35.037Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_SOURCE_HASH_REVALIDATION",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.1",
+    "packageSha256": "219ac3f4174346cc4afa7d46e29c9baab667e3b3e7f7d4a6b2b72311c00924fb",
+    "sourceFingerprint": "ec307824eed777f63136fd49cd3af1ae2d7475cd56bd3aac4432b33792cb2079",
+    "sourceFileCount": 319,
+    "gptkSubmoduleCommit": "cd1db961c6eacc5a3bc20304b559770ea152d930",
+    "gptkWorkingTreeDirty": true,
+    "buildId": "b66d9e7e-f420-477b-8980-8072740811a1"
+  },
+  "mutationComparison": {
+    "policyBoundReport": "tmp/verification/release-20261010-node24-posttriage-v20/mutation-run/stryker-raw.json",
+    "currentReport": "tmp/verification/release-20261011T0915Z-frozen-219ac-retry/mutation-run/stryker-raw.json",
+    "policyBoundCanonicalReportSha256": "3fd09c0708e0eabdd2efa63fe492fcb51536e3371338da433cab9741f3689f19",
+    "currentCanonicalReportSha256": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002",
+    "mutantSetComparedToPolicyBoundReport": 3996,
+    "exactAllMutantKeysAndStatusesMatch": true,
+    "mutationSourceFileCount": 6,
+    "mutationSourceHashesMatchPolicyBoundReport": true,
+    "policyEntries": 204,
+    "policyEntriesMatchedExactlyToCurrentNonKilledMutants": 204,
+    "policyEntrySourceHashesMatchCurrentFiles": true,
+    "missingPolicyEntries": 0,
+    "extraPolicyEntries": 0,
+    "statusCounts": {
+      "NoCoverage": 23,
+      "Killed": 3792,
+      "Survived": 181
+    },
+    "mutationScorePercent": 94.89,
+    "minimumKilledPercent": 90,
+    "criticalSurvivors": 0,
+    "normalizedReportDifferences": {
+      "concurrency": {
+        "policyBoundReport": 4,
+        "currentReport": 2
+      },
+      "amazonCommandTestCount": {
+        "policyBoundReport": 117,
+        "currentReport": 119
+      },
+      "addedTests": 2
+    }
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "a8bbc06f65d23e3356e49b5129c9b9eaaf0a7dcc6c1f9a843497c4d43ef5034f",
+    "updatedPolicyFileSha256": "3d00bbbbb528e716bcd37b5f668acaafd677a29216100280c10d54e70c9068d1",
+    "sourceFingerprint": {
+      "from": "4b7bb7440cb7c1e6653ad5d2535f2e6c4add7dd5d1af66d58233bf2c5c95a722",
+      "to": "ec307824eed777f63136fd49cd3af1ae2d7475cd56bd3aac4432b33792cb2079"
+    },
+    "rawReportSha256": {
+      "from": "3fd09c0708e0eabdd2efa63fe492fcb51536e3371338da433cab9741f3689f19",
+      "to": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002"
+    },
+    "policyEntriesChanged": 0,
+    "classificationChanges": 0,
+    "evidenceChanges": 0,
+    "thresholdsChanged": false,
+    "nextRunConcurrency": 2
+  },
+  "limitations": [
+    "A fresh release run must validate the rebound policy against the frozen candidate and reproduce the canonical mutation report hash.",
+    "This rebind does not establish exact-package Chrome runtime or live provider evidence."
+  ]
+}

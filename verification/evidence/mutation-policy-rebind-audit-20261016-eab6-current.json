@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_AFTER_NORMAL_REPLAY",
+  "createdAtUtc": "2026-10-16T20:59:17.887Z",
+  "candidate": {
+    "sourceFingerprint": "eab6bdeef98f49d1a2f443b4d575a13d32e246848bced0fe9381bf9382559bd5",
+    "sourceFileCount": 336,
+    "node": "v26.10.0",
+    "version": "2.3.6.6",
+    "workingTreeDirty": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "66aa8bfd2481a7f5fec8c57c48f2b101dd6b8ec28a229d80402efa4e9dba0074",
+    "currentPolicySha256": "c396d40ee8f0c37a228ad487596687d7adf90f09817c63d1edf017eba70c28aa",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "0cdad2a7a7833520c476509f8473038041fe7b3a8d7eae0350f6775c82319cd8",
+    "sourceFingerprintTo": "eab6bdeef98f49d1a2f443b4d575a13d32e246848bced0fe9381bf9382559bd5",
+    "canonicalReportSha256": "bd25be95b9b9a4da2bae2a28d1391d06b6c7c83c52a124727182151c4f10847e",
+    "canonicalReportSha256Unchanged": true,
+    "reviewedEntries": 211,
+    "identityKeysMatched": 211
+  },
+  "comparison": {
+    "priorRawReportPath": "tmp/verification/diagnostic-refresh/8ed0949d-8030-4c57-8dd4-7a579d4f0dc7/mutation-run/stryker-raw.json",
+    "currentRawReportPath": "tmp/verification/diagnostic-refresh/150494e1-d7f9-473e-9e41-9151b872406d/mutation-run/stryker-raw.json",
+    "priorMutantCount": 4108,
+    "currentMutantCount": 4108,
+    "mutantIdentityOrStatusChanges": 0,
+    "mutationTargetSourceHashes": {
+      "lib/duplicate-review-session.ts": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+      "lib/keep-strategy.ts": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "lib/trash-lifecycle.ts": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+      "scripts/photo-provider-command-host.js": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+      "lib/review-preflight.ts": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+      "lib/trash-dispatch-guard.ts": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a"
+    },
+    "mutationTargetSourceHashesUnchanged": true,
+    "testFileCount": 20,
+    "testCaseCount": 1165,
+    "testInventoryMatchesPrior": true,
+    "policyEntriesMissing": 0,
+    "currentNonKilledUnreviewed": 0,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    },
+    "thresholdsUnchanged": true
+  },
+  "diagnosticRun": {
+    "resultPath": "tmp/verification/diagnostic-refresh/150494e1-d7f9-473e-9e41-9151b872406d/mutation.json",
+    "diagnosticStatus": "FAIL_BY_DESIGN",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "criticalSurvivors": 0,
+    "mutationScorePercent": 94.86,
+    "canonicalReportSha256": "bd25be95b9b9a4da2bae2a28d1391d06b6c7c83c52a124727182151c4f10847e",
+    "sourceFingerprint": "eab6bdeef98f49d1a2f443b4d575a13d32e246848bced0fe9381bf9382559bd5",
+    "cannotBeAcceptedAsPass": true
+  },
+  "thresholds": {
+    "minimumKilledPercent": 90,
+    "maximumCriticalSurvivors": 0
+  },
+  "checks": {
+    "currentSourceMatchesDiagnostic": true,
+    "all4108MutantIdentitiesAndStatusesMatchPrior": true,
+    "allCurrentNonKilledMutantsMatchReviewedPolicy": true,
+    "targetSourceHashesUnchanged": true,
+    "reviewedClassificationsUnchanged": true,
+    "canonicalReportHashUnchanged": true,
+    "thresholdValuesUnchanged": true,
+    "diagnosticRunNotAcceptedAsPass": true,
+    "normalMutationReplayAccepted": true,
+    "policyChangedOnlyBySourceFingerprint": true
+  },
+  "normalMutationReplay": {
+    "resultPath": "tmp/verification/mutation-rebind-replay-eab6-a642-20261016/mutation.json",
+    "node": "v24.20.0",
+    "runId": "20261016T-eab6-a642",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "tests": 1165,
+    "testFiles": 20,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "reviewedNonKilled": 211,
+    "resolvedNonKilled": 211,
+    "unresolvedNonKilled": 0,
+    "rawReportSha256": "009a6e4a0725a5d982f49c29129e63f086c3e02e900e5abea19494a3b59037c4",
+    "triageSha256": "749bd312c06ed936826269eb3902bf109f60607b4b9c382317f020598d07ef5e",
+    "incrementalCacheFingerprint": "0591d2637c9f14eac8214bdc0089233b4ad2269e1c2c84925d576295149ee09b"
+  }
+}

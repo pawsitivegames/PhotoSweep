@@ -201,13 +201,10 @@ function sanitizeRestoreOutcomes(value: unknown): MutationOutcome[] {
 }
 
 function validRestoreRequestId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 200 &&
-    value.trim() === value &&
-    !/[\u0000-\u001f\u007f]/.test(value)
-  )
+  return (typeof value === "string" &&
+  value.length > 0 &&
+  value.length <= 200 &&
+  value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value));
 }
 
 function sanitizeRestoreOutcomeHistory(value: unknown): RecoveryRestoreAttempt[] {

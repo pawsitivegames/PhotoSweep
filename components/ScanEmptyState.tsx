@@ -27,14 +27,18 @@ export function ScanEmptyState({
       <Typography
         variant={compact ? "body2" : "h6"}
         color={compact ? "text.primary" : "text.secondary"}
-        fontWeight={compact ? 800 : undefined}>
+        sx={{
+          fontWeight: compact ? 800 : undefined
+        }}>
         {identityPending
           ? "Confirming the connected photo library"
           : "No duplicate sets found in this scan."}
       </Typography>
       <Typography
         variant={compact ? "caption" : "body2"}
-        color="text.secondary">
+        sx={{
+          color: "text.secondary"
+        }}>
         {identityPending ? (
           <>
             PhotoSweep is verifying that these results belong to the connected
@@ -58,5 +62,5 @@ export function ScanEmptyState({
         </Button>
       )}
     </Box>
-  )
+  );
 }

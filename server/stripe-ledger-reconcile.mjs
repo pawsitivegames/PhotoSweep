@@ -1174,6 +1174,18 @@ function buildEnrichmentReport({
   }
 }
 
+/**
+ * @param {{
+ *   ledger?: unknown,
+ *   stripe?: unknown,
+ *   fromMs?: number,
+ *   toMs?: number,
+ *   stripeMode?: string,
+ *   pricePlanMap?: Record<string, unknown>,
+ *   generatedAt?: string | number | Date,
+ *   includeEnrichmentReport?: boolean
+ * }} [options]
+ */
 export function reconcileStripeLedger({
   ledger,
   stripe,

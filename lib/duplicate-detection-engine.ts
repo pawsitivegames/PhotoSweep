@@ -95,7 +95,7 @@ function normalizeFileStem(fileName: string | undefined): string | null {
   if (!fileName) return null
   const normalized = fileName.trim().toLowerCase()
   if (!normalized) return null
-  return normalized.replace(/\.[a-z0-9]{1,8}$/i, "")
+  return normalized.replace(/\.[a-z0-9]{1,8}$/i, "");
 }
 
 function isVideo(item: GpdMediaItem): boolean {
@@ -454,6 +454,14 @@ export async function fullDetectDuplicates(
     `[GPD] computeEmbeddings: ${embeddings.length} items (${cacheHits} cached) in ${computeEmbeddingsMs}ms`
   )
   await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs)
+
+  if (validIndices.length !== candidates.length) {
+    throw processedCandidateError(
+      validIndices.length,
+      candidates.length,
+      candidates[0]?.provider
+    )
+  }
 
   if (embeddings.length < 2) {
     if (exactMetadataGroups.length > 0) {
@@ -959,6 +967,14 @@ export async function smartDetectDuplicates(
     `[GPD] computeEmbeddings: ${embeddings.length} items (${cacheHits} cached) in ${computeEmbeddingsMs}ms`
   )
   await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs)
+
+  if (validIndices.length !== subset.length) {
+    throw processedCandidateError(
+      validIndices.length,
+      subset.length,
+      subset[0]?.provider
+    )
+  }
 
   if (embeddings.length < 2) {
     if (exactMetadataGroups.length > 0) {

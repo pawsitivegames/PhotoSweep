@@ -1,0 +1,6322 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-17T20:25:59Z",
+  "status": "PASS",
+  "purpose": "Rebind reviewed mutation dispositions to the provider owner-marker regression source and current exact diagnostic report.",
+  "previousPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "sha256": "6d67381b5f7e8822c96b02d8279a7ed7f5b5cd947dfc8d65d15ebb9639c59aed",
+    "sourceFingerprint": "42fe5239bf19b4994b11fcb73361e76afe48f06536dc739f738f92e0c2775286",
+    "canonicalReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+    "reviewedEntries": 211
+  },
+  "sourceFingerprint": "6f18fbcc8aeb1a4037983a10c899f71dc12c40966c69bb389d2d595f34ebeff1",
+  "currentPolicySha256": "467fa0a22f019846b96d138b270fbe9d4e16a111fc7381c78fbe54807a6879eb",
+  "canonicalMutationReportSha256": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c",
+  "diagnosticReport": {
+    "resultUse": "diagnostic-only; normal replay remains the accepted gate",
+    "rawReportPath": "tmp/verification/fix-all-final-mutants-20261017/mutation-run/stryker-raw.json",
+    "rawReportFileSha256": "66c6e79203f995733ebba90e4265df7a9a0c8cda165efa3af65c10482cde90b5",
+    "triagePath": "tmp/verification/fix-all-final-mutants-20261017/mutation-run/mutation-triage.json",
+    "triageSha256": "903d398581ba7ed550ea74164fd62d7065e3ac838f0534bad413151c90c0e2e3",
+    "sourceDrift": false,
+    "mutantsTotal": 4171,
+    "mutantsKilled": 3956,
+    "mutantsSurvived": 191,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "testFileCount": 20,
+    "testCaseCount": 1172
+  },
+  "policyChanges": {
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256",
+      "entries"
+    ],
+    "priorReviewedEntries": 211,
+    "priorEntriesRetainedAndSourceMapped": 210,
+    "priorWaiversRemovedBecauseNowKilled": [
+      {
+        "previousId": "4138",
+        "currentId": "4201",
+        "file": "scripts/photo-provider-command-host.js",
+        "location": {
+          "end": {
+            "column": 53,
+            "line": 1303
+          },
+          "start": {
+            "column": 3,
+            "line": 1301
+          }
+        },
+        "status": "Killed"
+      }
+    ],
+    "newEquivalentEntries": [
+      {
+        "id": "2857",
+        "file": "scripts/photo-provider-command-host.js",
+        "location": {
+          "end": {
+            "column": 38,
+            "line": 30
+          },
+          "start": {
+            "column": 7,
+            "line": 30
+          }
+        },
+        "detectedPeerId": "2854",
+        "peerKilledBy": [
+          "565"
+        ]
+      },
+      {
+        "id": "2859",
+        "file": "scripts/photo-provider-command-host.js",
+        "location": {
+          "end": {
+            "column": 38,
+            "line": 30
+          },
+          "start": {
+            "column": 27,
+            "line": 30
+          }
+        },
+        "detectedPeerId": "2862",
+        "peerKilledBy": [
+          "566"
+        ]
+      },
+      {
+        "id": "2860",
+        "file": "scripts/photo-provider-command-host.js",
+        "location": {
+          "end": {
+            "column": 32,
+            "line": 31
+          },
+          "start": {
+            "column": 21,
+            "line": 31
+          }
+        },
+        "detectedPeerId": "2856",
+        "peerKilledBy": [
+          "565"
+        ]
+      },
+      {
+        "id": "2902",
+        "file": "scripts/photo-provider-command-host.js",
+        "location": {
+          "end": {
+            "column": 6,
+            "line": 83
+          },
+          "start": {
+            "column": 13,
+            "line": 81
+          }
+        },
+        "detectedPeerId": "2903",
+        "peerKilledBy": [
+          "565"
+        ]
+      },
+      {
+        "id": "4151",
+        "file": "scripts/photo-provider-command-host.js",
+        "location": {
+          "end": {
+            "column": 43,
+            "line": 1203
+          },
+          "start": {
+            "column": 11,
+            "line": 1203
+          }
+        },
+        "detectedPeerId": "4152",
+        "peerKilledBy": [
+          "565"
+        ]
+      }
+    ],
+    "currentResolvedNonKilledEntries": 215,
+    "classificationsPreservedForRetainedEntries": true,
+    "thresholdsChanged": false,
+    "registeredSourceRootsChanged": false
+  },
+  "sourceContinuity": {
+    "priorRawReportPath": "tmp/verification/20261017T135115Z/mutation-run/stryker-raw.json",
+    "priorRawReportSourceFingerprint": "54ef4d93a4055d8bdc52e843b1fdd0f0588451c0b8241bcd85421794cd698b4e",
+    "priorPolicySourceFingerprint": "42fe5239bf19b4994b11fcb73361e76afe48f06536dc739f738f92e0c2775286",
+    "retainedMutationSpansMappedExactly": 210,
+    "retainedMutationSpans": [
+      {
+        "previousPolicyId": "69",
+        "currentId": "69",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 47,
+            "line": 131
+          },
+          "start": {
+            "column": 7,
+            "line": 131
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 47,
+            "line": 131
+          },
+          "start": {
+            "column": 7,
+            "line": 131
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "212",
+        "currentId": "212",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 307
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 307
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "218",
+        "currentId": "218",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 308
+          },
+          "start": {
+            "column": 13,
+            "line": 308
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 308
+          },
+          "start": {
+            "column": 13,
+            "line": 308
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "219",
+        "currentId": "219",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 308
+          },
+          "start": {
+            "column": 13,
+            "line": 308
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 308
+          },
+          "start": {
+            "column": 13,
+            "line": 308
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "220",
+        "currentId": "220",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 35,
+            "line": 308
+          },
+          "start": {
+            "column": 13,
+            "line": 308
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 35,
+            "line": 308
+          },
+          "start": {
+            "column": 13,
+            "line": 308
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "221",
+        "currentId": "221",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 309
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 309
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "222",
+        "currentId": "222",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 309
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 309
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "223",
+        "currentId": "223",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 39,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 309
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 39,
+            "line": 309
+          },
+          "start": {
+            "column": 13,
+            "line": 309
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "224",
+        "currentId": "224",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 44,
+            "line": 309
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 62,
+            "line": 309
+          },
+          "start": {
+            "column": 44,
+            "line": 309
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "272",
+        "currentId": "272",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 71,
+            "line": 404
+          },
+          "start": {
+            "column": 69,
+            "line": 404
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 71,
+            "line": 404
+          },
+          "start": {
+            "column": 69,
+            "line": 404
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "432",
+        "currentId": "432",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 78,
+            "line": 607
+          },
+          "start": {
+            "column": 24,
+            "line": 607
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 78,
+            "line": 607
+          },
+          "start": {
+            "column": 24,
+            "line": 607
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "440",
+        "currentId": "440",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 39,
+            "line": 615
+          },
+          "start": {
+            "column": 21,
+            "line": 615
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 39,
+            "line": 615
+          },
+          "start": {
+            "column": 21,
+            "line": 615
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "450",
+        "currentId": "450",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 35,
+            "line": 627
+          },
+          "start": {
+            "column": 17,
+            "line": 627
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 35,
+            "line": 627
+          },
+          "start": {
+            "column": 17,
+            "line": 627
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "451",
+        "currentId": "451",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 57,
+            "line": 627
+          },
+          "start": {
+            "column": 39,
+            "line": 627
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 57,
+            "line": 627
+          },
+          "start": {
+            "column": 39,
+            "line": 627
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "479",
+        "currentId": "479",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 42,
+            "line": 653
+          },
+          "start": {
+            "column": 9,
+            "line": 653
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 42,
+            "line": 653
+          },
+          "start": {
+            "column": 9,
+            "line": 653
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "481",
+        "currentId": "481",
+        "file": "lib/duplicate-review-session.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 6,
+            "line": 657
+          },
+          "start": {
+            "column": 44,
+            "line": 653
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 6,
+            "line": 657
+          },
+          "start": {
+            "column": 44,
+            "line": 653
+          }
+        },
+        "sourceHash": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "613",
+        "currentId": "613",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 19,
+            "line": 122
+          },
+          "start": {
+            "column": 9,
+            "line": 122
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 19,
+            "line": 122
+          },
+          "start": {
+            "column": 9,
+            "line": 122
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "614",
+        "currentId": "614",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 19,
+            "line": 122
+          },
+          "start": {
+            "column": 9,
+            "line": 122
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 19,
+            "line": 122
+          },
+          "start": {
+            "column": 9,
+            "line": 122
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "616",
+        "currentId": "616",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 20,
+            "line": 123
+          },
+          "start": {
+            "column": 9,
+            "line": 123
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 20,
+            "line": 123
+          },
+          "start": {
+            "column": 9,
+            "line": 123
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "617",
+        "currentId": "617",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 20,
+            "line": 123
+          },
+          "start": {
+            "column": 9,
+            "line": 123
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 20,
+            "line": 123
+          },
+          "start": {
+            "column": 9,
+            "line": 123
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "716",
+        "currentId": "716",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 66,
+            "line": 238
+          },
+          "start": {
+            "column": 38,
+            "line": 238
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 66,
+            "line": 238
+          },
+          "start": {
+            "column": 38,
+            "line": 238
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "730",
+        "currentId": "730",
+        "file": "lib/keep-strategy.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 16,
+            "line": 246
+          },
+          "start": {
+            "column": 11,
+            "line": 246
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 16,
+            "line": 246
+          },
+          "start": {
+            "column": 11,
+            "line": 246
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "775",
+        "currentId": "775",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 12,
+            "line": 306
+          },
+          "start": {
+            "column": 7,
+            "line": 306
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 12,
+            "line": 306
+          },
+          "start": {
+            "column": 7,
+            "line": 306
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "787",
+        "currentId": "787",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 12,
+            "line": 315
+          },
+          "start": {
+            "column": 7,
+            "line": 315
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 12,
+            "line": 315
+          },
+          "start": {
+            "column": 7,
+            "line": 315
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "797",
+        "currentId": "797",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 19,
+            "line": 320
+          },
+          "start": {
+            "column": 5,
+            "line": 320
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 19,
+            "line": 320
+          },
+          "start": {
+            "column": 5,
+            "line": 320
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "798",
+        "currentId": "798",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 19,
+            "line": 320
+          },
+          "start": {
+            "column": 5,
+            "line": 320
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 19,
+            "line": 320
+          },
+          "start": {
+            "column": 5,
+            "line": 320
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "800",
+        "currentId": "800",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 20,
+            "line": 321
+          },
+          "start": {
+            "column": 5,
+            "line": 321
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 20,
+            "line": 321
+          },
+          "start": {
+            "column": 5,
+            "line": 321
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "801",
+        "currentId": "801",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 20,
+            "line": 321
+          },
+          "start": {
+            "column": 5,
+            "line": 321
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 20,
+            "line": 321
+          },
+          "start": {
+            "column": 5,
+            "line": 321
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "832",
+        "currentId": "832",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 12,
+            "line": 351
+          },
+          "start": {
+            "column": 7,
+            "line": 351
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 12,
+            "line": 351
+          },
+          "start": {
+            "column": 7,
+            "line": 351
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "833",
+        "currentId": "833",
+        "file": "lib/keep-strategy.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 37,
+            "line": 351
+          },
+          "start": {
+            "column": 21,
+            "line": 351
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 37,
+            "line": 351
+          },
+          "start": {
+            "column": 21,
+            "line": 351
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "836",
+        "currentId": "836",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 362
+          },
+          "start": {
+            "column": 14,
+            "line": 354
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 362
+          },
+          "start": {
+            "column": 14,
+            "line": 354
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "837",
+        "currentId": "837",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 42,
+            "line": 356
+          },
+          "start": {
+            "column": 11,
+            "line": 356
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 42,
+            "line": 356
+          },
+          "start": {
+            "column": 11,
+            "line": 356
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "841",
+        "currentId": "841",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 47,
+            "line": 358
+          },
+          "start": {
+            "column": 15,
+            "line": 358
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 47,
+            "line": 358
+          },
+          "start": {
+            "column": 15,
+            "line": 358
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "842",
+        "currentId": "842",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 47,
+            "line": 358
+          },
+          "start": {
+            "column": 15,
+            "line": 358
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 47,
+            "line": 358
+          },
+          "start": {
+            "column": 15,
+            "line": 358
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "844",
+        "currentId": "844",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 47,
+            "line": 358
+          },
+          "start": {
+            "column": 42,
+            "line": 358
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 47,
+            "line": 358
+          },
+          "start": {
+            "column": 42,
+            "line": 358
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "872",
+        "currentId": "872",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 50,
+            "line": 392
+          },
+          "start": {
+            "column": 7,
+            "line": 392
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 50,
+            "line": 392
+          },
+          "start": {
+            "column": 7,
+            "line": 392
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "873",
+        "currentId": "873",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 32,
+            "line": 392
+          },
+          "start": {
+            "column": 7,
+            "line": 392
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 32,
+            "line": 392
+          },
+          "start": {
+            "column": 7,
+            "line": 392
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "874",
+        "currentId": "874",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 32,
+            "line": 392
+          },
+          "start": {
+            "column": 7,
+            "line": 392
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 32,
+            "line": 392
+          },
+          "start": {
+            "column": 7,
+            "line": 392
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "877",
+        "currentId": "877",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 50,
+            "line": 392
+          },
+          "start": {
+            "column": 36,
+            "line": 392
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 50,
+            "line": 392
+          },
+          "start": {
+            "column": 36,
+            "line": 392
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "890",
+        "currentId": "890",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 30,
+            "line": 418
+          },
+          "start": {
+            "column": 7,
+            "line": 418
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 30,
+            "line": 418
+          },
+          "start": {
+            "column": 7,
+            "line": 418
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "895",
+        "currentId": "895",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 420
+          },
+          "start": {
+            "column": 11,
+            "line": 420
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 420
+          },
+          "start": {
+            "column": 11,
+            "line": 420
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "900",
+        "currentId": "900",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 31,
+            "line": 423
+          },
+          "start": {
+            "column": 7,
+            "line": 423
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 31,
+            "line": 423
+          },
+          "start": {
+            "column": 7,
+            "line": 423
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "905",
+        "currentId": "905",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 35,
+            "line": 425
+          },
+          "start": {
+            "column": 11,
+            "line": 425
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 35,
+            "line": 425
+          },
+          "start": {
+            "column": 11,
+            "line": 425
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "919",
+        "currentId": "919",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 28,
+            "line": 442
+          },
+          "start": {
+            "column": 10,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 28,
+            "line": 442
+          },
+          "start": {
+            "column": 10,
+            "line": 442
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "922",
+        "currentId": "922",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "923",
+        "currentId": "923",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "924",
+        "currentId": "924",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "925",
+        "currentId": "925",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 54,
+            "line": 442
+          },
+          "start": {
+            "column": 36,
+            "line": 442
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "944",
+        "currentId": "944",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 52,
+            "line": 477
+          },
+          "start": {
+            "column": 30,
+            "line": 477
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 52,
+            "line": 477
+          },
+          "start": {
+            "column": 30,
+            "line": 477
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "948",
+        "currentId": "948",
+        "file": "lib/keep-strategy.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 12,
+            "line": 484
+          },
+          "start": {
+            "column": 7,
+            "line": 479
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 12,
+            "line": 484
+          },
+          "start": {
+            "column": 7,
+            "line": 479
+          }
+        },
+        "sourceHash": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1428",
+        "currentId": "1428",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 240
+          },
+          "start": {
+            "column": 32,
+            "line": 240
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 240
+          },
+          "start": {
+            "column": 32,
+            "line": 240
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1429",
+        "currentId": "1429",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 241
+          },
+          "start": {
+            "column": 32,
+            "line": 241
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 241
+          },
+          "start": {
+            "column": 32,
+            "line": 241
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1430",
+        "currentId": "1430",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 33,
+            "line": 242
+          },
+          "start": {
+            "column": 31,
+            "line": 242
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 33,
+            "line": 242
+          },
+          "start": {
+            "column": 31,
+            "line": 242
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1431",
+        "currentId": "1431",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 33,
+            "line": 243
+          },
+          "start": {
+            "column": 31,
+            "line": 243
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 33,
+            "line": 243
+          },
+          "start": {
+            "column": 31,
+            "line": 243
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1432",
+        "currentId": "1432",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 244
+          },
+          "start": {
+            "column": 38,
+            "line": 244
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 244
+          },
+          "start": {
+            "column": 38,
+            "line": 244
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1433",
+        "currentId": "1433",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 245
+          },
+          "start": {
+            "column": 38,
+            "line": 245
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 245
+          },
+          "start": {
+            "column": 38,
+            "line": 245
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1444",
+        "currentId": "1444",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 317
+          },
+          "start": {
+            "column": 41,
+            "line": 317
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 317
+          },
+          "start": {
+            "column": 41,
+            "line": 317
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1445",
+        "currentId": "1445",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 318
+          },
+          "start": {
+            "column": 29,
+            "line": 318
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 318
+          },
+          "start": {
+            "column": 29,
+            "line": 318
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1469",
+        "currentId": "1469",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 50,
+            "line": 336
+          },
+          "start": {
+            "column": 22,
+            "line": 336
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 50,
+            "line": 336
+          },
+          "start": {
+            "column": 22,
+            "line": 336
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1483",
+        "currentId": "1483",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 346
+          },
+          "start": {
+            "column": 41,
+            "line": 346
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 346
+          },
+          "start": {
+            "column": 41,
+            "line": 346
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1486",
+        "currentId": "1486",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 37,
+            "line": 348
+          },
+          "start": {
+            "column": 23,
+            "line": 348
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 37,
+            "line": 348
+          },
+          "start": {
+            "column": 23,
+            "line": 348
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1505",
+        "currentId": "1505",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 44,
+            "line": 356
+          },
+          "start": {
+            "column": 11,
+            "line": 356
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 44,
+            "line": 356
+          },
+          "start": {
+            "column": 11,
+            "line": 356
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1531",
+        "currentId": "1531",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 368
+          },
+          "start": {
+            "column": 22,
+            "line": 368
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 368
+          },
+          "start": {
+            "column": 22,
+            "line": 368
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1541",
+        "currentId": "1541",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 52,
+            "line": 379
+          },
+          "start": {
+            "column": 50,
+            "line": 379
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 52,
+            "line": 379
+          },
+          "start": {
+            "column": 50,
+            "line": 379
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1580",
+        "currentId": "1580",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 401
+          },
+          "start": {
+            "column": 55,
+            "line": 399
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 401
+          },
+          "start": {
+            "column": 55,
+            "line": 399
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1581",
+        "currentId": "1581",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 400
+          },
+          "start": {
+            "column": 9,
+            "line": 400
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 400
+          },
+          "start": {
+            "column": 9,
+            "line": 400
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1734",
+        "currentId": "1734",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 544
+          },
+          "start": {
+            "column": 14,
+            "line": 544
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 544
+          },
+          "start": {
+            "column": 14,
+            "line": 544
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1741",
+        "currentId": "1741",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 547
+          },
+          "start": {
+            "column": 14,
+            "line": 547
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 547
+          },
+          "start": {
+            "column": 14,
+            "line": 547
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1748",
+        "currentId": "1748",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 550
+          },
+          "start": {
+            "column": 14,
+            "line": 550
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 550
+          },
+          "start": {
+            "column": 14,
+            "line": 550
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1789",
+        "currentId": "1789",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 614
+          },
+          "start": {
+            "column": 7,
+            "line": 614
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 614
+          },
+          "start": {
+            "column": 7,
+            "line": 614
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1888",
+        "currentId": "1888",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 50,
+            "line": 710
+          },
+          "start": {
+            "column": 7,
+            "line": 710
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 50,
+            "line": 710
+          },
+          "start": {
+            "column": 7,
+            "line": 710
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1894",
+        "currentId": "1894",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 713
+          },
+          "start": {
+            "column": 44,
+            "line": 713
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 713
+          },
+          "start": {
+            "column": 44,
+            "line": 713
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1931",
+        "currentId": "1931",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 770
+          },
+          "start": {
+            "column": 17,
+            "line": 770
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 770
+          },
+          "start": {
+            "column": 17,
+            "line": 770
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "1987",
+        "currentId": "1987",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 39,
+            "line": 853
+          },
+          "start": {
+            "column": 37,
+            "line": 853
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 39,
+            "line": 853
+          },
+          "start": {
+            "column": 37,
+            "line": 853
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2066",
+        "currentId": "2066",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 116,
+            "line": 969
+          },
+          "start": {
+            "column": 11,
+            "line": 969
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 116,
+            "line": 969
+          },
+          "start": {
+            "column": 11,
+            "line": 969
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2109",
+        "currentId": "2109",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 14,
+            "line": 1019
+          },
+          "start": {
+            "column": 56,
+            "line": 1014
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 14,
+            "line": 1019
+          },
+          "start": {
+            "column": 56,
+            "line": 1014
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2110",
+        "currentId": "2110",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 53,
+            "line": 1018
+          },
+          "start": {
+            "column": 23,
+            "line": 1018
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 53,
+            "line": 1018
+          },
+          "start": {
+            "column": 23,
+            "line": 1018
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2160",
+        "currentId": "2160",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 42,
+            "line": 1120
+          },
+          "start": {
+            "column": 9,
+            "line": 1120
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 42,
+            "line": 1120
+          },
+          "start": {
+            "column": 9,
+            "line": 1120
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2183",
+        "currentId": "2183",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 10,
+            "line": 1137
+          },
+          "start": {
+            "column": 53,
+            "line": 1133
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 10,
+            "line": 1137
+          },
+          "start": {
+            "column": 53,
+            "line": 1133
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2184",
+        "currentId": "2184",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 1134
+          },
+          "start": {
+            "column": 22,
+            "line": 1134
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 1134
+          },
+          "start": {
+            "column": 22,
+            "line": 1134
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2185",
+        "currentId": "2185",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 28,
+            "line": 1136
+          },
+          "start": {
+            "column": 19,
+            "line": 1136
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 28,
+            "line": 1136
+          },
+          "start": {
+            "column": 19,
+            "line": 1136
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2229",
+        "currentId": "2229",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 65,
+            "line": 1164
+          },
+          "start": {
+            "column": 10,
+            "line": 1164
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 65,
+            "line": 1164
+          },
+          "start": {
+            "column": 10,
+            "line": 1164
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2242",
+        "currentId": "2242",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 10,
+            "line": 1172
+          },
+          "start": {
+            "column": 53,
+            "line": 1168
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 10,
+            "line": 1172
+          },
+          "start": {
+            "column": 53,
+            "line": 1168
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2243",
+        "currentId": "2243",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 1169
+          },
+          "start": {
+            "column": 22,
+            "line": 1169
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 1169
+          },
+          "start": {
+            "column": 22,
+            "line": 1169
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2244",
+        "currentId": "2244",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 28,
+            "line": 1171
+          },
+          "start": {
+            "column": 19,
+            "line": 1171
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 28,
+            "line": 1171
+          },
+          "start": {
+            "column": 19,
+            "line": 1171
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2247",
+        "currentId": "2247",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 70,
+            "line": 1179
+          },
+          "start": {
+            "column": 11,
+            "line": 1179
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 70,
+            "line": 1179
+          },
+          "start": {
+            "column": 11,
+            "line": 1179
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2248",
+        "currentId": "2248",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 68,
+            "line": 1179
+          },
+          "start": {
+            "column": 26,
+            "line": 1179
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 68,
+            "line": 1179
+          },
+          "start": {
+            "column": 26,
+            "line": 1179
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2249",
+        "currentId": "2249",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 68,
+            "line": 1179
+          },
+          "start": {
+            "column": 66,
+            "line": 1179
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 68,
+            "line": 1179
+          },
+          "start": {
+            "column": 66,
+            "line": 1179
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2254",
+        "currentId": "2254",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 1190
+          },
+          "start": {
+            "column": 63,
+            "line": 1187
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 1190
+          },
+          "start": {
+            "column": 63,
+            "line": 1187
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2255",
+        "currentId": "2255",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 35,
+            "line": 1189
+          },
+          "start": {
+            "column": 26,
+            "line": 1189
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 35,
+            "line": 1189
+          },
+          "start": {
+            "column": 26,
+            "line": 1189
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2256",
+        "currentId": "2256",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 1189
+          },
+          "start": {
+            "column": 38,
+            "line": 1189
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 1189
+          },
+          "start": {
+            "column": 38,
+            "line": 1189
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2344",
+        "currentId": "2344",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 1279
+          },
+          "start": {
+            "column": 39,
+            "line": 1279
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 1279
+          },
+          "start": {
+            "column": 39,
+            "line": 1279
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2366",
+        "currentId": "2366",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 42,
+            "line": 1285
+          },
+          "start": {
+            "column": 9,
+            "line": 1285
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 42,
+            "line": 1285
+          },
+          "start": {
+            "column": 9,
+            "line": 1285
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2431",
+        "currentId": "2431",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 9,
+            "line": 1319
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 9,
+            "line": 1319
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2432",
+        "currentId": "2432",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 9,
+            "line": 1319
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 9,
+            "line": 1319
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2433",
+        "currentId": "2433",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 38,
+            "line": 1319
+          },
+          "start": {
+            "column": 9,
+            "line": 1319
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 38,
+            "line": 1319
+          },
+          "start": {
+            "column": 9,
+            "line": 1319
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2436",
+        "currentId": "2436",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 38,
+            "line": 1319
+          },
+          "start": {
+            "column": 27,
+            "line": 1319
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 38,
+            "line": 1319
+          },
+          "start": {
+            "column": 27,
+            "line": 1319
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2437",
+        "currentId": "2437",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 9,
+            "line": 1320
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 9,
+            "line": 1320
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2439",
+        "currentId": "2439",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 29,
+            "line": 1320
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 40,
+            "line": 1320
+          },
+          "start": {
+            "column": 29,
+            "line": 1320
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2440",
+        "currentId": "2440",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 1323
+          },
+          "start": {
+            "column": 9,
+            "line": 1321
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 1323
+          },
+          "start": {
+            "column": 9,
+            "line": 1321
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2478",
+        "currentId": "2478",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 10,
+            "line": 1389
+          },
+          "start": {
+            "column": 9,
+            "line": 1387
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 10,
+            "line": 1389
+          },
+          "start": {
+            "column": 9,
+            "line": 1387
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2480",
+        "currentId": "2480",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 58,
+            "line": 1388
+          },
+          "start": {
+            "column": 35,
+            "line": 1388
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 58,
+            "line": 1388
+          },
+          "start": {
+            "column": 35,
+            "line": 1388
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2485",
+        "currentId": "2485",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 59,
+            "line": 1392
+          },
+          "start": {
+            "column": 7,
+            "line": 1392
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 59,
+            "line": 1392
+          },
+          "start": {
+            "column": 7,
+            "line": 1392
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2517",
+        "currentId": "2517",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 58,
+            "line": 1405
+          },
+          "start": {
+            "column": 29,
+            "line": 1405
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 58,
+            "line": 1405
+          },
+          "start": {
+            "column": 29,
+            "line": 1405
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2532",
+        "currentId": "2532",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 1412
+          },
+          "start": {
+            "column": 13,
+            "line": 1412
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 1412
+          },
+          "start": {
+            "column": 13,
+            "line": 1412
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2555",
+        "currentId": "2555",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 33,
+            "line": 1423
+          },
+          "start": {
+            "column": 24,
+            "line": 1423
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 33,
+            "line": 1423
+          },
+          "start": {
+            "column": 24,
+            "line": 1423
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2563",
+        "currentId": "2563",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 1434
+          },
+          "start": {
+            "column": 14,
+            "line": 1432
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 1434
+          },
+          "start": {
+            "column": 14,
+            "line": 1432
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2564",
+        "currentId": "2564",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 25,
+            "line": 1433
+          },
+          "start": {
+            "column": 21,
+            "line": 1433
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 25,
+            "line": 1433
+          },
+          "start": {
+            "column": 21,
+            "line": 1433
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2586",
+        "currentId": "2586",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 72,
+            "line": 1439
+          },
+          "start": {
+            "column": 44,
+            "line": 1439
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 72,
+            "line": 1439
+          },
+          "start": {
+            "column": 44,
+            "line": 1439
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2591",
+        "currentId": "2591",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 103,
+            "line": 1439
+          },
+          "start": {
+            "column": 76,
+            "line": 1439
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 103,
+            "line": 1439
+          },
+          "start": {
+            "column": 76,
+            "line": 1439
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2592",
+        "currentId": "2592",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 95,
+            "line": 1439
+          },
+          "start": {
+            "column": 76,
+            "line": 1439
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 95,
+            "line": 1439
+          },
+          "start": {
+            "column": 76,
+            "line": 1439
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2598",
+        "currentId": "2598",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 44,
+            "line": 1443
+          },
+          "start": {
+            "column": 42,
+            "line": 1443
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 44,
+            "line": 1443
+          },
+          "start": {
+            "column": 42,
+            "line": 1443
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2599",
+        "currentId": "2599",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 1444
+          },
+          "start": {
+            "column": 27,
+            "line": 1444
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 1444
+          },
+          "start": {
+            "column": 27,
+            "line": 1444
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2604",
+        "currentId": "2604",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 1447
+          },
+          "start": {
+            "column": 32,
+            "line": 1447
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 1447
+          },
+          "start": {
+            "column": 32,
+            "line": 1447
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2606",
+        "currentId": "2606",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 1448
+          },
+          "start": {
+            "column": 13,
+            "line": 1448
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 1448
+          },
+          "start": {
+            "column": 13,
+            "line": 1448
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2607",
+        "currentId": "2607",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 1448
+          },
+          "start": {
+            "column": 13,
+            "line": 1448
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 1448
+          },
+          "start": {
+            "column": 13,
+            "line": 1448
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2608",
+        "currentId": "2608",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 43,
+            "line": 1448
+          },
+          "start": {
+            "column": 26,
+            "line": 1448
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 43,
+            "line": 1448
+          },
+          "start": {
+            "column": 26,
+            "line": 1448
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2611",
+        "currentId": "2611",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 10,
+            "line": 1451
+          },
+          "start": {
+            "column": 45,
+            "line": 1448
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 10,
+            "line": 1451
+          },
+          "start": {
+            "column": 45,
+            "line": 1448
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2612",
+        "currentId": "2612",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 20,
+            "line": 1449
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 20,
+            "line": 1449
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2613",
+        "currentId": "2613",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 20,
+            "line": 1449
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 20,
+            "line": 1449
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2614",
+        "currentId": "2614",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 20,
+            "line": 1449
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 20,
+            "line": 1449
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2616",
+        "currentId": "2616",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 38,
+            "line": 1449
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 49,
+            "line": 1449
+          },
+          "start": {
+            "column": 38,
+            "line": 1449
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2617",
+        "currentId": "2617",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 63,
+            "line": 1449
+          },
+          "start": {
+            "column": 52,
+            "line": 1449
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 63,
+            "line": 1449
+          },
+          "start": {
+            "column": 52,
+            "line": 1449
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2618",
+        "currentId": "2618",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 75,
+            "line": 1449
+          },
+          "start": {
+            "column": 66,
+            "line": 1449
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 75,
+            "line": 1449
+          },
+          "start": {
+            "column": 66,
+            "line": 1449
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2619",
+        "currentId": "2619",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 36,
+            "line": 1450
+          },
+          "start": {
+            "column": 11,
+            "line": 1450
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 36,
+            "line": 1450
+          },
+          "start": {
+            "column": 11,
+            "line": 1450
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2629",
+        "currentId": "2629",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 65,
+            "line": 1454
+          },
+          "start": {
+            "column": 20,
+            "line": 1454
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 65,
+            "line": 1454
+          },
+          "start": {
+            "column": 20,
+            "line": 1454
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2634",
+        "currentId": "2634",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 10,
+            "line": 1458
+          },
+          "start": {
+            "column": 67,
+            "line": 1454
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 10,
+            "line": 1458
+          },
+          "start": {
+            "column": 67,
+            "line": 1454
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2635",
+        "currentId": "2635",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 27,
+            "line": 1455
+          },
+          "start": {
+            "column": 23,
+            "line": 1455
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 27,
+            "line": 1455
+          },
+          "start": {
+            "column": 23,
+            "line": 1455
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2636",
+        "currentId": "2636",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 1456
+          },
+          "start": {
+            "column": 20,
+            "line": 1456
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 1456
+          },
+          "start": {
+            "column": 20,
+            "line": 1456
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2637",
+        "currentId": "2637",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "NoCoverage",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 36,
+            "line": 1457
+          },
+          "start": {
+            "column": 11,
+            "line": 1457
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 36,
+            "line": 1457
+          },
+          "start": {
+            "column": 11,
+            "line": 1457
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2641",
+        "currentId": "2641",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 30,
+            "line": 1460
+          },
+          "start": {
+            "column": 11,
+            "line": 1460
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 30,
+            "line": 1460
+          },
+          "start": {
+            "column": 11,
+            "line": 1460
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2660",
+        "currentId": "2660",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 77,
+            "line": 1464
+          },
+          "start": {
+            "column": 45,
+            "line": 1464
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 77,
+            "line": 1464
+          },
+          "start": {
+            "column": 45,
+            "line": 1464
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2691",
+        "currentId": "2691",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 30,
+            "line": 1487
+          },
+          "start": {
+            "column": 9,
+            "line": 1487
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 30,
+            "line": 1487
+          },
+          "start": {
+            "column": 9,
+            "line": 1487
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2696",
+        "currentId": "2696",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 13,
+            "line": 1499
+          },
+          "start": {
+            "column": 11,
+            "line": 1499
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 13,
+            "line": 1499
+          },
+          "start": {
+            "column": 11,
+            "line": 1499
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2697",
+        "currentId": "2697",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 1502
+          },
+          "start": {
+            "column": 31,
+            "line": 1500
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 1502
+          },
+          "start": {
+            "column": 31,
+            "line": 1500
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2699",
+        "currentId": "2699",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 56,
+            "line": 1501
+          },
+          "start": {
+            "column": 33,
+            "line": 1501
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 56,
+            "line": 1501
+          },
+          "start": {
+            "column": 33,
+            "line": 1501
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2727",
+        "currentId": "2727",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 69,
+            "line": 1515
+          },
+          "start": {
+            "column": 9,
+            "line": 1513
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 69,
+            "line": 1515
+          },
+          "start": {
+            "column": 9,
+            "line": 1513
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2728",
+        "currentId": "2728",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 57,
+            "line": 1514
+          },
+          "start": {
+            "column": 9,
+            "line": 1513
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 57,
+            "line": 1514
+          },
+          "start": {
+            "column": 9,
+            "line": 1513
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2729",
+        "currentId": "2729",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 57,
+            "line": 1514
+          },
+          "start": {
+            "column": 9,
+            "line": 1513
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 57,
+            "line": 1514
+          },
+          "start": {
+            "column": 9,
+            "line": 1513
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2731",
+        "currentId": "2731",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 57,
+            "line": 1514
+          },
+          "start": {
+            "column": 9,
+            "line": 1514
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 57,
+            "line": 1514
+          },
+          "start": {
+            "column": 9,
+            "line": 1514
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2733",
+        "currentId": "2733",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 69,
+            "line": 1515
+          },
+          "start": {
+            "column": 9,
+            "line": 1515
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 69,
+            "line": 1515
+          },
+          "start": {
+            "column": 9,
+            "line": 1515
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2771",
+        "currentId": "2771",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 60,
+            "line": 1533
+          },
+          "start": {
+            "column": 15,
+            "line": 1533
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 60,
+            "line": 1533
+          },
+          "start": {
+            "column": 15,
+            "line": 1533
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2772",
+        "currentId": "2772",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 1533
+          },
+          "start": {
+            "column": 15,
+            "line": 1533
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 1533
+          },
+          "start": {
+            "column": 15,
+            "line": 1533
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2788",
+        "currentId": "2788",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 20,
+            "line": 1540
+          },
+          "start": {
+            "column": 11,
+            "line": 1540
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 20,
+            "line": 1540
+          },
+          "start": {
+            "column": 11,
+            "line": 1540
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2789",
+        "currentId": "2789",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 1554
+          },
+          "start": {
+            "column": 22,
+            "line": 1540
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 1554
+          },
+          "start": {
+            "column": 22,
+            "line": 1540
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2790",
+        "currentId": "2790",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 10,
+            "line": 1552
+          },
+          "start": {
+            "column": 49,
+            "line": 1541
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 10,
+            "line": 1552
+          },
+          "start": {
+            "column": 49,
+            "line": 1541
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2807",
+        "currentId": "2807",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 12,
+            "line": 1549
+          },
+          "start": {
+            "column": 13,
+            "line": 1547
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 12,
+            "line": 1549
+          },
+          "start": {
+            "column": 13,
+            "line": 1547
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2808",
+        "currentId": "2808",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 12,
+            "line": 1551
+          },
+          "start": {
+            "column": 18,
+            "line": 1549
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 12,
+            "line": 1551
+          },
+          "start": {
+            "column": 18,
+            "line": 1549
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2809",
+        "currentId": "2809",
+        "file": "lib/trash-lifecycle.ts",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 30,
+            "line": 1553
+          },
+          "start": {
+            "column": 9,
+            "line": 1553
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 30,
+            "line": 1553
+          },
+          "start": {
+            "column": 9,
+            "line": 1553
+          }
+        },
+        "sourceHash": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2819",
+        "currentId": "2820",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 8
+          },
+          "start": {
+            "column": 5,
+            "line": 8
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 10
+          },
+          "start": {
+            "column": 5,
+            "line": 10
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2825",
+        "currentId": "2826",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 12
+          },
+          "start": {
+            "column": 5,
+            "line": 12
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 14
+          },
+          "start": {
+            "column": 5,
+            "line": 14
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2884",
+        "currentId": "2925",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 44,
+            "line": 79
+          },
+          "start": {
+            "column": 7,
+            "line": 79
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 44,
+            "line": 123
+          },
+          "start": {
+            "column": 7,
+            "line": 123
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2887",
+        "currentId": "2928",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 68,
+            "line": 90
+          },
+          "start": {
+            "column": 21,
+            "line": 90
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 68,
+            "line": 134
+          },
+          "start": {
+            "column": 21,
+            "line": 134
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2888",
+        "currentId": "2929",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 48,
+            "line": 93
+          },
+          "start": {
+            "column": 14,
+            "line": 93
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 48,
+            "line": 137
+          },
+          "start": {
+            "column": 14,
+            "line": 137
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2890",
+        "currentId": "2931",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 48,
+            "line": 93
+          },
+          "start": {
+            "column": 14,
+            "line": 93
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 48,
+            "line": 137
+          },
+          "start": {
+            "column": 14,
+            "line": 137
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2891",
+        "currentId": "2932",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 39,
+            "line": 93
+          },
+          "start": {
+            "column": 14,
+            "line": 93
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 39,
+            "line": 137
+          },
+          "start": {
+            "column": 14,
+            "line": 137
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2894",
+        "currentId": "2935",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 61,
+            "line": 93
+          },
+          "start": {
+            "column": 59,
+            "line": 93
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 61,
+            "line": 137
+          },
+          "start": {
+            "column": 59,
+            "line": 137
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2895",
+        "currentId": "2936",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 6,
+            "line": 96
+          },
+          "start": {
+            "column": 13,
+            "line": 94
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 6,
+            "line": 140
+          },
+          "start": {
+            "column": 13,
+            "line": 138
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2896",
+        "currentId": "2937",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 16,
+            "line": 95
+          },
+          "start": {
+            "column": 14,
+            "line": 95
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 16,
+            "line": 139
+          },
+          "start": {
+            "column": 14,
+            "line": 139
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2902",
+        "currentId": "2943",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 103
+          },
+          "start": {
+            "column": 9,
+            "line": 103
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 147
+          },
+          "start": {
+            "column": 9,
+            "line": 147
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2904",
+        "currentId": "2945",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 49,
+            "line": 108
+          },
+          "start": {
+            "column": 9,
+            "line": 108
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 49,
+            "line": 152
+          },
+          "start": {
+            "column": 9,
+            "line": 152
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2911",
+        "currentId": "2952",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 6,
+            "line": 126
+          },
+          "start": {
+            "column": 13,
+            "line": 124
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 6,
+            "line": 170
+          },
+          "start": {
+            "column": 13,
+            "line": 168
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2921",
+        "currentId": "2962",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 62,
+            "line": 143
+          },
+          "start": {
+            "column": 25,
+            "line": 143
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 62,
+            "line": 187
+          },
+          "start": {
+            "column": 25,
+            "line": 187
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "2922",
+        "currentId": "2963",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 6,
+            "line": 148
+          },
+          "start": {
+            "column": 13,
+            "line": 146
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 6,
+            "line": 192
+          },
+          "start": {
+            "column": 13,
+            "line": 190
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3026",
+        "currentId": "3067",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "NoCoverage",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 71,
+            "line": 283
+          },
+          "start": {
+            "column": 58,
+            "line": 283
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 71,
+            "line": 327
+          },
+          "start": {
+            "column": 58,
+            "line": 327
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3056",
+        "currentId": "3097",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 312
+          },
+          "start": {
+            "column": 11,
+            "line": 312
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 356
+          },
+          "start": {
+            "column": 11,
+            "line": 356
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3206",
+        "currentId": "3247",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 442
+          },
+          "start": {
+            "column": 9,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 486
+          },
+          "start": {
+            "column": 9,
+            "line": 486
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3208",
+        "currentId": "3249",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 442
+          },
+          "start": {
+            "column": 9,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 486
+          },
+          "start": {
+            "column": 9,
+            "line": 486
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3209",
+        "currentId": "3250",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 442
+          },
+          "start": {
+            "column": 24,
+            "line": 442
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 486
+          },
+          "start": {
+            "column": 24,
+            "line": 486
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3237",
+        "currentId": "3278",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 452
+          },
+          "start": {
+            "column": 9,
+            "line": 452
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 496
+          },
+          "start": {
+            "column": 9,
+            "line": 496
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3246",
+        "currentId": "3287",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 29,
+            "line": 461
+          },
+          "start": {
+            "column": 11,
+            "line": 461
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 29,
+            "line": 505
+          },
+          "start": {
+            "column": 11,
+            "line": 505
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3247",
+        "currentId": "3288",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 8,
+            "line": 467
+          },
+          "start": {
+            "column": 31,
+            "line": 461
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 8,
+            "line": 511
+          },
+          "start": {
+            "column": 31,
+            "line": 505
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3249",
+        "currentId": "3290",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 53,
+            "line": 464
+          },
+          "start": {
+            "column": 11,
+            "line": 464
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 53,
+            "line": 508
+          },
+          "start": {
+            "column": 11,
+            "line": 508
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3251",
+        "currentId": "3292",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 473
+          },
+          "start": {
+            "column": 9,
+            "line": 473
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 517
+          },
+          "start": {
+            "column": 9,
+            "line": 517
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3253",
+        "currentId": "3294",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 473
+          },
+          "start": {
+            "column": 9,
+            "line": 473
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 517
+          },
+          "start": {
+            "column": 9,
+            "line": 517
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3254",
+        "currentId": "3295",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 473
+          },
+          "start": {
+            "column": 24,
+            "line": 473
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 517
+          },
+          "start": {
+            "column": 24,
+            "line": 517
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3272",
+        "currentId": "3313",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 42,
+            "line": 482
+          },
+          "start": {
+            "column": 9,
+            "line": 482
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 42,
+            "line": 526
+          },
+          "start": {
+            "column": 9,
+            "line": 526
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3279",
+        "currentId": "3320",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 496
+          },
+          "start": {
+            "column": 9,
+            "line": 496
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 540
+          },
+          "start": {
+            "column": 9,
+            "line": 540
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3281",
+        "currentId": "3322",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 496
+          },
+          "start": {
+            "column": 9,
+            "line": 496
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 540
+          },
+          "start": {
+            "column": 9,
+            "line": 540
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3282",
+        "currentId": "3323",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 55,
+            "line": 496
+          },
+          "start": {
+            "column": 24,
+            "line": 496
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 55,
+            "line": 540
+          },
+          "start": {
+            "column": 24,
+            "line": 540
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3397",
+        "currentId": "3438",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 37,
+            "line": 628
+          },
+          "start": {
+            "column": 34,
+            "line": 628
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 37,
+            "line": 672
+          },
+          "start": {
+            "column": 34,
+            "line": 672
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3400",
+        "currentId": "3441",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 68,
+            "line": 628
+          },
+          "start": {
+            "column": 51,
+            "line": 628
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 68,
+            "line": 672
+          },
+          "start": {
+            "column": 51,
+            "line": 672
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3439",
+        "currentId": "3480",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 6,
+            "line": 675
+          },
+          "start": {
+            "column": 13,
+            "line": 673
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 6,
+            "line": 719
+          },
+          "start": {
+            "column": 13,
+            "line": 717
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3469",
+        "currentId": "3510",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 33,
+            "line": 678
+          },
+          "start": {
+            "column": 7,
+            "line": 678
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 33,
+            "line": 722
+          },
+          "start": {
+            "column": 7,
+            "line": 722
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3472",
+        "currentId": "3513",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 28,
+            "line": 679
+          },
+          "start": {
+            "column": 7,
+            "line": 679
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 28,
+            "line": 723
+          },
+          "start": {
+            "column": 7,
+            "line": 723
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3474",
+        "currentId": "3515",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 38,
+            "line": 680
+          },
+          "start": {
+            "column": 7,
+            "line": 680
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 38,
+            "line": 724
+          },
+          "start": {
+            "column": 7,
+            "line": 724
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3477",
+        "currentId": "3518",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 681
+          },
+          "start": {
+            "column": 7,
+            "line": 681
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 725
+          },
+          "start": {
+            "column": 7,
+            "line": 725
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3479",
+        "currentId": "3520",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 45,
+            "line": 682
+          },
+          "start": {
+            "column": 7,
+            "line": 682
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 45,
+            "line": 726
+          },
+          "start": {
+            "column": 7,
+            "line": 726
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3481",
+        "currentId": "3522",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 57,
+            "line": 683
+          },
+          "start": {
+            "column": 7,
+            "line": 683
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 57,
+            "line": 727
+          },
+          "start": {
+            "column": 7,
+            "line": 727
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3517",
+        "currentId": "3558",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 18,
+            "line": 707
+          },
+          "start": {
+            "column": 13,
+            "line": 707
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 18,
+            "line": 751
+          },
+          "start": {
+            "column": 13,
+            "line": 751
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3521",
+        "currentId": "3562",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 6,
+            "line": 712
+          },
+          "start": {
+            "column": 13,
+            "line": 710
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 6,
+            "line": 756
+          },
+          "start": {
+            "column": 13,
+            "line": 754
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3625",
+        "currentId": "3666",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 18,
+            "line": 804
+          },
+          "start": {
+            "column": 9,
+            "line": 804
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 18,
+            "line": 848
+          },
+          "start": {
+            "column": 9,
+            "line": 848
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3629",
+        "currentId": "3670",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 63,
+            "line": 807
+          },
+          "start": {
+            "column": 49,
+            "line": 807
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 63,
+            "line": 851
+          },
+          "start": {
+            "column": 49,
+            "line": 851
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3630",
+        "currentId": "3671",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 61,
+            "line": 807
+          },
+          "start": {
+            "column": 57,
+            "line": 807
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 61,
+            "line": 851
+          },
+          "start": {
+            "column": 57,
+            "line": 851
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3645",
+        "currentId": "3686",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 23,
+            "line": 823
+          },
+          "start": {
+            "column": 16,
+            "line": 823
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 23,
+            "line": 867
+          },
+          "start": {
+            "column": 16,
+            "line": 867
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3656",
+        "currentId": "3697",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 18,
+            "line": 833
+          },
+          "start": {
+            "column": 9,
+            "line": 833
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 18,
+            "line": 877
+          },
+          "start": {
+            "column": 9,
+            "line": 877
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3660",
+        "currentId": "3701",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 64,
+            "line": 836
+          },
+          "start": {
+            "column": 50,
+            "line": 836
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 64,
+            "line": 880
+          },
+          "start": {
+            "column": 50,
+            "line": 880
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3661",
+        "currentId": "3702",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "DUPLICATE",
+        "previousLocation": {
+          "end": {
+            "column": 62,
+            "line": 836
+          },
+          "start": {
+            "column": 58,
+            "line": 836
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 62,
+            "line": 880
+          },
+          "start": {
+            "column": 58,
+            "line": 880
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3689",
+        "currentId": "3730",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 38,
+            "line": 855
+          },
+          "start": {
+            "column": 7,
+            "line": 854
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 38,
+            "line": 899
+          },
+          "start": {
+            "column": 7,
+            "line": 898
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3690",
+        "currentId": "3731",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 34,
+            "line": 854
+          },
+          "start": {
+            "column": 7,
+            "line": 854
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 34,
+            "line": 898
+          },
+          "start": {
+            "column": 7,
+            "line": 898
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3692",
+        "currentId": "3733",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 38,
+            "line": 855
+          },
+          "start": {
+            "column": 9,
+            "line": 855
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 38,
+            "line": 899
+          },
+          "start": {
+            "column": 9,
+            "line": 899
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3712",
+        "currentId": "3753",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "UNREACHABLE",
+        "previousLocation": {
+          "end": {
+            "column": 49,
+            "line": 871
+          },
+          "start": {
+            "column": 35,
+            "line": 871
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 49,
+            "line": 915
+          },
+          "start": {
+            "column": 35,
+            "line": 915
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3836",
+        "currentId": "3875",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 26,
+            "line": 939
+          },
+          "start": {
+            "column": 11,
+            "line": 939
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 26,
+            "line": 983
+          },
+          "start": {
+            "column": 11,
+            "line": 983
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3839",
+        "currentId": "3878",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 44,
+            "line": 940
+          },
+          "start": {
+            "column": 18,
+            "line": 940
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 44,
+            "line": 984
+          },
+          "start": {
+            "column": 18,
+            "line": 984
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3845",
+        "currentId": "3884",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 26,
+            "line": 942
+          },
+          "start": {
+            "column": 11,
+            "line": 942
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 26,
+            "line": 986
+          },
+          "start": {
+            "column": 11,
+            "line": 986
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3932",
+        "currentId": "3971",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 46,
+            "line": 1007
+          },
+          "start": {
+            "column": 11,
+            "line": 1007
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 46,
+            "line": 1051
+          },
+          "start": {
+            "column": 11,
+            "line": 1051
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "3942",
+        "currentId": "3981",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 41,
+            "line": 1013
+          },
+          "start": {
+            "column": 15,
+            "line": 1013
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 41,
+            "line": 1057
+          },
+          "start": {
+            "column": 15,
+            "line": 1057
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "4000",
+        "currentId": "4039",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 56,
+            "line": 1053
+          },
+          "start": {
+            "column": 11,
+            "line": 1053
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 56,
+            "line": 1097
+          },
+          "start": {
+            "column": 11,
+            "line": 1097
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "4057",
+        "currentId": "4096",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 20,
+            "line": 1107
+          },
+          "start": {
+            "column": 13,
+            "line": 1107
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 20,
+            "line": 1151
+          },
+          "start": {
+            "column": 13,
+            "line": 1151
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      },
+      {
+        "previousPolicyId": "4137",
+        "currentId": "4200",
+        "file": "scripts/photo-provider-command-host.js",
+        "status": "Survived",
+        "classification": "EQUIVALENT",
+        "previousLocation": {
+          "end": {
+            "column": 4,
+            "line": 1228
+          },
+          "start": {
+            "column": 11,
+            "line": 1226
+          }
+        },
+        "currentLocation": {
+          "end": {
+            "column": 4,
+            "line": 1297
+          },
+          "start": {
+            "column": 11,
+            "line": 1295
+          }
+        },
+        "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+        "mutationSpanUnchanged": true
+      }
+    ]
+  },
+  "newRegression": {
+    "testFile": "tests/commands/provider-session-host.test.ts",
+    "testName": "provider command-host scan scope and cancellation lifecycle oracles > does not set an owner marker when the command script has no owner",
+    "currentStrykerTestId": [
+      "564"
+    ],
+    "previouslySurvivingMutantNowKilled": {
+      "id": "4163",
+      "file": "scripts/photo-provider-command-host.js",
+      "status": "Killed",
+      "location": {
+        "end": {
+          "column": 21,
+          "line": 1257
+        },
+        "start": {
+          "column": 7,
+          "line": 1257
+        }
+      },
+      "mutatorName": "ConditionalExpression",
+      "replacement": "true",
+      "killedByTestIds": [
+        "564"
+      ]
+    }
+  },
+  "peerAuditPath": "verification/evidence/mutation-waiver-peer-audit-20261017-owner-marker.json",
+  "normalReplay": {
+    "status": "PASS",
+    "command": "npm run test:mutation",
+    "outputDirectory": "tmp/verification/fix-all-mutation-normal-20261017-owner-marker-v3",
+    "resultPath": "tmp/verification/fix-all-mutation-normal-20261017-owner-marker-v3/mutation.json",
+    "rawReportPath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/fix-all-mutation-normal-20261017-owner-marker-v3/mutation-run/stryker-raw.json",
+    "triagePath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/fix-all-mutation-normal-20261017-owner-marker-v3/mutation-run/mutation-triage.json",
+    "sourceFingerprint": "6f18fbcc8aeb1a4037983a10c899f71dc12c40966c69bb389d2d595f34ebeff1",
+    "canonicalReportSha256": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c",
+    "rawReportFileSha256": "7e14c1232234ac710d1fc7003f8e3b115114df614dae953c8b136d34bdd6e2d4",
+    "triageSha256": "736de48c67538830dcbfeb444ff8147743e8849106c6f32dc25234a9f6bd6176",
+    "incrementalCacheFingerprint": "341608c767bf9ee15acddfdad3d4c8c38cc17a66a401879b1710638b2be7ac94",
+    "testFileCount": 20,
+    "testCaseCount": 1172,
+    "mutants": {
+      "total": 4171,
+      "killed": 3956,
+      "survived": 191,
+      "noCoverage": 24,
+      "scorePercent": 94.85,
+      "coveredScorePercent": 95.39,
+      "reviewedNonKilled": 215,
+      "resolvedNonKilled": 215,
+      "unresolved": 0,
+      "criticalSurvivors": 0,
+      "timeouts": 0,
+      "errors": 0
+    },
+    "thresholdsChanged": false,
+    "sourceDrift": false
+  },
+  "updatedAtUtc": "2026-10-17T20:25:59Z",
+  "policyKeyNormalizationFix": {
+    "file": "verification/run-mutation.mjs",
+    "normalizes": "Triage policy locations into start/end line and column order before mutation-key serialization.",
+    "regressionTest": "tests/verification/mutation-runner-integrity.test.ts > matches triage policy locations regardless of JSON property order",
+    "redEvidence": "tmp/verification/fix-all-mutation-key-order-tdd-20261017/red.log",
+    "greenEvidence": "tmp/verification/fix-all-mutation-key-order-tdd-20261017/green-2.log",
+    "sourceFingerprintChangedAfterRunnerFix": "6f18fbcc8aeb1a4037983a10c899f71dc12c40966c69bb389d2d595f34ebeff1",
+    "canonicalMutationReportPreserved": "caa55fb28ccfcfee69ef1d155bafa3fbcd662953ca70d624da5b8dbff515621c"
+  }
+}

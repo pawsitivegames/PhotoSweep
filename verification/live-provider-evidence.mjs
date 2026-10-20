@@ -1,12 +1,25 @@
+import { createHash } from "node:crypto"
+
 const LIVE_PROVIDERS = new Set(["google", "icloud", "amazon"])
 const LEGACY_READ_ONLY_SCENARIO_SCHEMA_VERSION = 2
 export const READ_ONLY_SCENARIO_SCHEMA_VERSION = 3
 const DESTRUCTIVE_ROUND_TRIP_SCHEMA_VERSION = 2
 const TRUSTED_DEVTOOLS_INVENTORY_SOURCE = "chrome-devtools.list_extensions"
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/
+const BUILD_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function nonEmptyString(value) {
   return typeof value === "string" && value.length > 0
+}
+
+function hasExpectedExactPackageIdentity(expectedBuildId, expectedArtifactSha256) {
+  return (
+    typeof expectedBuildId === "string" &&
+    BUILD_ID_PATTERN.test(expectedBuildId) &&
+    typeof expectedArtifactSha256 === "string" &&
+    /^[a-f0-9]{64}$/.test(expectedArtifactSha256)
+  )
 }
 
 function uniqueStringArray(value) {
@@ -15,6 +28,230 @@ function uniqueStringArray(value) {
     value.every(nonEmptyString) &&
     new Set(value).size === value.length
   )
+}
+
+function sha256String(value) {
+  return createHash("sha256").update(value).digest("hex")
+}
+
+function sha256Array(value) {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && /^[a-f0-9]{64}$/.test(item)) &&
+    new Set(value).size === value.length
+  )
+}
+
+function sameStringSet(left, right) {
+  return (
+    Array.isArray(left) &&
+    Array.isArray(right) &&
+    left.length === right.length &&
+    left.every((value) => right.includes(value))
+  )
+}
+
+function secureProviderTrashUrl(provider, value, supportedAmazonHosts) {
+  if (typeof value !== "string") return null
+  let url
+  try {
+    url = new URL(value)
+  } catch {
+    return null
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return null
+
+  if (provider === "google") {
+    return url.hostname === "photos.google.com" &&
+      /^\/trash(?:\/|$)/.test(url.pathname)
+      ? url
+      : null
+  }
+  if (provider === "amazon") {
+    const allowedHosts = new Set(
+      (Array.isArray(supportedAmazonHosts) ? supportedAmazonHosts : []).flatMap(
+        (host) => [host, `www.${host}`]
+      )
+    )
+    return (
+      allowedHosts.has(url.hostname) &&
+      /^\/photos\/trash(?:\/|$)/.test(url.pathname)
+    )
+      ? url
+      : null
+  }
+  if (provider === "icloud") {
+    const allowedHosts = new Set([
+      "icloud.com",
+      "www.icloud.com",
+      "icloud.com.cn",
+      "www.icloud.com.cn"
+    ])
+    return (
+      allowedHosts.has(url.hostname) &&
+      /^\/photos(?:\/|$)/.test(url.pathname) &&
+      /^#\/recentlydeleted(?:\/|$)/.test(url.hash)
+    )
+      ? url
+      : null
+  }
+  return null
+}
+
+function validateProviderTrashRoundTrip({
+  roundTrip,
+  deleteReport,
+  supportedAmazonHosts = []
+}) {
+  const problems = []
+  const require = (condition, message) => {
+    if (!condition) problems.push(message)
+  }
+  const provider = roundTrip?.provider
+  const trash = roundTrip?.trash
+  const delta = trash?.providerTrashDelta
+  const targetPhotoId = trash?.targetPhotoId
+  const targetDedupKey = trash?.targetDedupKey
+  const keeperPhotoId = trash?.keeperPhotoId
+  const keeperDedupKey = trash?.keeperDedupKey
+  const trashItems = Array.isArray(deleteReport?.items)
+    ? deleteReport.items.filter((item) => item?.action === "trash")
+    : []
+  const selected = trashItems.length === 1 ? trashItems[0] : null
+  const trashUrl = secureProviderTrashUrl(
+    provider,
+    trash?.providerTrashUrl,
+    supportedAmazonHosts
+  )
+
+  require(
+    trash?.providerTrashObserved === true && trashUrl !== null,
+    "provider Trash URL does not match the selected provider's secure Trash route"
+  )
+  require(
+    Number.isSafeInteger(trash?.selectedCount) && trash.selectedCount === 1,
+    "provider Trash round trip must select exactly one synthetic item"
+  )
+  require(
+    typeof targetPhotoId === "string" &&
+      targetPhotoId.length > 0 &&
+      typeof targetDedupKey === "string" &&
+      targetDedupKey.length > 0 &&
+      typeof keeperPhotoId === "string" &&
+      keeperPhotoId.length > 0 &&
+      typeof keeperDedupKey === "string" &&
+      keeperDedupKey.length > 0 &&
+      targetPhotoId !== keeperPhotoId &&
+      targetDedupKey !== keeperDedupKey,
+    "Trash target and keeper media and deduplication keys must be distinct"
+  )
+  require(
+    deleteReport?.totalGroupsAffected === 1 &&
+      deleteReport?.totalItemsKept === 1 &&
+      deleteReport?.totalItemsSelectedForTrash === 1 &&
+      trashItems.length === 1 &&
+      selected?.mediaKey === targetPhotoId &&
+      selected?.dedupKey === targetDedupKey,
+    "Trash report does not bind the selected media and deduplication keys"
+  )
+  require(
+    typeof selected?.mediaKind === "string" &&
+      selected.mediaKind.length > 0 &&
+      delta?.itemMediaKind === selected.mediaKind,
+    "provider Trash delta media kind does not match the selected report row"
+  )
+  require(
+    delta?.provider === provider &&
+      typeof delta?.undoRestoredToBaseline === "boolean" &&
+      delta.undoRestoredToBaseline === true,
+    "provider Trash delta is not bound to this provider and a successful Undo"
+  )
+
+  if (provider === "google" || provider === "icloud") {
+    const method =
+      provider === "google"
+        ? "google-photos-trash-item-id-delta"
+        : "icloud-photos-recently-deleted-item-id-delta"
+    const before = delta?.beforeItemIdSha256
+    const after = delta?.afterItemIdSha256
+    const afterUndo = delta?.afterUndoItemIdSha256
+    const alias = trash?.providerTrashItemId
+    const added =
+      sha256Array(before) && sha256Array(after)
+        ? after.filter((id) => !before.includes(id))
+        : []
+    const removed =
+      sha256Array(before) && sha256Array(after)
+        ? before.filter((id) => !after.includes(id))
+        : []
+    let trashRouteMatchesObservation = false
+    if (trashUrl && typeof alias === "string" && alias.length > 0) {
+      if (provider === "icloud") {
+        // iCloud Photos uses a hash route for Recently Deleted; the item ID
+        // is proven by the CloudKit before/after/Undo inventory delta above.
+        trashRouteMatchesObservation = /^#\/recentlydeleted(?:\/|$)/.test(
+          trashUrl.hash
+        )
+      } else {
+        try {
+          trashRouteMatchesObservation = trashUrl.pathname
+            .split("/")
+            .some((part) => decodeURIComponent(part) === alias)
+        } catch {
+          trashRouteMatchesObservation = false
+        }
+      }
+    }
+
+    require(
+      delta?.method === method &&
+        sha256Array(before) &&
+        sha256Array(after) &&
+        sha256Array(afterUndo) &&
+        delta.beforeCount === before.length &&
+        delta.afterCount === after.length &&
+        delta.afterUndoCount === afterUndo.length,
+      `${provider} Trash item-ID inventory is missing or inconsistent`
+    )
+    require(
+      added.length === 1 &&
+        removed.length === 0 &&
+        delta.addedCount === 1 &&
+        delta.removedCount === 0 &&
+        sameStringSet(afterUndo, before),
+      `${provider} Trash inventory must show one addition, no removals, and Undo to baseline`
+    )
+    require(
+      typeof alias === "string" &&
+        alias.length > 0 &&
+        added.length === 1 &&
+        sha256String(alias) === added[0] &&
+        trashRouteMatchesObservation,
+      `${provider === "google" ? "Google Photos" : "iCloud Photos"} Trash alias does not match the single added Trash item`
+    )
+  } else if (provider === "amazon") {
+    const beforeCount = delta?.beforeCount
+    const afterCount = delta?.afterCount
+    const afterUndoCount = delta?.afterUndoCount
+    require(
+      delta?.method === "amazon-photos-trash-count-delta" &&
+        Number.isSafeInteger(beforeCount) &&
+        beforeCount >= 0 &&
+        Number.isSafeInteger(afterCount) &&
+        Number.isSafeInteger(afterUndoCount),
+      "Amazon Photos Trash count evidence is missing or invalid"
+    )
+    require(
+      afterCount === beforeCount + 1 &&
+        afterUndoCount === beforeCount &&
+        delta.selectedCount === 1,
+      "Amazon Photos Trash must increase by one item and Undo must restore the baseline count"
+    )
+  } else {
+    require(false, "destructive provider round trip uses an unsupported provider")
+  }
+
+  return { valid: problems.length === 0, problems }
 }
 
 function requireTrustedDevToolsInventory(require, runtime, trustedDevToolsInventory) {
@@ -107,10 +344,22 @@ function validateReadOnlyAlbumScenario({
     scope.albumId === evidence?.albumId &&
     album?.id ===
       scope.albumId, "album scope is not bound to the provider, session, and fixture album")
-  require(runtime?.extensionId === evidence?.extensionId &&
-    nonEmptyString(
-      runtime?.extensionId
-    ), "runtime extension ID does not match the fixture record")
+  const fixtureRequestsTrustedRuntimeIdentity =
+    evidence?.extensionId === null &&
+    evidence?.extensionBinding === "trusted-devtools"
+  const fixtureUsesTrustedRuntimeIdentity =
+    packageIdentityRequired &&
+    fixtureRequestsTrustedRuntimeIdentity &&
+    hasExpectedExactPackageIdentity(expectedBuildId, expectedArtifactSha256)
+  require(
+    !fixtureRequestsTrustedRuntimeIdentity ||
+      fixtureUsesTrustedRuntimeIdentity,
+    "dynamic fixture identity requires expected package build ID and artifact SHA-256"
+  )
+  require(nonEmptyString(runtime?.extensionId) &&
+    (runtime.extensionId === evidence?.extensionId ||
+      fixtureUsesTrustedRuntimeIdentity),
+  "runtime extension ID does not match the fixture record")
   require(runtime?.packageVersion ===
     expectedExtensionVersion, "runtime extension version does not match the current manifest")
   require(runtime?.sourceFingerprint ===
@@ -121,9 +370,7 @@ function validateReadOnlyAlbumScenario({
     requireTrustedDevToolsInventory(require, runtime, trustedDevToolsInventory)
     require(
       typeof runtime?.buildId === "string" &&
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          runtime.buildId
-        ),
+        BUILD_ID_PATTERN.test(runtime.buildId),
       "runtime package build ID is missing or invalid"
     )
     require(
@@ -226,6 +473,8 @@ function validateReadOnlyAlbumScenario({
 export function validateLiveProviderBinding({
   evidence,
   roundTrip,
+  deleteReport = undefined,
+  supportedAmazonHosts = [],
   expectedExtensionVersion,
   expectedSourceFingerprint,
   expectedBuildId = undefined,
@@ -255,7 +504,9 @@ export function validateLiveProviderBinding({
 
   const runtime = roundTrip?.runtime
   const targetId = roundTrip?.trash?.targetPhotoId
+  const targetDedupKey = roundTrip?.trash?.targetDedupKey
   const keeperId = roundTrip?.trash?.keeperPhotoId
+  const keeperDedupKey = roundTrip?.trash?.keeperDedupKey
   const assetIds = roundTrip?.disposableAssetIds
   const uniqueAssetIds = Array.isArray(assetIds)
     ? assetIds.filter((value) => typeof value === "string" && value.length > 0)
@@ -281,8 +532,23 @@ export function validateLiveProviderBinding({
       0, "disposable provider scope identity is missing")
   require(typeof runtime?.extensionId === "string" &&
     runtime.extensionId.length > 0, "runtime extension ID is missing")
-  require(runtime?.extensionId ===
-    evidence?.extensionId, "runtime extension ID does not match the fixture record")
+  const fixtureRequestsTrustedRuntimeIdentity =
+    evidence?.extensionId === null &&
+    evidence?.extensionBinding === "trusted-devtools"
+  const fixtureUsesTrustedRuntimeIdentity =
+    packageIdentityRequired &&
+    fixtureRequestsTrustedRuntimeIdentity &&
+    hasExpectedExactPackageIdentity(expectedBuildId, expectedArtifactSha256)
+  require(
+    !fixtureRequestsTrustedRuntimeIdentity ||
+      fixtureUsesTrustedRuntimeIdentity,
+    "dynamic fixture identity requires expected package build ID and artifact SHA-256"
+  )
+  require(
+    runtime?.extensionId === evidence?.extensionId ||
+      fixtureUsesTrustedRuntimeIdentity,
+    "runtime extension ID does not match the fixture record"
+  )
   require(runtime?.packageVersion ===
     expectedExtensionVersion, "runtime extension version does not match the current manifest")
   require(runtime?.sourceFingerprint ===
@@ -294,9 +560,7 @@ export function validateLiveProviderBinding({
     requireTrustedDevToolsInventory(require, runtime, trustedDevToolsInventory)
     require(
       typeof runtime?.buildId === "string" &&
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          runtime.buildId
-        ),
+        BUILD_ID_PATTERN.test(runtime.buildId),
       "runtime package build ID is missing or invalid"
     )
     require(
@@ -324,14 +588,32 @@ export function validateLiveProviderBinding({
     uniqueAssetIds.length === evidence.itemCount &&
     uniqueAssetIdSet.size ===
       evidence.itemCount, "round-trip must enumerate each disposable asset ID exactly once")
+  const targetIsInAssetInventory =
+    uniqueAssetIdSet.has(targetId) ||
+    (packageIdentityRequired && uniqueAssetIdSet.has(targetDedupKey))
+  const keeperIsInAssetInventory =
+    uniqueAssetIdSet.has(keeperId) ||
+    (packageIdentityRequired && uniqueAssetIdSet.has(keeperDedupKey))
   require(typeof targetId === "string" &&
-    uniqueAssetIdSet.has(
-      targetId
-    ), "Trash target is not in the disposable asset inventory")
+    targetId.length > 0 &&
+    targetIsInAssetInventory, "Trash target is not in the disposable asset inventory")
   require(typeof keeperId === "string" &&
-    uniqueAssetIdSet.has(keeperId) &&
-    keeperId !==
-      targetId, "keeper is not a distinct item in the disposable asset inventory")
+    keeperId.length > 0 &&
+    keeperIsInAssetInventory &&
+    keeperId !== targetId &&
+    (!packageIdentityRequired ||
+      (typeof targetDedupKey === "string" &&
+        typeof keeperDedupKey === "string" &&
+        targetDedupKey !== keeperDedupKey)), "keeper is not a distinct item in the disposable asset inventory")
+
+  if (packageIdentityRequired) {
+    const providerTrashBinding = validateProviderTrashRoundTrip({
+      roundTrip,
+      deleteReport,
+      supportedAmazonHosts
+    })
+    problems.push(...providerTrashBinding.problems)
+  }
 
   return {
     valid: problems.length === 0,

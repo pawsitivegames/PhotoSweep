@@ -66,6 +66,9 @@ export function runTraceReplay({
   )
   const testOutput = `${testResult.stdout ?? ""}${testResult.stderr ?? ""}`
   writeFileSync(testLogPath, testOutput)
+  const storageBlocked =
+    testResult.status !== 0 &&
+    /(?:No space left on device|ENOSPC)/i.test(testOutput)
 
   const manifestPath = join(resolvedOutput, "trace-manifest.json")
   const replayPath = join(resolvedOutput, "replay-report.json")
@@ -89,8 +92,9 @@ export function runTraceReplay({
       (replay.counts?.unsupported > 0 ||
         replay.status === "PASS_WITH_UNSUPPORTED")
   )
-  const status =
-    testResult.status !== 0 ||
+  const status = storageBlocked
+    ? "BLOCKED"
+    : testResult.status !== 0 ||
     manifest?.status !== "PASS" ||
     supportedProjectionStatus !== "PASS"
       ? "FAIL"
@@ -102,6 +106,7 @@ export function runTraceReplay({
     artifactType: "photosweep.tlc-trace-replay-run",
     status,
     exitCode: status === "PASS" ? 0 : status === "BLOCKED" ? 2 : 1,
+    ...(storageBlocked ? { blockedReason: "storage-exhaustion" } : {}),
     runId,
     buildId: manifest?.buildId ?? replay?.provenance?.buildId ?? null,
     source: manifest?.source ?? replay?.provenance?.source ?? null,

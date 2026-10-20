@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process"
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import {
   existsSync,
   lstatSync,
@@ -11,39 +11,48 @@ import {
 import { dirname, resolve } from "node:path"
 
 import { computeSourceFingerprint } from "./source-fingerprint.mjs"
+import {
+  computeMutationIncrementalCacheFingerprint,
+  MUTATION_CACHE_SOURCE_ROOTS
+} from "./mutation-incremental-cache.mjs"
+import { summarizeMutationTestInventory } from "./mutation-result-summary.mjs"
+import { MUTATION_TARGETS, MUTATION_TEST_FILES } from "./mutation-scope.mjs"
+import { applyStrykerVitestRunnerCompat } from "./stryker-vitest-runner-compat.mjs"
+import { resolveMutationSourceRoots } from "./mutation-source-roots.mjs"
 
 const root = resolve(process.env.VERIFICATION_ROOT ?? process.cwd())
+const diagnosticTriageRefresh = process.argv.includes(
+  "--diagnostic-refresh-triage"
+)
+const diagnosticOutputRoot = diagnosticTriageRefresh
+  ? resolve(root, "tmp/verification/diagnostic-refresh", randomUUID())
+  : null
 const outputDirectory = resolve(
   root,
   process.env.VERIFICATION_MUTATION_DIR ??
-    "tmp/verification/current/mutation-run"
+    (diagnosticOutputRoot
+      ? resolve(diagnosticOutputRoot, "mutation-run")
+      : "tmp/verification/current/mutation-run")
 )
 const rawReport = resolve(outputDirectory, "stryker-raw.json")
 const mutationTriage = resolve(outputDirectory, "mutation-triage.json")
 const logPath = resolve(outputDirectory, "stryker.log")
-const resultPath = resolve(
-  root,
-  process.env.VERIFICATION_MUTATION_OUTPUT ??
-    "tmp/verification/current/mutation.json"
-)
+// Diagnostic refreshes are never allowed to write the canonical gate artifact.
+// Ignore VERIFICATION_MUTATION_OUTPUT in this mode and use a unique result path.
+const resultPath = diagnosticOutputRoot
+  ? resolve(diagnosticOutputRoot, "mutation.json")
+  : resolve(
+      root,
+      process.env.VERIFICATION_MUTATION_OUTPUT ??
+        "tmp/verification/current/mutation.json"
+    )
 const runId = process.env.VERIFICATION_RUN_ID ?? null
 
-function configuredSourceRoots() {
-  const raw = process.env.VERIFICATION_SOURCE_ROOTS
-  if (!raw) return undefined
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) &&
-      parsed.every((entry) => typeof entry === "string" && entry.length > 0)
-      ? parsed
-      : undefined
-  } catch {
-    return undefined
-  }
-}
-
 function mutationSourceFingerprint() {
-  return computeSourceFingerprint(root, configuredSourceRoots())
+  return computeSourceFingerprint(
+    root,
+    resolveMutationSourceRoots(root, process.env)
+  )
 }
 
 const NATIVE_MUTATION_STATUSES = new Set([
@@ -57,14 +66,9 @@ const NATIVE_MUTATION_STATUSES = new Set([
   "Pending"
 ])
 
-const REQUIRED_MUTATION_FILES = [
-  "lib/trash-lifecycle.ts",
-  "lib/trash-dispatch-guard.ts",
-  "lib/review-preflight.ts",
-  "lib/duplicate-review-session.ts",
-  "lib/keep-strategy.ts",
-  "scripts/photo-provider-command-host.js"
-]
+const REQUIRED_MUTATION_FILES = MUTATION_TARGETS
+const INCREMENTAL_DIRECTORY = "tmp/verification/mutation-incremental"
+let incrementalCacheBinding = null
 
 const TRIAGE_CLASSIFICATIONS = new Set([
   "EQUIVALENT",
@@ -101,6 +105,10 @@ function sha256Text(value) {
  * mutation set. Triage binds to this canonical projection while the result
  * still records the exact raw-file SHA separately.
  */
+function compareCanonicalStrings(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
 function canonicalMutationReport(report) {
   const canonical = JSON.parse(JSON.stringify(report))
   for (const file of Object.values(canonical.files ?? {})) {
@@ -120,11 +128,22 @@ function canonicalMutationReport(report) {
   for (const testFile of Object.values(canonical.testFiles ?? {})) {
     for (const test of testFile.tests ?? []) delete test.id
   }
+  for (const file of Object.values(canonical.files ?? {})) {
+    if (!Array.isArray(file.mutants)) continue
+    file.mutants.sort((left, right) => {
+      const leftCanonical = JSON.stringify(sortCanonicalKeys(left))
+      const rightCanonical = JSON.stringify(sortCanonicalKeys(right))
+      return compareCanonicalStrings(leftCanonical, rightCanonical)
+    })
+  }
   if (canonical.config?.jsonReporter?.fileName) {
     canonical.config.jsonReporter.fileName = "<mutation-report>"
   }
   if (canonical.config?.tempDirName) {
     canonical.config.tempDirName = "<stryker-tmp>"
+  }
+  if (canonical.config?.incrementalFile) {
+    canonical.config.incrementalFile = "<mutation-incremental-cache>"
   }
   if (canonical.projectRoot) canonical.projectRoot = "<project-root>"
   if (
@@ -137,10 +156,14 @@ function canonicalMutationReport(report) {
     delete canonical.framework.dependencies.mocha
   }
   canonical.files = Object.fromEntries(
-    Object.entries(canonical.files ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    Object.entries(canonical.files ?? {}).sort(([a], [b]) =>
+      compareCanonicalStrings(a, b)
+    )
   )
   canonical.testFiles = Object.fromEntries(
-    Object.entries(canonical.testFiles ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    Object.entries(canonical.testFiles ?? {}).sort(([a], [b]) =>
+      compareCanonicalStrings(a, b)
+    )
   )
   return canonical
 }
@@ -154,7 +177,7 @@ function sortCanonicalKeys(value) {
   if (!isRecord(value)) return value
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareCanonicalStrings(left, right))
       .map(([key, entry]) => [key, sortCanonicalKeys(entry)])
   )
 }
@@ -243,7 +266,7 @@ function mutationLocation(mutant) {
     end.column < 1
   ) {
     throw new Error(
-      `Raw mutation report has an invalid location for mutant ${String(mutant.id)}.`
+      `Mutation entry has an invalid location for mutant ${String(mutant.id)}.`
     )
   }
   return {
@@ -293,7 +316,7 @@ function triagePolicyPath() {
   return existsSync(defaultPolicy) ? defaultPolicy : null
 }
 
-function readTriagePolicy(path, sourceDigest, rawHash) {
+function readTriagePolicy(path, sourceDigest, rawHash = null) {
   if (!path) return { status: "NOT_CONFIGURED", entries: new Map() }
   if (!existsSync(path) || !lstatSync(path).isFile()) {
     return {
@@ -322,7 +345,7 @@ function readTriagePolicy(path, sourceDigest, rawHash) {
         "Mutation triage policy source fingerprint does not match this run."
       )
     }
-    if (policy.rawReportSha256 !== rawHash) {
+    if (rawHash !== null && policy.rawReportSha256 !== rawHash) {
       throw new Error(
         "Mutation triage policy raw report hash does not match this run."
       )
@@ -356,11 +379,12 @@ function readTriagePolicy(path, sourceDigest, rawHash) {
       ) {
         throw new Error(`Mutation triage policy entry ${index} is invalid.`)
       }
+      const location = mutationLocation({ id: entry.id, location: entry.location })
       const key = mutationKey({
         fileName: entry.file,
         id: entry.id,
         status: entry.status,
-        location: entry.location,
+        location,
         mutatorName: entry.mutatorName,
         replacement: entry.replacement,
         sourceHash: entry.sourceHash
@@ -491,7 +515,7 @@ function parseMutationReport(report) {
   return {
     schemaVersion: 1,
     framework: report.framework ?? "stryker",
-    testFiles: report.testFiles ?? [],
+    ...summarizeMutationTestInventory(report.testFiles),
     filesMutated: Object.keys(report.files ?? {}).length,
     mutantsTotal: total,
     mutantsKilled: killed,
@@ -533,6 +557,7 @@ function makeResult(sourceBefore, fields = {}) {
     schemaVersion: 1,
     runId,
     ...sourceBinding(sourceBefore, sourceAfter),
+    ...(incrementalCacheBinding ?? {}),
     ...rest
   }
 }
@@ -596,6 +621,30 @@ function childFields(child) {
   }
 }
 
+function restoreProductionBuildFlags() {
+  const buildFlagsScript = resolve(root, "tools/write-build-flags.mjs")
+  if (!existsSync(buildFlagsScript)) return
+
+  const restore = spawnSync(process.execPath, [buildFlagsScript], {
+    cwd: root,
+    env: {
+      ...process.env,
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+    },
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024
+  })
+  if (restore.error || restore.status !== 0) {
+    throw new Error(
+      `Could not restore production build flags: ${
+        restore.error
+          ? errorMessage(restore.error)
+          : `exit ${String(restore.status)}`
+      }`
+    )
+  }
+}
+
 function readRawMutationReport() {
   if (!existsSync(rawReport)) {
     throw new Error("Stryker did not produce a raw mutation report.")
@@ -635,7 +684,27 @@ function run() {
   }
 
   try {
+    // Earlier verification commands can leave test entitlement flags behind.
+    // Establish the production source baseline before binding this run to a
+    // fingerprint; the Stryker test lifecycle may rewrite the generated file.
+    restoreProductionBuildFlags()
     sourceBefore = mutationSourceFingerprint()
+    const cacheFingerprint = computeMutationIncrementalCacheFingerprint({
+      root,
+      // Keep release provenance bound to the caller's complete source roots,
+      // while the Stryker cache follows only its declared runtime inputs.
+      sourceRoots: MUTATION_CACHE_SOURCE_ROOTS,
+      mutationTargets: MUTATION_TARGETS,
+      mutationTestFiles: MUTATION_TEST_FILES,
+      env: process.env
+    })
+    const incrementalFile = `${INCREMENTAL_DIRECTORY}/${cacheFingerprint.digest}-node-${process.versions.node}.json`
+    incrementalCacheBinding = {
+      mutationIncrementalCacheFingerprint: cacheFingerprint.digest,
+      mutationIncrementalCacheFile: incrementalFile,
+      mutationIncrementalCompatibilitySourceFingerprint:
+        cacheFingerprint.compatibilitySourceFingerprint
+    }
   } catch (error) {
     return emitResult(
       makeResult(null, {
@@ -646,6 +715,28 @@ function run() {
         mutantsKilled: 0,
         criticalSurvivors: 0,
         message: `Could not fingerprint mutation sources before launch: ${errorMessage(error)}`
+      })
+    )
+  }
+
+  const policyPath = triagePolicyPath()
+  const triagePreflight = readTriagePolicy(policyPath, sourceBefore.digest)
+  const triagePreflightValid = ["NOT_CONFIGURED", "VALID"].includes(
+    triagePreflight.status
+  )
+  if (!triagePreflightValid && !diagnosticTriageRefresh) {
+    return emitResult(
+      makeResult(sourceBefore, {
+        status: "FAIL",
+        exitCode: 1,
+        checksRun: 0,
+        mutantsTotal: 0,
+        mutantsKilled: 0,
+        criticalSurvivors: 0,
+        mutationTriagePolicyStatus: triagePreflight.status,
+        mutationTriagePolicyPath: policyPath,
+        mutationTriagePolicyError: triagePreflight.error ?? null,
+        message: `Mutation triage policy preflight failed; Stryker was not run: ${triagePreflight.error}. Use --diagnostic-refresh-triage only when you intentionally need a fresh report for manual review; that run always fails its gate.`
       })
     )
   }
@@ -666,13 +757,34 @@ function run() {
     )
   }
 
+  let runnerCompatibility
+  try {
+    runnerCompatibility = applyStrykerVitestRunnerCompat(root)
+  } catch (error) {
+    return emitResult(
+      makeResult(sourceBefore, {
+        status: "BLOCKED",
+        exitCode: 2,
+        checksRun: 0,
+        mutantsTotal: 0,
+        mutantsKilled: 0,
+        criticalSurvivors: 0,
+        runnerPath: stryker,
+        message: `Could not establish the pinned Stryker/Vitest runner behavior: ${errorMessage(error)}`
+      })
+    )
+  }
+
   let child
   try {
+    const incrementalFile = incrementalCacheBinding.mutationIncrementalCacheFile
+    mkdirSync(resolve(root, INCREMENTAL_DIRECTORY), { recursive: true })
     child = spawnSync(stryker, ["run", "stryker.config.mjs"], {
       cwd: root,
       env: {
         ...process.env,
-        VERIFICATION_MUTATION_DIR: outputDirectory
+        VERIFICATION_MUTATION_DIR: outputDirectory,
+        VERIFICATION_MUTATION_INCREMENTAL_FILE: incrementalFile
       },
       encoding: "utf8",
       maxBuffer: 50 * 1024 * 1024
@@ -687,6 +799,7 @@ function run() {
         mutantsKilled: 0,
         criticalSurvivors: 0,
         runnerPath: stryker,
+        runnerCompatibility,
         childError: {
           name: error instanceof Error ? error.name : "Error",
           message: errorMessage(error),
@@ -722,43 +835,19 @@ function run() {
   // production source baseline, so restore the production flags before the
   // after-fingerprint check. Without this boundary the mutation run reports
   // false source drift even when the mutated source files were restored.
-  const buildFlagsScript = resolve(root, "tools/write-build-flags.mjs")
-  if (existsSync(buildFlagsScript)) {
-    try {
-      const restoreBuildFlags = spawnSync(
-        process.execPath,
-        [buildFlagsScript],
-        {
-          cwd: root,
-          env: {
-            ...process.env,
-            PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
-          },
-          encoding: "utf8",
-          maxBuffer: 10 * 1024 * 1024
-        }
-      )
-      if (restoreBuildFlags.error || restoreBuildFlags.status !== 0) {
-        throw new Error(
-          `Could not restore production build flags: ${
-            restoreBuildFlags.error
-              ? errorMessage(restoreBuildFlags.error)
-              : `exit ${String(restoreBuildFlags.status)}`
-          }`
-        )
-      }
-    } catch (error) {
-      return emitResult(
-        makeResult(sourceBefore, {
-          status: "BLOCKED",
-          exitCode: 2,
-          checksRun: 0,
-          ...childFields(child),
-          rawLog: logPath,
-          message: errorMessage(error)
-        })
-      )
-    }
+  try {
+    restoreProductionBuildFlags()
+  } catch (error) {
+    return emitResult(
+      makeResult(sourceBefore, {
+        status: "BLOCKED",
+        exitCode: 2,
+        checksRun: 0,
+        ...childFields(child),
+        rawLog: logPath,
+        message: errorMessage(error)
+      })
+    )
   }
 
   let sourceAfter = null
@@ -915,7 +1004,10 @@ function run() {
     summary.mutantsIncomplete === 0 &&
     summary.mutantsTimedOut === 0 &&
     summary.mutantsErrored === 0
-  const status = child.status === 0 && policyPass ? "PASS" : "FAIL"
+  const status =
+    child.status === 0 && policyPass && !diagnosticTriageRefresh
+      ? "PASS"
+      : "FAIL"
   const result = {
     ...summary,
     ...makeResult(sourceBefore, {
@@ -924,6 +1016,7 @@ function run() {
       checksRun: 1,
       ...childFields(child),
       rawLog: logPath,
+      runnerCompatibility,
       sourceAfter,
       threshold: {
         minimumKilledPercent: 90,
@@ -932,6 +1025,8 @@ function run() {
       message:
         status === "PASS"
           ? "Scoped semantic mutation run met its score and critical-survivor gates."
+          : diagnosticTriageRefresh
+            ? "Diagnostic triage refresh produced evidence for manual review; this run cannot be accepted as PASS."
           : child.status !== 0
             ? `Stryker exited with status ${child.status}; mutation evidence is not accepted as PASS.`
             : "Scoped mutation run recorded surviving, uncovered, incomplete, timed-out, or errored mutants."

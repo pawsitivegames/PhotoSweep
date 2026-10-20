@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-12T23:29:33.941Z",
+  "status": "REBOUND_FOR_FRESH_CURRENT_RELEASE_MUTATION_REPLAY",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.3",
+    "packageSha256": "61329201b6baecaa85a85a5b4b43d4f6af3346bbce6b78c2169a7cc26566aeb4",
+    "sourceFingerprint": "46125d19a1b6b8170fca03bb9df532cf140081a6031ab05a4e547f97ee5b08b9",
+    "sourceFileCount": 322,
+    "buildId": "0e6f2b76-f87e-4355-a3a3-740a868e74ba"
+  },
+  "mutationRun": {
+    "path": "tmp/verification/diagnostic-refresh/8a7b5442-94f3-44f7-a32d-e93ba8bf6e3b/mutation-run",
+    "sourceFingerprint": "5aed62b0af24d6a6c9f74172815bb06512e269ddbd79d769e9e8c702d0c6362b",
+    "sourceDrift": false,
+    "canonicalReportSha256": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df",
+    "rawStrykerFileSha256": "a9dd6002d0153b1912fe80fe2b0d587f719692eeb14eacb480fcb062ed4a7a22",
+    "mutantsTotal": 4100,
+    "nonKilledMutants": 211,
+    "policyEntries": 211,
+    "mutationSourceCount": 6,
+    "mutationSourceHashesMatchCurrent": true,
+    "testFiles": 19,
+    "testFilesChangedSinceRun": 0,
+    "exactNonKilledKeysMatch": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "57361b8c529e040e1d0d685fc07893bf1e79acd5b49efe23ec3f648938b3c656",
+    "updatedPolicyFileSha256": "6f9f086895f99821014a56c58b61dac4078f08c58584f1f4b0b61a4ef08917d7",
+    "sourceFingerprint": {
+      "from": "7bc5a62788bb4eb94433436a3e7b42e6eda444135d82d05c8b887f16e46fa1ff",
+      "to": "46125d19a1b6b8170fca03bb9df532cf140081a6031ab05a4e547f97ee5b08b9"
+    },
+    "canonicalReportSha256": "e17cb47fcc6f1692aa6367b09e82fc5aac7f2f4ba05290a62d5d6e50501525df",
+    "entryCount": 211,
+    "classificationAndEvidencePreserved": true
+  },
+  "limitations": [
+    "A fresh release mutation replay remains required; this rebind does not claim a new mutation run.",
+    "Exact-package Chrome and live-provider runtime evidence remain separate release gates."
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_NORMAL_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-14T06:22:24Z",
+  "candidate": {
+    "sourceFingerprint": "eee37e35a1050a98ee7fc660dc71674e3434a73d0990f1c3fa9286bd8553e42b",
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "node": "v24.20.0",
+    "workingTreeDirty": true
+  },
+  "mutationRun": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "executionStatus": "DIAGNOSTIC_FAIL_BY_DESIGN",
+    "resultLog": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/test-mutation-diagnostic-rebind.log",
+    "rawReportPath": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/mutation-diagnostic-rebind/stryker-raw.json",
+    "triagePath": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/mutation-diagnostic-rebind/mutation-triage.json",
+    "rawStrykerFileSha256": "2cf7fa22e384c221e89eba9c32d1bba62d5c980718cd5c7acca3fb5d0c09ce44",
+    "canonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "strykerVersion": "10.0.0",
+    "concurrency": 4,
+    "mutatedFileCount": 6,
+    "mutantCount": 4100,
+    "statusCounts": {
+      "Killed": 3889,
+      "Survived": 187,
+      "NoCoverage": 24
+    },
+    "mutationScorePercent": 94.85,
+    "criticalSurvivors": 0,
+    "sourceDrift": false
+  },
+  "comparison": {
+    "priorCanonicalReportSha256": "f182daef864a64f234aea8cc3148c1a75a18f5772858362bf40ff347b47eff25",
+    "currentCanonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "exactAllMutantKeysAndStatusesMatchPrior": true,
+    "priorMutantCount": 4100,
+    "currentMutantCount": 4100,
+    "policyEntries": 211,
+    "currentNonKilledMutants": 211,
+    "exactCurrentNonKilledKeysMatchPolicy": true,
+    "mutationSourceHashesMatchPriorReviewedCandidate": true,
+    "mutationTestFileSetMatchesPrior": true,
+    "mutationTestFiles": 19,
+    "classificationsAndEvidencePreserved": true,
+    "thresholdsChanged": false,
+    "sourceDrift": false
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "ad05f9e0ee79dcaa031b665fa822a49bd60107d7ff06b4c70fd11004186e79d5",
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256"
+    ],
+    "sourceFingerprint": {
+      "from": "5753331760f885a1e800fd0805f9cc194227fffcf5340822284fdb650803d06d",
+      "to": "eee37e35a1050a98ee7fc660dc71674e3434a73d0990f1c3fa9286bd8553e42b"
+    },
+    "rawReportSha256": {
+      "from": "f182daef864a64f234aea8cc3148c1a75a18f5772858362bf40ff347b47eff25",
+      "to": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404"
+    },
+    "thresholdsChanged": false,
+    "entriesChanged": false
+  },
+  "normalReplayAttempt": {
+    "resultLog": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/test-mutation-normal-replay.log",
+    "rawReportPath": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/mutation-normal-replay/stryker-raw.json",
+    "rawStrykerFileSha256": "5b1dfa6d1280411e0aa93aa610b0b9a24ea4636cbabc8db30de18ba9f6f70830",
+    "canonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "sourceFingerprint": "eee37e35a1050a98ee7fc660dc71674e3434a73d0990f1c3fa9286bd8553e42b",
+    "outcomesMatchPolicy": true,
+    "status": "FAIL_STALE_POLICY_HASH",
+    "reason": "This attempt ran after the policy was bound to the raw file hash instead of the canonical report hash; outcomes are retained but the attempt is not accepted."
+  },
+  "validationReplay": {
+    "command": "npm run test:mutation",
+    "resultLog": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/test-mutation-validated.log",
+    "rawReportPath": "tmp/verification/runs/20261014T055501Z-node24-local-refresh/mutation-validated/stryker-raw.json",
+    "rawStrykerFileSha256": "093b232a71a9c7775ec186a263270990e180edbc6e55d886ed28d551a9124649",
+    "canonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "sourceFingerprint": "eee37e35a1050a98ee7fc660dc71674e3434a73d0990f1c3fa9286bd8553e42b",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutationScorePercent": 94.85,
+    "coveredMutationScorePercent": 95.41,
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsResolved": 211,
+    "mutantsUnresolved": 0,
+    "criticalSurvivors": 0,
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "limitation": "Exact-package Chrome and live-provider gates remain separate."
+}

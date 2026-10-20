@@ -33,7 +33,30 @@ function authorization(
 describe("trash dispatch authorization", () => {
   it("normalizes identity while preserving the exact plan", () => {
     expect(authorization().accountEmail).toBe("buyer@example.com")
-    expect(trashPlanFingerprint(plan)).toContain('"dedupKeys":["d1"]')
+    expect(authorization({ accountEmail: undefined }).accountEmail).toBeUndefined()
+    expect(JSON.parse(trashPlanFingerprint(plan))).toEqual({
+      provider: "google",
+      dedupKeys: ["d1"],
+      mediaKeysToTrash: ["m1"],
+      icloudAssetRefs: null,
+      blockedMediaKeys: [],
+      blockedGroupIds: [],
+      unknownFavoriteMediaKeys: []
+    })
+    expect(
+      JSON.parse(
+        trashPlanFingerprint({
+          ...plan,
+          mediaKeysToTrash: ["m1", "m2"],
+          blockedMediaKeys: ["blocked-media"],
+          blockedGroupIds: ["blocked-group"]
+        })
+      )
+    ).toMatchObject({
+      mediaKeysToTrash: ["m1", "m2"],
+      blockedMediaKeys: ["blocked-media"],
+      blockedGroupIds: ["blocked-group"]
+    })
   })
 
   it("binds iCloud record refs to the dispatch authorization", () => {

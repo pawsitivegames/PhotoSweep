@@ -124,6 +124,7 @@ const retrievalHandler = vi.fn(
 )
 
 let hostMessageListener: EventListener | undefined
+let hostTestHookListener: EventListener | undefined
 
 beforeEach(async () => {
   vi.resetModules()
@@ -155,7 +156,12 @@ beforeEach(async () => {
   const messageListener = addEventListenerSpy.mock.calls
     .filter(([type]) => type === "message")
     .at(-1)?.[1]
+  const testHookListener = addEventListenerSpy.mock.calls
+    .find(([type]) => type === "gpd-command-host-test")?.[1]
   addEventListenerSpy.mockRestore()
+  if (typeof testHookListener === "function") {
+    hostTestHookListener = testHookListener as EventListener
+  }
   if (typeof messageListener !== "function") {
     throw new Error("Provider command-host message listener was not registered")
   }
@@ -173,6 +179,10 @@ afterEach(() => {
   if (hostMessageListener) {
     window.removeEventListener("message", hostMessageListener)
     hostMessageListener = undefined
+  }
+  if (hostTestHookListener) {
+    window.removeEventListener("gpd-command-host-test", hostTestHookListener)
+    hostTestHookListener = undefined
   }
   activeTestHost = undefined
   delete window.__GPD_COMMAND_HOST_TEST_FACTORY__
@@ -660,11 +670,13 @@ describe("PARITY-02 provider command host session binding", () => {
     const createCommandHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
     if (!createCommandHost) throw new Error("test command-host factory missing")
 
+    const values = new Map<string, string>()
     const fakeWindow: Record<string, unknown> = {
       location: { origin: "https://www.amazon.ca" },
       sessionStorage: {
-        getItem: vi.fn(() => null),
-        setItem: vi.fn()
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key)
       },
       postMessage: vi.fn()
     }
@@ -672,9 +684,13 @@ describe("PARITY-02 provider command host session binding", () => {
     const host = createCommandHost(fakeWindow)
     const currentSessionId = await host.setProviderIdentity("owner-a")
     expect(host.requireCurrentDocumentSession()).toBe(currentSessionId)
+    const identityFingerprintKey = "__GPD_PROVIDER_IDENTITY_FINGERPRINT__"
+    expect(values.get(identityFingerprintKey)).toMatch(/^[a-f0-9]{64}$/)
+    values.delete(identityFingerprintKey)
 
     await host.setProviderIdentity("owner-a")
     expect(host.requireCurrentDocumentSession()).toBe(currentSessionId)
+    expect(values.get(identityFingerprintKey)).toMatch(/^[a-f0-9]{64}$/)
   })
 
   it("preserves a restored session when its stored identity fingerprint matches", async () => {
@@ -1882,6 +1898,10 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     expect(cache.getResource("amazon", host.providerSessionId, scope, "amazon-key")).toEqual({ owner: "amazon" })
     cache.clearResources()
     expect(cache.getResource("amazon", host.providerSessionId, scope, "amazon-key")).toBeUndefined()
+    const resetResource = { owner: "reset" }
+    cache.rememberResource("amazon", host.providerSessionId, scope, "reset-key", resetResource)
+    cache.reset()
+    expect(cache.getResource("amazon", host.providerSessionId, scope, "reset-key")).toBeUndefined()
 
     const previousScope = "cache-previous-scope"
     const currentScope = "cache-current-scope"
@@ -1964,11 +1984,13 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     vi.useFakeTimers()
     try {
       vi.setSystemTime(originalNow)
-      cache.rememberResource("google", host.providerSessionId, scope, "expires", { id: "expires" })
+      const expiredResource = { id: "expires" }
+      cache.rememberResource("google", host.providerSessionId, scope, "expires", expiredResource)
       vi.setSystemTime(originalNow + 15 * 60 * 1000)
       expect(cache.getResource("google", host.providerSessionId, scope, "expires")).toEqual({ id: "expires" })
       vi.setSystemTime(originalNow + 15 * 60 * 1000 + 1)
       expect(cache.getResource("google", host.providerSessionId, scope, "expires")).toBeUndefined()
+      expect(cache.isCurrentResource("google", host.providerSessionId, scope, "expires", expiredResource)).toBe(false)
     } finally {
       vi.clearAllTimers()
       vi.useRealTimers()
@@ -1998,6 +2020,27 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     cache.rememberResource("google", host.providerSessionId, scope, "unrefreshed-10000", { index: 10000 })
     expect(cache.getResource("google", host.providerSessionId, scope, "unrefreshed-0")).toBeUndefined()
     expect(cache.getResource("google", host.providerSessionId, scope, "unrefreshed-1")).toEqual({ index: 1 })
+  })
+
+  it("clears review budgets when a provider identity starts a fresh session", async () => {
+    const host = activeTestHost!
+    const cache = resource(host)
+    await host.setProviderIdentity("budget-owner-before-switch")
+    const previousScope = "budget-scope-before-switch"
+    await activateScope(host, "google", previousScope)
+    cache.reserveBudget(
+      reservationInput(host, "google", previousScope, { maxBudgetScopes: 1 })
+    )
+
+    await host.setProviderIdentity("budget-owner-after-switch")
+    const currentScope = "budget-scope-after-switch"
+    await activateScope(host, "google", currentScope)
+
+    expect(() =>
+      cache.reserveBudget(
+        reservationInput(host, "google", currentScope, { maxBudgetScopes: 1 })
+      )
+    ).not.toThrow()
   })
 
   it("preserves provider-specific policy codes and messages at invalid boundaries", async () => {
@@ -2551,6 +2594,446 @@ describe("provider command-host scan scope and cancellation lifecycle oracles", 
     await Promise.resolve()
     await Promise.resolve()
   }
+
+  it("does not set an owner marker when the command script has no owner", () => {
+    const previousCurrentScript = Object.getOwnPropertyDescriptor(
+      document,
+      "currentScript"
+    )
+    const page: Record<string | symbol, unknown> = {
+      location: {
+        protocol: "http:",
+        hostname: "localhost",
+        origin: "http://localhost"
+      },
+      postMessage: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }
+    page.top = page
+    Object.defineProperty(document, "currentScript", {
+      configurable: true,
+      value: null
+    })
+    const createHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
+    if (!createHost) throw new Error("test command-host factory missing")
+
+    try {
+      expect(createHost(page)).toBeDefined()
+      expect(page.__GPD_COMMAND_HOST_OWNER_ID__).toBeUndefined()
+    } finally {
+      const dispose = page[Symbol.for("photosweep.commandHostDispose")]
+      if (typeof dispose === "function") dispose()
+      if (previousCurrentScript) {
+        Object.defineProperty(document, "currentScript", previousCurrentScript)
+      } else {
+        delete (document as Document & { currentScript?: HTMLScriptElement | null })
+          .currentScript
+      }
+    }
+  })
+
+  it("replaces a stale build owner and disposes its pending work before registering a new host", async () => {
+    const previousCurrentScript = Object.getOwnPropertyDescriptor(
+      document,
+      "currentScript"
+    )
+    const ownerScript = (owner: string) => {
+      const script = document.createElement("script")
+      script.src = `https://photos.google.com/photosweep-command-host.js?owner=${owner}`
+      return script
+    }
+    const pageListeners = new Set<EventListener>()
+    const removeListenerCalls: Array<{ type: string; listener: EventListener }> = []
+    const pageStorage = new Map<string, string>()
+    const page: Record<string | symbol, unknown> = {
+      location: {
+        protocol: "http:",
+        hostname: "localhost",
+        origin: "http://localhost"
+      },
+      sessionStorage: {
+        getItem: (key: string) => pageStorage.get(key) ?? null,
+        setItem: (key: string, value: string) => pageStorage.set(key, value),
+        removeItem: (key: string) => pageStorage.delete(key)
+      },
+      postMessage: vi.fn(),
+      addEventListener: (_type: string, listener: EventListener) =>
+        pageListeners.add(listener),
+      removeEventListener: (type: string, listener: EventListener) => {
+        removeListenerCalls.push({ type, listener })
+        if (type === "message") pageListeners.delete(listener)
+      }
+    }
+    page.top = page
+    const createHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
+    if (!createHost) throw new Error("test command-host factory missing")
+    const waitForAbort = vi.fn(
+      (_requestId: string, _args: Record<string, unknown>, signal?: AbortSignal) =>
+        new Promise<void>((resolve) => {
+          if (!signal || signal.aborted) {
+            resolve()
+            return
+          }
+          signal.addEventListener("abort", () => resolve(), { once: true })
+        })
+    )
+
+    const invoke = (data: Record<string, unknown>) => {
+      const listener = [...pageListeners][0] as
+        | ((event: MessageEvent) => Promise<void>)
+        | undefined
+      if (!listener) throw new Error("provider command-host listener is missing")
+      return listener({ source: page, data } as unknown as MessageEvent)
+    }
+
+    vi.useFakeTimers()
+    try {
+      Object.defineProperty(document, "currentScript", {
+        configurable: true,
+        value: ownerScript("build-a")
+      })
+      const firstHost = createHost(page)
+      const firstAdapterHost = page.__GPD_COMMAND_HOST__
+      expect(page.__GPD_COMMAND_HOST_OWNER_ID__).toBe("build-a")
+      expect(createHost(page)).toBe(firstAdapterHost)
+      const firstDisposer = page[Symbol.for("photosweep.commandHostDispose")]
+      if (typeof firstDisposer !== "function") {
+        throw new Error("the command host did not register its private disposer")
+      }
+
+      Object.defineProperty(document, "currentScript", {
+        configurable: true,
+        value: ownerScript("")
+      })
+      expect(createHost(page)).toBe(firstAdapterHost)
+
+      firstHost.register({
+        handlers: {
+          getAllMediaItems: waitForAbort,
+          getVideoPlaybackUrl: waitForAbort
+        }
+      })
+      page.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
+      page.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ = "build-a"
+      page.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__ = true
+      page.__GPD_ICLOUD_COMMAND_HANDLER_OWNER_ID__ = "build-a"
+      page.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
+      page.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ = "build-a"
+
+      const scanPromise = invoke({
+        app: "GPD",
+        action: "gptkCommand",
+        command: "getAllMediaItems",
+        requestId: "owner-replacement-scan",
+        provider: "amazon",
+        args: {
+          providerSessionId: firstHost.providerSessionId,
+          scanScopeFingerprint: "owner-replacement-scope"
+        }
+      })
+      await flushCommandHostMicrotasks()
+      const scanSignal = waitForAbort.mock.calls.at(-1)?.[2]
+      if (!scanSignal) throw new Error("scan did not receive an abort signal")
+
+      const playbackPromise = invoke({
+        app: "GPD",
+        action: "gptkCommand",
+        command: "getVideoPlaybackUrl",
+        requestId: "owner-replacement-playback",
+        provider: "amazon",
+        args: {
+          requestId: "owner-replacement-playback",
+          providerSessionId: firstHost.providerSessionId,
+          scanScopeFingerprint: "owner-replacement-scope",
+          userOptIn: true
+        }
+      })
+      await flushCommandHostMicrotasks()
+      const playbackSignal = waitForAbort.mock.calls.at(-1)?.[2]
+      if (!playbackSignal) throw new Error("playback did not receive an abort signal")
+
+      const cancelScanPromise = invoke({
+        app: "GPD",
+        action: "gptkCommand",
+        command: "cancelScan",
+        requestId: "owner-replacement-pending-scan-cancel",
+        args: { targetRequestId: "pending-scan" }
+      })
+      const cancelPlaybackPromise = invoke({
+        app: "GPD",
+        action: "gptkCommand",
+        command: "cancelProviderRequest",
+        requestId: "owner-replacement-pending-playback-cancel",
+        provider: "amazon",
+        args: {
+          targetRequestId: "pending-playback",
+          providerSessionId: firstHost.providerSessionId,
+          scanScopeFingerprint: "owner-replacement-scope"
+        }
+      })
+      await flushCommandHostMicrotasks()
+      await Promise.all([cancelScanPromise, cancelPlaybackPromise])
+      expect(vi.getTimerCount()).toBe(2)
+
+      Object.defineProperty(document, "currentScript", {
+        configurable: true,
+        value: ownerScript("build-b")
+      })
+      const replacementHost = createHost(page)
+
+      expect(replacementHost).not.toBe(firstHost)
+      expect(page.__GPD_COMMAND_HOST_OWNER_ID__).toBe("build-b")
+      expect(scanSignal.aborted).toBe(true)
+      expect(playbackSignal.aborted).toBe(true)
+      expect(pageListeners.size).toBe(0)
+      expect(page.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__).toBeUndefined()
+      expect(page.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__).toBeUndefined()
+      expect(page.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__).toBeUndefined()
+      expect(page.__GPD_ICLOUD_COMMAND_HANDLER_OWNER_ID__).toBeUndefined()
+      expect(page.__GPD_AMAZON_COMMAND_HANDLER_LOADED__).toBeUndefined()
+      expect(page.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__).toBeUndefined()
+      expect(vi.getTimerCount()).toBe(0)
+      const abortSpy = vi.spyOn(AbortController.prototype, "abort")
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout")
+      const disposalCounts = {
+        aborts: abortSpy.mock.calls.length,
+        timers: clearTimeoutSpy.mock.calls.length,
+        listeners: removeListenerCalls.length
+      }
+      try {
+        ;(firstDisposer as () => void)()
+        expect(abortSpy).toHaveBeenCalledTimes(disposalCounts.aborts)
+        expect(clearTimeoutSpy).toHaveBeenCalledTimes(disposalCounts.timers)
+        expect(removeListenerCalls).toHaveLength(disposalCounts.listeners)
+        expect(removeListenerCalls.every(({ type }) => type === "message")).toBe(true)
+      } finally {
+        abortSpy.mockRestore()
+        clearTimeoutSpy.mockRestore()
+      }
+      await Promise.all([scanPromise, playbackPromise])
+
+      Object.defineProperty(page, "__GPD_COMMAND_HOST__", {
+        configurable: false,
+        value: page.__GPD_COMMAND_HOST__
+      })
+      Object.defineProperty(document, "currentScript", {
+        configurable: true,
+        value: ownerScript("build-c")
+      })
+      expect(createHost(page)).toBeNull()
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+      if (previousCurrentScript) {
+        Object.defineProperty(document, "currentScript", previousCurrentScript)
+      } else {
+        delete (document as Document & { currentScript?: HTMLScriptElement | null })
+          .currentScript
+      }
+    }
+  })
+
+  it("uses the service-worker owner marker to replace a legacy host without a disposer", () => {
+    const previousCurrentScript = Object.getOwnPropertyDescriptor(
+      document,
+      "currentScript"
+    )
+    const oldHost = { providerSessionId: "legacy-session" }
+    const legacyPage: Record<string | symbol, unknown> = {
+      location: {
+        protocol: "http:",
+        hostname: "localhost",
+        origin: "http://localhost"
+      },
+      __GPD_PROVIDER_COMMAND_OWNER_ID__: "build-b",
+      __GPD_COMMAND_HOST_OWNER_ID__: "build-a",
+      __GPD_COMMAND_HOST__: oldHost,
+      postMessage: vi.fn(),
+      addEventListener: vi.fn()
+    }
+    legacyPage.top = legacyPage
+
+    Object.defineProperty(document, "currentScript", {
+      configurable: true,
+      value: null
+    })
+    const createHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
+    if (!createHost) throw new Error("test command-host factory missing")
+
+    try {
+      const replacementHost = createHost(legacyPage)
+      expect(replacementHost).not.toBe(oldHost)
+      expect(legacyPage.__GPD_COMMAND_HOST_OWNER_ID__).toBe("build-b")
+      expect(legacyPage.__GPD_COMMAND_HOST__).not.toBe(oldHost)
+
+      const legacyAdapterHost = legacyPage.__GPD_COMMAND_HOST__ as ProviderCommandHost
+      legacyAdapterHost.register({ handlers: {} })
+      const replacementDisposer =
+        legacyPage[Symbol.for("photosweep.commandHostDispose")]
+      expect(typeof replacementDisposer).toBe("function")
+      expect(() => (replacementDisposer as () => void)()).not.toThrow()
+
+      const disposePriorBuild = vi.fn()
+      const priorBuildHost = { providerSessionId: "prior-build-session" }
+      const crossBuildPage: Record<string | symbol, unknown> = {
+        location: legacyPage.location,
+        __GPD_PROVIDER_COMMAND_OWNER_ID__: "build-b",
+        __GPD_COMMAND_HOST_OWNER_ID__: "build-a",
+        __GPD_COMMAND_HOST__: priorBuildHost,
+        [Symbol.for("photosweep.commandHostDispose")]: disposePriorBuild,
+        postMessage: vi.fn(),
+        addEventListener: vi.fn()
+      }
+      crossBuildPage.top = crossBuildPage
+      const currentScript = document.createElement("script")
+      currentScript.src =
+        "https://photos.google.com/photosweep-command-host.js?owner=build-c"
+      Object.defineProperty(document, "currentScript", {
+        configurable: true,
+        value: currentScript
+      })
+      const currentScriptReplacement = createHost(crossBuildPage)
+      expect(currentScriptReplacement).not.toBe(priorBuildHost)
+      expect(crossBuildPage.__GPD_COMMAND_HOST_OWNER_ID__).toBe("build-c")
+      expect(disposePriorBuild).toHaveBeenCalledTimes(1)
+    } finally {
+      if (previousCurrentScript) {
+        Object.defineProperty(document, "currentScript", previousCurrentScript)
+      } else {
+        delete (document as Document & { currentScript?: HTMLScriptElement | null })
+          .currentScript
+      }
+    }
+  })
+
+  it("stops replacement when the previous command-host property remains after deletion", () => {
+    const previousCurrentScript = Object.getOwnPropertyDescriptor(
+      document,
+      "currentScript"
+    )
+    const existingHost = { providerSessionId: "protected-session" }
+    const target: Record<string | symbol, unknown> = {
+      location: {
+        protocol: "http:",
+        hostname: "localhost",
+        origin: "http://localhost"
+      },
+      __GPD_COMMAND_HOST_OWNER_ID__: "build-a",
+      __GPD_COMMAND_HOST__: existingHost,
+      postMessage: vi.fn(),
+      addEventListener: vi.fn()
+    }
+    const protectedPage = new Proxy(target, {
+      deleteProperty: (object, property) => {
+        if (property === "__GPD_COMMAND_HOST__") return true
+        return Reflect.deleteProperty(object, property)
+      }
+    })
+    protectedPage.top = protectedPage
+    Object.defineProperty(document, "currentScript", {
+      configurable: true,
+      value: (() => {
+        const script = document.createElement("script")
+        script.src = "https://photos.google.com/photosweep-command-host.js?owner=build-b"
+        return script
+      })()
+    })
+    const createHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
+    if (!createHost) throw new Error("test command-host factory missing")
+
+    try {
+      expect(createHost(protectedPage)).toBeNull()
+      expect(protectedPage.__GPD_COMMAND_HOST__).toBe(existingHost)
+    } finally {
+      if (previousCurrentScript) {
+        Object.defineProperty(document, "currentScript", previousCurrentScript)
+      } else {
+        delete (document as Document & { currentScript?: HTMLScriptElement | null })
+          .currentScript
+      }
+    }
+  })
+
+  it("fails closed when a stale command host cannot be deleted", () => {
+    const previousCurrentScript = Object.getOwnPropertyDescriptor(
+      document,
+      "currentScript"
+    )
+    const existingHost = { providerSessionId: "protected-session" }
+    const target: Record<string | symbol, unknown> = {
+      location: {
+        protocol: "http:",
+        hostname: "localhost",
+        origin: "http://localhost"
+      },
+      __GPD_COMMAND_HOST_OWNER_ID__: "build-a",
+      __GPD_COMMAND_HOST__: existingHost,
+      postMessage: vi.fn(),
+      addEventListener: vi.fn()
+    }
+    const protectedPage = new Proxy(target, {
+      deleteProperty: (object, property) => {
+        if (property === "__GPD_COMMAND_HOST__") {
+          throw new Error("the page protects its existing command host")
+        }
+        return Reflect.deleteProperty(object, property)
+      }
+    })
+    protectedPage.top = protectedPage
+    const ownerScript = document.createElement("script")
+    ownerScript.src =
+      "https://photos.google.com/photosweep-command-host.js?owner=build-b"
+    Object.defineProperty(document, "currentScript", {
+      configurable: true,
+      value: ownerScript
+    })
+    const createHost = window.__GPD_COMMAND_HOST_TEST_FACTORY__
+    if (!createHost) throw new Error("test command-host factory missing")
+
+    try {
+      expect(createHost(protectedPage)).toBeNull()
+      expect(protectedPage.__GPD_COMMAND_HOST__).toBe(existingHost)
+      expect(protectedPage.__GPD_COMMAND_HOST_OWNER_ID__).toBe("build-a")
+      expect(target.addEventListener).not.toHaveBeenCalled()
+    } finally {
+      if (previousCurrentScript) {
+        Object.defineProperty(document, "currentScript", previousCurrentScript)
+      } else {
+        delete (document as Document & { currentScript?: HTMLScriptElement | null })
+          .currentScript
+      }
+    }
+  })
+
+  it("does not install the test factory hook over an existing production host", async () => {
+    if (hostTestHookListener) {
+      window.removeEventListener("gpd-command-host-test", hostTestHookListener)
+      hostTestHookListener = undefined
+    }
+    delete window.__GPD_COMMAND_HOST_TEST_FACTORY__
+    window.__GPD_COMMAND_HOST_TEST_MODE__ = false
+    vi.resetModules()
+
+    const addEventListenerSpy = vi.spyOn(window, "addEventListener")
+    try {
+      // @ts-expect-error Vite resolves this JavaScript module in the test bundle.
+      await import("../../scripts/photo-provider-command-host.js")
+      const hookRegistrations = addEventListenerSpy.mock.calls.filter(
+        ([type]) => type === "gpd-command-host-test"
+      )
+      expect(hookRegistrations).toHaveLength(0)
+      window.dispatchEvent(new Event("gpd-command-host-test"))
+      expect(window.__GPD_COMMAND_HOST_TEST_FACTORY__).toBeUndefined()
+    } finally {
+      for (const [type, listener] of addEventListenerSpy.mock.calls) {
+        if (type === "gpd-command-host-test" && typeof listener === "function") {
+          window.removeEventListener(type, listener)
+        }
+      }
+      addEventListenerSpy.mockRestore()
+    }
+  })
 
   it("rejects malformed scan-scope fingerprints and aborts only work from an older scope", async () => {
     const host = activeTestHost!

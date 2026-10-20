@@ -1,6 +1,6 @@
 # PhotoSweep Privacy Policy
 
-Last updated: 2026-10-06
+Last updated: 2026-10-13
 
 ## Summary
 
@@ -42,6 +42,11 @@ review, report, Trash, undo, original-byte verification, and diagnostics feature
   currently verified only for Amazon Photos Canada. The digest and byte count
   are retained with the review; the original bytes and temporary resource URLs
   are discarded after the check.
+- when you click “Load full video” for an Amazon Photos Canada item, PhotoSweep
+  asks for optional access to Amazon's video delivery host, fetches the verified
+  720p video into browser memory up to 128 MiB, and plays it from a temporary
+  browser URL. The video bytes are not sent to PhotoSweep services. Larger videos
+  can still be opened in Amazon Photos.
 
 Saved review, result, and cache data is stored with Chrome extension storage on
 the user's device. Users can clear saved results and cache data from the
@@ -68,6 +73,12 @@ Original-byte verification is optional and starts only when the user clicks
 the selected provider or its media host, computes SHA-256 locally, and keeps the
 result with the review. PhotoSweep does not send the fetched original bytes to
 its license or analytics service.
+
+Amazon video playback is optional and starts only when the user clicks “Load
+full video” and grants the separate Amazon video-host permission. PhotoSweep
+fetches the exact owner-bound transcode from Amazon Photos Canada into browser
+memory for playback. It enforces a 128 MiB limit and does not send the video
+bytes to PhotoSweep services.
 
 Provider requests use the signed-in provider session. PhotoSweep does not send
 your provider password to its services.
@@ -154,7 +165,8 @@ not disclosed here. The recovery-email webhook is not configured. Gmail receives
 recovery email address and link needed to deliver the message. A Resend receiver
 exists as a deployment scaffold but is not the configured recovery-email path.
 
-If you email support at `pawsitivegames@gmail.com`, Google/Gmail processes that
+If you email support at
+[pawsitivegames@gmail.com](mailto:pawsitivegames@gmail.com), Google/Gmail processes that
 message as the mailbox provider. This support mailbox is the same address used
 as the configured recovery-email sender.
 
@@ -185,15 +197,16 @@ resource URLs.
 
 License records are retained while needed to provide paid access, receipts,
 refund handling, support, fraud prevention, accounting, tax, and legal
-compliance. The current production configuration reviewed on 2026-10-06 uses
-Firestore for analytics storage, but the reviewed source does not define a fixed
-retention or deletion period for server-side analytics events.
+compliance. Consent-based usage-metrics events expire 90 days after server
+receipt and are deleted by Firestore TTL, typically within 24 hours after
+expiry. This analytics period does not apply to license, payment, recovery,
+accounting, tax, or legal records.
 
 ## Refunds And Deletion Requests
 
 Users can request support, refunds, or deletion of license records by contacting:
 
-`pawsitivegames@gmail.com`
+[pawsitivegames@gmail.com](mailto:pawsitivegames@gmail.com)
 
 Some payment, tax, accounting, fraud-prevention, and legal records may need to be
 retained even after a deletion request.

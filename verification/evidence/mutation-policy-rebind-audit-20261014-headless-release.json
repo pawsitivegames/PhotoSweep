@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_NORMAL_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-14T10:42:47Z",
+  "candidate": {
+    "sourceFingerprint": "47a24c3159479ecf8e31c082ba4e4814805466aac1dbb4fdbec594b10c8ef2fe",
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "packagePath": "build/photosweep-cws-v2.3.6.5-sha256-861ebbb3972b.zip",
+    "packageSha256": "861ebbb3972b1f01d0dc04f7811dd395e6c503510e0239ca550e5d1f9dfba839",
+    "buildId": "c9cd399c-cf54-4e66-baf8-35a2401acea9"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprint": {
+      "from": "9ab806898961e2f9f8ccaf024e2a3c3e4e135fd4d4d589b215be41914aaeb3bf",
+      "to": "47a24c3159479ecf8e31c082ba4e4814805466aac1dbb4fdbec594b10c8ef2fe"
+    },
+    "canonicalReportSha256": {
+      "from": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+      "to": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404"
+    },
+    "entriesChanged": false,
+    "thresholdsChanged": false
+  },
+  "validationReplay": {
+    "command": "npm run verify:release -- --out-dir tmp/verification/runs/20261014T-release-after-headless-node24-v3",
+    "runId": "20261014T103507Z-81158",
+    "resultLog": "tmp/verification/runs/20261014T-release-after-headless-node24-v3/command-mutation.log",
+    "rawReportPath": "tmp/verification/runs/20261014T-release-after-headless-node24-v3/mutation-run/stryker-raw.json",
+    "triagePath": "tmp/verification/runs/20261014T-release-after-headless-node24-v3/mutation-run/mutation-triage.json",
+    "rawReportFileSha256": "d28a6f4a4e59e0d3b32540d8e860f1dc9180e91b8560398546d709255369f93e",
+    "canonicalReportSha256": "a33947ecefb95ea75a34e8d26d2ee5e1c248d49b7532139043e2f159f7585404",
+    "mutationRuntimeSeconds": 23.9,
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsResolvedByPolicy": 211,
+    "mutantsUnresolved": 0,
+    "mutationScorePercent": 94.85,
+    "coveredMutationScorePercent": 95.41,
+    "criticalSurvivors": 0,
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "checks": {
+    "releaseSourceMatchesCandidate": true,
+    "mutationReplayPasses": true,
+    "canonicalReportsMatch": true,
+    "exactNonKilledKeysMatchPolicy": true,
+    "mutationSourceHashesMatch": true,
+    "noCriticalSurvivors": true,
+    "thresholdsPreserved": true,
+    "sourceDrift": false
+  }
+}

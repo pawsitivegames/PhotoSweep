@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-11T17:57:54.978Z",
+  "status": "REBOUND_AFTER_EXACT_MUTANT_SET_AND_SEVEN_EQUIVALENCE_REVIEWS",
+  "mutationRun": {
+    "runId": "photosweep-mutation-full-node24-stable-flags-20261011",
+    "sourceFingerprint": "21521b9bc8f2e1962d6bd0129e88ea6351d38a21ee00ff6af16a4cf5688d69ed",
+    "sourceDrift": false,
+    "rawReportFileSha256": "d3e869756d00f93d7475f8fa9af9e475993df09179d68808584bf30970e5d1e2",
+    "canonicalReportSha256": "06c5258c2a8f93f5829cfce013ae90eddd6fd271c854c9916b42d0112fd38efe",
+    "mutantsTotal": 4100,
+    "mutantsKilled": 3889,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutationScorePercent": 94.85,
+    "minimumKilledPercent": 90,
+    "criticalSurvivors": 0
+  },
+  "policyRebind": {
+    "priorSourceFingerprint": "cf319520b1f67efe2a5e7970bf1c435c87e7f3745be6e5e0f346e91e1db539c0",
+    "sourceFingerprint": "21521b9bc8f2e1962d6bd0129e88ea6351d38a21ee00ff6af16a4cf5688d69ed",
+    "priorCanonicalReportSha256": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002",
+    "canonicalReportSha256": "06c5258c2a8f93f5829cfce013ae90eddd6fd271c854c9916b42d0112fd38efe",
+    "priorEntriesMatchedExactly": 204,
+    "priorEntriesClassificationChanges": 0,
+    "newEntriesReviewed": 7,
+    "newEntries": [
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "id": "2629",
+        "status": "NoCoverage",
+        "location": {
+          "start": {
+            "line": 1442,
+            "column": 11
+          },
+          "end": {
+            "line": 1442,
+            "column": 36
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "classification": "EQUIVALENT",
+        "evidence": "This delete is reached only after the branch sets malformed=true at line 1440. The malformed-result path then deletes the resolved keys and clears notDispatched before returning, so removing this intermediate delete cannot change the returned outcome."
+      },
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "id": "1581",
+        "status": "Survived",
+        "location": {
+          "start": {
+            "line": 400,
+            "column": 9
+          },
+          "end": {
+            "line": 400,
+            "column": 46
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "classification": "EQUIVALENT",
+        "evidence": "This add is guarded by notDispatchedDedup.has(pair.dedupKey). Set.add of the same existing key is idempotent, and all later behavior reads set membership."
+      },
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "id": "2611",
+        "status": "Survived",
+        "location": {
+          "start": {
+            "line": 1435,
+            "column": 11
+          },
+          "end": {
+            "line": 1435,
+            "column": 36
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "classification": "EQUIVALENT",
+        "evidence": "This delete is inside the malformed-or-duplicate branch. That branch sets malformed and the later malformed-result normalization clears the entire notDispatched set before return."
+      },
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "id": "2683",
+        "status": "Survived",
+        "location": {
+          "start": {
+            "line": 1472,
+            "column": 9
+          },
+          "end": {
+            "line": 1472,
+            "column": 30
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "classification": "EQUIVALENT",
+        "evidence": "The clear runs only after malformed is true. The preceding mapping visits every undo key, and the malformed branch deletes notDispatched for every mapped key; the set contains only requested keys."
+      },
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "id": "2801",
+        "status": "Survived",
+        "location": {
+          "start": {
+            "line": 1538,
+            "column": 9
+          },
+          "end": {
+            "line": 1538,
+            "column": 30
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "6dc0db1aa98c47eafaf01b136759cbedda1260a787c32ff10d0121f2b9112e9f",
+        "classification": "EQUIVALENT",
+        "evidence": "The clear runs only after malformed is true. The preceding legacy mapping assigns unknown to every requested key and deletes every non-failed key; malformed mode makes every mapped status unknown."
+      },
+      {
+        "file": "scripts/photo-provider-command-host.js",
+        "id": "3617",
+        "status": "Survived",
+        "location": {
+          "start": {
+            "line": 804,
+            "column": 9
+          },
+          "end": {
+            "line": 804,
+            "column": 18
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+        "classification": "EQUIVALENT",
+        "evidence": "The abort handler is registered with { once: true }, so the AbortSignal removes it when fired. The explicit removeEventListener within that handler is redundant."
+      },
+      {
+        "file": "scripts/photo-provider-command-host.js",
+        "id": "3648",
+        "status": "Survived",
+        "location": {
+          "start": {
+            "line": 833,
+            "column": 9
+          },
+          "end": {
+            "line": 833,
+            "column": 18
+          }
+        },
+        "mutatorName": "CallExpression",
+        "replacement": ";",
+        "sourceHash": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c",
+        "classification": "EQUIVALENT",
+        "evidence": "The abort handler is registered with { once: true }, so the AbortSignal removes it when fired. The explicit removeEventListener within that handler is redundant."
+      }
+    ],
+    "totalPolicyEntries": 211,
+    "thresholdsChanged": false,
+    "policySha256": "33be1fb636649644d21ae303de00422a1168739911c3cd19992444fe4f6145fd"
+  },
+  "limitations": [
+    "The mutation run remains FAIL because it read the prior policy binding; only a fresh run can validate this rebind.",
+    "This local mutation evidence does not establish Chrome exact-package runtime, live provider round-trip, video playback, or cleanup."
+  ]
+}

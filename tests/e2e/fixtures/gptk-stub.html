@@ -45,6 +45,8 @@
        */
       window.__gptkOverrides = window.__gptkOverrides || {}
       window.__gptkCommandLog = window.__gptkCommandLog || []
+      window.__gptkHeldResponses =
+        window.__gptkHeldResponses || Object.create(null)
       window.__gptkHeldRestoreResponses =
         window.__gptkHeldRestoreResponses || Object.create(null)
       window.__gptkProviderSessionId =
@@ -183,6 +185,18 @@
           undefined,
           args?.providerSessionId
         )
+        if (override?.holdResponse === true) {
+          window.__gptkHeldResponses[requestId] = () => {
+            delete window.__gptkHeldResponses[requestId]
+            reply(command, requestId, {
+              trashedCount: dedupKeys.length,
+              trashedKeys: mediaKeysToTrash,
+              trashedDedupKeys: dedupKeys,
+              retryAttempts: 0
+            }, undefined, args?.providerSessionId)
+          }
+          return
+        }
         reply(command, requestId, {
           trashedCount: dedupKeys.length,
           trashedKeys: mediaKeysToTrash,
@@ -281,13 +295,21 @@
                 (command === "healthCheck"
                   ? window.__gptkProviderSessionId
                   : undefined)
-              reply(
-                command,
-                requestId,
-                data,
-                scanCoverage,
-                providerSessionId
-              )
+              const deliverResponse = () => {
+                delete window.__gptkHeldResponses[requestId]
+                reply(
+                  command,
+                  requestId,
+                  data,
+                  scanCoverage,
+                  providerSessionId
+                )
+              }
+              if (override?.holdResponse === true) {
+                window.__gptkHeldResponses[requestId] = deliverResponse
+              } else {
+                deliverResponse()
+              }
             }
           }
         }

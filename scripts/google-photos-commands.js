@@ -6,11 +6,31 @@
 // The bridge content script (google-photos-bridge.ts) relays these to chrome.runtime.
 
 (() => {
-  if (window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__) {
+  const ownerId = (() => {
+    try {
+      const src = document.currentScript?.src
+      const owner = src ? new URL(src).searchParams.get("owner") : null
+      if (owner) return owner
+    } catch {
+      // Chrome executeScript uses the owner marker set by the service worker.
+    }
+    return (
+      window.__GPD_PROVIDER_COMMAND_OWNER_ID__ ||
+      window.__GPD_COMMAND_HOST_OWNER_ID__ ||
+      ""
+    )
+  })()
+  if (
+    window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ &&
+    (!ownerId || window.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ === ownerId)
+  ) {
     console.log("GPD: Command handler already loaded")
     return
   }
-  window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
+  if (window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__) {
+    delete window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__
+    delete window.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__
+  }
 
 const commandHost = window.__GPD_COMMAND_HOST__
 if (!commandHost) {
@@ -46,6 +66,11 @@ const GOOGLE_REVIEW_BUDGET_SCOPE_MAX = 128
 const GOOGLE_ORIGINAL_HOSTS = new Set(["lh3.google.com"])
 const GOOGLE_VIDEO_HOSTS = new Set([
   "video-downloads.googleusercontent.com"
+])
+const GOOGLE_PHOTOS_VIDEO_HOST = "photos.fife.usercontent.google.com"
+const GOOGLE_VIDEO_PLAYBACK_HOSTS = new Set([
+  ...GOOGLE_VIDEO_HOSTS,
+  GOOGLE_PHOTOS_VIDEO_HOST
 ])
 
 function chunkArray(arr, size) {
@@ -655,6 +680,7 @@ function mapMediaItem(item, accountUrlPrefix = "/") {
           ? "photo"
           : "unknown"
   return {
+    provider: "google",
     mediaKey: item.mediaKey,
     dedupKey: item.dedupKey,
     thumb: item.thumb,
@@ -894,11 +920,10 @@ function requireGoogleScannedResource(requestId, args) {
   return { resource }
 }
 
-function allowlistedGoogleResourceUrl(value, kind) {
+function allowlistedGoogleUrl(value, allowedHosts) {
   if (typeof value !== "string" || value.length === 0) return null
   try {
     const url = new URL(value)
-    const allowedHosts = kind === "video" ? GOOGLE_VIDEO_HOSTS : GOOGLE_ORIGINAL_HOSTS
     if (
       url.protocol !== "https:" ||
       url.username ||
@@ -912,6 +937,27 @@ function allowlistedGoogleResourceUrl(value, kind) {
   } catch {
     return null
   }
+}
+
+function allowlistedGoogleResourceUrl(value, kind) {
+  return allowlistedGoogleUrl(
+    value,
+    kind === "video" ? GOOGLE_VIDEO_HOSTS : GOOGLE_ORIGINAL_HOSTS
+  )
+}
+
+function allowlistedGooglePlaybackUrl(value) {
+  const url = allowlistedGoogleUrl(value, GOOGLE_VIDEO_PLAYBACK_HOSTS)
+  if (!url) return null
+  if (url.hostname.toLowerCase() === GOOGLE_PHOTOS_VIDEO_HOST) {
+    // Google Photos' live player uses a signed, single-segment /pw/<token>
+    // route on this exact host. Keep the newly supported route bounded to it.
+    const token = url.pathname.startsWith("/pw/")
+      ? url.pathname.slice("/pw/".length)
+      : ""
+    if (!token || token.includes("/") || /%2f|%5c/i.test(token)) return null
+  }
+  return url
 }
 
 async function assertGoogleRetrievalContext(args, resource) {
@@ -1173,7 +1219,21 @@ async function getVideoPlaybackUrl(requestId, args, signal) {
     }
     await assertGoogleRetrievalContext(args, resource)
     const info = await fetchGoogleItemInfo(requestId, args, resource, signal)
-    const playbackUrl = allowlistedGoogleResourceUrl(info.downloadUrl, "video")
+    let playbackUrlCandidate = info.downloadUrl
+    if (typeof playbackUrlCandidate !== "string" || playbackUrlCandidate.length === 0) {
+      const api = window.gptkApiUtils?.api
+      if (typeof api?.getDownloadUrl === "function") {
+        playbackUrlCandidate = await withTimeout(
+          Promise.resolve().then(() => api.getDownloadUrl([resource.mediaKey])),
+          MEDIA_PAGE_TIMEOUT_MS,
+          "Requesting Google Photos video playback resource",
+          signal
+        )
+        commandHost.throwIfAborted(signal)
+        await assertGoogleRetrievalContext(args, resource)
+      }
+    }
+    const playbackUrl = allowlistedGooglePlaybackUrl(playbackUrlCandidate)
     if (!playbackUrl) {
       throw new Error("Google Photos did not provide a verified video playback resource.")
     }
@@ -2500,5 +2560,8 @@ commandHost.register({
   unsupportedMessage: (command) => `Unknown command: ${command}`
 })
 
+window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
+window.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ =
+  ownerId || window.__GPD_COMMAND_HOST_OWNER_ID__ || ""
 console.log("GPD: Command handler loaded")
 })();

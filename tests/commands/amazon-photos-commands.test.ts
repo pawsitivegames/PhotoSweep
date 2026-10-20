@@ -468,9 +468,10 @@ function collectMessages(): { messages: any[]; restore: () => void } {
 async function waitForCommandResult(
   messages: any[],
   command: string,
-  requestId: string
+  requestId: string,
+  timeoutMs = 1000
 ) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < Math.ceil(timeoutMs / 10); attempt += 1) {
     const result = messages.find(
       (message) =>
         message.action === "gptkResult" &&
@@ -481,6 +482,37 @@ async function waitForCommandResult(
     await new Promise((resolve) => realSetTimeout(resolve, 10))
   }
   throw new Error(`Timed out waiting for Amazon ${command} result (${requestId})`)
+}
+
+async function runWithInstantCommandDelay<T>(
+  start: () => void,
+  waitForResult: () => Promise<T>,
+  expectedDelays = [250, 750, 1500, 3000]
+): Promise<T> {
+  const windowLike = window as any
+  const originalSetTimeout = windowLike.setTimeout
+  const requestedDelays: number[] = []
+  const retryDelays = new Set([250, 750, 1500, 3000])
+  windowLike.setTimeout = (
+    callback: (...args: unknown[]) => void,
+    delayMs = 0,
+    ...args: unknown[]
+  ) => {
+    if (retryDelays.has(Number(delayMs))) {
+      requestedDelays.push(Number(delayMs))
+      queueMicrotask(() => callback(...args))
+      return Number.MAX_SAFE_INTEGER
+    }
+    return originalSetTimeout.call(window, callback, delayMs, ...args)
+  }
+  try {
+    start()
+    const result = await waitForResult()
+    expect(requestedDelays).toEqual(expectedDelays)
+    return result
+  } finally {
+    windowLike.setTimeout = originalSetTimeout
+  }
 }
 
 async function flush() {
@@ -499,10 +531,13 @@ function stubAmazonMutationProvider(options: {
   patchStatus?: number
   switchOwnerAfterPatch?: boolean
   invalidTrashRead?: boolean
+  transitionAfterTrashReads?: number
 } = {}) {
   let currentOwnerId = options.ownerId || "owner-1"
   const trash = new Set(options.initialTrash || [])
   const favorites = options.favorites || {}
+  let pendingTransition: { operation: string; ids: string[] } | null = null
+  let postPatchTrashReads = 0
   const fetchMock = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(String(input))
@@ -517,6 +552,17 @@ function stubAmazonMutationProvider(options: {
         }
       }
       if (url.pathname === "/drive/v1/trash" && method === "GET") {
+        if (pendingTransition) {
+          postPatchTrashReads += 1
+          if (postPatchTrashReads >= (options.transitionAfterTrashReads || 1)) {
+            if (pendingTransition.operation === "add") {
+              pendingTransition.ids.forEach((id) => trash.add(id))
+            } else if (pendingTransition.operation === "remove") {
+              pendingTransition.ids.forEach((id) => trash.delete(id))
+            }
+            pendingTransition = null
+          }
+        }
         const data = [...trash].map((id) => ({ id }))
         return {
           ok: true,
@@ -537,7 +583,10 @@ function stubAmazonMutationProvider(options: {
             text: async () => "provider rejection"
           }
         }
-        if (options.applyPatch) {
+        if (options.transitionAfterTrashReads !== undefined) {
+          pendingTransition = { operation: payload.op, ids }
+          postPatchTrashReads = 0
+        } else if (options.applyPatch) {
           options.applyPatch(payload.op, ids, trash)
         } else if (payload.op === "add") {
           ids.forEach((id: string) => trash.add(id))
@@ -2207,6 +2256,8 @@ describe("Amazon getAllMediaItems", () => {
     }
     const downloadHref =
       "https://download-photos.amazon.ca/v2/download/signed/video-original-route?ownerId=owner-1"
+    const playbackHref =
+      "https://download-photos.amazon.ca/v2/download/signed/video-original-route/alt/video_transcode?ownerId=owner-1&y=720"
     const fetchMock = vi
       .fn()
       .mockImplementation((input: RequestInfo | URL) => {
@@ -2336,7 +2387,7 @@ describe("Amazon getAllMediaItems", () => {
       data: {
         mediaKey: "amazon-video-original-route",
         scopeFingerprint: scanScopeFingerprint,
-        playbackUrl: downloadHref,
+        playbackUrl: playbackHref,
         mimeType: "video/mp4"
       }
     })
@@ -3179,6 +3230,50 @@ describe("Amazon trashItems", () => {
     restore()
   })
 
+  it("waits for the provider Trash readback to catch up without replaying the mutation", async () => {
+    const { messages, restore } = collectMessages()
+    const { fetchMock, trash } = stubAmazonMutationProvider({
+      favorites: { "node-a": false },
+      transitionAfterTrashReads: 3
+    })
+
+    try {
+      const result = await runWithInstantCommandDelay(
+        () =>
+          sendCommand("trashItems", "amazon-trash-delayed-readback", {
+            dedupKeys: ["node-a"],
+            mediaKeysToTrash: ["amazon-node-a"]
+          }),
+        () =>
+          waitForCommandResult(
+            messages,
+            "trashItems",
+            "amazon-trash-delayed-readback",
+            10000
+          ),
+        [250, 750]
+      )
+      expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1)
+      expect(
+        fetchMock.mock.calls.filter(
+          ([input, init]) =>
+            new URL(String(input)).pathname === "/drive/v1/trash" &&
+            (init?.method || "GET") === "GET"
+        )
+      ).toHaveLength(4)
+      expect(trash).toEqual(new Set(["node-a"]))
+      expect(result).toMatchObject({
+        success: true,
+        data: {
+          trashedDedupKeys: ["node-a"],
+          outcomes: [{ targetKey: "node-a", status: "confirmed" }]
+        }
+      })
+    } finally {
+      restore()
+    }
+  }, 10000)
+
   it("caps Amazon trash batches at 50 node ids", async () => {
     const { messages, restore } = collectMessages()
     const dedupKeys = Array.from({ length: 51 }, (_, index) => `node-${index}`)
@@ -3333,14 +3428,19 @@ describe("Amazon trashItems", () => {
       patchStatus: 504
     })
 
-    sendCommand("trashItems", "amazon-trash-token", {
-      dedupKeys: ["node-a"],
-      mediaKeysToTrash: ["amazon-node-a"]
-    })
-    const result = await waitForCommandResult(
-      messages,
-      "trashItems",
-      "amazon-trash-token"
+    const result = await runWithInstantCommandDelay(
+      () =>
+        sendCommand("trashItems", "amazon-trash-token", {
+          dedupKeys: ["node-a"],
+          mediaKeysToTrash: ["amazon-node-a"]
+        }),
+      () =>
+        waitForCommandResult(
+          messages,
+          "trashItems",
+          "amazon-trash-token",
+          10000
+        )
     )
     expect(result).toMatchObject({
       success: false,
@@ -3354,7 +3454,7 @@ describe("Amazon trashItems", () => {
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1)
     expect(trash).toEqual(new Set())
     restore()
-  })
+  }, 10000)
 
   it("does not treat a resolved PATCH as proof when Trash remains unchanged", async () => {
     const { messages, restore } = collectMessages()
@@ -3362,14 +3462,19 @@ describe("Amazon trashItems", () => {
       favorites: { "node-a": false },
       applyPatch: () => undefined
     })
-    sendCommand("trashItems", "amazon-trash-resolved-no-transition", {
-      dedupKeys: ["node-a"],
-      mediaKeysToTrash: ["amazon-node-a"]
-    })
-    await waitForCommandResult(
-      messages,
-      "trashItems",
-      "amazon-trash-resolved-no-transition"
+    await runWithInstantCommandDelay(
+      () =>
+        sendCommand("trashItems", "amazon-trash-resolved-no-transition", {
+          dedupKeys: ["node-a"],
+          mediaKeysToTrash: ["amazon-node-a"]
+        }),
+      () =>
+        waitForCommandResult(
+          messages,
+          "trashItems",
+          "amazon-trash-resolved-no-transition",
+          10000
+        )
     )
     const result = messages.find(
       (msg) =>
@@ -3387,7 +3492,7 @@ describe("Amazon trashItems", () => {
       }
     })
     restore()
-  })
+  }, 10000)
 
   it("keeps mixed exact transitions and unresolved targets separate after a partial PATCH", async () => {
     const { messages, restore } = collectMessages()
@@ -3397,11 +3502,20 @@ describe("Amazon trashItems", () => {
         if (operation === "add") trash.add(ids[0])
       }
     })
-    sendCommand("trashItems", "amazon-trash-partial-transition", {
-      dedupKeys: ["node-a", "node-b"],
-      mediaKeysToTrash: ["amazon-node-a", "amazon-node-b"]
-    })
-    await waitForCommandResult(messages, "trashItems", "amazon-trash-partial-transition")
+    await runWithInstantCommandDelay(
+      () =>
+        sendCommand("trashItems", "amazon-trash-partial-transition", {
+          dedupKeys: ["node-a", "node-b"],
+          mediaKeysToTrash: ["amazon-node-a", "amazon-node-b"]
+        }),
+      () =>
+        waitForCommandResult(
+          messages,
+          "trashItems",
+          "amazon-trash-partial-transition",
+          10000
+        )
+    )
     const result = messages.find(
       (msg) =>
         msg.action === "gptkResult" &&
@@ -3422,7 +3536,7 @@ describe("Amazon trashItems", () => {
       }
     })
     restore()
-  })
+  }, 10000)
 
   it("does not dispatch when Trash preflight is malformed", async () => {
     const { messages, restore } = collectMessages()
@@ -3536,6 +3650,44 @@ describe("restoreItems", () => {
     restore()
   })
 
+  it("waits for restored items to leave Trash and reappear in the personal library", async () => {
+    const { messages, restore } = collectMessages()
+    const { fetchMock, trash } = stubAmazonMutationProvider({
+      initialTrash: ["node-a"],
+      transitionAfterTrashReads: 3
+    })
+    window.history.pushState({}, "", "/photos/trash")
+
+    try {
+    const result = await runWithInstantCommandDelay(
+      () =>
+        sendCommand("restoreItems", "amazon-restore-delayed-readback", {
+          dedupKeys: ["node-a"]
+        }),
+      () =>
+        waitForCommandResult(
+          messages,
+          "restoreItems",
+          "amazon-restore-delayed-readback",
+          10000
+        ),
+      [250, 750]
+      )
+      expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1)
+      expect(trash).toEqual(new Set())
+      expect(result).toMatchObject({
+        success: true,
+        data: {
+          restoredDedupKeys: ["node-a"],
+          outcomes: [{ targetKey: "node-a", status: "confirmed" }]
+        }
+      })
+    } finally {
+      window.history.pushState({}, "", "/photos?sf=1")
+      restore()
+    }
+  }, 10000)
+
   it("caps Amazon restore batches at 50 node ids", async () => {
     const { messages, restore } = collectMessages()
     const dedupKeys = Array.from({ length: 51 }, (_, index) => `node-${index}`)
@@ -3586,11 +3738,18 @@ describe("restoreItems", () => {
       initialTrash: ["node-a"],
       patchStatus: 504
     })
-    sendCommand("restoreItems", "amazon-restore-timeout", { dedupKeys: ["node-a"] })
-    const result = await waitForCommandResult(
-      messages,
-      "restoreItems",
-      "amazon-restore-timeout"
+    const result = await runWithInstantCommandDelay(
+      () =>
+        sendCommand("restoreItems", "amazon-restore-timeout", {
+          dedupKeys: ["node-a"]
+        }),
+      () =>
+        waitForCommandResult(
+          messages,
+          "restoreItems",
+          "amazon-restore-timeout",
+          10000
+        )
     )
     expect(result).toMatchObject({
       success: false,
@@ -3603,7 +3762,7 @@ describe("restoreItems", () => {
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1)
     expect(trash).toEqual(new Set(["node-a"]))
     restore()
-  })
+  }, 10000)
 
   it("reports restore post-state per target when the PATCH changes only part of a batch", async () => {
     const { messages, restore } = collectMessages()
@@ -3613,13 +3772,18 @@ describe("restoreItems", () => {
         if (operation === "remove") currentTrash.delete(ids[0])
       }
     })
-    sendCommand("restoreItems", "amazon-restore-partial-transition", {
-      dedupKeys: ["node-a", "node-b"]
-    })
-    const result = await waitForCommandResult(
-      messages,
-      "restoreItems",
-      "amazon-restore-partial-transition"
+    const result = await runWithInstantCommandDelay(
+      () =>
+        sendCommand("restoreItems", "amazon-restore-partial-transition", {
+          dedupKeys: ["node-a", "node-b"]
+        }),
+      () =>
+        waitForCommandResult(
+          messages,
+          "restoreItems",
+          "amazon-restore-partial-transition",
+          10000
+        )
     )
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1)
     expect(trash).toEqual(new Set(["node-b"]))
@@ -3636,7 +3800,7 @@ describe("restoreItems", () => {
       }
     })
     restore()
-  })
+  }, 10000)
 
   it("rejects restore without valid dedupKeys", async () => {
     const { messages, restore } = collectMessages()

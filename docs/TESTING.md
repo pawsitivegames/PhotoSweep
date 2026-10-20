@@ -1,0 +1,22 @@
+# Test Commands
+
+## Fast developer feedback
+
+Run `npm run test:fast` while changing duplicate matching, keeper decisions, review actions, or Trash/Undo behavior. It runs eight focused unit and component files without the `pretest` GPTK build. Historical Node 24.20.0 evidence from 2026-10-17 passed 438 tests in 1.43 seconds; the then-current full suite passed 2,249 tests in 36.71 seconds. Those counts are not current-candidate evidence. See the [fast feedback log](../tmp/verification/fix-all-20261017T1230Z/test-fast.log) and [full unit log](../tmp/verification/fix-all-20261017T1230Z/npm-test-terminal.log).
+
+The set covers duplicate detection and classification, keeper decisions and their review UI, action-bar behavior, review preflight authorization (including provider, account, scope, and session drift), Trash dispatch authorization, and Trash/Undo lifecycle outcomes.
+
+This is a short regression check, not a replacement for the full suite.
+
+## Full and pre-release checks
+
+- `npm test` runs the complete Vitest unit suite. Its existing `pretest` hook builds Google Photos Toolkit and writes the test build flags.
+- `npm run test:unit:fast` runs the same unit suite while skipping only the 256-trace TLC replay. Use it for broad feedback during iteration; it does not satisfy the release matrix's complete `npm test` gate. The final release pass must run both `npm test` and `npm run verify:release`, which intentionally repeats the replay as a separately recorded proof. During fixes, use the focused test for the changed behavior and run `npm run test:fast` where its eight-file scope covers the affected flow; defer both full commands until the final pass.
+- `npm run test:mutation` runs the scoped semantic mutation gate. It uses up to four workers by default; `VERIFICATION_MUTATION_CONCURRENCY` can set one through four. Stryker results are cached under `tmp/verification/mutation-incremental/` by a compatibility fingerprint and Node version. Stryker incrementally tracks edits to the six mutation targets and selected test files; changes to shared setup/support code, dependencies, runner configuration, runtime, or relevant environment inputs select a fresh cache. Every run still performs Stryker's dry run, and each result remains bound to the full source fingerprint. The latest recorded Node 24.20.0 v2.3.6.20 campaign passed 4,171 mutants (94.85%) in 29.8 seconds on source fingerprint `b6b7713c36f5fff2d004e8c463010d1c17ca0ac9276f7ba9417a9680d12c5585`; it predates the 495da package fingerprint `906b8c027f6065c9ed6bea40427b338172f809aa555e985e04810454c9bbf286` and the current source fingerprint `ee9f59bd18a9f16ac2e382e0764e8216da38f53b06c94c66441aa3e95084c69a`; it certifies neither. All 215 non-killed mutants were reviewed and resolved, with zero timeouts, errors, critical survivors, unresolved survivors, or unreviewed mutants. Stryker reported no target files changed in its incremental report; thresholds were unchanged. A cold diagnostic cache refresh on 2026-10-17 took 18m15s and verified the canonical report before the policy fingerprint was rebound; no threshold was lowered. The current mutation run remains deferred until the final pass. See the [historical mutation result](../tmp/verification/runs/release-v2.3.6.20-20261020-02/mutation.json), [run log](../tmp/verification/runs/release-v2.3.6.20-20261020-02/command-mutation.log), and [triage rebind audit](../verification/evidence/mutation-policy-rebind-audit-20261020-v2.3.6.20.json).
+- `npm run test:integration` runs the Playwright integration suite. Its wrapper builds the test-entitlement extension, runs Playwright, then restores the production build; CI should call this wrapper directly.
+- `npm run verify:all`, `npm run verify:nightly`, and `npm run verify:release` keep their existing verification scopes.
+- Before packaging, run the appropriate verification scope, then `npm run package` and `npm run audit:extension-package` as separate checks.
+
+## Mutation triage recovery
+
+`npm run test:mutation` stops before Stryker when its review policy is stale or invalid. To intentionally produce a fresh raw report for manual triage review, run `node verification/run-mutation.mjs --diagnostic-refresh-triage`. This can take as long as a normal mutation run and always reports `FAIL`, even if the policy is current; it writes into a unique `tmp/verification/diagnostic-refresh/` directory and leaves the canonical gate result untouched. It cannot satisfy the mutation gate. Review and update the policy explicitly before a normal run can pass.

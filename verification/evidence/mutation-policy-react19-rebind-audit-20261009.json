@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-09T23:19:22.433520Z",
+  "status": "FORMAL_LOCAL_GATES_PASS_EXTERNAL_EVIDENCE_BLOCKED",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "version": "2.3.6",
+    "chromeVersion": "2.3.6.1",
+    "react": "19.3.0",
+    "reactDom": "19.3.0",
+    "sourceFingerprint": "4351e571a7fd0f25a4ee0ae945a903c2e5968afd29fbfdfd6cdb082e4de28726",
+    "sourceFileCount": 316,
+    "sourceDirty": true
+  },
+  "priorAcceptedMutationBinding": {
+    "sourceFingerprint": "d6476333a80b3e73405f6d8f7d55de67ec2392b81767e7b3f29695d04e260d38",
+    "canonicalRawReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "triagePolicyPath": "verification/evidence/mutation-triage-policy.json"
+  },
+  "sourceAlignment": {
+    "reviewedEntriesPreserved": 204,
+    "policyEntrySourceHashesMatchedCurrentMutatedFiles": true,
+    "mutatedFilesChecked": [
+      "lib/duplicate-review-session.ts",
+      "lib/keep-strategy.ts",
+      "lib/trash-lifecycle.ts",
+      "scripts/photo-provider-command-host.js"
+    ],
+    "priorStrykerTestSourcesMatchedCurrentFiles": 19,
+    "testSourceMismatches": 0,
+    "strykerVersion": "9.6.1",
+    "strykerFrameworkDependencies": {
+      "mocha": "10.3.0",
+      "typescript": "5.9.3"
+    }
+  },
+  "rebind": {
+    "fieldChanged": "sourceFingerprint",
+    "from": "d6476333a80b3e73405f6d8f7d55de67ec2392b81767e7b3f29695d04e260d38",
+    "to": "4351e571a7fd0f25a4ee0ae945a903c2e5968afd29fbfdfd6cdb082e4de28726",
+    "intermediateFingerprintRejectedByFormalPreflight": "a536e7ad69f1be12653f1844911227e13b95ff6c29936fd922c9abbbbb901698",
+    "rawReportSha256Preserved": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "newReviewsAdded": 0,
+    "classificationChanges": 0
+  },
+  "mutationComparison": {
+    "runDirectory": "tmp/verification/release-20261009-main-024d56c-candidate-v12/formal-release-source",
+    "runId": "20261009T231934Z-2472",
+    "canonicalReportSha256": "83bcca91c51a63e9fb0e603eb1b2374be6b9d19c21beedc5cd57bdd90bd1834d",
+    "rawFileSha256": "ff6d5bf091f06bbd2a1c12aca171c75f70ce21fd4e3a72f234b4c774fb516a98",
+    "mutantsTotal": 3996,
+    "statusCounts": {
+      "Killed": 3792,
+      "Survived": 181,
+      "NoCoverage": 23
+    },
+    "policyEntriesMatched": 204,
+    "policyEntriesMissing": 0,
+    "newNonKilledMutants": 0,
+    "criticalSurvivors": 0,
+    "sourceFingerprintMismatchWasTheOnlyMutationPolicyError": true
+  },
+  "formalValidation": {
+    "status": "BLOCKED_EXTERNAL_EVIDENCE",
+    "priorRunStatus": "FAIL_STALE_POLICY_SOURCE_FINGERPRINT",
+    "runDirectory": "tmp/verification/release-20261009-main-024d56c-candidate-v13/formal-release-source",
+    "runId": "20261010T001743Z-39091",
+    "sourceFingerprint": "4351e571a7fd0f25a4ee0ae945a903c2e5968afd29fbfdfd6cdb082e4de28726",
+    "sourceDrift": false,
+    "commandCount": 17,
+    "evidenceEntryCount": 54,
+    "mutationGate": {
+      "status": "PASS",
+      "mutationScorePercent": 94.89,
+      "coveredMutationScorePercent": 95.44,
+      "mutantsTotal": 3996,
+      "mutantsReviewed": 204,
+      "mutantsUnresolved": 0,
+      "criticalSurvivors": 0,
+      "policyStatus": "VALID"
+    }
+  },
+  "package": {
+    "status": "PASS",
+    "standaloneAudit": "PASS",
+    "standaloneAuditLog": "tmp/verification/release-20261009-main-024d56c-candidate-v13/quality/audit-extension-package-node24-v14.log",
+    "zipPath": "build/photosweep-cws-v2.3.6.1-sha256-25d9f651a161.zip",
+    "zipSha256": "25d9f651a161cd839209d48e0ac2769430bcda48de1db621adc93a548f7612e1",
+    "sourceFingerprint": "4351e571a7fd0f25a4ee0ae945a903c2e5968afd29fbfdfd6cdb082e4de28726",
+    "sourceStatusSha256": "ce6ad7ec17b417d0a9923593eb18e0c25eae6f72b4cf840ac84b37cefd4e9bbd",
+    "trackedDiffSha256": "986d79ee187cbebf9cf69c50adff2912c46590597e4c2f5587f580c59a5116fb",
+    "buildId": "f52833c9-c926-4b4c-afef-110f7319e57b",
+    "sourceDirty": true
+  },
+  "releaseBlockers": [
+    "LIVE-GOOGLE-01: exact-package disposable Google Photos round-trip evidence is stale or incomplete.",
+    "LIVE-ICLOUD-01: exact-package disposable iCloud Photos round-trip evidence is stale or incomplete.",
+    "LIVE-AMAZON-01: exact-package disposable Amazon Photos round-trip evidence is stale or incomplete.",
+    "VIDEO-PLAYBACK-live: exact-package playback evidence for Google Photos, iCloud Photos, and Amazon Photos is missing.",
+    "AMAZON-VIDEO-PLAYBACK-live: regional Amazon video playback manifest is missing.",
+    "The candidate package was built from a dirty working tree and the default Chrome profile still has PhotoSweep v2.3.6 installed; exact-package runtime proof is absent."
+  ],
+  "externalEvidenceNotAttempted": [
+    "No live Trash/Undo operations were attempted in this run because dedicated disposable provider fixtures were unavailable.",
+    "The v2.3.6.1 candidate was not installed over the default Chrome extension without explicit approval."
+  ],
+  "limitations": [
+    "The formal verification scope is BLOCKED, so the candidate is not release-ready or eligible for publication.",
+    "Exact-package Chrome runtime and live provider/video evidence still require external validation."
+  ]
+}

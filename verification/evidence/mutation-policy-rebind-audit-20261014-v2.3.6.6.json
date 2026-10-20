@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_NORMAL_MUTATION_REPLAY",
+  "createdAtUtc": "2026-10-14T23:47:49.934Z",
+  "candidate": {
+    "sourceFingerprint": "6fd5d395860e3365d00dde0c2a8cceb38e0ea0304be3e01c5d70ac2ded454702",
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "packagePath": "build/photosweep-cws-v2.3.6.6-sha256-158694038eb7.zip",
+    "packageSha256": "158694038eb7c028dbe8f07e231a2cfe0c7adfda04f8418226175251652f40ef",
+    "buildId": "db3453d3-fe58-4a68-9362-8a8f70cb44a9"
+  },
+  "priorAcceptedRun": {
+    "path": "tmp/verification/runs/20261014Tmutation-accepted-node24/mutation.json",
+    "sourceFingerprint": "4815cb323dce10c0007b8f2fa55690cafa17edf205283349aa8915c752a16ea4",
+    "canonicalReportSha256": "99096f53c14df0d86b48a4a2986441291793f3c0489412f04fb4a8153bd36e2f",
+    "mutantsTotal": 4108,
+    "nonKilledMutants": 211,
+    "resolved": 211,
+    "status": "PASS"
+  },
+  "diagnosticRun": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "status": "DIAGNOSTIC_FAIL_BY_DESIGN",
+    "resultPath": "tmp/verification/diagnostic-refresh/71b9d362-bd17-4f1b-a4cc-772fac2d7a20/mutation.json",
+    "rawReportPath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/diagnostic-refresh/71b9d362-bd17-4f1b-a4cc-772fac2d7a20/mutation-run/stryker-raw.json",
+    "rawReportFileSha256": "fa741e95b66d83645350e57f77cc14994aa75d8c7b649fc368a6fed9b9160e83",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "strykerVersion": "10.0.0",
+    "testFileCount": 19,
+    "testCaseCount": 1044,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "mutationScorePercent": 94.86,
+    "criticalSurvivors": 0,
+    "duration": "18 minutes and 57 seconds",
+    "sourceDrift": false,
+    "expectedDiagnosticGateFailure": "Diagnostic triage refresh produced evidence for manual review; this run cannot be accepted as PASS."
+  },
+  "comparison": {
+    "priorCanonicalReportSha256": "99096f53c14df0d86b48a4a2986441291793f3c0489412f04fb4a8153bd36e2f",
+    "currentCanonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "canonicalReportsMatch": false,
+    "canonicalDiffPaths": [
+      "$.testFiles.tests/commands/icloud-photos-commands.test.ts.source"
+    ],
+    "diffExplanation": "The only canonical report delta is the iCloud test source after replacing a fixed event-loop flush with waiting for its explicit provider result; normalized mutant records are identical.",
+    "currentNonKilledMutants": 211,
+    "currentNonKilledKeysMatchPriorAcceptedRun": true,
+    "exactPriorClassificationsAndEvidencePreserved": true,
+    "priorPolicyEntries": 209,
+    "currentNonKilledEntries": 211,
+    "existingPolicyEntriesMatchPriorReviewedEvidence": 209,
+    "restoredPreviouslyReviewedEntries": [
+      {
+        "id": "3208",
+        "classification": "DUPLICATE"
+      },
+      {
+        "id": "3209",
+        "classification": "DUPLICATE"
+      }
+    ],
+    "thresholdsChanged": false,
+    "sourceDrift": false
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256",
+      "entries"
+    ],
+    "sourceFingerprint": {
+      "from": "b9901d149a3a836832b71d6884ec11196ee64b6485a503776642a11e1d8d29b5",
+      "to": "6fd5d395860e3365d00dde0c2a8cceb38e0ea0304be3e01c5d70ac2ded454702"
+    },
+    "rawReportSha256": {
+      "from": "4a3a4ce2eaf2cff753abca635e87247264d5b9f990ed9bc86d4a8f9028f49ccb",
+      "to": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0"
+    },
+    "entries": {
+      "from": 209,
+      "to": 211,
+      "added": [
+        "3208",
+        "3209"
+      ],
+      "existingClassificationsChanged": 0
+    }
+  },
+  "validationReplay": {
+    "command": "npm run test:mutation",
+    "resultPath": "tmp/verification/runs/20261014Tmutation-upgrade-replay-node24-v1/mutation.json",
+    "rawReportPath": "/Users/mustafadungarpurwala/Dev/GitHub/PhotoDuplicateFinder/tmp/verification/runs/20261014Tmutation-upgrade-replay-node24-v1/mutation-run/stryker-raw.json",
+    "rawReportFileSha256": "c5219bce68bc7ad21791bb0b09bd9dd98d396f6996b7ef26c2243d9a95147b50",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "sourceFingerprint": "6fd5d395860e3365d00dde0c2a8cceb38e0ea0304be3e01c5d70ac2ded454702",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "durationMs": 22817,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsResolved": 211,
+    "mutantsUnresolved": 0,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "criticalSurvivors": 0,
+    "thresholds": {
+      "minimumKilledPercent": 90,
+      "maximumCriticalSurvivors": 0
+    }
+  },
+  "checks": {
+    "packageDigestMatchesSidecar": true,
+    "diagnosticAndReplayCanonicalReportsMatch": true,
+    "allCurrentNonKilledMutantsHavePriorReviewedEvidence": true,
+    "exactTriageSetResolved": true,
+    "thresholdsUnchanged": true,
+    "replayPassesWithoutSourceDrift": true
+  }
+}

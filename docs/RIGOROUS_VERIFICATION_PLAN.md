@@ -6,7 +6,7 @@ Status: proposed verification contract, 2026-09-15. This document is not a proof
 
 This checkout is a Plasmo/React/TypeScript Chrome MV3 extension. Its safety boundary includes duplicate classification, review selections, provider/account binding, Trash, Undo, persisted recovery, and paid access. Existing working-tree changes were inspected and preserved.
 
-Existing infrastructure includes Vitest unit/component/provider-command/server tests, Playwright extension integration tests, gated live Google Photos tests, performance benchmarks, and a paid-conversion evidence matrix. `package.json` and `vitest.config.ts` do not currently configure fast-check, Stryker, or a formal model checker. No test suite was executed for this planning pass; earlier result counts are not a current baseline.
+Existing infrastructure includes Vitest unit/component/provider-command/server tests, Playwright extension integration tests, gated live Google Photos tests, performance benchmarks, and a paid-conversion evidence matrix. `package.json` and `vitest.config.mts` do not currently configure fast-check, Stryker, or a formal model checker. No test suite was executed for this planning pass; earlier result counts are not a current baseline.
 
 ## What a verification claim means
 

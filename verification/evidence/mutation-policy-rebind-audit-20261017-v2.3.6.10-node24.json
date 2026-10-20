@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-17T12:40:01.134Z",
+  "candidate": {
+    "chromeVersion": "2.3.6.10",
+    "artifact": "build/photosweep-cws-v2.3.6.10-sha256-1d1fa665d34d.zip",
+    "artifactSha256": "1d1fa665d34dbfa836201790bdd54338a1d968ccd6140c42ef442f29f65c5c82",
+    "sourceFingerprint": "89d4259da826a39ccf9a2979c29efd05c4a7a1ccb50ef767a830785754e0d5b5",
+    "buildId": "750104a4-5117-4bbc-ab66-4b70ad8e23ba",
+    "sourceFileCount": 342
+  },
+  "mutationPolicy": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorSourceFingerprint": "61cf7b98f2b9ab3a1c5fc03535b95479340f5906b5e717e8791040cb160a5942",
+    "currentSourceFingerprint": "89d4259da826a39ccf9a2979c29efd05c4a7a1ccb50ef767a830785754e0d5b5",
+    "onlyChangedField": "sourceFingerprint",
+    "canonicalReportSha256Preserved": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+    "reviewedEntriesPreserved": 211,
+    "thresholdChanges": 0,
+    "registeredSourceRootsChanged": false
+  },
+  "diagnosticRefresh": {
+    "command": "npm run test:mutation -- --diagnostic-refresh-triage",
+    "resultUse": "diagnostic-only; not a release PASS",
+    "wallTimeSeconds": 1095,
+    "canonicalReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "sourceDrift": false,
+    "output": "tmp/verification/diagnostic-refresh/2c4f17c5-b590-4233-ba30-2896ceefe981/"
+  },
+  "releaseMutationRun": {
+    "runId": "20261017T123405Z-34161",
+    "command": "npm run verify:release -- --out-dir tmp/verification/fix-all-release-20261017T1230Z",
+    "status": "PASS",
+    "sourceFingerprint": "89d4259da826a39ccf9a2979c29efd05c4a7a1ccb50ef767a830785754e0d5b5",
+    "durationSeconds": 29.19,
+    "testFileCount": 20,
+    "testCaseCount": 1166,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42,
+    "nonKilledDisposition": {
+      "equivalent": 147,
+      "duplicate": 27,
+      "unreachable": 37
+    },
+    "unresolved": 0,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "sourceDrift": false,
+    "cacheFingerprint": "7352f72007ccbefd972da89baeecebd38334d26ee1e90961217748e963a361b1",
+    "rawReportSha256": "d73c91b0cb35bd4054697912e6cefe36169e1a1cb466ba40bb8ca1c0eacb6107",
+    "policySha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3"
+  }
+}

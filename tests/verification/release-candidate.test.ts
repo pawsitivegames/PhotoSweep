@@ -7,12 +7,47 @@ import { runInNewContext } from "node:vm"
 import { describe, expect, it } from "vitest"
 
 import { createCwsArtifactMetadata, cwsArtifactFileName, cwsArtifactMetadataFileName } from "../../tools/cws-artifact.mjs"
-import { verifyFrozenReleaseCandidate } from "../../verification/release-candidate.mjs"
+import {
+  releaseCandidateCliExitCode,
+  verifyFrozenReleaseCandidate
+} from "../../verification/release-candidate.mjs"
 import { computeSourceFingerprint } from "../../verification/source-fingerprint.mjs"
 
 const sha256 = (value: string | Buffer) => createHash("sha256").update(value).digest("hex")
 const buildId = "123e4567-e89b-42d3-a456-426614174000"
 const otherBuildId = "123e4567-e89b-42d3-a456-426614174001"
+
+describe("frozen release candidate CLI exit status", () => {
+  const structurallyValidCandidate = {
+    status: "BLOCKED",
+    problems: [],
+    staticIdentityProof: { status: "BLOCKED" }
+  }
+
+  it("allows structural validation to continue while runtime identity stays blocked", () => {
+    expect(releaseCandidateCliExitCode(structurallyValidCandidate)).toBe(2)
+    expect(
+      releaseCandidateCliExitCode(structurallyValidCandidate, {
+        allowStaticIdentityBlocked: true
+      })
+    ).toBe(0)
+  })
+
+  it("never accepts structural package errors in blocked-runtime mode", () => {
+    expect(
+      releaseCandidateCliExitCode(
+        { ...structurallyValidCandidate, problems: ["ZIP metadata mismatch"] },
+        { allowStaticIdentityBlocked: true }
+      )
+    ).toBe(2)
+    expect(
+      releaseCandidateCliExitCode(
+        { ...structurallyValidCandidate, status: "FAIL" },
+        { allowStaticIdentityBlocked: true }
+      )
+    ).toBe(1)
+  })
+})
 
 function parcelWorker(
   buildId: string,

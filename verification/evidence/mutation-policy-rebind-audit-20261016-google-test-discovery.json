@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "createdAtUtc": "2026-10-16T10:34:48.309Z",
+  "candidate": {
+    "sourceCommit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "sourceFingerprint": "2c5036aab71b69cb2a5ed374eed539283716ddedae8f7b75560a4dad5adc2437",
+    "sourceFileCount": 336,
+    "node": "v24.20.0",
+    "workingTreeDirty": true,
+    "version": "2.3.6"
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "028a12b101f807ff09c7c68a306b306b9acef9403a132ce7d81f6e0b7561ce2c",
+    "currentPolicySha256": "8381806565be57868aadd3fbb5e7248644e65090246b80c4440b47e20442f742",
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256"
+    ],
+    "sourceFingerprintFrom": "dc41d6cceddd8f1d73e0b24f11e1e32eab59a7a7424f7f5e96f5681f986073e2",
+    "sourceFingerprintTo": "2c5036aab71b69cb2a5ed374eed539283716ddedae8f7b75560a4dad5adc2437",
+    "canonicalReportSha256From": "d408a447c4a8133b63835f6402d10200f41b0fbe98a1df5b94d6e66c984b1114",
+    "canonicalReportSha256To": "03a3bf02e8733ab362d858537b2469c69eb28af7761a60d165be96e1d0ad5395",
+    "priorAcceptedRawReportFileSha256": "b7cca73a545b818373fee36e3e7804715c8a8420a418276ecb0270c0dc94c5a8",
+    "diagnosticRawReportFileSha256": "1133ff45e0c8dc69ec09c11573d6a81528e85519acf5d63922957fad38054cbf",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211,
+    "classifications": {
+      "DUPLICATE": 27,
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37
+    },
+    "statusClassifications": {
+      "NoCoverage:EQUIVALENT": 2,
+      "NoCoverage:UNREACHABLE": 22,
+      "Survived:DUPLICATE": 27,
+      "Survived:EQUIVALENT": 145,
+      "Survived:UNREACHABLE": 15
+    }
+  },
+  "comparison": {
+    "priorAcceptedResultPath": "tmp/verification/mutation-detector-release-20261016-2/mutation.json",
+    "priorRawReportPath": "tmp/verification/mutation-detector-release-20261016-2/stryker-raw.json",
+    "diagnosticResultPath": "tmp/verification/diagnostic-refresh/1acaee7e-ca92-42f0-b092-d42a4d342464/mutation.json",
+    "diagnosticRawReportPath": "tmp/verification/diagnostic-refresh/1acaee7e-ca92-42f0-b092-d42a4d342464/mutation-run/stryker-raw.json",
+    "priorMutantCount": 4108,
+    "currentMutantCount": 4108,
+    "mutantIdentityOrStatusChanges": 0,
+    "targetSourceHashes": {
+      "lib/duplicate-review-session.ts": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+      "lib/keep-strategy.ts": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "lib/review-preflight.ts": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+      "lib/trash-dispatch-guard.ts": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a",
+      "lib/trash-lifecycle.ts": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056",
+      "scripts/photo-provider-command-host.js": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c"
+    },
+    "targetSourceHashesUnchanged": true,
+    "testInventoryChanges": [
+      "Stryker now discovers tests/commands/google-photos-commands.test.ts after removing imports from the ignored Google-Photos-Toolkit submodule; inventory increased from 19 files / 1046 tests to 20 files / 1164 tests."
+    ]
+  },
+  "diagnosticRun": {
+    "node": "v24.20.0",
+    "resultPath": "tmp/verification/diagnostic-refresh/1acaee7e-ca92-42f0-b092-d42a4d342464/mutation.json",
+    "rawReportSha256": "1133ff45e0c8dc69ec09c11573d6a81528e85519acf5d63922957fad38054cbf",
+    "canonicalReportSha256": "03a3bf02e8733ab362d858537b2469c69eb28af7761a60d165be96e1d0ad5395",
+    "diagnosticStatus": "FAIL_BY_DESIGN",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "mutantsTimedOut": 0,
+    "mutantsErrored": 0,
+    "criticalSurvivors": 0,
+    "mutationScorePercent": 94.86,
+    "coveredMutationScorePercent": 95.42
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 90,
+    "break": 90,
+    "maximumCriticalSurvivors": 0
+  },
+  "checks": {
+    "allCurrentNonKilledMutantsMatchPreviouslyReviewedIdentityKeys": true,
+    "all4108MutantIdentitiesAndStatusesMatchPriorAcceptedReport": true,
+    "targetSourceHashesUnchanged": true,
+    "diagnosticRunCannotBeAcceptedAsPass": true,
+    "mutationThresholdsUnchanged": true,
+    "normalMutationReplayRequired": true,
+    "normalMutationReplayAccepted": true,
+    "currentSourceFingerprintMatchesAcceptedRun": true,
+    "triagePolicyValidAndAllNonKilledResolved": true
+  },
+  "normalMutationReplay": {
+    "resultPath": "tmp/verification/mutation-google-test-discovery-20261016/mutation.json",
+    "node": "v24.20.0",
+    "runId": "20261016T-google-discovery-01",
+    "status": "PASS",
+    "policyStatus": "VALID",
+    "sourceDrift": false,
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsCovered": 4084,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "tests": 1164,
+    "strykerInitialRunTests": 1166,
+    "testFiles": 20,
+    "filesMutated": 6,
+    "mutationScorePercent": 94.86,
+    "criticalSurvivors": 0,
+    "timedOut": 0,
+    "errored": 0,
+    "reviewedNonKilled": 211,
+    "resolvedNonKilled": 211,
+    "unresolvedNonKilled": 0,
+    "rawReportSha256": "09d3d66acefc7e9ca690a209e1085a0f624d04104c743d70f768460e933a46a2",
+    "mutationTriageSha256": "5c0d2229dfa004b1b7b0a2d0ae7246e15f25c48ddfa745b9daeb484ffef96b6f",
+    "incrementalCacheFingerprint": "5f942c04a171b25de3bd9a8043f217c512002e4b42301c39f73a1f1c9839719f",
+    "strykerRuntime": "Done in 27 seconds; initial dry run 1,166 tests in 24 seconds."
+  }
+}

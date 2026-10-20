@@ -20,6 +20,7 @@ interface Props {
   groupCount?: number
   totalGroupCount?: number
   availableGroupCount?: number
+  hiddenAvailableGroupCount?: number
   reviewedGroupCount?: number
   selectedShownGroupCount?: number
   includedGroupCount?: number
@@ -69,6 +70,7 @@ function renderActionBar(props: Props = {}) {
           groupCount={merged.groupCount}
           totalGroupCount={merged.totalGroupCount}
           availableGroupCount={merged.availableGroupCount}
+          hiddenAvailableGroupCount={merged.hiddenAvailableGroupCount}
           reviewedGroupCount={merged.reviewedGroupCount}
           selectedShownGroupCount={selectedShownGroupCount}
           includedGroupCount={merged.includedGroupCount}
@@ -96,22 +98,23 @@ function renderActionBar(props: Props = {}) {
 // ============================================================
 
 describe("ActionBar", () => {
-  it("makes keeper choice and cleanup selection separate ordered steps", () => {
-    renderActionBar({ compact: true })
+  it("keeps keeper strategy and cleanup inclusion as separate actions", () => {
+    const onIncludeAllEligible = vi.fn()
+    renderActionBar({ compact: true, onIncludeAllEligible })
 
-    expect(screen.getByText("1. Choose keeper photos")).toBeInTheDocument()
-    expect(screen.getByText("2. Include sets in cleanup")).toBeInTheDocument()
+    expect(screen.getByText("3 sets to review")).toBeInTheDocument()
     expect(
-      screen.getByText(/This does not include sets in cleanup\./)
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", {
-        name: "Include all 3 shown sets in cleanup"
-      })
+      screen.getByRole("button", { name: "Choose keepers automatically" })
     ).toHaveAttribute(
       "title",
-      "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
+      "Choose a keeper rule across the scan. This does not change which sets are included in cleanup."
     )
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Include all 3 available sets in cleanup"
+      })
+    )
+    expect(onIncludeAllEligible).toHaveBeenCalledOnce()
   })
 
   describe("stats display", () => {
@@ -226,6 +229,28 @@ describe("ActionBar", () => {
       expect(onTrash).toHaveBeenCalledOnce()
       expect(onReviewNext).toHaveBeenCalledOnce()
     })
+
+    it("announces the remaining count when the compact action says Review next", () => {
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            includedGroupCount={2}
+            duplicateCount={4}
+            reviewedGroupCount={1}
+            totalGroupCount={3}
+            onReviewNext={vi.fn()}
+            onReviewAll={vi.fn()}
+            onTrash={vi.fn()}
+          />
+        </ThemeProvider>
+      )
+
+      const reviewNext = screen.getByRole("button", {
+        name: "Review next set (2 left)"
+      })
+      expect(reviewNext).toHaveTextContent("Review next")
+    })
+
     it("is enabled when duplicateCount > 0", () => {
       render(
         <ThemeProvider theme={theme}>
@@ -357,9 +382,8 @@ describe("ActionBar", () => {
         onIncludeAllEligible: vi.fn()
       })
 
-      expect(
-        screen.getByText(/4 of 4 available sets included/)
-      ).toBeInTheDocument()
+      expect(screen.getByText("4/4 included")).toBeInTheDocument()
+      expect(screen.getByText("All available included")).toBeInTheDocument()
       expect(
         screen.queryByRole("button", {
           name: "All 4 available sets already included in cleanup"
@@ -372,30 +396,29 @@ describe("ActionBar", () => {
       ).not.toBeInTheDocument()
     })
 
-    it("announces when every shown set is included while keeping compact actions concise", () => {
+    it("keeps scan-wide inclusion available when all shown sets are included", () => {
+      const onIncludeAllEligible = vi.fn()
       renderActionBar({
         compact: true,
         groupCount: 3,
         availableGroupCount: 5,
         selectedShownGroupCount: 3,
         includedGroupCount: 3,
-        onIncludeAllEligible: vi.fn()
+        onIncludeAllEligible
       })
 
-      expect(screen.getByText(/All 3 shown sets included/)).toBeInTheDocument()
-      expect(
-        screen.queryByRole("button", {
-          name: "All 3 shown sets already included in cleanup"
-        })
-      ).not.toBeInTheDocument()
+      expect(screen.getByText("3/5 included")).toBeInTheDocument()
       expect(
         screen.getByRole("button", {
-          name: "Remove 3 shown sets from cleanup"
+          name: "Include all 5 available sets in cleanup"
         })
       ).toBeEnabled()
-      expect(screen.getByRole("button", { name: "Remove 3 shown sets from cleanup" })).toHaveTextContent(
-        "Remove shown sets"
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Include all 5 available sets in cleanup"
+        })
       )
+      expect(onIncludeAllEligible).toHaveBeenCalledOnce()
     })
 
     it("calls onRescan when Scan again is clicked", () => {
@@ -515,23 +538,30 @@ describe("ActionBar", () => {
     })
 
     it("keeps compact toolbar actions accessible by name", () => {
-      const { callbacks } = renderActionBar({ compact: true })
+      const { callbacks } = renderActionBar({
+        compact: true,
+        hiddenAvailableGroupCount: 2
+      })
 
-      fireEvent.click(screen.getByRole("button", { name: /More actions/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More review actions/i }))
       fireEvent.click(screen.getByRole("menuitem", { name: /Scan again/i }))
-      fireEvent.click(screen.getByRole("button", { name: /More actions/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More review actions/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Export audit report/i })
       )
-      fireEvent.click(screen.getByRole("button", { name: /More actions/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More review actions/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Export spreadsheet/i })
       )
       fireEvent.click(
-        screen.getByRole("button", { name: /Include all 3 shown sets in cleanup/i })
+        screen.getByRole("button", { name: /More review actions/i })
       )
       fireEvent.click(
-        screen.getByRole("button", { name: /Remove 3 shown sets from cleanup/i })
+        screen.getByRole("menuitem", { name: /Include shown sets in cleanup/i })
+      )
+      fireEvent.click(screen.getByRole("button", { name: /More review actions/i }))
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: /Remove shown sets from cleanup/i })
       )
 
       expect(callbacks.onRescan).toHaveBeenCalledOnce()

@@ -2166,6 +2166,43 @@ function commandHostFixture() {
 }
 
 describe("mutation closure: command host", () => {
+  it("keeps the provider-session cache separate from empty-symbol page state", () => {
+    const collisionKey = Symbol.for("")
+    const previousDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      collisionKey
+    )
+    if (previousDescriptor && !previousDescriptor.configurable) {
+      throw new Error("The empty global symbol slot must be configurable for this test.")
+    }
+
+    const pageSessions = new WeakMap<object, string>()
+    const source: FakeWindow = {
+      addEventListener() {},
+      postMessage() {}
+    }
+    pageSessions.set(source, "ambient-page-session")
+
+    try {
+      Object.defineProperty(globalThis, collisionKey, {
+        value: pageSessions,
+        configurable: true,
+        writable: true
+      })
+      if (!createCommandHost) throw new Error("command host factory unavailable")
+
+      const host = createCommandHost(source)
+
+      expect(host.providerSessionId).not.toBe("ambient-page-session")
+    } finally {
+      if (previousDescriptor) {
+        Object.defineProperty(globalThis, collisionKey, previousDescriptor)
+      } else {
+        Reflect.deleteProperty(globalThis, collisionKey)
+      }
+    }
+  })
+
   it("posts result, error, and progress envelopes with optional payloads", () => {
     const fixture = commandHostFixture()
     fixture.host.postResult("scan", "request-1", { count: 2 })

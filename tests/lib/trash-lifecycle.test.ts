@@ -195,6 +195,81 @@ describe("TrashLifecycle", () => {
     expect(audit.deleteReports).toHaveLength(1)
   })
 
+  it("stops dispatch when current authorization is unavailable", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+    const plan = reviewSession.trashPlan(groups)
+    const expected = captureTrashDispatchAuthorization({
+      generation: 1,
+      plan,
+      provider: plan.provider
+    })
+
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 1_000,
+        retryCount: 2,
+        retryBackoffMs: 1_000
+      },
+      dispatchAuthorization: {
+        expected,
+        current: () => null
+      }
+    })
+
+    expect(command).toBeNull()
+    expect(lifecycle.isPending()).toBe(false)
+    expect(audit.deleteReports).toHaveLength(1)
+  })
+
+  it("dispatches when current authorization still matches after the audit", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { groups, mediaItems, reviewSession } = fixture()
+    const plan = reviewSession.trashPlan(groups)
+    const expected = captureTrashDispatchAuthorization({
+      generation: 1,
+      plan,
+      provider: plan.provider
+    })
+    let authorizationCalls = 0
+
+    const command = await lifecycle.begin({
+      plan,
+      reviewSession,
+      groups,
+      snapshot: { mediaItems, groups, totalItems: 2 },
+      batchPolicy: {
+        batchSize: 25,
+        batchPauseMs: 1_000,
+        retryCount: 2,
+        retryBackoffMs: 1_000
+      },
+      dispatchAuthorization: {
+        expected,
+        current: () => {
+          authorizationCalls += 1
+          expect(audit.deleteReports).toHaveLength(1)
+          return expected
+        }
+      }
+    })
+
+    expect(authorizationCalls).toBe(1)
+    expect(command).toMatchObject({
+      provider: "google",
+      totalToTrash: 1,
+      args: { mediaKeysToTrash: ["trash"] }
+    })
+    expect(lifecycle.isPending()).toBe(true)
+  })
+
   it("requires a current unknown-favorite acknowledgement at dispatch", async () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
@@ -1905,6 +1980,36 @@ describe("TrashLifecycle", () => {
     })
   })
 
+  it("keeps an already-dispatched trash mutation reconcilable after context invalidation", async () => {
+    const audit = inMemoryAudit()
+    const lifecycle = new TrashLifecycle(audit.adapter)
+    const { command } = await begin(lifecycle)
+
+    expect(lifecycle.invalidateContext()).toBe(true)
+    expect(lifecycle.isPending(command.requestId)).toBe(true)
+
+    await expect(
+      lifecycle.reconcile({
+        requestId: command.requestId,
+        success: true,
+        data: {
+          trashedKeys: ["trash"],
+          trashedDedupKeys: ["dedup-trash"]
+        }
+      })
+    ).resolves.toMatchObject({
+      kind: "complete",
+      movedMediaKeys: ["trash"],
+      movedDedupKeys: ["dedup-trash"]
+    })
+    expect(audit.resultReports).toHaveLength(1)
+    expect(audit.resultReports[0]).toMatchObject({
+      status: "complete",
+      movedMediaKeys: ["trash"]
+    })
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
   it("does not consume a pending operation for a mismatched request ID", async () => {
     const audit = inMemoryAudit()
     const lifecycle = new TrashLifecycle(audit.adapter)
@@ -2180,6 +2285,14 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     return { lifecycle, undo, requestId: "restore-boundary" }
   }
 
+  it("clears a pending restore when context changes without a Trash request", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a"])
+
+    expect(lifecycle.isPending(requestId)).toBe(true)
+    expect(lifecycle.invalidateContext()).toBe(false)
+    expect(lifecycle.isPending()).toBe(false)
+  })
+
   const fact = (operation: "trash" | "restore", targetKey: string, status: "confirmed" | "failed" | "unknown") =>
     ({ operation, targetKey, status })
   const callableFact = (
@@ -2187,6 +2300,28 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     targetKey: string,
     status: "confirmed" | "failed" | "unknown"
   ) => Object.assign(() => undefined, fact(operation, targetKey, status))
+
+  it("does not retain a not-dispatched marker when restore progress already confirmed the target", () => {
+    const { lifecycle, requestId } = setupRestore(["restore-a"])
+    lifecycle.recordRestoreProgress({
+      requestId,
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })
+
+    const terminal = lifecycle.reconcileRestore({
+      requestId,
+      success: true,
+      outcomes: [fact("restore", "restore-a", "failed")],
+      notDispatchedDedupKeys: ["restore-a"]
+    })
+
+    expect(terminal).toMatchObject({
+      kind: "complete",
+      restoredDedupKeys: ["restore-a"],
+      notDispatchedDedupKeys: [],
+      outcomes: [fact("restore", "restore-a", "confirmed")]
+    })
+  })
 
   it("partitions an out-of-order terminal into moved, failed, unknown and never-dispatched identities", async () => {
     const { lifecycle, audit, requestId } = await setupTrash()
@@ -2539,6 +2674,23 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     } })).kind).not.toBe("complete")
   })
 
+  it("flags duplicate not-dispatched identities even when the provider reports failure", async () => {
+    const { lifecycle, requestId, audit } = await setupTrash(["a"])
+    await lifecycle.reconcile({
+      requestId,
+      success: false,
+      data: {
+        dryRun: true,
+        outcomes: [fact("trash", "d-a", "failed")],
+        notDispatchedDedupKeys: ["d-a", "d-a"]
+      }
+    })
+
+    expect(audit.resultReports[0]?.error).toBe(
+      "Trash provider response included identities outside the confirmed request."
+    )
+  })
+
   it("accepts an empty not-dispatched list when every requested target is confirmed", async () => {
     const { lifecycle, requestId } = await setupTrash(["a", "b"])
     const result = await lifecycle.reconcile({
@@ -2690,6 +2842,31 @@ describe("TrashLifecycle — target outcomes and durable recovery", () => {
     lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "unknown")] } })
     lifecycle.recordProgress({ requestId, data: { outcomes: [fact("trash", "d-a", "confirmed")] } })
     expect(await lifecycle.reconcile({ requestId, success: true })).toMatchObject({ kind: "complete", movedDedupKeys: ["d-a"] })
+  })
+
+  it("keeps conflicting duplicate progress quarantined against a later confirmation", async () => {
+    const { lifecycle, requestId } = await setupTrash(["a"])
+    expect(lifecycle.recordProgress({
+      requestId,
+      data: {
+        outcomes: [
+          fact("trash", "d-a", "confirmed"),
+          fact("trash", "d-a", "failed")
+        ]
+      }
+    })).toBe(true)
+    expect(lifecycle.recordProgress({
+      requestId,
+      data: { outcomes: [fact("trash", "d-a", "confirmed")] }
+    })).toBe(true)
+
+    const result = await lifecycle.timeout({ requestId, error: "network lost" })
+    expect(result).toMatchObject({
+      kind: "unknown",
+      movedDedupKeys: [],
+      unknownDedupKeys: ["d-a"],
+      undo: null
+    })
   })
 
   it("preserves the provider reason on a first unknown progress fact", async () => {

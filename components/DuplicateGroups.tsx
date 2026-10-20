@@ -24,8 +24,8 @@ import {
   useState,
   type CSSProperties
 } from "react"
-import { VariableSizeList } from "react-window"
-import type { ListChildComponentProps } from "react-window"
+import { List, useListRef } from "react-window"
+import type { RowComponentProps } from "react-window"
 
 import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
 import {
@@ -469,20 +469,23 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             tabIndex={-1}
             onChange={() => onToggleGroup(group.id)}
             onClick={(e) => e.stopPropagation()}
-            inputProps={{
-              "aria-hidden": true
+            slotProps={{
+              input: { "aria-hidden": true }
             }}
             sx={sxCheckbox}
           />
         )}
         <Box sx={{ flex: 1, minWidth: compact ? 0 : 180 }}>
-          <Typography variant="subtitle2" fontWeight={700}>
+          <Typography variant="subtitle2" sx={{
+            fontWeight: 700
+          }}>
             {group.mediaKeys.length} {groupItemKind(group, mediaItems)}
           </Typography>
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={compact ? { display: "block", lineHeight: 1.35 } : undefined}>
+            sx={[{
+              color: "text.secondary"
+            }, compact ? { display: "block", lineHeight: 1.35 } : undefined]}>
             Select photos to choose keepers. Include this set in cleanup; it
             adds eligible unkept copies to the Trash proposal and marks the
             set reviewed.
@@ -502,9 +505,11 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
         <Stack
           direction="row"
           spacing={0.75}
-          flexWrap="wrap"
           useFlexGap
-          sx={{ width: compact ? "100%" : { xs: "100%", sm: "auto" } }}>
+          sx={{
+            flexWrap: "wrap",
+            width: compact ? "100%" : { xs: "100%", sm: "auto" }
+          }}>
           <Chip
             label={`${Math.round(group.similarity * 100)}% match`}
             size="small"
@@ -696,25 +701,31 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                     {item.fileName && (
                       <Typography
                         variant="caption"
-                        display="block"
                         noWrap
-                        title={item.fileName}>
+                        title={item.fileName}
+                        sx={{
+                          display: "block"
+                        }}>
                         {item.fileName}
                       </Typography>
                     )}
                     {item.resWidth && item.resHeight && (
                       <Typography
                         variant="caption"
-                        color="text.secondary"
-                        sx={{ fontFamily: "monospace" }}>
+                        sx={{
+                          color: "text.secondary",
+                          fontFamily: "monospace"
+                        }}>
                         {item.resWidth}×{item.resHeight}
                       </Typography>
                     )}
                     {item.timestamp ? (
                       <Typography
                         variant="caption"
-                        color="text.secondary"
-                        display="block">
+                        sx={{
+                          color: "text.secondary",
+                          display: "block"
+                        }}>
                         <span style={{ opacity: 0.6 }}>
                           {item.timestampProvenance === "capture"
                             ? "Taken "
@@ -737,8 +748,10 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                     {item.creationTimestamp ? (
                       <Typography
                         variant="caption"
-                        color="text.secondary"
-                        display="block">
+                        sx={{
+                          color: "text.secondary",
+                          display: "block"
+                        }}>
                         <span style={{ opacity: 0.6 }}>
                           {item.creationTimestampProvenance === "creation"
                             ? "Uploaded "
@@ -760,8 +773,10 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                     ) : null}
                     <Typography
                       variant="caption"
-                      color="text.secondary"
-                      display="block">
+                      sx={{
+                        color: "text.secondary",
+                        display: "block"
+                      }}>
                       {storageStatusLabel(item)}
                     </Typography>
                     {favoriteProtected ? (
@@ -822,8 +837,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                       <Typography
                         id={lastKeeperHintId}
                         variant="caption"
-                        color="text.secondary"
                         sx={{
+                          color: "text.secondary",
                           maxWidth: "100%",
                           whiteSpace: "normal",
                           lineHeight: 1.35
@@ -849,7 +864,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 <OpenInFullIcon sx={sxOpenInFullIcon} />
               </IconButton>
             </Box>
-          )
+          );
         })}
       </Box>
       {!readOnly && (
@@ -880,7 +895,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
         </Box>
       )}
     </Paper>
-  )
+  );
 })
 
 interface DuplicateGroupsProps {
@@ -928,16 +943,21 @@ interface VirtualGroupListData {
   readOnly: boolean
 }
 
+interface VirtualGroupListRowProps {
+  data: VirtualGroupListData
+}
+
 function VirtualGroupRow({
+  ariaAttributes,
   index,
   style,
   data
-}: ListChildComponentProps<VirtualGroupListData>) {
+}: RowComponentProps<VirtualGroupListRowProps>) {
   const group = data.groups[index]
   if (!group) return null
 
   return (
-    <Box style={style} sx={{ pr: 0.5 }}>
+    <Box {...ariaAttributes} style={style} sx={{ pr: 0.5 }}>
       <DuplicateGroupRow
         group={group}
         mediaItems={data.mediaItems}
@@ -1017,7 +1037,7 @@ export function DuplicateGroups({
   } | null>(null)
   const { ref: listContainerRef, width: listWidth } =
     useMeasuredWidth<HTMLDivElement>()
-  const listRef = useRef<VariableSizeList<VirtualGroupListData>>(null)
+  const listRef = useListRef(null)
 
   const onOpenViewer = useCallback((group: DuplicateGroup, index: number) => {
     setViewerState({ group, index })
@@ -1153,10 +1173,6 @@ export function DuplicateGroups({
   )
 
   useEffect(() => {
-    listRef.current?.resetAfterIndex(0, true)
-  }, [listGroups, listWidth])
-
-  useEffect(() => {
     if (!focusGroupId) return
     const groupIndex = listGroups.findIndex(
       (group) => group.id === focusGroupId
@@ -1190,7 +1206,7 @@ export function DuplicateGroups({
       return
     }
 
-    listRef.current?.scrollToItem(groupIndex, "start")
+    listRef.current?.scrollToRow({ index: groupIndex, align: "start" })
     let secondFrame: number | null = null
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
@@ -1208,15 +1224,19 @@ export function DuplicateGroups({
     const totalItems = Object.keys(mediaItems).length
     return (
       <Box sx={{ textAlign: "center", py: 8 }}>
-        <Typography variant="h6" color="text.secondary" gutterBottom>
+        <Typography variant="h6" gutterBottom sx={{
+          color: "text.secondary"
+        }}>
           No duplicates found
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Checked {totalItems.toLocaleString()} photos and videos. No duplicate
           sets were found with the current match sensitivity.
         </Typography>
       </Box>
-    )
+    );
   }
 
   return (
@@ -1231,13 +1251,17 @@ export function DuplicateGroups({
         }}>
         <Box>
           {!compact && (
-            <Typography variant="h6" fontWeight={700}>
+            <Typography variant="h6" sx={{
+              fontWeight: 700
+            }}>
               {heading ??
                 `${groups.length} Duplicate Set${groups.length !== 1 ? "s" : ""} to Review`}
             </Typography>
           )}
           {!compact && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               First choose the photos to keep. Then include sets in cleanup.
               Only included sets add eligible unkept copies to the Trash
               proposal; nothing moves until you confirm.
@@ -1274,17 +1298,15 @@ export function DuplicateGroups({
 
       {!compact && listGroups.length > 0 && (
         <Box ref={listContainerRef} data-testid="duplicate-groups-virtual-list">
-          <VariableSizeList
-            ref={listRef}
-            height={listHeight}
-            width="100%"
-            itemCount={listGroups.length}
-            itemSize={getItemSize}
-            itemData={virtualListData}
+          <List
+            listRef={listRef}
+            rowComponent={VirtualGroupRow}
+            rowCount={listGroups.length}
+            rowHeight={getItemSize}
+            rowProps={{ data: virtualListData }}
             overscanCount={3}
-            style={sxVirtualList}>
-            {VirtualGroupRow}
-          </VariableSizeList>
+            style={{ ...sxVirtualList, height: listHeight, width: "100%" }}
+          />
         </Box>
       )}
 
@@ -1313,5 +1335,5 @@ export function DuplicateGroups({
         />
       )}
     </Box>
-  )
+  );
 }

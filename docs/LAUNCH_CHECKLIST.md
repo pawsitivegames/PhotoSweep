@@ -1,6 +1,9 @@
 # PhotoSweep Paid Launch Checklist
 
-Last updated: 2026-09-08
+Last updated: 2026-10-17
+
+Current release verdict: **NOT READY**. Use the [current gate ledger](REMAINING_GATES_STATUS.md)
+for exact-package evidence and blockers; this checklist does not replace that status.
 
 Use this as the release gate for paid multi-provider support. Do not mark a paid
 launch complete until every item has current evidence.
@@ -140,9 +143,11 @@ launch complete until every item has current evidence.
 - Confirm a fresh checkout and a valid recovery link persist
   `photoSweepLicenseSessionId`; entitlement refresh sends it in
   `x-photosweep-license-session` while retaining credentials.
-- For the next CWS reupload, keep app version `2.3.0` and verify
-  `package.json.chromeVersion` is `2.3.0.4` on the merged `main` tip before
-  packaging.
+- Before a CWS reupload, confirm `package.json.version` and
+  `package.json.chromeVersion` are the signed-off release versions and exceed
+  the currently published package. Reconcile the Developer Dashboard draft
+  against the exact source fingerprint, ZIP hash, and provenance sidecar before
+  packaging or submission.
 
 ## 4. Policy And Store Pages
 
@@ -151,9 +156,17 @@ launch complete until every item has current evidence.
   - refund policy from `docs/REFUND_POLICY.md`
   - support page from `docs/SUPPORT.md`
 - Verify `pawsitivegames@gmail.com` receives mail.
+- Compare the published privacy, refund, and support pages with their canonical
+  files in `docs/`; verify the contact link renders with a separator and opens
+  the intended support address.
+- Confirm Firestore TTL is enabled on `expiresAt` for the exact configured
+  analytics collection group, and verify the 90-day deletion policy before the
+  privacy policy is published.
 - Chrome Web Store listing must describe paid support for Google Photos, iCloud
   Photos, and Amazon Photos only where current provider evidence supports the
   advertised flow and limits; do not claim identical provider parity.
+- Reconcile the current package against the candidate-specific [listing draft](CHROME_WEB_STORE_LISTING_DRAFT_2026-10-20.md)
+  and verify all Dashboard privacy and payment declarations before submission.
 - Store listing must disclose:
   - local photo analysis
   - external Stripe Checkout

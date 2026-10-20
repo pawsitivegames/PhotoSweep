@@ -3,7 +3,7 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   fetchStripeLedgerObjects,
@@ -11,6 +11,60 @@ import {
 } from "../../tools/export-stripe-ledger-evidence.mjs"
 
 describe("Stripe ledger evidence exporter", () => {
+  it("uses the configured Firestore database for a live ledger snapshot", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "photosweep-stripe-database-")
+    )
+    const stripePath = path.join(directory, "stripe.json")
+    await fs.writeFile(
+      stripePath,
+      JSON.stringify({
+        livemode: true,
+        checkoutSessions: [],
+        paymentIntents: [],
+        charges: [],
+        refunds: []
+      })
+    )
+    const firestoreFactory = vi.fn(() => {
+      const query = {
+        get: vi.fn(async () => ({ docs: [] })),
+        where: vi.fn(() => query),
+        orderBy: vi.fn(() => query),
+        limit: vi.fn(() => query)
+      }
+      return { collection: vi.fn(() => query) }
+    })
+
+    await runStripeLedgerEvidenceExport({
+      argv: [
+        "--from",
+        "2026-09-01T00:00:00.000Z",
+        "--to",
+        "2026-10-01T00:00:00.000Z",
+        "--live-firestore",
+        "--stripe-export",
+        stripePath
+      ],
+      env: {
+        NODE_ENV: "development",
+        PHOTOSWEEP_FIRESTORE_DATABASE_ID: "photosweep-test",
+        PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX: "tenant_test"
+      },
+      firestoreFactory,
+      now: new Date("2026-10-01T00:00:00.000Z")
+    })
+
+    expect(firestoreFactory).toHaveBeenCalledWith({
+      databaseId: "photosweep-test"
+    })
+    const firestore = firestoreFactory.mock.results[0]?.value
+    expect(firestore?.collection).toHaveBeenCalledWith("tenant_test_licenses")
+    expect(firestore?.collection).toHaveBeenCalledWith(
+      "tenant_test_analytics_events"
+    )
+  })
+
   it("reads offline exports, writes aggregate JSON, and excludes customer PII", async () => {
     const directory = await fs.mkdtemp(
       path.join(os.tmpdir(), "photosweep-stripe-evidence-")
@@ -197,12 +251,13 @@ describe("Stripe ledger evidence exporter", () => {
       ],
       env: { NODE_ENV: "development", STRIPE_SECRET: "sk_live_not_written" },
       fetchImpl: async () =>
-        ({
+        (({
           ok: true,
+
           async json() {
             return { data: [], has_more: false }
           }
-        }) as Response
+        }) as Response)
     })
 
     expect(result).toMatchObject({

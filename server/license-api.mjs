@@ -1,6 +1,7 @@
 import crypto from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { pruneAnalyticsEvents } from "./analytics-retention.mjs"
 
 const PLAN_CONFIG = {
   mini_cleanup: {
@@ -1036,9 +1037,11 @@ export function createMemoryLicenseStore(seed = {}) {
       state.processedStripeEvents.add(eventId)
     },
     async recordAnalyticsEvent(event) {
+      const recordedAt = now()
+      state.analyticsEvents = pruneAnalyticsEvents(state.analyticsEvents, recordedAt)
       state.analyticsEvents.push({
         ...event,
-        recordedAt: now()
+        recordedAt
       })
       if (state.analyticsEvents.length > MAX_STORED_ANALYTICS_EVENTS) {
         state.analyticsEvents.splice(
@@ -1048,6 +1051,7 @@ export function createMemoryLicenseStore(seed = {}) {
       }
     },
     snapshot() {
+      state.analyticsEvents = pruneAnalyticsEvents(state.analyticsEvents)
       return {
         licensesBySessionId: Object.fromEntries(state.licensesBySessionId),
         sessionByEmail: Object.fromEntries(state.sessionByEmail),
@@ -1210,11 +1214,14 @@ export function createJsonFileLicenseStore(filePath) {
     },
     async recordAnalyticsEvent(event) {
       await mutate((state) => {
-        state.analyticsEvents ??= []
-        state.analyticsEvents.push({
+        const recordedAt = now()
+        state.analyticsEvents = pruneAnalyticsEvents(
+          [...(state.analyticsEvents ?? []), {
           ...event,
-          recordedAt: now()
-        })
+            recordedAt
+          }],
+          recordedAt
+        )
         if (state.analyticsEvents.length > MAX_STORED_ANALYTICS_EVENTS) {
           state.analyticsEvents.splice(
             0,
@@ -1224,7 +1231,10 @@ export function createJsonFileLicenseStore(filePath) {
       })
     },
     async snapshot() {
-      return readState()
+      return mutate((state) => {
+        state.analyticsEvents = pruneAnalyticsEvents(state.analyticsEvents)
+        return state
+      })
     }
   }
 }
@@ -1665,6 +1675,13 @@ export async function handleAnalytics(request, env, store) {
   return jsonResponse({ ok: true })
 }
 
+/**
+ * @param {{
+ *   env?: NodeJS.ProcessEnv,
+ *   store?: unknown,
+ *   fetchImpl?: typeof fetch
+ * }} [options]
+ */
 export function createLicenseApi({
   env = process.env,
   store,
@@ -1679,7 +1696,9 @@ export function createLicenseApi({
     const url = new URL(request.url)
     try {
       let response
-      if (request.method === "POST" && url.pathname === "/checkout") {
+      if (request.method === "GET" && url.pathname === "/health") {
+        response = jsonResponse({ ok: true })
+      } else if (request.method === "POST" && url.pathname === "/checkout") {
         response = await handleCheckout(request, env, licenseStore, fetchImpl)
       } else if (request.method === "GET" && url.pathname === "/entitlement") {
         response = await handleEntitlement(request, env, licenseStore)

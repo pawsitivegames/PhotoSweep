@@ -386,7 +386,11 @@ export async function fetchGoogleOriginalHash(params: {
     if (!subtle?.digest) {
       throw new Error("SHA-256 is unavailable in the current extension context.")
     }
-    const digest = new Uint8Array(await subtle.digest("SHA-256", bytes))
+    const digestInput = new Uint8Array(bytes.byteLength)
+    digestInput.set(bytes)
+    const digest = new Uint8Array(
+      await subtle.digest("SHA-256", digestInput.buffer)
+    )
     throwIfAborted(params.signal)
     let value = ""
     for (const byte of digest) value += byte.toString(16).padStart(2, "0")

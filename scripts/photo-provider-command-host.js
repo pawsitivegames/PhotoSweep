@@ -3,6 +3,8 @@
 // dispatch contract they all satisfy.
 
 {
+const COMMAND_HOST_DISPOSE_KEY = Symbol.for("photosweep.commandHostDispose")
+
 function isLocalTestEnvironment(targetWindow) {
   const protocol =
     typeof targetWindow.location === "object" && targetWindow.location
@@ -22,6 +24,31 @@ function isLocalTestEnvironment(targetWindow) {
   )
 }
 
+function readProviderCommandOwnerId(targetWindow) {
+  try {
+    const script =
+      typeof document === "undefined" ? null : document.currentScript
+    const ownerId = script?.src
+      ? new URL(script.src).searchParams.get("owner")
+      : null
+    if (ownerId) return ownerId
+  } catch {
+    // Chrome executeScript does not provide a current script URL.
+  }
+  return targetWindow.__GPD_PROVIDER_COMMAND_OWNER_ID__ || ""
+}
+
+function clearProviderCommandHandlerMarkers(targetWindow) {
+  for (const provider of ["GOOGLE", "ICLOUD", "AMAZON"]) {
+    try {
+      delete targetWindow[`__GPD_${provider}_COMMAND_HANDLER_LOADED__`]
+      delete targetWindow[`__GPD_${provider}_COMMAND_HANDLER_OWNER_ID__`]
+    } catch {
+      // A non-configurable page marker prevents a safe bridge replacement.
+    }
+  }
+}
+
 function providerSessionIdentityMap() {
   const key = Symbol.for("photosweep.providerSessionIds")
   const existing = globalThis[key]
@@ -36,11 +63,28 @@ function providerSessionIdentityMap() {
   return sessionIds
 }
 
-function createCommandHost(targetWindow, publicKey) {
-  if (targetWindow.__GPD_COMMAND_HOST__) {
-    return targetWindow.__GPD_COMMAND_HOST__
+function createCommandHost(targetWindow, publicKey, ownerId) {
+  const currentOwnerId = ownerId || readProviderCommandOwnerId(targetWindow)
+  const existingHost = targetWindow.__GPD_COMMAND_HOST__
+  if (existingHost) {
+    const existingOwnerId = targetWindow.__GPD_COMMAND_HOST_OWNER_ID__
+    if (!currentOwnerId || existingOwnerId === currentOwnerId) {
+      return existingHost
+    }
+    const disposeExistingHost =
+      targetWindow[COMMAND_HOST_DISPOSE_KEY] ?? existingHost.dispose
+    disposeExistingHost?.call(existingHost)
+    clearProviderCommandHandlerMarkers(targetWindow)
+    try {
+      delete targetWindow.__GPD_COMMAND_HOST__
+      delete targetWindow.__GPD_COMMAND_HOST_OWNER_ID__
+    } catch {
+      return null
+    }
+    if (targetWindow.__GPD_COMMAND_HOST__) return null
   }
 
+  const registeredMessageListeners = new Set()
   const providerSessionIds = providerSessionIdentityMap()
   const APP_ID = "GPD"
   const CAPABILITY_TTL_MS = 60 * 1000
@@ -904,7 +948,7 @@ function createCommandHost(targetWindow, publicKey) {
         ? unsupportedMessage
         : (command) => `Unsupported command: ${command}`
 
-    targetWindow.addEventListener("message", async (event) => {
+    const onMessage = async (event) => {
       if (event.source !== targetWindow) return
       const message = event.data
       if (
@@ -1140,7 +1184,28 @@ function createCommandHost(targetWindow, publicKey) {
           activeProviderRequests.delete(requestId)
         }
       }
-    })
+    }
+    targetWindow.addEventListener("message", onMessage)
+    registeredMessageListeners.add(onMessage)
+  }
+
+  function dispose() {
+    for (const listener of registeredMessageListeners) {
+      targetWindow.removeEventListener?.("message", listener)
+    }
+    registeredMessageListeners.clear()
+    for (const controller of activeScans.values()) controller.abort()
+    for (const operation of activeProviderRequests.values()) {
+      operation.controller.abort()
+    }
+    for (const timer of pendingScanCancellations.values()) clearTimeout(timer)
+    for (const cancellation of pendingProviderCancellations.values()) {
+      if (cancellation.timer !== undefined) clearTimeout(cancellation.timer)
+    }
+    activeScans.clear()
+    pendingScanCancellations.clear()
+    activeProviderRequests.clear()
+    pendingProviderCancellations.clear()
   }
 
   const internalHost = Object.freeze({
@@ -1188,6 +1253,10 @@ function createCommandHost(targetWindow, publicKey) {
   })
 
   targetWindow.__GPD_COMMAND_HOST__ = providerAdapterHost
+  targetWindow[COMMAND_HOST_DISPOSE_KEY] = dispose
+  if (currentOwnerId) {
+    targetWindow.__GPD_COMMAND_HOST_OWNER_ID__ = currentOwnerId
+  }
   return internalHost
 }
 
@@ -1240,9 +1309,10 @@ if (
 
 if (typeof window !== "undefined") {
   const publicKey = readPublicKeyFromCurrentScript(window)
+  const ownerId = readProviderCommandOwnerId(window)
   const isTestEnvironment = isLocalTestEnvironment(window)
   if (publicKey || isTestEnvironment) {
-    createCommandHost(window, publicKey)
+    createCommandHost(window, publicKey, ownerId)
     try {
       delete window.__GPD_PROVIDER_COMMAND_PUBLIC_KEY__
     } catch {

@@ -5,7 +5,7 @@ import {
   withProviderCommandCapability
 } from "../../lib/provider-command-capability"
 
-function decodeBase64Url(value: string): Uint8Array {
+function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/")
   const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4))
   return Uint8Array.from(binary, (character) => character.charCodeAt(0))

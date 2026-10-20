@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AFTER_EXACT_MUTANT_REVIEW",
+  "createdAtUtc": "2026-10-16T03:07:05.185Z",
+  "candidate": {
+    "packagePath": "build/photosweep-cws-v2.3.6.6-sha256-6f664d6326f8.zip",
+    "packageSha256": "6f664d6326f8f345d1907c3c6a4504ddca279ede5516a35d6472486e801e9c28",
+    "sourceFingerprint": "466c5a7647f7ddc2cbc51b5a1cc6c6392ad50e584d6fd191389347c205ec136a",
+    "buildId": "600f4b02-719e-41fa-8072-dd989ca78502",
+    "version": "2.3.6.6",
+    "node": "v24.20.0",
+    "workingTreeDirty": true
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicySha256": "3ec5297596fb52805157adc49383a851ad09ce24dcd9f2086f956e7a2f20a57b",
+    "currentPolicySha256": "2d55c5cfd59df35df8f36a93a1380f391aca6058ccc7b7205a8fc5e6e2b85212",
+    "changedFields": [
+      "sourceFingerprint"
+    ],
+    "sourceFingerprintFrom": "90cbddaa72b142f131250eb52c96c8d1bae9e91561a4dfe08c35fba2035f7c6f",
+    "sourceFingerprintTo": "466c5a7647f7ddc2cbc51b5a1cc6c6392ad50e584d6fd191389347c205ec136a",
+    "canonicalReportSha256": "6705a9324798143f5da280304c039297b723948b2fdcb01f4d5575bf9ab434e0",
+    "rawReportFileSha256": "96bae081f6abf0ab0a030f97c722042c814ce1e9c2b3d29f203e0eb11f556977",
+    "reviewedEntries": 211,
+    "currentNonKilledEntries": 211,
+    "identityKeysMatched": 211,
+    "classifications": {
+      "EQUIVALENT": 147,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 27
+    }
+  },
+  "diagnosticRun": {
+    "command": "node verification/run-mutation.mjs --diagnostic-refresh-triage",
+    "resultPath": "tmp/verification/diagnostic-refresh/195748c6-6c66-4274-85d4-0be4f09fc2b9/mutation.json",
+    "rawReportPath": "tmp/verification/diagnostic-refresh/195748c6-6c66-4274-85d4-0be4f09fc2b9/mutation-run/stryker-raw.json",
+    "status": "DIAGNOSTIC_ONLY_MANUAL_REVIEW_GATE",
+    "sourceDrift": false,
+    "currentNonKilledMutants": 211,
+    "policyIdentityKeysMatch": true,
+    "canonicalReportMatchedPolicy": true
+  },
+  "checks": {
+    "policyChangedOnlyBySourceFingerprint": true,
+    "canonicalReportMatchesPriorPolicy": true,
+    "allCurrentNonKilledMutantsMatchReviewedIdentityKeys": true,
+    "mutationSourcesAndTestsUnchanged": true,
+    "thresholdValuesUnchanged": true,
+    "normalMutationReplayRequired": true
+  }
+}

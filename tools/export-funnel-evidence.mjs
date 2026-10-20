@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 import { Firestore } from "@google-cloud/firestore"
 
@@ -62,14 +63,15 @@ function parseArgs(argv) {
   return options
 }
 
-async function main() {
-  const options = parseArgs(process.argv.slice(2))
-  if (options.help) {
-    process.stdout.write(usage())
-    return
-  }
+export async function runFunnelEvidenceExport({
+  argv = process.argv.slice(2),
+  env = process.env,
+  firestoreFactory = undefined
+} = {}) {
+  const options = parseArgs(argv)
+  if (options.help) return { help: usage() }
   const currentVersion =
-    options["current-version"] ?? process.env.PHOTOSWEEP_CURRENT_CHROME_VERSION
+    options["current-version"] ?? env.PHOTOSWEEP_CURRENT_CHROME_VERSION
   if (!currentVersion) {
     throw new Error(
       "Set PHOTOSWEEP_CURRENT_CHROME_VERSION or pass --current-version."
@@ -77,10 +79,16 @@ async function main() {
   }
 
   const collectionPrefix =
-    process.env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ??
+    env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX ??
     DEFAULT_COLLECTION_PREFIX
   const collectionName = `${collectionPrefix}_analytics_events`
-  const firestore = new Firestore()
+  const databaseId = env.PHOTOSWEEP_FIRESTORE_DATABASE_ID
+  const createFirestore = firestoreFactory ?? ((clientOptions) =>
+    clientOptions ? new Firestore(clientOptions) : new Firestore()
+  )
+  const firestore = databaseId
+    ? createFirestore({ databaseId })
+    : createFirestore()
   const snapshot = await firestore.collection(collectionName).get()
   const rows = snapshot.docs.map((doc) => doc.data())
   const summary = buildFunnelEvidenceSummary(rows, {
@@ -106,14 +114,31 @@ async function main() {
   if (options.output) {
     await mkdir(path.dirname(options.output), { recursive: true })
     await writeFile(options.output, output, "utf8")
-    return
+    return { outputPath: options.output, summary }
   }
-  process.stdout.write(output)
+  return { serialized: output, summary }
 }
 
-main().catch((error) => {
-  process.stderr.write(
-    `${error instanceof Error ? error.message : String(error)}\n`
-  )
-  process.exitCode = 1
-})
+const currentFile = fileURLToPath(import.meta.url)
+const invokedFile = process.argv[1]
+  ? fileURLToPath(pathToFileURL(process.argv[1]))
+  : ""
+
+if (currentFile === invokedFile) {
+  runFunnelEvidenceExport()
+    .then((result) => {
+      if (result.help) {
+        process.stdout.write(result.help)
+      } else if (result.serialized) {
+        process.stdout.write(result.serialized)
+      } else {
+        process.stdout.write(`Wrote ${result.outputPath}\n`)
+      }
+    })
+    .catch((error) => {
+      process.stderr.write(
+        `${error instanceof Error ? error.message : String(error)}\n`
+      )
+      process.exitCode = 1
+    })
+}

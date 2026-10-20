@@ -5,6 +5,8 @@ import path from "path"
 export default defineConfig({
   plugins: [react()],
   test: {
+    pool: "threads",
+    isolate: true,
     environment: "happy-dom",
     globals: true,
     setupFiles: ["tests/setup.ts"],
@@ -17,7 +19,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "~": path.resolve(__dirname, "."),
+      "~": path.resolve(import.meta.dirname, "."),
     },
   },
 })

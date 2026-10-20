@@ -72,7 +72,12 @@ export function RecoveryHistoryDialog({
         Recovery history
       </DialogTitle>
       <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 1.5
+          }}>
           PhotoSweep keeps a bounded, local record of provider-confirmed Trash
           moves. It stores identifiers needed for recovery, not photo content.
         </Typography>
@@ -114,7 +119,9 @@ export function RecoveryHistoryDialog({
                             gap: 0.75,
                             pr: restorable ? 10 : 0
                           }}>
-                          <Typography variant="body2" fontWeight={800}>
+                          <Typography variant="body2" sx={{
+                            fontWeight: 800
+                          }}>
                             {providerLabel(record.provider)}
                           </Typography>
                           <Chip
@@ -172,7 +179,7 @@ export function RecoveryHistoryDialog({
                   </ListItem>
                   {index < records.length - 1 && <Divider />}
                 </Box>
-              )
+              );
             })}
           </List>
         )}
@@ -190,5 +197,5 @@ export function RecoveryHistoryDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-10-11T12:21:04Z",
+  "status": "REBOUND_FOR_FRESH_CONCURRENCY2_RELEASE_RUN",
+  "candidate": {
+    "commit": "024d56ccd3ab1e7130bc4234a0552a074855cf34",
+    "chromeVersion": "2.3.6.1",
+    "packageSha256": "3eeca37ea9497271ff5f36787fffc28cb0306cd2cfb4c4632427c4ab7c38e4db",
+    "sourceFingerprint": "cf319520b1f67efe2a5e7970bf1c435c87e7f3745be6e5e0f346e91e1db539c0",
+    "sourceFileCount": 319,
+    "buildId": "cb9ca185-5fc7-49fa-bd73-c75505ced922"
+  },
+  "comparison": {
+    "currentRun": "tmp/verification/release-20261011T1115Z-svelte5-3eeca",
+    "currentRunId": "20261011T110124Z-39666",
+    "currentRunStatus": "FAIL",
+    "currentConcurrency": 1,
+    "currentCanonicalReportSha256": "d7d060031543e6109e36ea400ee9b75a04e34294c827176304d4c95546c0b32c",
+    "referenceRun": "tmp/verification/release-20261011T1006Z-rebound-219ac",
+    "referenceRunId": "20261011T100544Z-62619",
+    "referenceSourceFingerprint": "ec307824eed777f63136fd49cd3af1ae2d7475cd56bd3aac4432b33792cb2079",
+    "referenceConcurrency": 2,
+    "referenceCanonicalReportSha256": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002",
+    "mutantSetCompared": 3996,
+    "exactAllMutantKeysAndStatusesMatch": true,
+    "mutationSourceFiles": 6,
+    "mutationSourceHashesMatch": true,
+    "policyEntries": 204,
+    "policyEntriesMatchCurrentNonKilledMutants": true,
+    "policyEntrySourceHashesMatch": true,
+    "nonOutcomeCanonicalDifference": "config.concurrency only",
+    "statusCounts": {
+      "Killed": 3792,
+      "Survived": 181,
+      "NoCoverage": 23
+    },
+    "mutationScorePercent": 94.89,
+    "minimumKilledPercent": 90,
+    "criticalSurvivors": 0
+  },
+  "policyRebind": {
+    "path": "verification/evidence/mutation-triage-policy.json",
+    "priorPolicyFileSha256": "fdd8aef32c7f726ee1f54f6ffbea426e46719f00ddf65f055a2a02b1c5357bf2",
+    "updatedPolicyFileSha256": "0a138a229ff9565ae1ea478d44d748cd1fd2c8c00d9b5fe959027e0758f3c4c0",
+    "sourceFingerprint": {
+      "from": "ec307824eed777f63136fd49cd3af1ae2d7475cd56bd3aac4432b33792cb2079",
+      "to": "cf319520b1f67efe2a5e7970bf1c435c87e7f3745be6e5e0f346e91e1db539c0"
+    },
+    "rawReportSha256": {
+      "from": "d7d060031543e6109e36ea400ee9b75a04e34294c827176304d4c95546c0b32c",
+      "to": "c5b9b0a1b643494d89a9c25259c274d35cd0943837628a02c28fcfe94d9bf002"
+    },
+    "policyEntriesSha256": "2f9b1f90fc6e545c0bb1c8711ed7aa1ce57a53ef73ff0c882e4d7c7c8744e7fb",
+    "policyEntriesChanged": 0,
+    "thresholdsChanged": false
+  },
+  "requiredRecheck": {
+    "command": "npm run verify:release -- --candidate-package build/photosweep-cws-v2.3.6.1-sha256-3eeca37ea949.zip --out-dir <fresh-empty-directory>",
+    "environment": "VERIFICATION_MUTATION_CONCURRENCY=2",
+    "passCondition": "The fresh run reproduces the reference canonical mutation hash and validates all 204 existing policy entries without changing thresholds."
+  },
+  "limitations": [
+    "The current run remains FAIL; this rebind does not retroactively alter its result.",
+    "The fresh release run must validate the new policy binding.",
+    "Exact-build Chrome, live provider round-trip, and external video evidence remain separate obligations."
+  ]
+}

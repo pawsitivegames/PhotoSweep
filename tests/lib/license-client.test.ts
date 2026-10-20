@@ -31,7 +31,7 @@ function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
   return btoa(binary)
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
-    .replace(/=+$/g, "")
+    .replace(/=+$/g, "");
 }
 
 function jsonToBase64Url(value: unknown): string {

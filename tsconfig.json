@@ -6,7 +6,7 @@
     "node_modules",
     "tmp",
     "workers",
-    "vitest.config.ts"
+    "vitest.config.mts"
   ],
   "include": [
     ".plasmo/index.d.ts",
@@ -15,11 +15,18 @@
     "./**/*.tsx"
   ],
   "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": [
+      "chrome",
+      "node",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom/vitest"
+    ],
     "paths": {
       "~*": [
         "./*"
       ]
-    },
-    "baseUrl": "."
+    }
   }
 }

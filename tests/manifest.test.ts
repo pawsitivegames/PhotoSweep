@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   AMAZON_ORIGIN_MATCHES,
   AMAZON_ORIGINS,
+  AMAZON_VIDEO_DOWNLOAD_HOST_PERMISSION,
   GOOGLE_PHOTOS_ORIGIN_MATCHES,
   ICLOUD_ORIGIN_MATCHES
 } from "../lib/provider-sites"
@@ -21,7 +22,7 @@ describe("extension manifest", () => {
   it("locks the Chrome Web Store title and short description", () => {
     expect(packageJson.displayName).toBe("PhotoSweep for Google Photos™")
     expect(packageJson.description).toBe(
-      "Find duplicate photos and videos in Google Photos. Matching stays in your browser. Review, then Trash only what you confirm."
+      "Find duplicates in Google Photos, iCloud Photos, and Amazon Photos where available. Review each Trash move. Matching stays local."
     )
     expect([...packageJson.displayName].length).toBeLessThanOrEqual(75)
     expect([...packageJson.description].length).toBeLessThanOrEqual(132)
@@ -81,6 +82,7 @@ describe("extension manifest", () => {
 
   it("declares the complete explicit regional provider matrix", () => {
     const hostPermissions = packageJson.manifest.host_permissions
+    const optionalHostPermissions = packageJson.manifest.optional_host_permissions
     const warMatches = packageJson.manifest.web_accessible_resources.flatMap(
       (entry) => entry.matches
     )
@@ -107,6 +109,10 @@ describe("extension manifest", () => {
     )
     expect(hostPermissions).not.toContain("https://www.amazon.be/*")
     expect(hostPermissions).not.toContain("https://amazon.be/*")
+    expect(hostPermissions).not.toContain(AMAZON_VIDEO_DOWNLOAD_HOST_PERMISSION)
+    expect(optionalHostPermissions).toEqual([
+      AMAZON_VIDEO_DOWNLOAD_HOST_PERMISSION
+    ])
     expect(warMatches).not.toContain("https://www.amazon.be/*")
     expect(warMatches).not.toContain("https://amazon.be/*")
   })

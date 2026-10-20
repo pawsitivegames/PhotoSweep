@@ -7,6 +7,7 @@ import {
   statSync,
   writeFileSync
 } from "node:fs"
+import { availableParallelism } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
@@ -24,6 +25,32 @@ const POSITIVE_CONFIG_PATH = "verification/model/RecoveryAuthority.cfg"
 const NEGATIVE_CONFIG_PATH = "verification/model/RecoveryAuthority.negative.cfg"
 const CLEAR_NEGATIVE_CONFIG_PATH = "verification/model/RecoveryAuthority.clear-negative.cfg"
 const REQUIRED_ACTIONS = RECOVERY_AUTHORITY_REQUIRED_ACTIONS
+const MAX_TLC_WORKERS = 4
+const TLC_SEED = 1
+const NEGATIVE_CONTROL_WORKERS = 1
+
+export function detectTlcStorageExhaustion(output) {
+  return /(?:No space left on device|ENOSPC)/i.test(String(output ?? ""))
+}
+
+export function resolveTlcWorkerCount(parallelism = availableParallelism()) {
+  const available = Number.isSafeInteger(parallelism) && parallelism > 0
+    ? parallelism
+    : 1
+  return Math.min(MAX_TLC_WORKERS, available)
+}
+
+export function resolveTlcRunOptions({
+  negativeControl = false,
+  parallelism = availableParallelism()
+} = {}) {
+  return {
+    seed: TLC_SEED,
+    workers: negativeControl
+      ? NEGATIVE_CONTROL_WORKERS
+      : resolveTlcWorkerCount(parallelism)
+  }
+}
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex")
@@ -67,7 +94,14 @@ function captureSourceHashes({ root, jarPath }) {
   return hashes
 }
 
-function runTlc({ root, jarPath, outputDirectory, configPath }) {
+function runTlc({
+  root,
+  jarPath,
+  outputDirectory,
+  configPath,
+  negativeControl = false
+}) {
+  const { seed, workers } = resolveTlcRunOptions({ negativeControl })
   mkdirSync(outputDirectory, { recursive: true })
   const logPath = join(outputDirectory, "tlc.log")
   let child
@@ -86,8 +120,10 @@ function runTlc({ root, jarPath, outputDirectory, configPath }) {
         "1",
         "-config",
         resolve(root, configPath),
+        "-seed",
+        String(seed),
         "-workers",
-        "1",
+        String(workers),
         resolve(root, MODULE_PATH)
       ],
       { cwd: root, encoding: "utf8", maxBuffer: 40 * 1024 * 1024 }
@@ -99,12 +135,16 @@ function runTlc({ root, jarPath, outputDirectory, configPath }) {
   }
   const output = `${child.stdout ?? ""}${child.stderr ?? ""}`
   writeFileSync(logPath, output)
+  const blockedReason = detectTlcStorageExhaustion(output)
+    ? "storage-exhaustion"
+    : null
   const generated = output.match(/(\d+) states generated, (\d+) distinct states found/)
   const depth = output.match(/depth of the complete state graph search is (\d+)/)
   return {
     exitCode: child.status ?? 1,
     output,
     logPath,
+    blockedReason,
     statesGenerated: generated ? Number(generated[1]) : 0,
     statesExplored: generated ? Number(generated[2]) : 0,
     depth: depth ? Number(depth[1]) : 0,
@@ -137,7 +177,7 @@ function bindingFor(configPath, outputDirectory, runId, jarPath, hashes) {
 
 function blockedArtifact({ id, runId, outputDirectory, message }) {
   const logPath = join(outputDirectory, "tlc.log")
-  writeFileSync(logPath, `${message}\n`)
+  if (!existsSync(logPath)) writeFileSync(logPath, `${message}\n`)
   return {
     schemaVersion: 1,
     id,
@@ -317,17 +357,73 @@ export function runRecoveryAuthorityModels({
     outputDirectory: positiveDirectory,
     configPath: POSITIVE_CONFIG_PATH
   })
+  if (positiveResult.blockedReason === "storage-exhaustion") {
+    const message =
+      "TLC state exploration stopped because local storage was exhausted; the model result is incomplete."
+    const positive = blockedArtifact({
+      id: "SAFE-12-authority-model",
+      runId,
+      outputDirectory: positiveDirectory,
+      message
+    })
+    positive.statesGenerated = positiveResult.statesGenerated
+    positive.statesExplored = positiveResult.statesExplored
+    positive.depth = positiveResult.depth
+    positive.artifact = positiveResult.logPath
+    const negative = blockedArtifact({
+      id: "SAFE-12-authority-negative-control",
+      runId,
+      outputDirectory: negativeDirectory,
+      message: `${message} Negative control was not run.`
+    })
+    const clearNegative = blockedArtifact({
+      id: "SAFE-12-authority-clear-negative-control",
+      runId,
+      outputDirectory: clearNegativeDirectory,
+      message: `${message} Clear negative control was not run.`
+    })
+    writeJson(positivePath, positive)
+    writeJson(negativePath, negative)
+    writeJson(clearNegativePath, clearNegative)
+    writeJson(summaryPath, {
+      schemaVersion: 1,
+      id: "SAFE-12-authority-model-suite",
+      requirementId: "SAFE-12",
+      status: "BLOCKED",
+      exitCode: 2,
+      checksRun: 0,
+      modelComplete: false,
+      runId,
+      message,
+      positive: positivePath,
+      negative: negativePath,
+      clearNegative: clearNegativePath,
+      positiveStatesGenerated: positiveResult.statesGenerated,
+      positiveStatesExplored: positiveResult.statesExplored,
+      positiveDepth: positiveResult.depth
+    })
+    return {
+      status: "BLOCKED",
+      exitCode: 2,
+      positivePath,
+      negativePath,
+      clearNegativePath,
+      summaryPath
+    }
+  }
   const negativeResult = runTlc({
     root,
     jarPath: resolvedJar,
     outputDirectory: negativeDirectory,
-    configPath: NEGATIVE_CONFIG_PATH
+    configPath: NEGATIVE_CONFIG_PATH,
+    negativeControl: true
   })
   const clearNegativeResult = runTlc({
     root,
     jarPath: resolvedJar,
     outputDirectory: clearNegativeDirectory,
-    configPath: CLEAR_NEGATIVE_CONFIG_PATH
+    configPath: CLEAR_NEGATIVE_CONFIG_PATH,
+    negativeControl: true
   })
   const after = captureSourceHashes({ root, jarPath: resolvedJar })
   const stable = JSON.stringify(before) === JSON.stringify(after)

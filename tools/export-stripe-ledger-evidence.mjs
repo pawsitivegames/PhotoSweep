@@ -225,7 +225,7 @@ export async function fetchStripeLedgerObjects({
   return { livemode, checkoutSessions, paymentIntents, charges, refunds }
 }
 
-async function loadLedger(args, env) {
+async function loadLedger(args, env, firestoreFactory) {
   const ledgerPath = args["ledger-export"] ?? args.ledger
   if (ledgerPath) return readJson(ledgerPath)
   if (!args.liveFirestore) {
@@ -234,7 +234,9 @@ async function loadLedger(args, env) {
     )
   }
   const store = createFirestoreLicenseStore({
-    collectionPrefix: env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX
+    collectionPrefix: env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX,
+    databaseId: env.PHOTOSWEEP_FIRESTORE_DATABASE_ID,
+    ...(firestoreFactory ? { firestoreFactory } : {})
   })
   return store.snapshot()
 }
@@ -278,6 +280,7 @@ export async function runStripeLedgerEvidenceExport({
   argv = process.argv.slice(2),
   env = process.env,
   fetchImpl = fetch,
+  firestoreFactory = undefined,
   now = new Date()
 } = {}) {
   const args = parseArgs(argv)
@@ -287,7 +290,7 @@ export async function runStripeLedgerEvidenceExport({
   if (toMs <= fromMs) throw new Error("--to must be after --from.")
   const stripeMode = parseStripeMode(args["stripe-mode"])
   assertOutputPathsAreSafe(args)
-  const ledger = await loadLedger(args, env)
+  const ledger = await loadLedger(args, env, firestoreFactory)
   const stripe = await loadStripe(args, {
     fromMs,
     toMs,

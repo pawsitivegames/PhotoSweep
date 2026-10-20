@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "status": "PENDING_NORMAL_REPLAY",
+  "recordedAtUtc": "2026-10-17T18:34:58.706Z",
+  "purpose": "Rebind the reviewed mutation triage to the provider-tab-routing candidate without changing mutant classifications or thresholds.",
+  "previousSourceFingerprint": "3a4d25f7859c22005ff1d327d529d6a48222579a468f21a7b1372b7a7480a1d9",
+  "sourceFingerprint": "42fe5239bf19b4994b11fcb73361e76afe48f06536dc739f738f92e0c2775286",
+  "previousPolicySha256": "32746ba1fa4ff382dd2e03e2d3aa13b025f6fb466838a9f50b5365f6a5400e2a",
+  "currentPolicySha256": "6d67381b5f7e8822c96b02d8279a7ed7f5b5cd947dfc8d65d15ebb9639c59aed",
+  "policyChangedFields": [
+    "sourceFingerprint"
+  ],
+  "canonicalMutationReportSha256": "f7a1f4e88dbd82acfc95606d053d36e46bf1eb9f70f8649d70a3ba3eb869e1e3",
+  "reviewedEntryCount": 211,
+  "mutationTargets": {
+    "count": 6,
+    "sourceSetSha256": "3b9797c9aa1d1c739c7bee725a2c88987a0d5c8eba21f6fd9ae716df994f2287",
+    "files": [
+      {
+        "file": "lib/duplicate-review-session.ts",
+        "sha256": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce"
+      },
+      {
+        "file": "lib/keep-strategy.ts",
+        "sha256": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6"
+      },
+      {
+        "file": "lib/review-preflight.ts",
+        "sha256": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b"
+      },
+      {
+        "file": "lib/trash-dispatch-guard.ts",
+        "sha256": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a"
+      },
+      {
+        "file": "lib/trash-lifecycle.ts",
+        "sha256": "ea8196bc3a62e9118dcc760d5aa04513b4760c1c4f15ea4763041af3c7fef056"
+      },
+      {
+        "file": "scripts/photo-provider-command-host.js",
+        "sha256": "f5aecc7302e886cd54698efb6665038eb15f05079dd5864aed41a9670772019c"
+      }
+    ]
+  },
+  "configuredMutationTests": {
+    "count": 20,
+    "sourceSetSha256": "31fecf1f47f9c0db7cea18bdd357e5eb510e2cd61345b22e1961fb3547922b8a",
+    "files": [
+      {
+        "file": "tests/commands/amazon-photos-commands.test.ts",
+        "sha256": "60645106bd0bee3fcadf81ec7c8c459b6132d82dbeda1c12a8f71c00ecd9b8bf"
+      },
+      {
+        "file": "tests/commands/google-photos-commands.test.ts",
+        "sha256": "4800ee4699bfdae50c067fe9052f44304049acd7073f23f124052a4bbbae3a57"
+      },
+      {
+        "file": "tests/commands/icloud-photos-commands.test.ts",
+        "sha256": "6321518fcb97a3ec5e16290e56cff8107411fe5f6c3430957da31968bb539d59"
+      },
+      {
+        "file": "tests/commands/provider-capability-host.test.ts",
+        "sha256": "57d7392ea75e83ab99abaafbe2fef179a236e2b47015181bf4dc3d90da65316a"
+      },
+      {
+        "file": "tests/commands/provider-command-host-injection.test.ts",
+        "sha256": "49f6511127a8c1ad0cfa5a207219182260caf7176a7b3759c167ca9b433b15c5"
+      },
+      {
+        "file": "tests/commands/provider-session-host.test.ts",
+        "sha256": "083a27387c047c1516d862e629080f2c40b5a3e10f164e1935bc863ab28aa8f0"
+      },
+      {
+        "file": "tests/lib/decision-memory.test.ts",
+        "sha256": "3fbaf85c451131f985c182a62d694dc16cdd326a27b9eb9b7d98d2bc23ce9dae"
+      },
+      {
+        "file": "tests/lib/duplicate-detector.test.ts",
+        "sha256": "4dba204df8da35092421e203b530e49a3625b51969e7c1312537d66141c11972"
+      },
+      {
+        "file": "tests/lib/keep-strategy.test.ts",
+        "sha256": "166600fbc460dacd872f99cd8d2b2dcd76c491f3abe0c5d94bb758e2e96f1524"
+      },
+      {
+        "file": "tests/lib/keeper-decisions.test.ts",
+        "sha256": "a42b5333badd45be9140ee1ba04a16d81b3cf1107cefeadbaec12a20e93f3213"
+      },
+      {
+        "file": "tests/lib/multi-keep.test.ts",
+        "sha256": "f670a278340821bee6d288e413a55fcfd32e26d247e3329ff111d19f6ea9e302"
+      },
+      {
+        "file": "tests/lib/mutation-closure.test.ts",
+        "sha256": "de2db9b6473c960a3c95533aa1eb7790fb3e17e4b0dd1d313285dd31f4f85c6a"
+      },
+      {
+        "file": "tests/lib/review-preflight.test.ts",
+        "sha256": "45e777521c215a1c447e82f8ca30a67f6dbc3330f437ceb88ae41080a7442001"
+      },
+      {
+        "file": "tests/lib/review-report.test.ts",
+        "sha256": "8e6b6fff9320705d570bac1afd53b70bcd9c27e15fb8c24133bc61e4d8b0e3f0"
+      },
+      {
+        "file": "tests/lib/stored-review-scope.test.ts",
+        "sha256": "e16808d65952aefa55684e83dc91b15cfaa66c271a9e9e497fd372ef6562b126"
+      },
+      {
+        "file": "tests/lib/trash-dispatch-guard.test.ts",
+        "sha256": "476633d9a8f5718a4ea0d92c01b0f87a59c89cc3a255041e9642a17d6c25bec5"
+      },
+      {
+        "file": "tests/lib/trash-lifecycle.test.ts",
+        "sha256": "1002e799f74c7414ccd07aa3c0da42571e8852d9683879860480af95760db10d"
+      },
+      {
+        "file": "tests/verification/fault-boundary.test.ts",
+        "sha256": "3742ee72c8d574cd5e7258f746ea813652dd542064f6f960b33ad754827d6d0d"
+      },
+      {
+        "file": "tests/verification/model-conformance.test.ts",
+        "sha256": "d7d1a805570ae3c3bba9a254e556e8fa48202fcca8c4cb2c3edcf69031889868"
+      },
+      {
+        "file": "tests/verification/safety-properties.test.ts",
+        "sha256": "4f6608dbc63682c676b43d45dbc173b5c68097fc7c33fa38f58e2cfb85b2796e"
+      }
+    ]
+  },
+  "priorAcceptedMutation": {
+    "sourceFingerprint": "3a4d25f7859c22005ff1d327d529d6a48222579a468f21a7b1372b7a7480a1d9",
+    "mutantsTotal": 4108,
+    "mutantsKilled": 3897,
+    "mutantsSurvived": 187,
+    "mutantsNoCoverage": 24,
+    "timeouts": 0,
+    "errors": 0,
+    "scorePercent": 94.86,
+    "thresholdPercent": 90
+  },
+  "thresholdsChanged": false,
+  "normalReplay": {
+    "status": "PENDING",
+    "candidatePackage": "build/photosweep-cws-v2.3.6.13-sha256-800b50f14635.zip",
+    "outputDirectory": "tmp/verification/fix-all-release-final-20261017T183020Z"
+  }
+}

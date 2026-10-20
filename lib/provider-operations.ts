@@ -11,6 +11,10 @@ export type IncrementalScanStrategy =
   | "full_refresh"
   | "unsupported"
 
+// Album discovery may paginate and retry slow provider requests, but the UI
+// must still recover if the command bridge never delivers a terminal result.
+export const ALBUM_LIST_REQUEST_TIMEOUT_MS = 120_000
+
 export interface ProviderCapabilities {
   readonly libraryScan: ProviderCapabilityLevel
   readonly albumScope: ProviderCapabilityLevel

@@ -18,6 +18,7 @@ import {
   AMAZON_VIDEO_PLAYBACK_EVIDENCE_TYPE,
   AMAZON_VIDEO_PLAYBACK_MAX_AGE_MS,
   sourceDeclaredAmazonMarketplaceHosts,
+  sourceDeclaredAmazonVideoPlaybackMarketplaceHosts,
   validateAmazonVideoPlaybackEvidence
 } from "../../verification/amazon-video-playback-evidence.mjs"
 
@@ -46,7 +47,7 @@ function makeSyntheticCompleteEvidence(options: {
   mkdirSync(captureDirectory)
   const capturedAt =
     options.capturedAt ?? new Date(now - 60_000).toISOString()
-  const captures = sourceDeclaredAmazonMarketplaceHosts(sourceText()).map(
+  const captures = sourceDeclaredAmazonVideoPlaybackMarketplaceHosts(sourceText()).map(
     (marketplaceHost, index) => {
       const captureId = `synthetic-test-capture-${index + 1}`
       const captureArtifact = `captures/market-${index + 1}.json`
@@ -98,7 +99,7 @@ afterEach(() => {
 })
 
 describe("Amazon regional video playback evidence", () => {
-  it("preserves the existing all-provider gate and registers a separate Amazon gate", () => {
+  it("keeps all-provider and supported Amazon playback as separate release gates", () => {
     const registry = JSON.parse(
       readFileSync(join(root, "verification/requirements.json"), "utf8")
     )
@@ -136,15 +137,29 @@ describe("Amazon regional video playback evidence", () => {
     expect(runnerSource).toContain(
       'item.id === "AMAZON-VIDEO-PLAYBACK-live"'
     )
+    expect(runnerSource).toContain(
+      'import { validateVideoPlaybackEvidence } from "./video-playback-evidence.mjs"'
+    )
+    expect(runnerSource).toContain('args["video-playback-evidence"]')
+    expect(runnerSource).toContain(
+      "buildResult?.exitCode === 0 ? buildDigest?.digest ?? null : null"
+    )
+    expect(
+      runnerSource.match(/expectedPackageDigest: currentPackageTreeDigest/g)
+    ).toHaveLength(2)
+    expect(runnerSource).toContain(
+      "packageDigest: validation.packageDigest ?? currentPackageTreeDigest"
+    )
   })
 
-  it("derives the current 22 marketplaces from the source declaration", () => {
-    const hosts = sourceDeclaredAmazonMarketplaceHosts(sourceText())
+  it("keeps Canada-only playback scope inside the broader Amazon scan coverage", () => {
+    const scanHosts = sourceDeclaredAmazonMarketplaceHosts(sourceText())
+    const playbackHosts =
+      sourceDeclaredAmazonVideoPlaybackMarketplaceHosts(sourceText())
 
-    expect(hosts).toHaveLength(22)
-    expect(hosts[0]).toBe("amazon.com")
-    expect(hosts.at(-1)).toBe("amazon.ie")
-    expect(new Set(hosts).size).toBe(hosts.length)
+    expect(scanHosts).toHaveLength(22)
+    expect(playbackHosts).toEqual(["amazon.ca"])
+    expect(playbackHosts.every((host) => scanHosts.includes(host))).toBe(true)
   })
 
   it("keeps a missing external manifest BLOCKED", () => {
@@ -176,9 +191,9 @@ describe("Amazon regional video playback evidence", () => {
         throw new Error("Expected complete marketplace evidence to pass")
       }
       expect(result.exitCode).toBe(0)
-      expect(result.checksRun).toBe(22)
-      expect(result.validatedMarketplaces).toBe(22)
-      expect(result.captures).toHaveLength(22)
+      expect(result.checksRun).toBe(1)
+      expect(result.validatedMarketplaces).toBe(1)
+      expect(result.captures).toHaveLength(1)
     } finally {
       rmSync(fixture.directory, { recursive: true, force: true })
     }
@@ -228,7 +243,7 @@ describe("Amazon regional video playback evidence", () => {
 
       expect(result.status).toBe("FAIL")
       expect(result.problems).toContain(
-        "Capture timestamp is missing or invalid for amazon.com."
+        "Capture timestamp is missing or invalid for amazon.ca."
       )
     } finally {
       rmSync(fixture.directory, { recursive: true, force: true })
@@ -262,8 +277,25 @@ describe("Amazon regional video playback evidence", () => {
   it("rejects duplicate marketplace captures", () => {
     const fixture = makeSyntheticCompleteEvidence()
     try {
-      fixture.manifest.captures[1].marketplaceHost =
-        fixture.manifest.captures[0].marketplaceHost
+      const originalCapture = fixture.manifest.captures[0]
+      const originalCapturePath = join(
+        fixture.directory,
+        originalCapture.captureArtifact
+      )
+      const duplicateCaptureId = "synthetic-test-duplicate-capture"
+      const duplicateCapture = {
+        ...JSON.parse(readFileSync(originalCapturePath, "utf8")),
+        captureId: duplicateCaptureId
+      }
+      const duplicateArtifact = "captures/duplicate.json"
+      const duplicateBytes = `${JSON.stringify(duplicateCapture, null, 2)}\n`
+      writeFileSync(join(fixture.directory, duplicateArtifact), duplicateBytes)
+      fixture.manifest.captures.push({
+        ...originalCapture,
+        captureId: duplicateCaptureId,
+        captureArtifact: duplicateArtifact,
+        captureSha256: digest(duplicateBytes)
+      })
       writeFileSync(
         fixture.manifestPath,
         `${JSON.stringify(fixture.manifest, null, 2)}\n`
@@ -343,7 +375,7 @@ describe("Amazon regional video playback evidence", () => {
 
       expect(result.status).toBe("FAIL")
       expect(result.problems).toContain(
-        "Capture file hash does not match for amazon.com."
+        "Capture file hash does not match for amazon.ca."
       )
     } finally {
       rmSync(fixture.directory, { recursive: true, force: true })
@@ -368,7 +400,7 @@ describe("Amazon regional video playback evidence", () => {
     })
     expect(sidecarPathResult.status).toBe("FAIL")
     expect(sidecarPathResult.problems).toContain(
-      "Capture file path traverses a symlink for amazon.com."
+      "Capture file path traverses a symlink for amazon.ca."
     )
 
     const manifestFixture = makeSyntheticCompleteEvidence()

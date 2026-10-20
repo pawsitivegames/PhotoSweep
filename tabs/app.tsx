@@ -134,6 +134,7 @@ import {
 import { getOrCreateInstallId } from "../lib/install-identity"
 import { PHOTO_DATA_CONSENT_STORAGE_KEY } from "../lib/privacy-disclosure"
 import {
+  ALBUM_LIST_REQUEST_TIMEOUT_MS,
   providerBatchLimit as configuredProviderBatchLimit,
   getProviderOperations,
   providerAlbumTrashNotice,
@@ -142,11 +143,14 @@ import {
   providerRecoveryWindowNotice,
   providerTrashDestination
 } from "../lib/provider-operations"
+import { resolveProviderAlbumResponse } from "../lib/provider-album-response"
 import { providerScanCancellationTarget } from "../lib/provider-scan-cancellation"
 import {
+  fetchAmazonVideoPlaybackBlob,
   MAX_ORIGINAL_BYTES_PER_ITEM,
   MAX_ORIGINAL_BYTES_PER_REVIEW,
   getOriginalContentVerificationUnavailableMessage,
+  getProviderRetrievalSessionError,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   isVideoForPlayback,
@@ -192,6 +196,7 @@ import {
 } from "../lib/scan-results"
 import { StoredReviewScope } from "../lib/stored-review-scope"
 import { buildSupportDiagnosticsReport } from "../lib/support-diagnostics"
+import { AMAZON_VIDEO_DOWNLOAD_HOST_PERMISSION } from "../lib/provider-sites"
 import theme, { photoSweepColors } from "../lib/theme"
 import {
   captureTrashDispatchAuthorization
@@ -446,15 +451,19 @@ function DeferredUpgradeBanner({
           </IconButton>
         </Box>
       }>
-      <Typography variant="body2" fontWeight={800}>
+      <Typography variant="body2" sx={{
+        fontWeight: 800
+      }}>
         Keep reviewing or unlock more of this cleanup
       </Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{
+        color: "text.secondary"
+      }}>
         {detail} Paid access is optional and does not change provider
         availability.
       </Typography>
     </Alert>
-  )
+  );
 }
 
 function providerBatchLimitForEntitlement(
@@ -496,13 +505,22 @@ function SidePanelConnectionSetup({
           bgcolor: photoSweepColors.surface,
           p: 1.25
         }}>
-        <Typography variant="overline" color="text.secondary">
+        <Typography variant="overline" sx={{
+          color: "text.secondary"
+        }}>
           Step 1
         </Typography>
-        <Typography variant="subtitle1" fontWeight={800} gutterBottom>
+        <Typography variant="subtitle1" gutterBottom sx={{
+          fontWeight: 800
+        }}>
           Choose photo source
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 1
+          }}>
           Pick one library. The main tab will open that provider.
         </Typography>
         <TextField
@@ -554,13 +572,15 @@ function SidePanelConnectionSetup({
             py: 1
           }}>
           <CircularProgress size={16} thickness={5} />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {connectionStatus}
           </Typography>
         </Box>
       )}
     </Box>
-  )
+  );
 }
 
 type TimelineStepStatus = "complete" | "active" | "locked"
@@ -745,10 +765,12 @@ function SidePanelSourceBar({
         size="small"
         fullWidth
         value={provider}
-        SelectProps={{
-          SelectDisplayProps: {
-            "aria-label": "Photo source",
-            "aria-labelledby": undefined
+        slotProps={{
+          select: {
+            SelectDisplayProps: {
+              "aria-label": "Photo source",
+              "aria-labelledby": undefined
+            }
           }
         }}
         sx={{
@@ -829,12 +851,16 @@ function SidePanelBrandHeader() {
       <PhotoSweepBrandMark size={34} />
       <Typography
         variant="subtitle1"
-        fontWeight={850}
-        sx={{ letterSpacing: 0, color: photoSweepColors.ink, lineHeight: 1 }}>
+        sx={{
+          fontWeight: 850,
+          letterSpacing: 0,
+          color: photoSweepColors.ink,
+          lineHeight: 1
+        }}>
         PhotoSweep
       </Typography>
     </Box>
-  )
+  );
 }
 
 function SidePanelSafetyFooter() {
@@ -867,13 +893,17 @@ function SidePanelSafetyFooter() {
       <Box>
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", lineHeight: 1.4, fontSize: 12 }}>
+          sx={{
+            color: "text.secondary",
+            display: "block",
+            lineHeight: 1.4,
+            fontSize: 12
+          }}>
           Nothing moves to Trash before you review and confirm.
         </Typography>
       </Box>
     </Box>
-  )
+  );
 }
 
 function dateToLocalMs(value: string, endOfDay = false): number {
@@ -1156,6 +1186,8 @@ export default function App() {
   const [trashConfirm, setTrashConfirmState] =
     useState<DuplicateTrashPlan | null>(null)
   const trashConfirmRef = useRef<DuplicateTrashPlan | null>(null)
+  const [trashConfirmDisplayCount, setTrashConfirmDisplayCount] =
+    useState<number | null>(null)
   const [trashConfirmCount, setTrashConfirmCount] = useState("")
   const [unknownFavoriteTrashAcknowledged, setUnknownFavoriteTrashAcknowledged] =
     useState(false)
@@ -1258,6 +1290,7 @@ export default function App() {
     (next: SetStateAction<DuplicateTrashPlan | null>) => {
       const resolved =
         typeof next === "function" ? next(trashConfirmRef.current) : next
+      if (resolved) setTrashConfirmDisplayCount(resolved.dedupKeys.length)
       trashConfirmRef.current = resolved
       setTrashConfirmState(resolved)
     },
@@ -1454,7 +1487,8 @@ export default function App() {
   const invalidatePaidConversionContext = useCallback(() => {
     paidConversionGenerationRef.current += 1
     paidAccessLifecycleRef.current?.invalidateCheckoutContext()
-    trashLifecycleRef.current?.reset()
+    const pendingTrashSurvivesInvalidation =
+      trashLifecycleRef.current?.invalidateContext() ?? false
     checkoutPlanRef.current = null
     checkoutReconcilePlanRef.current = null
     checkoutReconcileAttemptsRef.current = 0
@@ -1462,16 +1496,18 @@ export default function App() {
     checkoutReconcileInFlightRef.current = false
     restoreInFlightRef.current = restoreCommitInFlightRef.current
     restoreGenerationRef.current = null
-    for (const timeoutId of trashTimeoutByRequestRef.current.values()) {
-      window.clearTimeout(timeoutId)
+    if (!pendingTrashSurvivesInvalidation) {
+      for (const timeoutId of trashTimeoutByRequestRef.current.values()) {
+        window.clearTimeout(timeoutId)
+      }
+      trashTimeoutByRequestRef.current.clear()
+      trashGenerationByRequestRef.current.clear()
     }
-    trashTimeoutByRequestRef.current.clear()
     for (const timeoutId of restoreTimeoutByRequestRef.current.values()) {
       window.clearTimeout(timeoutId)
     }
     restoreTimeoutByRequestRef.current.clear()
     restoreRequestByIdRef.current.clear()
-    trashGenerationByRequestRef.current.clear()
     deferredUpgradeRef.current = null
     upgradePromptRef.current = null
     ratingPromptOpenRef.current = false
@@ -2098,6 +2134,7 @@ export default function App() {
     accountEmail?: string
     providerSessionId?: string
   } | null>(null)
+  const albumsRequestTimeoutRef = useRef<number | null>(null)
   const currentAccountEmailRef = useRef<string | undefined>(undefined)
   const currentProviderSessionIdRef = useRef<string | undefined>(undefined)
   const currentIdentityProviderRef = useRef<PhotoProvider | undefined>(
@@ -2172,9 +2209,29 @@ export default function App() {
     }
   }, [])
 
+  const clearAlbumsRequestTimeout = useCallback(() => {
+    const timeoutId = albumsRequestTimeoutRef.current
+    if (timeoutId === null) return
+    window.clearTimeout(timeoutId)
+    albumsRequestTimeoutRef.current = null
+  }, [])
+
+  const failAlbumRequest = useCallback(
+    (requestId: string, error: string) => {
+      if (albumsRequestRef.current?.requestId !== requestId) return
+      albumsRequestRef.current = null
+      albumsRequestedForAccountRef.current = null
+      clearAlbumsRequestTimeout()
+      setAlbumsLoading(false)
+      setAlbumsError(error)
+    },
+    [clearAlbumsRequestTimeout]
+  )
+
   const requestAlbums = useCallback(
     (accountEmail?: string) => {
       if (photoDataConsent !== true) return
+      clearAlbumsRequestTimeout()
       const provider = settingsRef.current.sourceProvider ?? "google"
       if (
         getProviderOperations(provider).capabilities.albumScope !== "supported"
@@ -2224,7 +2281,13 @@ export default function App() {
         ...(googleAccountEmail ? { accountEmail: googleAccountEmail } : {}),
         ...(providerSessionId ? { providerSessionId } : {})
       }
-      sendToServiceWorker({
+      albumsRequestTimeoutRef.current = window.setTimeout(() => {
+        failAlbumRequest(
+          requestId,
+          "The album list request timed out. Check the provider tab and refresh the album list."
+        )
+      }, ALBUM_LIST_REQUEST_TIMEOUT_MS)
+      const message: AppMessage = {
         app: APP_ID,
         action: "gptkCommand",
         command: "listAlbums",
@@ -2235,10 +2298,27 @@ export default function App() {
           : providerSessionId
             ? { args: { providerSessionId } }
             : {})
-      })
+      }
+      void Promise.resolve()
+        .then(() => sendToServiceWorker(message))
+        .catch(() => {
+          failAlbumRequest(
+            requestId,
+            "Could not reach the provider page to load albums. Reconnect and refresh the album list."
+          )
+        })
     },
-    [photoDataConsent]
+    [clearAlbumsRequestTimeout, failAlbumRequest, photoDataConsent]
   )
+
+  const refreshAlbums = useCallback(() => {
+    clearAlbumsRequestTimeout()
+    albumsRequestRef.current = null
+    albumsRequestedForAccountRef.current = null
+    setAlbumsLoading(true)
+    setAlbumsError(null)
+    requestHealthCheck(settingsRef.current.sourceProvider ?? "google")
+  }, [clearAlbumsRequestTimeout, requestHealthCheck])
 
   const handleTrashProviderResult = useCallback(
     (result: GptkResultMessage) => {
@@ -2251,12 +2331,7 @@ export default function App() {
         result.requestId
       )
       trashGenerationByRequestRef.current.delete(result.requestId)
-      if (
-        generation === undefined ||
-        generation !== paidConversionGenerationRef.current
-      ) {
-        return
-      }
+      if (generation === undefined) return
       void trashLifecycle
         .reconcile({
           requestId: result.requestId,
@@ -2606,11 +2681,13 @@ export default function App() {
         )
         return
       }
-      if (result.providerSessionId !== pending.providerSessionId) {
+      const sessionError = getProviderRetrievalSessionError(
+        result,
+        pending.providerSessionId
+      )
+      if (sessionError) {
         pending.reject(
-          new Error(
-            "The provider returned a result from a different page session. The item remains unverified."
-          )
+          new Error(sessionError)
         )
         return
       }
@@ -3182,31 +3259,22 @@ export default function App() {
               break
             }
             albumsRequestRef.current = null
+            clearAlbumsRequestTimeout()
             setAlbumsLoading(false)
-            if (
-              result.providerSessionId !==
-              (pendingAlbumRequest.provider === "google"
-                ? pendingAlbumRequest.providerSessionId
-                : pendingAlbumRequest.identity)
-            ) {
+            const albumResponse = resolveProviderAlbumResponse(
+              result,
+              pendingAlbumRequest.provider === "google"
+                ? (pendingAlbumRequest.providerSessionId ?? "__unknown__")
+                : pendingAlbumRequest.identity
+            )
+            if (albumResponse.kind === "session-mismatch") {
               setAlbumsError(
-                "The provider page session changed while albums were loading. Reconnect and refresh the album list."
+                albumResponse.error
               )
               break
             }
-            const hasValidAlbumList =
-              Array.isArray(result.data) &&
-              result.data.every((album) => {
-                if (!album || typeof album !== "object") return false
-                const candidate = album as Partial<GpdAlbum>
-                return (
-                  typeof candidate.mediaKey === "string" &&
-                  candidate.mediaKey.length > 0 &&
-                  typeof candidate.title === "string"
-                )
-              })
-            if (result.success && hasValidAlbumList) {
-              const nextAlbums = result.data as GpdAlbum[]
+            if (albumResponse.kind === "success") {
+              const nextAlbums = albumResponse.albums
               setAlbums(nextAlbums)
               setAlbumsError(null)
               const activeAlbum = activeAlbumScope(
@@ -3221,9 +3289,7 @@ export default function App() {
                 setSettings({ albumScope: undefined })
               }
             } else {
-              setAlbumsError(
-                result.error || "Could not load a complete album list."
-              )
+              setAlbumsError(albumResponse.error)
             }
           } else if (result.command === "getAllMediaItems") {
             // Drop stale results from scans that were killed/cancelled — their
@@ -3470,7 +3536,9 @@ export default function App() {
     setReportError,
     setTrashWarningSafely,
     trackEvent,
-    trashLifecycle
+    trashLifecycle,
+    clearAlbumsRequestTimeout,
+    requestAlbums
   ])
 
   // Keep refs so async callbacks always see latest values
@@ -3630,8 +3698,54 @@ export default function App() {
   )
 
   const handleLoadVideo = useCallback(
-    (item: GpdMediaItem, signal: AbortSignal) =>
-      requestProviderRetrieval("getVideoPlaybackUrl", item, signal) as Promise<VideoPlaybackResult>,
+    async (item: GpdMediaItem, signal: AbortSignal) => {
+      if (item.provider !== "amazon") {
+        return requestProviderRetrieval(
+          "getVideoPlaybackUrl",
+          item,
+          signal
+        ) as Promise<VideoPlaybackResult>
+      }
+      if (signal.aborted) {
+        throw new DOMException("Amazon Photos video playback was cancelled.", "AbortError")
+      }
+      if (typeof chrome === "undefined" || typeof chrome.permissions?.request !== "function") {
+        throw new Error("Chrome could not request access to Amazon's video host.")
+      }
+
+      let hasVideoHostPermission = false
+      try {
+        hasVideoHostPermission = await chrome.permissions.request({
+          origins: [AMAZON_VIDEO_DOWNLOAD_HOST_PERMISSION]
+        })
+      } catch {
+        throw new Error("Chrome could not grant Amazon video access. Open this video in Amazon Photos.")
+      }
+      if (!hasVideoHostPermission) {
+        throw new Error("Amazon video access was not granted. Open this video in Amazon Photos.")
+      }
+      if (signal.aborted) {
+        throw new DOMException("Amazon Photos video playback was cancelled.", "AbortError")
+      }
+
+      const result = (await requestProviderRetrieval(
+        "getVideoPlaybackUrl",
+        item,
+        signal
+      )) as VideoPlaybackResult
+      const blob = await fetchAmazonVideoPlaybackBlob(
+        result.playbackUrl,
+        signal
+      )
+      if (signal.aborted) {
+        throw new DOMException("Amazon Photos video playback was cancelled.", "AbortError")
+      }
+      return {
+        ...result,
+        playbackUrl: URL.createObjectURL(blob),
+        mimeType: blob.type
+      }
+    },
     [requestProviderRetrieval]
   )
 
@@ -4094,6 +4208,8 @@ export default function App() {
           (key) => favoriteStatusForItem(mediaItems[key]) === "unknown"
         ).length
       : 0
+  const trashConfirmDisplayCountForRender =
+    trashConfirm?.dedupKeys.length ?? trashConfirmDisplayCount ?? 0
 
   const groupClassificationById = useMemo(() => {
     const m = new Map<string, "exact" | "similar">()
@@ -4585,6 +4701,7 @@ export default function App() {
 
   useEffect(() => {
     cancelHealthCheckRetry()
+    clearAlbumsRequestTimeout()
     healthCheckAttemptsRef.current = 0
     currentAccountEmailRef.current = undefined
     currentProviderSessionIdRef.current = undefined
@@ -4600,11 +4717,19 @@ export default function App() {
     albumsRequestRef.current = null
     requestHealthCheck(settings.sourceProvider ?? "google")
   }, [
+    clearAlbumsRequestTimeout,
     cancelHealthCheckRetry,
     photoDataConsent,
     requestHealthCheck,
     settings.sourceProvider
   ])
+
+  useEffect(
+    () => () => {
+      clearAlbumsRequestTimeout()
+    },
+    [clearAlbumsRequestTimeout]
+  )
 
   const handleStartScan = useCallback(
     async (settingsOverride?: ScanSettings) => {
@@ -5379,17 +5504,13 @@ export default function App() {
     })
     const timeoutId = window.setTimeout(() => {
       trashTimeoutByRequestRef.current.delete(requestId)
-      if (trashGenerationByRequestRef.current.get(requestId) !== generation) {
+      if (!trashGenerationByRequestRef.current.has(requestId)) {
         return
       }
       void trashLifecycle
         .timeout({ requestId })
         .then((outcome) => {
-          if (
-            trashGenerationByRequestRef.current.get(requestId) !== generation
-          ) {
-            return
-          }
+          if (generation !== paidConversionGenerationRef.current) return
           trackEvent({ name: "error", provider: command.provider, errorCategory: "trash" })
           if (outcome.kind === "partial") {
             dispatch({
@@ -5460,7 +5581,6 @@ export default function App() {
       cancelProviderScanRequest(cancelTarget.requestId, cancelTarget.provider)
     }
     scanLifecycle.reset()
-    trashLifecycle.reset()
     cachedMediaItemsRef.current = null
     deferredUpgradeRef.current = null
     setDeferredUpgrade(null)
@@ -6089,7 +6209,9 @@ export default function App() {
             </Button>
           </Box>
         }>
-        <Typography variant="body2" fontWeight={700}>
+        <Typography variant="body2" sx={{
+          fontWeight: 700
+        }}>
           Optional private usage metrics
         </Typography>
         <Typography variant="caption">
@@ -6112,7 +6234,9 @@ export default function App() {
           borderBottom: "1px solid",
           borderColor: "divider"
         }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Usage metrics {analyticsConsent ? "on" : "off"} · no photo content
         </Typography>
         <Button size="small" onClick={resetAnalyticsConsent}>
@@ -6156,9 +6280,9 @@ export default function App() {
             <PhotoSweepBrandMark size={34} />
             <Typography
               variant="h6"
-              fontWeight={700}
               noWrap
               sx={{
+                fontWeight: 700,
                 flexGrow: 1,
                 letterSpacing: 0
               }}>
@@ -6167,18 +6291,23 @@ export default function App() {
             {"accountEmail" in state && state.accountEmail ? (
               <Typography
                 variant="body2"
-                color="text.secondary"
                 noWrap
                 title={`Signed in as ${state.accountEmail}`}
-                sx={{ maxWidth: "32vw", fontSize: 12 }}>
+                sx={{
+                  color: "text.secondary",
+                  maxWidth: "32vw",
+                  fontSize: 12
+                }}>
                 Signed in · {state.accountEmail}
               </Typography>
             ) : sourceProvider === "amazon" && amazonProfileName ? (
               <Typography
                 variant="body2"
-                color="text.secondary"
                 noWrap
-                title="The Amazon profile name is for display only; PhotoSweep binds this session using the current Photos page.">
+                title="The Amazon profile name is for display only; PhotoSweep binds this session using the current Photos page."
+                sx={{
+                  color: "text.secondary"
+                }}>
                 Amazon Photos profile: {amazonProfileName} · session only
               </Typography>
             ) : null}
@@ -6362,7 +6491,7 @@ export default function App() {
                   albums={albums}
                   albumsLoading={albumsLoading}
                   albumsError={albumsError}
-                  onRefreshAlbums={() => requestAlbums(state.accountEmail)}
+                  onRefreshAlbums={refreshAlbums}
                   entitlement={entitlement}
                   onUpgrade={(detail) =>
                     openTrackedUpgradePrompt("scan", detail)
@@ -6497,10 +6626,14 @@ export default function App() {
               )}
               {state.status === "trashing" && (
                 <Box sx={{ display: "grid", gap: 1 }}>
-                  <Typography variant="body2" fontWeight={800}>
+                  <Typography variant="body2" sx={{
+                    fontWeight: 800
+                  }}>
                     Moving to trash
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {state.trashedSoFar > 0
                       ? `${state.trashedSoFar.toLocaleString()} of ${state.totalToTrash.toLocaleString()} moved`
                       : "Starting..."}
@@ -6567,7 +6700,7 @@ export default function App() {
                   albums={albums}
                   albumsLoading={albumsLoading}
                   albumsError={albumsError}
-                  onRefreshAlbums={() => requestAlbums(state.accountEmail)}
+                  onRefreshAlbums={refreshAlbums}
                   entitlement={entitlement}
                   onUpgrade={(detail) =>
                     openTrackedUpgradePrompt("scan", detail)
@@ -6700,7 +6833,9 @@ export default function App() {
 
               {state.status === "trashing" && (
                 <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
-                  <Typography variant="h5" fontWeight={600} gutterBottom>
+                  <Typography variant="h5" gutterBottom sx={{
+                    fontWeight: 600
+                  }}>
                     Moving to Trash
                   </Typography>
                   <Box
@@ -6711,7 +6846,9 @@ export default function App() {
                       mb: 2
                     }}>
                     <CircularProgress size={14} thickness={5} />
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {state.trashedSoFar > 0
                         ? `${state.trashedSoFar.toLocaleString()} of ${state.totalToTrash.toLocaleString()} moved`
                         : "Starting..."}
@@ -6742,11 +6879,15 @@ export default function App() {
                   }}>
                   <Typography
                     variant="caption"
-                    fontWeight={800}
-                    color="success.dark">
+                    sx={{
+                      fontWeight: 800,
+                      color: "success.dark"
+                    }}>
                     Safe cleanup
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Matching runs locally. Confirmed items move to provider
                     Trash and a report is saved before cleanup.
                   </Typography>
@@ -6871,6 +7012,11 @@ export default function App() {
         fullWidth
         maxWidth="xs"
         slotProps={{
+          transition: {
+            onExited: () => {
+              if (!trashConfirmRef.current) setTrashConfirmDisplayCount(null)
+            }
+          },
           backdrop: {
             sx: {
               bgcolor: photoSweepColors.overlay,
@@ -6898,7 +7044,9 @@ export default function App() {
           )}
           {trashPreflight && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              <Typography variant="body2" fontWeight={800}>
+              <Typography variant="body2" sx={{
+                fontWeight: 800
+              }}>
                 Cleanup preflight passed
               </Typography>
               <Typography variant="caption">
@@ -6911,8 +7059,8 @@ export default function App() {
             </Alert>
           )}
           <DialogContentText>
-            Move {trashConfirm?.dedupKeys.length} duplicate
-            {trashConfirm?.dedupKeys.length !== 1 ? "s" : ""} to trash? You can
+            Move {trashConfirmDisplayCountForRender} duplicate
+            {trashConfirmDisplayCountForRender !== 1 ? "s" : ""} to trash? You can
             restore them from{" "}
             {providerTrashDestination(settings.sourceProvider)}. A JSON audit
             report will be saved before anything is moved. Items are moved in
@@ -6952,12 +7100,14 @@ export default function App() {
             autoFocus
             fullWidth
             margin="normal"
-            label={`Type ${trashConfirm?.dedupKeys.length ?? 0} to confirm`}
+            label={`Type ${trashConfirmDisplayCountForRender} to confirm`}
             value={trashConfirmCount}
             onChange={(event) => setTrashConfirmCount(event.target.value)}
-            inputProps={{
-              inputMode: "numeric",
-              pattern: "[0-9]*"
+            slotProps={{
+              htmlInput: {
+                inputMode: "numeric",
+                pattern: "[0-9]*"
+              }
             }}
           />
         </DialogContent>
@@ -7035,5 +7185,5 @@ export default function App() {
         />
       )}
     </ThemeProvider>
-  )
+  );
 }

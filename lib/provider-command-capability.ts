@@ -33,7 +33,7 @@ function base64UrlEncode(bytes: ArrayBuffer): string {
   const view = new Uint8Array(bytes)
   let binary = ""
   for (const byte of view) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function canonicalJson(value: unknown): string {
@@ -58,7 +58,7 @@ function canonicalJson(value: unknown): string {
 function randomNonce(): string {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
-  return base64UrlEncode(bytes)
+  return base64UrlEncode(bytes.buffer)
 }
 
 export function providerCommandCapabilityPayload(params: {

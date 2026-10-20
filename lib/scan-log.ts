@@ -53,6 +53,63 @@ export interface ScanLogEntry {
   stableEstimates: StableEstimate[]
 }
 
+const SCAN_STATUSES = new Set<ScanStatus>([
+  "complete",
+  "cancelled",
+  "paused",
+  "error",
+  "killed_by_reload"
+])
+const PHASE_TIMING_KEYS = [
+  "fetchThumbnailsMs",
+  "computeEmbeddingsMs",
+  "communityDetectionMs"
+] as const
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value)
+}
+
+function isStableEstimate(value: unknown): value is StableEstimate {
+  return (
+    isRecord(value) &&
+    typeof value.phase === "string" &&
+    isFiniteNumber(value.estimatedMs) &&
+    isFiniteNumber(value.atPercent)
+  )
+}
+
+function isStoredScanLogEntry(value: unknown): value is ScanLogEntry {
+  if (!isRecord(value) || !isRecord(value.phaseTimings)) return false
+
+  const phaseTimingsAreValid = PHASE_TIMING_KEYS.every(
+    (key) => value.phaseTimings[key] === undefined || isFiniteNumber(value.phaseTimings[key])
+  )
+
+  return (
+    isFiniteNumber(value.timestamp) &&
+    typeof value.status === "string" &&
+    SCAN_STATUSES.has(value.status as ScanStatus) &&
+    isFiniteNumber(value.totalItems) &&
+    isFiniteNumber(value.candidates) &&
+    isFiniteNumber(value.cacheHits) &&
+    isFiniteNumber(value.totalMs) &&
+    phaseTimingsAreValid &&
+    Array.isArray(value.stableEstimates) &&
+    value.stableEstimates.every(isStableEstimate) &&
+    (value.groupsFound === undefined || isFiniteNumber(value.groupsFound)) &&
+    (value.error === undefined || typeof value.error === "string")
+  )
+}
+
+function readStoredScanLogs(value: unknown): ScanLogEntry[] {
+  return Array.isArray(value) ? value.filter(isStoredScanLogEntry) : []
+}
+
 // ============================================================
 // Storage keys
 // ============================================================
@@ -179,7 +236,7 @@ export class ScanLogger {
   private async _commit(entry: ScanLogEntry): Promise<void> {
     try {
       const stored = await chrome.storage.local.get(LOG_KEY)
-      const logs: ScanLogEntry[] = stored[LOG_KEY] ?? []
+      const logs = readStoredScanLogs(stored[LOG_KEY])
       logs.push(entry)
       if (logs.length > MAX_ENTRIES) logs.splice(0, logs.length - MAX_ENTRIES)
       await chrome.storage.local.set({ [LOG_KEY]: logs })
@@ -263,7 +320,7 @@ export class StabilityTracker {
 export async function getScanLogs(): Promise<ScanLogEntry[]> {
   try {
     const stored = await chrome.storage.local.get(LOG_KEY)
-    return stored[LOG_KEY] ?? []
+    return readStoredScanLogs(stored[LOG_KEY])
   } catch {
     return []
   }

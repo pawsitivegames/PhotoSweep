@@ -16,6 +16,14 @@ By default it listens on `127.0.0.1:8787` and uses
 `HOST=0.0.0.0` so the platform can reach the process; the repository Dockerfile
 sets this explicitly.
 
+Set `PHOTOSWEEP_LICENSE_STORE=firestore` to use Firestore. Optionally set
+`PHOTOSWEEP_FIRESTORE_DATABASE_ID` to select a named database; when unset, the
+Firestore client uses the project default database. `PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX`
+continues to select collection names independently. The API server, funnel
+evidence export, and Stripe ledger export use the same database and collection
+settings. These variables select a database; they do not create it or grant IAM
+access.
+
 ## Endpoints
 
 - `POST /checkout`
@@ -79,6 +87,19 @@ sets this explicitly.
   - The backend sanitizes the event again before bounded storage.
   - Photo URLs, thumbnails, filenames, album names, exact timestamps,
     people/location labels, page content, and raw reports are not accepted.
+  - Analytics events expire 90 days after server receipt. The Firestore store
+    writes an `expiresAt` timestamp and excludes expired events from snapshots.
+    Production Firestore TTL is active on
+    `prod_analytics_events.expiresAt` (read-only checked October 19, 2026), and
+    the approved backfill wrote `recordedAt + 90 days` to all 1,147 documents in
+    its October 14 snapshot. A later October 17 reconciliation found 1,077
+    documents, all with expiry timestamps, none past due, and corrected all 22
+    rows that lacked expiry at the start of that run. Counts do not identify
+    which records TTL deleted. Firestore deletion is asynchronous, so do not
+    treat saved counts as current deletion evidence. See the [TTL check](../tmp/verification/release-followup-20261019T1125Z/public-policy-and-ttl.json),
+    [backfill result](../tmp/verification/runs/20261014T083352Z-analytics-retention-preflight/analytics-retention-backfill-result.json),
+    [October 14 count](../tmp/verification/manual-20261014-node24/analytics-ttl-current-counts.json),
+    and [October 17 reconciliation](../tmp/verification/retention-20261017/backfill-20261017T100221.259Z.json).
 
 - `POST /stripe/webhook`
   - Verifies the `Stripe-Signature` header.
@@ -204,7 +225,12 @@ browser session:
 - `hasProcessedStripeEvent(eventId)`
 - `markStripeEventProcessed(eventId)`
 - `recordAnalyticsEvent(event)` for privacy-safe funnel/reliability events.
-  The included memory and JSON stores retain the latest 1,000 sanitized events.
+  Memory and JSON stores prune events older than 90 days and retain at most the
+  latest 1,000 sanitized events. The Firestore store records a 90-day
+  `expiresAt` timestamp. Production TTL is active on
+  `prod_analytics_events.expiresAt`, and the approved 1,147-document snapshot
+  backfill is complete. Expired-document deletion is asynchronous; the
+  historical count check is not a current deletion count.
 - Optional: `sendRecoveryEmail({ email, recoveryUrl })` for production recovery
   email delivery.
 

@@ -220,8 +220,11 @@ export function ScanConfig({
     <>
       <Typography
         variant="caption"
-        color="text.secondary"
-        sx={{ display: "block", mb: 1 }}>
+        sx={{
+          color: "text.secondary",
+          display: "block",
+          mb: 1
+        }}>
         {isIcloud
           ? "iCloud date filters use provider asset dates. Capture provenance can be unknown, and dates may fall back to upload time."
           : "Filter by date. Leave empty to scan all dates."}
@@ -235,7 +238,7 @@ export function ScanConfig({
           size="small"
           fullWidth
           value={settings.dateRange?.from ?? ""}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           onChange={(event) =>
             onSettingsChange({
               dateRange: {
@@ -251,7 +254,7 @@ export function ScanConfig({
           size="small"
           fullWidth
           value={settings.dateRange?.to ?? ""}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           onChange={(event) =>
             onSettingsChange({
               dateRange: {
@@ -274,8 +277,11 @@ export function ScanConfig({
         {isIcloud && (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mt: 0.75 }}>
+            sx={{
+              color: "text.secondary",
+              display: "block",
+              mt: 0.75
+            }}>
           Full-library checks can use saved iCloud change data; date-range and
           album scans read their full scope.
           </Typography>
@@ -317,13 +323,17 @@ export function ScanConfig({
         }}>
         {compact && isAmazon && amazonProfileName && (
           <Alert severity="info" sx={{ mb: 2, alignItems: "flex-start" }}>
-            <Typography component="div" variant="body2" fontWeight={700}>
+            <Typography component="div" variant="body2" sx={{
+              fontWeight: 700
+            }}>
               Amazon Photos profile: {amazonProfileName}
             </Typography>
             <Typography
               component="div"
               variant="caption"
-              color="text.secondary">
+              sx={{
+                color: "text.secondary"
+              }}>
               Display label only. This scan is bound to the open Amazon Photos
               session.
             </Typography>
@@ -354,10 +364,14 @@ export function ScanConfig({
               <PhotoLibraryRoundedIcon />
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="h5" fontWeight={700} gutterBottom>
+              <Typography variant="h5" gutterBottom sx={{
+                fontWeight: 700
+              }}>
                 Find copies across your photo library
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Pick the source, choose the part of the library to check, then
                 review what should stay before anything moves to trash.
               </Typography>
@@ -409,21 +423,32 @@ export function ScanConfig({
             <Stack
               direction="column"
               spacing={2}
-              alignItems={{ xs: "stretch", md: "center" }}>
+              sx={{
+                alignItems: { xs: "stretch", md: "center" }
+              }}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="overline" color="text.secondary">
+                <Typography variant="overline" sx={{
+                  color: "text.secondary"
+                }}>
                   PHOTO SOURCE
                 </Typography>
-                <Typography variant="subtitle1" fontWeight={700}>
+                <Typography variant="subtitle1" sx={{
+                  fontWeight: 700
+                }}>
                   Choose your photo library
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   {providerHelpText(sourceProvider)}
                 </Typography>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mt: 0.5 }}>
+                  sx={{
+                    color: "text.secondary",
+                    display: "block",
+                    mt: 0.5
+                  }}>
                   {providerLivePhotoPairNotice()}
                 </Typography>
               </Box>
@@ -488,10 +513,14 @@ export function ScanConfig({
           }}>
           {!compact && (
             <>
-              <Typography variant="overline" color="text.secondary">
+              <Typography variant="overline" sx={{
+                color: "text.secondary"
+              }}>
                 SCAN SCOPE
               </Typography>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+              <Typography variant="subtitle1" gutterBottom sx={{
+                fontWeight: 700
+              }}>
                 Choose what to scan
               </Typography>
             </>
@@ -519,21 +548,29 @@ export function ScanConfig({
                   "&.Mui-expanded": { minHeight: 40 },
                   "& .MuiAccordionSummary-content": { my: 0.75 }
                 }}>
-                <Typography variant="caption" fontWeight={600}>
+                <Typography variant="caption" sx={{
+                  fontWeight: 600
+                }}>
                   Coverage details
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ px: 0.5, pt: 0, pb: 1 }}>
                 <Typography
                   variant="body2"
-                  color="text.secondary"
-                  sx={{ lineHeight: 1.5 }}>
+                  sx={{
+                    color: "text.secondary",
+                    lineHeight: 1.5
+                  }}>
                   {providerHelpText(sourceProvider)}
                 </Typography>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mt: 0.75, lineHeight: 1.5 }}>
+                  sx={{
+                    color: "text.secondary",
+                    display: "block",
+                    mt: 0.75,
+                    lineHeight: 1.5
+                  }}>
                   {providerLivePhotoPairNotice()}
                 </Typography>
               </AccordionDetails>
@@ -550,9 +587,9 @@ export function ScanConfig({
                     ? settings.albumScope?.mediaKey ?? ""
                     : compactScopeLabel(sourceProvider)
                 }
-                InputLabelProps={{ shrink: true }}
-                SelectProps={
-                  supportsAlbumScope
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  select: supportsAlbumScope
                     ? {
                         inputProps: { "aria-label": "Library area" },
                         displayEmpty: true,
@@ -561,14 +598,12 @@ export function ScanConfig({
                             ? libraryAreaValueLabel
                             : compactScopeLabel(sourceProvider)
                       }
-                    : undefined
-                }
-                InputProps={supportsAlbumScope ? undefined : { readOnly: true }}
-                inputProps={
-                  supportsAlbumScope
+                    : undefined,
+                  input: supportsAlbumScope ? undefined : { readOnly: true },
+                  htmlInput: supportsAlbumScope
                     ? undefined
                     : { "aria-label": "Library area" }
-                }
+                }}
                 helperText={undefined}
                 sx={{
                   "& .MuiInputBase-root": {
@@ -634,14 +669,14 @@ export function ScanConfig({
                 }}>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   noWrap
+                  title={albumsError || undefined}
                   sx={{
+                    color: "text.secondary",
                     minWidth: 0,
                     overflow: "hidden",
                     textOverflow: "ellipsis"
-                  }}
-                  title={albumsError || undefined}>
+                  }}>
                   {supportsAlbumScope
                     ? albumsLoading
                       ? "Loading albums..."
@@ -676,13 +711,15 @@ export function ScanConfig({
                 size="small"
                 fullWidth
                 value={settings.albumScope?.mediaKey ?? ""}
-                InputLabelProps={{ shrink: true }}
-                SelectProps={{
-                  displayEmpty: true,
-                  renderValue: (value) =>
-                    value
-                      ? libraryAreaValueLabel
-                      : compactScopeLabel(sourceProvider)
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  select: {
+                    displayEmpty: true,
+                    renderValue: (value) =>
+                      value
+                        ? libraryAreaValueLabel
+                        : compactScopeLabel(sourceProvider)
+                  }
                 }}
                 helperText={
                   compact
@@ -762,7 +799,9 @@ export function ScanConfig({
                   minWidth: 0
                 }}>
                 {!compact && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {albumsLoading
                       ? "Loading albums..."
                       : albumsError
@@ -796,7 +835,9 @@ export function ScanConfig({
               </Box>
             </>
           ) : (
-            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+            <Stack direction="row" spacing={1.5} sx={{
+              alignItems: "flex-start"
+            }}>
               <CloudQueueRoundedIcon color="primary" sx={{ mt: 0.25 }} />
               <Box>
                 <Typography variant="body2">
@@ -804,7 +845,9 @@ export function ScanConfig({
                     ? "The scan reads iCloud Photos items from the connected tab."
                     : "The scan reads Amazon Photos items from the connected Canada tab."}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {isIcloud
                     ? "Leave iCloud Photos open and signed in while the extension collects items."
                     : "Leave Amazon Photos open and signed in while the extension pages through the library."}
@@ -827,7 +870,12 @@ export function ScanConfig({
               bgcolor: "transparent",
               pt: 1.5
             }}>
-            <Typography variant="body2" fontWeight={750} sx={{ mb: 0.35 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 750,
+                mb: 0.35
+              }}>
               When
             </Typography>
             {dateRangeControls}
@@ -917,8 +965,12 @@ export function ScanConfig({
         {compact ? (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mb: 0.25, fontWeight: 700 }}>
+            sx={{
+              color: "text.secondary",
+              display: "block",
+              mb: 0.25,
+              fontWeight: 700
+            }}>
             {useRecommendedFirstScope
               ? "Recommended first scan"
               : settings.scanMode === "smart"
@@ -942,7 +994,9 @@ export function ScanConfig({
                   ? photoSweepColors.primarySoft
                   : photoSweepColors.surfaceSoft
             }}>
-            <Typography variant="body2" fontWeight={800}>
+            <Typography variant="body2" sx={{
+              fontWeight: 800
+            }}>
               {useRecommendedFirstScope
                 ? "Recent 30 days · Recommended"
                 : settings.scanMode === "smart"
@@ -951,8 +1005,12 @@ export function ScanConfig({
             </Typography>
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 0.25, lineHeight: 1.35 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                mt: 0.25,
+                lineHeight: 1.35
+              }}>
               {useRecommendedFirstScope
                 ? "Starts with a smaller date range. Widen it or scan all dates after you see the first results."
                 : settings.scanMode === "smart"
@@ -964,8 +1022,12 @@ export function ScanConfig({
         {compact && useRecommendedFirstScope && (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mb: 0.25, lineHeight: 1.3 }}>
+            sx={{
+              color: "text.secondary",
+              display: "block",
+              mb: 0.25,
+              lineHeight: 1.3
+            }}>
             Start with a smaller range, then widen it after you see the first results.
           </Typography>
         )}
@@ -1034,18 +1096,20 @@ export function ScanConfig({
             <Box sx={{ display: "flex", alignItems: "baseline", minWidth: 0 }}>
               <Typography
                 variant="body2"
-                fontWeight={compact ? 700 : undefined}
                 color={compact ? "text.primary" : "text.secondary"}
                 noWrap
-                sx={{ flexShrink: 0 }}>
+                sx={{
+                  fontWeight: compact ? 700 : undefined,
+                  flexShrink: 0
+                }}>
                 {compact ? "Scan options" : "Advanced matching"}
               </Typography>
               {compact && (
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   noWrap
                   sx={{
+                    color: "text.secondary",
                     ml: 0.75,
                     minWidth: 0,
                     flex: 1,
@@ -1070,14 +1134,24 @@ export function ScanConfig({
                   borderBottom: "1px solid",
                   borderColor: photoSweepColors.border
                 }}>
-                <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 700,
+                    mb: 1
+                  }}>
                   Date range
                 </Typography>
                 {dateRangeControls}
               </Box>
             )}
             <Box sx={{ mb: compact ? 1.75 : 3 }}>
-              <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  mb: 1
+                }}>
                   Matching method
               </Typography>
               <ToggleButtonGroup
@@ -1103,8 +1177,11 @@ export function ScanConfig({
               {!compact && (
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mt: 0.5 }}>
+                  sx={{
+                    color: "text.secondary",
+                    display: "block",
+                    mt: 0.5
+                  }}>
                   {settings.scanMode === "smart"
                     ? "Fast: compares photos and videos taken around the same time."
                     : `Compares all photos against each other in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks.`}
@@ -1114,7 +1191,12 @@ export function ScanConfig({
 
             {settings.scanMode === "smart" && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    mb: 1
+                  }}>
                   Time window:{" "}
                   <strong>{formatWindow(settings.smartWindowSec ?? 1)}</strong>
                 </Typography>
@@ -1135,8 +1217,11 @@ export function ScanConfig({
                 </ToggleButtonGroup>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mt: 0.5 }}>
+                  sx={{
+                    color: "text.secondary",
+                    display: "block",
+                    mt: 0.5
+                  }}>
                   How close in time photos and videos must be to be compared.
                   Widen this to catch re-saved files whose taken date changed.
                 </Typography>
@@ -1145,7 +1230,12 @@ export function ScanConfig({
 
             {sourceProvider === "amazon" && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    mb: 1
+                  }}>
                   Amazon test batch size
                 </Typography>
                 <TextField
@@ -1153,7 +1243,7 @@ export function ScanConfig({
                   size="small"
                   fullWidth
                   value={settings.amazonBatchLimit ?? ""}
-                  inputProps={{ min: 1, step: 1 }}
+                  slotProps={{ htmlInput: { min: 1, step: 1 } }}
                   placeholder="Full library"
                   onChange={(event) => {
                     const raw = event.target.value
@@ -1172,7 +1262,12 @@ export function ScanConfig({
 
             {sourceProvider === "icloud" && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    mb: 1
+                  }}>
                   iCloud test batch size
                 </Typography>
                 <TextField
@@ -1180,7 +1275,7 @@ export function ScanConfig({
                   size="small"
                   fullWidth
                   value={settings.icloudBatchLimit ?? ""}
-                  inputProps={{ min: 1, step: 1 }}
+                  slotProps={{ htmlInput: { min: 1, step: 1 } }}
                   placeholder="Full library"
                   onChange={(event) => {
                     const raw = event.target.value
@@ -1198,7 +1293,12 @@ export function ScanConfig({
             )}
 
             <Box>
-              <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  mb: 1
+                }}>
                 Sensitivity: <strong>{settings.similarityThreshold}</strong>
               </Typography>
               <Slider
@@ -1228,17 +1328,24 @@ export function ScanConfig({
                       justifyContent: "space-between",
                       mt: 0.5
                     }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       More matches
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Verified identity
                     </Typography>
                   </Box>
                   <Typography
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ display: "block", mt: 1 }}>
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mt: 1
+                    }}>
                     Lower values catch more reuploads, screenshots, and edited
                     copies. Verified content matches are always included.
                   </Typography>
@@ -1248,13 +1355,21 @@ export function ScanConfig({
 
             {!compact && (
               <Box sx={{ mt: 3 }}>
-                <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    mb: 1
+                  }}>
                   Embedding cache
                 </Typography>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mb: 1 }}>
+                  sx={{
+                    color: "text.secondary",
+                    display: "block",
+                    mb: 1
+                  }}>
                   {cacheEntryCount === null
                     ? "Cache size unavailable."
                     : `${cacheEntryCount.toLocaleString()} cached embedding${
@@ -1388,8 +1503,10 @@ export function ScanConfig({
             }>
             <Typography
               variant="body2"
-              fontWeight={compact ? 700 : undefined}
-              color={compact ? "text.primary" : "text.secondary"}>
+              color={compact ? "text.primary" : "text.secondary"}
+              sx={{
+                fontWeight: compact ? 700 : undefined
+              }}>
               Help &amp; feedback
             </Typography>
           </AccordionSummary>
@@ -1400,8 +1517,11 @@ export function ScanConfig({
             </Typography>
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mb: 1.25 }}>
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                mb: 1.25
+              }}>
               Opens a new email addressed to {FEEDBACK_EMAIL}.
             </Typography>
             <Button
@@ -1419,5 +1539,5 @@ export function ScanConfig({
         </Accordion>
       </Paper>
     </Box>
-  )
+  );
 }
