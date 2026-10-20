@@ -1150,8 +1150,8 @@ describe("getAllMediaItems — field mapping", () => {
 
   it("enriches raw EWgK9e rows and leaves unknown quality codes unknown", async () => {
     type RawBatchItem = [string, unknown[], ...unknown[]]
-    // Keep the bridge contract test independent of the GPTK submodule so it
-    // remains runnable in Stryker's sandbox, which intentionally omits GPTK.
+    // Keep the bridge contract test independent of the generated GPTK userscript
+    // so it remains runnable in Stryker's sandbox, which omits that build output.
     const fixtureRows: RawBatchItem[] = [
       [
         "AF1QipUTORt0UuUoEnf3LUfylqNvwB42tg6aR7tBD7nY",

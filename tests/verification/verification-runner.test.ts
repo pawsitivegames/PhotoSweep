@@ -520,9 +520,9 @@ describe("verification runner integrity", () => {
     }
   })
 
-  it("binds dirty submodule source, lockfile, and untracked test changes", () => {
-    const temporaryRoot = mkdtempSync("/tmp/photosweep-dirty-submodule-")
-    const submodulePath = join(temporaryRoot, "Google-Photos-Toolkit")
+  it("binds dirty nested repository source, lockfile, and untracked test changes", () => {
+    const temporaryRoot = mkdtempSync("/tmp/photosweep-dirty-nested-repository-")
+    const submodulePath = join(temporaryRoot, "Nested-Submodule-Fixture")
     const sourceFile = join(submodulePath, "src/api.ts")
 
     try {
@@ -557,18 +557,18 @@ describe("verification runner integrity", () => {
           "update-index",
           "--add",
           "--cacheinfo",
-          `160000,${submoduleCommit},Google-Photos-Toolkit`
+          `160000,${submoduleCommit},Nested-Submodule-Fixture`
         ],
         { cwd: temporaryRoot }
       )
 
       const cleanFingerprint = computeSourceFingerprint(temporaryRoot, [
-        "Google-Photos-Toolkit"
+        "Nested-Submodule-Fixture"
       ])
       writeFileSync(sourceFile, "export const token = 'modified'\n")
       const modifiedSourceFingerprint = computeSourceFingerprint(
         temporaryRoot,
-        ["Google-Photos-Toolkit"]
+        ["Nested-Submodule-Fixture"]
       )
 
       expect(modifiedSourceFingerprint.digest).not.toBe(cleanFingerprint.digest)
@@ -576,13 +576,13 @@ describe("verification runner integrity", () => {
       mkdirSync(join(submodulePath, "tests"), { recursive: true })
       writeFileSync(join(submodulePath, "tests/api.test.ts"), "export {}\n")
       const untrackedTestFingerprint = computeSourceFingerprint(temporaryRoot, [
-        "Google-Photos-Toolkit"
+        "Nested-Submodule-Fixture"
       ])
       expect(untrackedTestFingerprint.digest).not.toBe(
         modifiedSourceFingerprint.digest
       )
       expect(
-        computeSourceFingerprint(temporaryRoot, ["Google-Photos-Toolkit"]).digest
+        computeSourceFingerprint(temporaryRoot, ["Nested-Submodule-Fixture"]).digest
       ).toBe(untrackedTestFingerprint.digest)
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true })
