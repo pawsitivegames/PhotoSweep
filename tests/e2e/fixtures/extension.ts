@@ -110,7 +110,8 @@ export async function connectToChrome(
     browser = { close: () => context.close() } as Browser
   } else {
     try {
-      browser = await chromium.connectOverCDP(cdpUrl)
+      // Existing Chrome profiles may require the owner to approve a connection dialog.
+      browser = await chromium.connectOverCDP(cdpUrl, { timeout: 120_000 })
     } catch {
       throw new Error("Could not connect to the configured Chrome CDP endpoint. Keep the signed-in profile in place; configure CDP_URL explicitly if needed.")
     }

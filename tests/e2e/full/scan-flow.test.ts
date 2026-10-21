@@ -42,7 +42,9 @@ test("connects to Google Photos and completes the exact synthetic-album scan", a
     const area = appPage.getByRole("combobox", { name: "Library area", exact: true })
     await expect(area).toBeVisible({ timeout: 30_000 })
     await area.click()
-    await appPage.getByRole("option", { name: fixture.albumTitle, exact: true }).click()
+    await appPage.getByRole("option", {
+      name: `${fixture.albumTitle} (${fixture.expectedMediaKeys.length})`, exact: true
+    }).click()
     await expect.poll(() => area.evaluate((el, expected) =>
       (el.parentElement?.querySelector("input") as HTMLInputElement | null)?.value === expected,
       fixture.albumId

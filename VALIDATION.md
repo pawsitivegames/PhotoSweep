@@ -29,6 +29,18 @@ The automated live gate is scan-only and requires a reviewed synthetic album of
 Use the configured existing signed-in Chrome CDP connection. No profile is
 launched unless `GPD_E2E_USER_DATA_DIR` is explicitly supplied; local operator
 browser instructions still take precedence. Never transfer cookies into tests.
+If HTTP discovery is unavailable, set `CDP_URL` to the existing Chrome instance's
+local debugging WebSocket endpoint; keep the endpoint out of logs and commits.
+Start the run while the owner is at Chrome. If Chrome displays **Allow remote
+debugging?**, the owner must approve the fresh connection within the harness's
+two-minute connection window. Approval of an expired request does not prove a
+new connection is authorized.
+
+Temporarily disable other PhotoSweep installations during this gate, preserving
+their storage. Multiple enabled copies can replace the shared provider-page
+command host and make the selected candidate time out. Verify the switches in
+Chrome's own extension manager, then reload the provider tab before retrying.
+Restore the prior installation state after the run.
 
 The target installation must have no saved review/checkpoint state and no open
 app panel. Use a dedicated test installation, not an owner's active cleanup.

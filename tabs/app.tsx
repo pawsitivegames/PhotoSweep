@@ -1139,6 +1139,8 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, { status: "connecting" })
   const [sidePanelSourceConfirmed, setSidePanelSourceConfirmed] =
     useState(false)
+  const [sidePanelHostResolved, setSidePanelHostResolved] =
+    useState(!isSidePanel)
   const [storageChecked, setStorageChecked] = useState(false)
   const [settings, setSettings] = useReducer(
     (prev: ScanSettings, next: Partial<ScanSettings>) => ({ ...prev, ...next }),
@@ -2813,6 +2815,7 @@ export default function App() {
           active: true,
           currentWindow: true
         })
+        if (disposed) return
         if (
           activeTab?.id !== undefined &&
           !activeTab.url?.startsWith("chrome-extension://")
@@ -2827,21 +2830,9 @@ export default function App() {
           if (
             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
           ) {
-            reviewHydrationClosedRef.current = true
-            scanReviewGenerationRef.current += 1
-            providerConnectionTrackerRef.current.reset()
-            invalidatePaidConversionContext()
-            scanLifecycle.reset()
-            cachedMediaItemsRef.current = null
-            deferredUpgradeRef.current = null
-            setDeferredUpgrade(null)
-            pendingSelectionsRef.current = null
-            setResumeCheckpoint(null)
-            setSelectedGroupIds(new Set())
-            setReviewedGroupIds(new Set())
-            setKeptOverrides({})
-            dispatch({ type: "RESET" })
-            healthCheckAttemptsRef.current = 0
+            // Startup host discovery is not a user-requested provider switch.
+            // Restore that provider's saved scope and checkpoint below, after
+            // discovery settles, instead of overwriting them with defaults.
             const nextSettings = {
               ...settingsRef.current,
               sourceProvider: hostProvider,
@@ -2855,10 +2846,6 @@ export default function App() {
               sourceProvider: hostProvider,
               albumScope: nextSettings.albumScope
             })
-            void storedReviewScope.write({
-              settings: nextSettings,
-              checkpoint: null
-            }, undefined, hostProvider)
           }
           if (photoDataConsent === true) {
             requestHealthCheck(hostProvider)
@@ -2868,6 +2855,7 @@ export default function App() {
         // Best effort: older browsers can still use the action-click tab id.
       }
       if (disposed) return
+      setSidePanelHostResolved(true)
       port.postMessage({
         app: APP_ID,
         action: "sidePanel.ready",
@@ -3506,6 +3494,7 @@ export default function App() {
               })
             }
           } else {
+            if (!scanLifecycle.isCurrent(progress.requestId)) break
             patchScanCheckpoint({
               phase: "fetching",
               itemsProcessed: progress.itemsProcessed,
@@ -4059,6 +4048,7 @@ export default function App() {
 
   // Load saved settings and results on mount
   useEffect(() => {
+    if (!sidePanelHostResolved) return
     if (reviewHydrationClosedRef.current) {
       setStorageChecked(true)
       return
@@ -4192,6 +4182,7 @@ export default function App() {
   }, [
     accountValidationComplete,
     isSidePanel,
+    sidePanelHostResolved,
     scanLifecycle,
     storedReviewScope
   ])

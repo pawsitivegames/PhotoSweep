@@ -1644,6 +1644,112 @@ test("offers resume when a previous scan checkpoint was interrupted", async () =
   await clearStorage(context)
 })
 
+test("late provider progress cannot rewrite a paused checkpoint after reload", async () => {
+  await clearStorage(context)
+  await openGptkStubPage(context)
+  await injectScanCheckpoint(context, {
+    id: "paused-request",
+    status: "interrupted",
+    startedAt: Date.now() - 1000,
+    updatedAt: Date.now(),
+    accountEmail: "test@example.com",
+    settings: { scanMode: "smart", similarityThreshold: 0.95 },
+    phase: "fetching",
+    itemsProcessed: 0,
+    totalEstimate: 6,
+    message: "Scan paused."
+  })
+  const page = await openAppTab(context, extensionId)
+  await expect(page.getByRole("button", { name: /Continue previous scan/i })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("button", { name: /Continue previous scan/i })).toBeVisible()
+  const before = await readLocalStorage(context, ["scanCheckpoint"])
+  await page.evaluate(() => {
+    chrome.runtime.onMessage.addListener(message => {
+      if (message.action === "gptkProgress" && message.requestId === "paused-request") {
+        document.documentElement.dataset.lateProgressDelivered = "true"
+      }
+    })
+  })
+  const worker = context.serviceWorkers().find(worker =>
+    worker.url().startsWith(`chrome-extension://${extensionId}/`))
+  expect(worker).toBeTruthy()
+  await worker!.evaluate(async () => {
+    await chrome.runtime.sendMessage({
+      app: "GPD", action: "gptkProgress", command: "getAllMediaItems",
+      requestId: "paused-request", itemsProcessed: 99,
+      message: "Late progress from the paused request"
+    }).catch(() => {})
+  })
+  await expect(page.locator("html")).toHaveAttribute("data-late-progress-delivered", "true")
+  // Storage persistence is asynchronous; allow the received event's queued
+  // write to settle so this detects a mutation rather than racing ahead of it.
+  await page.waitForTimeout(150)
+  expect(await readLocalStorage(context, ["scanCheckpoint"])).toEqual(before)
+})
+
+for (const provider of ["icloud", "amazon"] as const) {
+  test(`compact panel preserves the ${provider} checkpoint while host identity loads`, async () => {
+    await clearStorage(context)
+    const settings = {
+      sourceProvider: provider,
+      scanMode: "smart",
+      similarityThreshold: 0.95,
+      smartWindowSec: 1,
+      defaultKeepStrategy: "best_quality",
+      exactOnly: false,
+      protectFavorites: true,
+      albumScope: { mediaKey: "synthetic-album", title: "Synthetic album" }
+    }
+    const checkpoint = {
+      id: "paused-synthetic-scan",
+      status: "interrupted",
+      startedAt: Date.now() - 1000,
+      updatedAt: Date.now(),
+      providerSessionId: "synthetic-session",
+      settings,
+      phase: "fetching",
+      itemsProcessed: 0
+    }
+    const settingsKey = providerReviewStorageKey(provider, "settings")
+    const checkpointKey = providerReviewStorageKey(provider, "scanCheckpoint")
+    const page = await context.newPage()
+    await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+    await page.evaluate(async ({ settingsKey, checkpointKey, settings, checkpoint }) => {
+      await chrome.storage.local.set({
+        settings,
+        [settingsKey]: settings,
+        [checkpointKey]: checkpoint
+      })
+    }, { settingsKey, checkpointKey, settings, checkpoint })
+    await page.addInitScript((source) => {
+      // Reproduce a side panel opened over a provider tab before health has
+      // supplied its account identity. No real provider account is involved.
+      const query = chrome.tabs.query.bind(chrome.tabs)
+      chrome.tabs.query = ((queryInfo: chrome.tabs.QueryInfo) =>
+        queryInfo.active
+          ? Promise.resolve([{ id: -1, url: source === "icloud"
+              ? "https://www.icloud.com/photos/"
+              : "https://www.amazon.ca/photos/" }])
+          : query(queryInfo)) as typeof chrome.tabs.query
+    }, provider)
+    await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+    await expect(page.getByRole("combobox", { name: "Photo source" }))
+      .toContainText(provider === "icloud" ? "iCloud Photos" : "Amazon Photos")
+    const saved = () => page.evaluate(async (keys) => chrome.storage.local.get(keys),
+      [settingsKey, checkpointKey])
+    // Let both startup storage hydration and the disconnected health check settle.
+    await expect(page.getByText("Connected", { exact: true })).not.toBeVisible()
+    await expect.poll(saved).toEqual({ [settingsKey]: settings, [checkpointKey]: checkpoint })
+    await page.reload()
+    await expect(page.getByRole("combobox", { name: "Photo source" }))
+      .toContainText(provider === "icloud" ? "iCloud Photos" : "Amazon Photos")
+    await expect.poll(saved).toEqual({ [settingsKey]: settings, [checkpointKey]: checkpoint })
+    await page.close()
+    await clearStorage(context)
+  })
+}
+
 test("clears resumable checkpoint when a different Google account is detected", async () => {
   await clearStorage(context)
   const gpPage = await openGptkStubPage(context, {
