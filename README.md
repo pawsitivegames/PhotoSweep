@@ -4,7 +4,7 @@
 
 A Chrome extension that finds duplicate photos in supported cloud photo libraries and moves reviewed duplicates to provider Trash where cleanup is supported.
 
-Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) for Google Photos access, plus provider web sessions for supported iCloud Photos and Amazon Photos scans. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/).
+Uses the vendored Google Photos integration in [`Google-Photos-Toolkit`](Google-Photos-Toolkit/README.md), plus provider web sessions for supported iCloud Photos and Amazon Photos scans. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/).
 
 ## Demo
 
@@ -77,8 +77,8 @@ Paid launch readiness is tracked in [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECK
 ```bash
 git clone https://github.com/pawsitivegames/PhotoSweep.git
 cd PhotoSweep
-git submodule update --init --recursive
-npm install
+npm ci
+npm --prefix Google-Photos-Toolkit ci
 npm run dev  # builds into build/chrome-mv3-dev/
 ```
 
