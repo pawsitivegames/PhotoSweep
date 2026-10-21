@@ -43,6 +43,7 @@ describe("formal verification npm lifecycle", () => {
         const result = spawnSync("bash", ["-c", script], {
           encoding: "utf8",
           env: {
+            NODE_ENV: "production",
             PATH: process.env.PATH,
             TARGET_ENVIRONMENT: sandbox ? "sandbox" : target,
             // A legacy production key must never act as a sandbox fallback.
