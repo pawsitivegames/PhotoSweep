@@ -4,7 +4,7 @@
 
 A Chrome extension that finds duplicate photos in supported cloud photo libraries and moves reviewed duplicates to provider Trash where cleanup is supported.
 
-Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) for Google Photos access, plus provider web sessions for supported iCloud Photos and Amazon Photos scans. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/).
+Uses the vendored Google Photos integration in [`Google-Photos-Toolkit`](Google-Photos-Toolkit/README.md), plus provider web sessions for supported iCloud Photos and Amazon Photos scans. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/).
 
 ## Demo
 
@@ -78,8 +78,8 @@ Paid launch readiness is tracked in [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECK
 ```bash
 git clone https://github.com/pawsitivegames/PhotoSweep.git
 cd PhotoSweep
-git submodule update --init --recursive
-npm install
+npm ci
+npm --prefix Google-Photos-Toolkit ci
 npm run dev  # builds into build/chrome-mv3-dev/
 ```
 
@@ -149,7 +149,7 @@ GPD_E2E_ALBUM_TITLE="Tiny duplicate test" GPD_E2E_ALLOW_TRASH=1 npm run test:e2e
 
 ## Motivation
 
-Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to identify verified-identity, strong-candidate, and similar groups.
+Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. PhotoSweep includes and maintains the Google Photos integration source in this repository under the MIT license; its copyright and license notice are in [`Google-Photos-Toolkit/LICENSE`](Google-Photos-Toolkit/LICENSE). It accesses your library without OAuth and runs MediaPipe's MobileNet V3 image embedder locally to identify verified-identity, strong-candidate, and similar groups.
 
 ## Support
 
