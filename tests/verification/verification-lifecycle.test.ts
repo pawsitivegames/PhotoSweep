@@ -26,6 +26,57 @@ const packageScripts = JSON.parse(
 const agents = readFileSync(resolve(root, "AGENTS.md"), "utf8")
 
 describe("formal verification npm lifecycle", () => {
+  it("isolates sandbox package routing and fails closed without its own key", () => {
+    const workflow = readFileSync(
+      resolve(root, ".github/workflows/build-extension-package.yml"), "utf8"
+    )
+    const step = workflow
+      .split("- name: Configure extension release environment")[1]
+      .split("- name: Install root dependencies")[0]
+    const script = step.split("        run: |\n")[1]
+      .split("\n").map((line) => line.replace(/^ {10}/, "")).join("\n")
+    const directory = mkdtempSync(resolve(root, "tmp/package-routing-contract-"))
+    try {
+      for (const target of ["sandbox", "production", "missing-sandbox-key", "invalid"]) {
+        const output = join(directory, target)
+        const sandbox = target === "sandbox" || target === "missing-sandbox-key"
+        const result = spawnSync("bash", ["-c", script], {
+          encoding: "utf8",
+          env: {
+            PATH: process.env.PATH,
+            TARGET_ENVIRONMENT: sandbox ? "sandbox" : target,
+            // A legacy production key must never act as a sandbox fallback.
+            ENTITLEMENT_PUBLIC_KEY: "production-key",
+            PRODUCTION_ENTITLEMENT_PUBLIC_KEY: "production-key",
+            SANDBOX_ENTITLEMENT_PUBLIC_KEY:
+              target === "missing-sandbox-key" ? "" : "isolated-test-key",
+            GITHUB_ENV: output
+          }
+        })
+        if (target === "missing-sandbox-key" || target === "invalid") {
+          expect(result.status).not.toBe(0)
+          expect(() => readFileSync(output, "utf8")).toThrow()
+          continue
+        }
+        expect(result.status).toBe(0)
+        const variables = Object.fromEntries(
+          readFileSync(output, "utf8").trim().split("\n")
+            .map((line) => line.split("="))
+        )
+        const expectedBase = sandbox
+          ? "https://photosweep-license-api-test-206538169327.us-west1.run.app"
+          : "https://photosweep-license-api-206538169327.us-west1.run.app"
+        expect(variables.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL).toBe(expectedBase)
+        expect(variables.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION).toBe(`${expectedBase}/*`)
+        expect(variables.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY)
+          .toBe(sandbox ? "isolated-test-key" : "production-key")
+        expect(variables.PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT).toBe("0")
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
   it("loads the native ESM Vitest config and binds its path into release and mutation fingerprints", async () => {
     const configUrl = pathToFileURL(resolve(root, "vitest.config.mts"))
     const { default: config } = await import(configUrl.href)

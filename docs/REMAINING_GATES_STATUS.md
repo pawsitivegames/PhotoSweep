@@ -1,5 +1,40 @@
 # Remaining gate status
 
+## Current operations and provider checkpoint — 2026-10-20
+
+**Overall: NOT READY.** The approved backend changes are live: production revision
+`photosweep-license-api-00026-roq` and test revision
+`photosweep-license-api-test-00004-bay` pass nine candidate/live checks each.
+Dedicated runtime identities have database-scoped grants; runtime probes confirm
+own-database reads and deny cross-database reads in both directions. Test uses a
+new signing key, while production retains the key embedded in ZIP `44cf`.
+Production `/health` now returns HTTP 200.
+
+Daily production backups retain 14 days. A one-minute HTTPS health check and
+five-minute/two-location email alert are enabled. One isolated validation alert
+was received in the owner inbox; its temporary check/policy were removed and
+permanent monitoring was rechecked. A schedule is not backup/restore proof.
+
+The approved Google and iCloud one-item Trash/Undo tests pass eight bounded
+checks each. Provider Trash inventories returned to the exact original identities
+(Google 19 → 20 → 19; iCloud 21 → 22 → 21), and fresh scoped scans found the
+restored targets and their keepers. All 44 installed files and the observed runtime
+build ID match ZIP `44cf`. No permanent deletion occurred. The iCloud test used
+the approved two-video fixture; it does not satisfy the canonical six-item fixture
+contract. Amazon's earlier one-item restore passed, but its independent Trash-page
+delta was not captured. No fresh aggregate release PASS is claimed.
+
+A further packaging defect was reproduced: the committed manual sandbox build
+embeds the production API/key. The local fix selects the test API and its separate
+public key, rejects missing sandbox keys and unknown environments, and passes
+22 lifecycle tests. The repository sandbox public-key variable is absent; this
+fix still needs an approved commit/push, configuration and hosted build.
+
+Evidence and remaining gates: [current operational status](../tmp/verification/release-ready-followup-20261020/status.md).
+Real Stripe/recovery, restore/rollback, broader provider and current aggregate
+proof, and Store/distribution checks remain incomplete. No Store submission was made.
+The checkpoints below retain their original source and time boundaries.
+
 ## Hosted CI follow-up — 2026-10-20
 
 The nine reviewed release-readiness files were committed and pushed with owner

@@ -32,21 +32,33 @@ jobs:
       - name: Configure extension release environment
         env:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
+          PRODUCTION_ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
+          SANDBOX_ENTITLEMENT_PUBLIC_KEY: ${{ vars.PHOTOSWEEP_SANDBOX_ENTITLEMENT_PUBLIC_KEY }}
         run: |
           set -euo pipefail
-          if [[ -z "${ENTITLEMENT_PUBLIC_KEY}" ]]; then
-            echo "PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY repository secret is required" >&2
+          case "${TARGET_ENVIRONMENT}" in
+            sandbox)
+              api_base="https://photosweep-license-api-test-206538169327.us-west1.run.app"
+              public_key="${SANDBOX_ENTITLEMENT_PUBLIC_KEY}"
+              ;;
+            production)
+              api_base="https://photosweep-license-api-206538169327.us-west1.run.app"
+              public_key="${PRODUCTION_ENTITLEMENT_PUBLIC_KEY}"
+              ;;
+            *)
+              echo "Unsupported package environment" >&2
+              exit 1
+              ;;
+          esac
+          if [[ -z "${public_key}" ]]; then
+            echo "The selected environment's entitlement public key is required" >&2
             exit 1
           fi
-          # Until PhotoSweep has a custom domain, both sandbox and production
-          # extension packages use the verified Cloud Run backend URL.
-          api_base="https://photosweep-license-api-206538169327.us-west1.run.app"
           {
             echo "PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=${api_base}"
             echo "PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=${api_base}/*"
             echo "PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=0"
-            echo "PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=${ENTITLEMENT_PUBLIC_KEY}"
+            echo "PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=${public_key}"
           } >> "$GITHUB_ENV"
 
       - name: Install root dependencies
