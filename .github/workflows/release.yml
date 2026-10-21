@@ -22,7 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          submodules: recursive
           fetch-depth: 0
           persist-credentials: false
 
@@ -46,7 +45,7 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install Google-Photos-Toolkit dependencies
+      - name: Install vendored Google Photos integration dependencies
         run: npm ci
         working-directory: Google-Photos-Toolkit
 
