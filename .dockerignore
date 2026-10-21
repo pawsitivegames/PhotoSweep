@@ -1,9 +1,17 @@
-.git
-build
-node_modules
-playwright-report
-test-results
-tmp-live-duplicate-test
-Google-Photos-Toolkit
-*.log
-.DS_Store
+# Upload only the license API build inputs. Keep local evidence, credentials,
+# browser profiles, extension packages, and development dependencies local.
+**
+!/Dockerfile
+!/.dockerignore
+!/package.json
+!/package-lock.json
+!tools/
+!tools/check-node-version.js
+!tools/fast-glob-compat/
+!tools/fast-glob-compat/package.json
+!tools/fast-glob-compat/index.cjs
+!tools/fast-glob-compat/index.d.cts
+!server/
+!server/*.mjs
+!server/recovery-email-webhook/
+!server/recovery-email-webhook/http-request-body.mjs

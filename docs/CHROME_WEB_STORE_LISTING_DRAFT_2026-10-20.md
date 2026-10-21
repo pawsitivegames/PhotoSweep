@@ -2,26 +2,34 @@
 
 Status: **Current candidate-bound draft; not approved to submit.** This copy
 is tied to PhotoSweep v2.3.6.20, ZIP
-`build/photosweep-cws-v2.3.6.20-sha256-59afe66e5948.zip` (SHA-256
-`59afe66e5948471f37918f1b2af2b77400a9aac548a55f537c0c1df021726055`), build ID
-`5bd0999a-fc42-4de7-a751-76ebe859abe1`, and source fingerprint
-`ee9f59bd18a9f16ac2e382e0764e8216da38f53b06c94c66441aa3e95084c69a`. The
-package comes from a dirty working tree. Node 24.20.0 full unit, typecheck,
-headless integration, and mutation checks pass for that source. The exact ZIP
-was audited and installed as an unpacked Chrome Stable extension. Scan-only
-runs of the configured synthetic Google Photos, iCloud Photos, and Amazon
-Photos Canada fixtures each returned 6/6 items, skipped zero, and proposed
-zero items for Trash. The public listing remains v2.3.0.2. This draft limits
-provider claims to Google Photos and Amazon Photos Canada; video playback and
-provider Trash/Undo were not run under the current scans-only scope. Store ID
-installation/update, payment declarations, and the saved Dashboard state remain
-unverified. Recheck every claim against the final immutable candidate, current
-provider evidence, public policy, and saved Dashboard fields before
-submission. See the [current gate
-ledger](REMAINING_GATES_STATUS.md), [current public listing
-observation](../tmp/verification/public-store-listing-20261020/listing.json),
-[current package sidecar](../build/photosweep-cws-v2.3.6.20-sha256-59afe66e5948.json),
-and [read-only provider scan](../tmp/verification/runtime-readonly-59afe-20261020T2239Z/provider-read-only-scan.json).
+`build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.zip` (SHA-256
+`44cfb7ed4684e4178f0b377358557c91374a88682b33d6d1d230e611e6342230`), build ID
+`7ca173e5-907e-4333-a06e-062ce1caf6ad`, and source fingerprint
+`1fd1c715cca724349fe4b49603156793ac05e37a6ee859812522b9d6742f831c` across
+423 registered files. The package comes from a dirty working tree at
+`a198b4c43c56fe7067120aa96ae27162b80f4195` plus scoped release fixes.
+
+Fresh Node 24.20.0 root unit tests (2,313), typecheck, headless integration
+(75), vendored tests (304), and strict package audits pass. Normal mutation verification passes with 4,171 mutants, a 94.85% score, and
+215/215 reviewed non-killed mutants resolved. Registered release verification
+finished with 51 PASS / 3 BLOCKED / 0 FAIL and no source drift; the three
+blocked obligations are provider Trash/Undo round trips. The exact ZIP is
+installed in the existing unpacked Chrome Stable extension; all 44 files
+match. Read-only synthetic scans examined 6 Google items, 2 iCloud items, and
+4 Amazon Canada items, with zero items proposed for Trash. Synthetic video
+playback passed for all three providers and for Amazon Canada, the only
+declared in-app Amazon video marketplace. Provider Trash/Undo is unverified.
+
+The public listing remains v2.3.0.2. This draft keeps its conservative
+Google Photos/Amazon Photos Canada scope; it does not expand public claims
+from a few bounded scans. Store ID installation/update, payment declarations,
+and saved Dashboard fields remain unverified. Recheck every claim against
+the final immutable candidate, current provider evidence, public policy, and
+saved Dashboard fields before submission. See the [current gate
+ledger](REMAINING_GATES_STATUS.md), [current package
+sidecar](../build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.json), and
+[release evidence](../tmp/verification/release-readiness-20261020-current/release-readiness.md).
+
 ## Proposed listing text
 
 ### Title
@@ -61,27 +69,28 @@ have independent policies and availability.
 
 ## Evidence and release limits
 
-- The October 20 [public listing observation](../tmp/verification/public-store-listing-20261020/listing.json)
-  reports version `2.3.0.2`, last updated September 29, 2026, and the label
-  “Offers in-app purchases.” The candidate is not uploaded.
-- The current 59afe ZIP's read-only scans of the configured synthetic fixtures
-  returned six items for Google Photos, iCloud Photos, and Amazon Photos
-  Canada. Each scan reached the end of one provider page, skipped zero items,
-  and proposed zero items for Trash. No provider data was changed. These scans
-  do not establish full provider parity, exact-package video playback, or
-  Trash/Undo behavior. The previous 9af ZIP's Amazon video playback result is
-  historical and does not bind to 59afe. The listing therefore does not claim
-  iCloud support or video playback verification.
+- The [public listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo)
+  was freshly read as version `2.3.0.2`, last updated September 29, 2026, with
+  the label “Offers in-app purchases.” The candidate is not uploaded.
+- The current 44cf ZIP completed bounded synthetic Smart scans in Google
+  Photos (6 items / 2 sets), iCloud Photos (2 items / 1 set), and Amazon Photos
+  Canada (4 items / 1 set). No provider data was changed. These checks do not
+  establish full provider parity, matching precision/recall, or Trash/Undo.
+- Synthetic video playback advanced through to the end in the exact current
+  package for Google, iCloud, and Amazon Canada. The
+  [all-provider capture manifest](../tmp/verification/release-readiness-20261020-current/video-evidence/manifest.json)
+  and [Amazon Canada capture manifest](../tmp/verification/release-readiness-20261020-current/amazon-video-evidence/manifest.json)
+  pass the repository validators. Chrome's optional Amazon download-host
+  permission was explicitly approved for this test and revoked afterward.
 - Exact-package evidence is summarized in
   [REMAINING_GATES_STATUS.md](REMAINING_GATES_STATUS.md), the
-  [read-only scan record](../tmp/verification/runtime-readonly-59afe-20261020T2239Z/provider-read-only-scan.json),
-  the [previous Amazon playback refresh](../tmp/verification/runs/release-v2.3.6.20-20261020-02-amazon-playback-refresh/amazon-video-playback.json),
-  and the [current candidate sidecar](../build/photosweep-cws-v2.3.6.20-sha256-59afe66e5948.json).
-- The public listing's payment label and the actual Developer Dashboard
+  [release report](../tmp/verification/release-readiness-20261020-current/release-readiness.md),
+  and the [current candidate sidecar](../build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.json).
+- The public listing's payment label and actual Developer Dashboard
   declaration have not been reconciled. Confirm the saved Dashboard fields,
   privacy categories, and payment disclosure before changing or submitting
   listing text.
-- Recheck the title, 132-character summary, description, screenshots, privacy
-  URL, support URL, payment disclosures, and provider scope against the final
-  source fingerprint and ZIP. The summary is 122 characters; verify current
-  Chrome Web Store metadata limits before submission.
+- Recheck the title, summary, description, screenshots, privacy URL, support
+  URL, payment disclosures, and provider scope against the final source
+  fingerprint and ZIP. The summary is 122 characters; verify current Chrome
+  Web Store metadata limits before submission.

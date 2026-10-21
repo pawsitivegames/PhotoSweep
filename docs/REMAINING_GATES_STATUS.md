@@ -1,6 +1,51 @@
 # Remaining gate status
 
-## Current source and last package — PhotoSweep v2.3.6.20 — 2026-10-20
+## Current release-readiness candidate — PhotoSweep v2.3.6.20 (44cf) — 2026-10-20
+
+**Overall: NOT READY.** The fresh registered release run completed with
+**51 PASS / 3 BLOCKED / 0 FAIL**, with `sourceDrift=false`. The remaining
+registered blockers are the current-package Google Photos, iCloud Photos,
+and Amazon Photos disposable Trash/Undo round trips. Production health and
+other external release gates remain open; this is not a release approval.
+
+Candidate: `a198b4c43c56fe7067120aa96ae27162b80f4195` plus scoped, uncommitted
+release fixes; app 2.3.6 / Chrome 2.3.6.20. [ZIP 44cfb7ed4684](../build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.zip),
+SHA-256 `44cfb7ed4684e4178f0b377358557c91374a88682b33d6d1d230e611e6342230`,
+build ID `7ca173e5-907e-4333-a06e-062ce1caf6ad`, registered source fingerprint
+`1fd1c715cca724349fe4b49603156793ac05e37a6ee859812522b9d6742f831c` across
+423 files. Node 24.20.0 and Chrome Stable 155.0.8059.85. The terminal registered
+run is `20261021T005631Z-48739` (October 20 in America/Vancouver).
+
+| Gate | Current result and boundary |
+| --- | --- |
+| CI install remediation | Original hosted Node 22 `npm ci` rejection reproduced; repaired optional React peer entries pass Node 22 and Node 24 lock validation. Application React 19 is unchanged. No hosted run covers the uncommitted repair. |
+| Vendored dependency remediation | Vite 8.2.1 → 8.3.4 removes the fresh high-severity vendored audit finding. Vendored audit is clean; signatures, 304 tests, typecheck and lint pass. Generated userscript remains byte-identical. |
+| Root automated checks | 121 files / 2,313 unit tests, typecheck, and 75/75 mocked browser integration tests pass. |
+| Mutation verification | Fresh full campaign: 4,171 mutants, 3,956 killed (94.85%), zero timeouts/errors. Every mutant/outcome and all 215 reviewed non-killed entries match the prior accepted inventory. The only report delta is a two-line test comment; source/report bindings were updated without changing dispositions, thresholds, or roots. Normal registered mutation verification then passed with 215/215 resolved and zero critical survivors. |
+| Production package | Build and standalone strict audit pass. Existing unpacked Chrome install matches all 44 ZIP file hashes and reports the current version/build marker; previous install retained as rollback backup. Store ID install/update remains unverified. |
+| Exact-package provider/video checks | Fresh synthetic Smart scans examined Google 6 items / 2 sets, iCloud 2 / 1, and Amazon Canada 4 / 1; zero items proposed for Trash. Synthetic video played to completion in every provider. All-provider and supported Amazon-region capture validators pass. User-approved temporary Amazon download permission was revoked after testing. No provider media was changed. |
+| Backend build inputs | Docker/Cloud Run upload allowlists select 16 runtime inputs, excluding credentials, profiles, evidence and extension artifacts. Production-only dependency install and loopback `/health` pass. Docker is unavailable, so no container image was built. |
+| Production signer | A fresh, read-only synthetic free-session response verifies against the packaged public key. No token or session was persisted. Paid entitlement lifecycle remains unverified. |
+| Dependency risk | Root production audit is clean; four moderate development-only Parcel/Plasmo advisories remain. Root and vendored registry signatures pass. |
+| Performance | Fresh benchmark measurements and registered synthetic performance checks pass. Rolling benchmark history is unavailable, so regression comparison was explicitly skipped and remains BLOCKED. |
+| Public privacy/refunds/support | Published privacy/refund wording and advertised support homepage/mailto verified in Chrome. `expiresAt` TTL is ACTIVE on the configured `prod_analytics_events` collection group. Inbox delivery and complete deployed privacy/commercial reconciliation remain unverified. |
+| Production health | FAIL: live `GET /health` returns HTTP 404, while the current local route returns HTTP 200. No deployment was performed. |
+| Runtime/data isolation | Production and test still share the default Compute service account and `(default)` Firestore database; collection prefixes differ. Isolation and backup/restore proof remain outstanding. |
+| External release gates | Hosted CI for these changes, provider Trash/Undo, real Stripe/recovery lifecycle, support delivery, monitoring/alerts, rollback rehearsal, Store ID installation/update, Dashboard declarations, upload/review, and release operations remain incomplete. |
+
+The [complete release report](../tmp/verification/release-readiness-20261020-current/release-readiness.md)
+links the [full gate matrix](../tmp/verification/release-readiness-20261020-current/gate-matrix.md),
+[registered summary](../tmp/verification/release-readiness-20261020-current/registered-release/verification-summary.json),
+[54-obligation evidence ledger](../tmp/verification/release-readiness-20261020-current/registered-release/evidence.json),
+[normal mutation result](../tmp/verification/release-readiness-20261020-current/registered-release/mutation.json),
+[video capture binding](../tmp/verification/release-readiness-20261020-current/video-capture-binding-audit.json),
+and [candidate-specific listing draft](CHROME_WEB_STORE_LISTING_DRAFT_2026-10-20.md).
+
+No commit, push, production deployment, Store submission, or external message
+was made. All untracked paths recorded by the initial status check remain present. The sections
+below are historical checkpoints and do not override this candidate's verdict.
+
+## Superseded source and package checkpoint — PhotoSweep v2.3.6.20 (59afe) — 2026-10-20
 
 Current source fingerprint is `ee9f59bd18a9f16ac2e382e0764e8216da38f53b06c94c66441aa3e95084c69a` across 345 registered files. The root `happy-dom` dependency is 21.0.4. On Node 24.20.0, the full unit suite passed 121 files / 2,313 tests, typecheck passed, full headless integration passed 75/75, and mutation testing passed 4,171 mutants (3,956 killed, 94.85%; 215 reviewed/resolved, zero critical survivors, timeouts, or errors).
 

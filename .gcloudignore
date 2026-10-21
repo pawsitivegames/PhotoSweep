@@ -1,0 +1,16 @@
+# Keep the Cloud Run source upload identical to the Docker build context.
+**
+!/Dockerfile
+!/.dockerignore
+!/package.json
+!/package-lock.json
+!tools/
+!tools/check-node-version.js
+!tools/fast-glob-compat/
+!tools/fast-glob-compat/package.json
+!tools/fast-glob-compat/index.cjs
+!tools/fast-glob-compat/index.d.cts
+!server/
+!server/*.mjs
+!server/recovery-email-webhook/
+!server/recovery-email-webhook/http-request-body.mjs
