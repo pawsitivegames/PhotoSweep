@@ -42,7 +42,6 @@ Use the release API values and the release entitlement public key; do not use a
 development entitlement override:
 
 ```bash
-git submodule update --init --recursive
 npm ci
 npm --prefix Google-Photos-Toolkit ci
 
