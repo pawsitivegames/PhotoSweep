@@ -1,5 +1,19 @@
 # Remaining gate status
 
+## Hosted CI follow-up — 2026-10-20
+
+The nine reviewed release-readiness files were committed and pushed with owner
+approval as `bca7668d9c6231601c53d28d346cb200c9158cb5`.
+[Hosted fast verification passed](https://github.com/pawsitivegames/PhotoSweep/actions/runs/39525249599).
+[CI](https://github.com/pawsitivegames/PhotoSweep/actions/runs/39525249604)
+passed dependency installation, all 2,313 unit tests, and its benchmark job;
+headed Chromium contexts closed during integration tests (63 passed, 12 failed).
+CI now selects the existing documented headless integration mode; the lifecycle
+contract check passes 21/21 locally. Fresh hosted results are required for this
+follow-up. The frozen ZIP and 51/3/0 registered result below retain their original
+source binding and do not certify the later workflow/test edits. Overall release
+readiness remains **NOT READY** pending the listed external gates.
+
 ## Current release-readiness candidate — PhotoSweep v2.3.6.20 (44cf) — 2026-10-20
 
 **Overall: NOT READY.** The fresh registered release run completed with

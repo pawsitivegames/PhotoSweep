@@ -107,7 +107,9 @@ jobs:
           exit 1
 
       - name: Integration tests
-        run: xvfb-run --auto-servernum npm run test:integration
+        env:
+          PHOTOSWEEP_INTEGRATION_HEADLESS: "1"
+        run: npm run test:integration
 
       - name: Upload integration test results on failure
         if: failure()

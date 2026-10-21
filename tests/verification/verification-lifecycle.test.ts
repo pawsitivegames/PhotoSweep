@@ -185,6 +185,7 @@ describe("formal verification npm lifecycle", () => {
   })
 
   it("honors the documented headless mode for isolated integration Chromium", () => {
+    const ci = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
     const playwrightConfig = readFileSync(
       resolve(root, "playwright.config.ts"),
       "utf8"
@@ -194,6 +195,9 @@ describe("formal verification npm lifecycle", () => {
       'process.env.PHOTOSWEEP_INTEGRATION_HEADLESS === "1"'
     )
     expect(playwrightConfig).toContain("use: { headless }")
+    expect(ci).toMatch(
+      /name: Integration tests\s+env:\s+PHOTOSWEEP_INTEGRATION_HEADLESS: "1"\s+run: npm run test:integration/
+    )
   })
 
   it("keeps mutation concurrency bounded and adapts the default to available CPUs", () => {
