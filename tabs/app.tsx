@@ -3420,6 +3420,8 @@ export default function App() {
         }
         case "gptkLog":
           if ((message as { level?: string }).level === "error") {
+            const interrupted = scanLifecycle.pause()
+            if (interrupted) setResumeCheckpoint(interrupted)
             providerConnectionTrackerRef.current.markDisconnected(
               settingsRef.current.sourceProvider ?? "google"
             )

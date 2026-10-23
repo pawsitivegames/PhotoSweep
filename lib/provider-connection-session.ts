@@ -281,6 +281,12 @@ export class ProviderConnectionSession {
     }
   }
 
+  sidePanelClientsForProviderTab(tabId: number): string[] {
+    return [...this.sidePanelConnections]
+      .filter(([, connection]) => connection.providerTabId === tabId)
+      .map(([clientId]) => clientId)
+  }
+
   removeTab(tabId: number): number | null {
     if (this.sidePanelHost === tabId) this.sidePanelHost = null
     if (this.sidePanelProviderTab === tabId) {

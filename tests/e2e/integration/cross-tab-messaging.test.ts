@@ -204,6 +204,72 @@ test.describe("healthCheck", () => {
 // ============================================================
 
 test.describe("tab lifecycle", () => {
+  test("pending provider navigation does not navigate unrelated tabs", async () => {
+    await clearStorage(context)
+    const stub = await openGptkStubPage(context)
+    await context.route("https://example.test/**", (route) => route.fulfill({
+      status: 200, contentType: "text/html", body: "<title>Keep this tab</title>"
+    }))
+    const keeper = await context.newPage()
+    await keeper.goto("https://example.test/keep")
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => { release = resolve })
+    let navigationRequests = 0
+    await context.route("https://www.amazon.com/photos**", async (route) => {
+      navigationRequests += 1
+      await held
+      await route.fulfill({ status: 200, contentType: "text/html", body: "<title>Synthetic provider destination</title>" })
+    })
+    const page = await context.newPage()
+    try {
+      await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+      await expect(scanLibraryButton(page)).toBeVisible({ timeout: 10_000 })
+      await page.getByRole("combobox", { name: "Photo source" }).click()
+      await page.getByRole("option", { name: "Amazon Photos", exact: true }).click()
+      await expect.poll(() => navigationRequests).toBeGreaterThan(0)
+      await expect(page.getByRole("button", { name: /Retry/ })).toBeVisible({ timeout: 5_000 })
+      expect(navigationRequests).toBe(1)
+      // The first eligible host may be either owned web tab; one must remain untouched.
+      expect([stub.url(), keeper.url()].filter((url) =>
+        url === "https://photos.google.com/" || url === "https://example.test/keep"
+      ).length).toBeGreaterThanOrEqual(1)
+    } finally {
+      release()
+      await page.close()
+      await stub.close()
+      await keeper.close()
+      await context.unroute("https://www.amazon.com/photos**")
+      await context.unroute("https://example.test/**")
+    }
+  })
+
+  test("provider closure interrupts a side-panel scan and preserves its checkpoint", async () => {
+    await clearStorage(context)
+    const stub = await openGptkStubPage(context, {
+      getAllMediaItems: { holdResponse: true }
+    })
+    const page = await context.newPage()
+    await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+    await expect(scanLibraryButton(page)).toBeVisible({ timeout: 10_000 })
+    await scanLibraryButton(page).click()
+    await expect(page.getByRole("button", { name: "Pause Scan", exact: true })).toBeVisible()
+    await expect.poll(() => stub.evaluate(() =>
+      (window as unknown as { __gptkCommandLog?: Array<{ command: string }> })
+        .__gptkCommandLog?.some((entry) => entry.command === "getAllMediaItems") ?? false
+    )).toBe(true)
+    await stub.close()
+    await expect(page.getByText(/Google Photos tab was closed/i)).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByRole("button", { name: "Pause Scan", exact: true })).not.toBeVisible()
+    await expect.poll(() => page.evaluate(async () => {
+      const key = "providerReview.v1.google.scanCheckpoint"
+      const stored = await chrome.storage.local.get(key)
+      return (stored[key] as { status?: string } | undefined)?.status
+    })).toBe("interrupted")
+    await page.reload()
+    await expect(page.getByRole("button", { name: "Pause Scan", exact: true })).not.toBeVisible()
+    await page.close()
+  })
+
   test("app tab receives GP_TAB_CLOSED when GP stub tab is closed", async () => {
     await clearStorage(context)
 

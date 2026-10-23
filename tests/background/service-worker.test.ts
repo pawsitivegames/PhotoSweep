@@ -813,6 +813,29 @@ describe("launch flow", () => {
     })
   })
 
+  it("does not navigate other tabs after Chrome accepts a pending provider navigation", async () => {
+    const host = { id: 952, url: "https://example.com/host" }
+    const unrelated = { id: 953, url: "https://example.com/other" }
+    mockChrome.tabs.get.mockResolvedValue(host)
+    mockChrome.tabs.query.mockImplementation((query: { active?: boolean; currentWindow?: boolean }) =>
+      Promise.resolve(query.active ? [unrelated] : query.currentWindow ? [host, unrelated] : [])
+    )
+    // Chrome accepts navigation but reports the old URL until commit.
+    mockChrome.tabs.update.mockImplementation(async (tabId: number) =>
+      tabId === host.id ? host : unrelated
+    )
+    const response = await dispatchMessageWithResponse({
+      app: APP_ID, action: "launchProvider", provider: "amazon", hostTabId: host.id
+    }, { url: "chrome-extension://test/tabs/scanner-panel.html" })
+
+    expect(response).toMatchObject({ success: false, provider: "amazon" })
+    expect(mockChrome.tabs.update).toHaveBeenCalledExactlyOnceWith(host.id, {
+      url: "https://www.amazon.com/photos?sf=1", active: true
+    })
+    expect(mockChrome.tabs.create).not.toHaveBeenCalled()
+    expect(mockChrome.sidePanel.setOptions).not.toHaveBeenCalled()
+  })
+
   it("does not bind an Amazon launch to a stale Google host tab", async () => {
     const googleHostTab = { id: 52, url: "https://photos.google.com/" }
     const amazonTab = {
@@ -1933,6 +1956,40 @@ describe("gptkCommand routing", () => {
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       gpTabId,
       expect.objectContaining({ command: "getAllMediaItems", requestId })
+    )
+  })
+
+  it("notifies only connected side panels when their provider tab closes", async () => {
+    const panels = [
+      { clientId: "closure-panel-a", providerTabId: 881 },
+      { clientId: "closure-panel-b", providerTabId: 882 }
+    ]
+    for (const { clientId, providerTabId } of panels) {
+      const port = createMockPort()
+      connectListeners.forEach((fn) => fn(port as unknown as chrome.runtime.Port))
+      port.dispatchMessage({ app: APP_ID, action: "sidePanel.ready", clientId, activeTabId: providerTabId })
+      mockChrome.tabs.query.mockImplementation((query: { url?: string }) =>
+        Promise.resolve(query?.url?.includes("photos.google.com") ? [{ id: providerTabId }] : [])
+      )
+      mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+      dispatchMessage({
+        app: APP_ID, action: "gptkCommand", command: "getAllMediaItems",
+        requestId: `scan-${clientId}`, clientId, args: {}
+      }, { id: mockChrome.runtime.id, url: `chrome-extension://${mockChrome.runtime.id}/tabs/scanner-panel.html` })
+      await waitForTabMessage(providerTabId, (message) => message.requestId === `scan-${clientId}`)
+    }
+    vi.clearAllMocks()
+    tabRemovedListeners.forEach((fn) => fn(881))
+    expect(mockChrome.runtime.sendMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ app: APP_ID, action: "gptkLog", level: "error", clientId: "closure-panel-a" })
+    )
+    vi.clearAllMocks()
+    dispatchMessage({ app: APP_ID, action: "gptkResult", command: "getAllMediaItems",
+      requestId: "scan-closure-panel-a", success: true, data: [] }, gpSender(881))
+    expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalled()
+    tabRemovedListeners.forEach((fn) => fn(882))
+    expect(mockChrome.runtime.sendMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ clientId: "closure-panel-b", action: "gptkLog" })
     )
   })
 
