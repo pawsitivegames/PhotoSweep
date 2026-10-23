@@ -405,6 +405,112 @@ test("clears saved results and selections when a different Google account is det
   await clearStorage(context)
 })
 
+for (const startup of [true, false]) {
+  test(`clears foreign album scope when the new account's album list fails (${startup ? "startup" : "connected switch"})`, async () => {
+    await clearStorage(context)
+    if (startup) await injectScanResults(context, [], {}, 2, "alice@example.com")
+    const seed = await context.newPage()
+    await seed.goto(`chrome-extension://${extensionId}/manifest.json`)
+    await seed.evaluate(async () => {
+      await chrome.storage.local.set({ settings: {
+        sourceProvider: "google", scanMode: "smart", similarityThreshold: 0.95,
+        albumScope: { mediaKey: "alice-album", title: "Alice private album" }
+      } })
+    })
+    await seed.close()
+    const stub = await openGptkStubPage(context, {
+      healthCheck: { data: { hasGptk: true, hasWizData: true,
+        accountEmail: startup ? "bob@example.com" : "alice@example.com" } },
+      listAlbums: startup
+        ? { success: false, error: "Album enumeration unavailable" }
+        : { data: [{ mediaKey: "alice-album", title: "Alice private album", isShared: false }] }
+    })
+    const page = await openAppTab(context, extensionId)
+    if (!startup) {
+      await page.getByRole("button", { name: /Advanced matching/i }).click()
+      await page.getByRole("combobox", { name: /Library area/i }).click()
+      await page.getByRole("option", { name: "Alice private album", exact: true }).click()
+      await page.getByRole("button", { name: /Advanced matching/i }).click()
+      await expect(page.getByRole("button", { name: "Scan this album", exact: true })).toBeVisible()
+      await stub.evaluate(() => {
+        const overrides = (window as unknown as { __gptkOverrides: Record<string, unknown> }).__gptkOverrides
+        overrides.healthCheck = { data: { hasGptk: true, hasWizData: true, accountEmail: "bob@example.com" } }
+        overrides.listAlbums = { success: false, error: "Album enumeration unavailable" }
+      })
+      await page.evaluate(() => chrome.runtime.sendMessage({ app: "GPD", action: "healthCheck", provider: "google" }))
+    }
+    await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Scan this album", exact: true })).toHaveCount(0)
+    await page.getByRole("button", { name: /Advanced matching/i }).click()
+    await expect(page.getByText("Alice private album", { exact: true })).toHaveCount(0)
+    await expect.poll(async () => {
+      const stored = await readLocalStorage(context, ["settings"])
+      return (stored.settings as { albumScope?: unknown })?.albumScope ?? null
+    }).toBeNull()
+    const commands = await stub.evaluate(() =>
+      (window as unknown as { __gptkCommandLog: { command: string }[] }).__gptkCommandLog.map(entry => entry.command))
+    expect(commands).not.toContain("getAllMediaItems")
+    expect(commands).not.toContain("trashItems")
+    await page.close()
+    await stub.close()
+    await clearStorage(context)
+  })
+}
+
+test("late old-account invalidation preserves the new account's album selection and catalog", async () => {
+  await clearStorage(context)
+  const stub = await openGptkStubPage(context, {
+    healthCheck: { data: { hasGptk: true, hasWizData: true, accountEmail: "alice@example.com" } },
+    listAlbums: { data: [{ mediaKey: "alice-album", title: "Alice album", isShared: false }] }
+  })
+  const page = await openAppTab(context, extensionId)
+  await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
+  await page.getByRole("combobox", { name: /Library area/i }).click()
+  await page.getByRole("option", { name: "Alice album", exact: true }).click()
+  await page.evaluate(async ({ resultKey }) => {
+    await chrome.storage.local.set({ [resultKey]: {
+      accountEmail: "alice@example.com", sourceProvider: "google",
+      scanDate: Date.now(), totalItems: 2, groups: [], mediaItems: {}
+    } })
+    const remove = chrome.storage.local.remove.bind(chrome.storage.local)
+    const globals = window as unknown as {
+      __accountInvalidationHeld?: boolean
+      __releaseAccountInvalidation?: () => void
+    }
+    chrome.storage.local.remove = ((keys: string | string[]) => {
+      if (Array.isArray(keys) && keys.includes(resultKey) && !globals.__accountInvalidationHeld) {
+        globals.__accountInvalidationHeld = true
+        return new Promise<void>((resolve) => {
+          globals.__releaseAccountInvalidation = () => { void remove(keys).then(resolve) }
+        })
+      }
+      return remove(keys)
+    }) as typeof chrome.storage.local.remove
+  }, { resultKey: providerReviewStorageKey("google", "scanResults") })
+  await stub.evaluate(() => {
+    const overrides = (window as unknown as { __gptkOverrides: Record<string, unknown> }).__gptkOverrides
+    overrides.healthCheck = { data: { hasGptk: true, hasWizData: true, accountEmail: "bob@example.com" } }
+    overrides.listAlbums = { data: [{ mediaKey: "bob-album", title: "Bob album", isShared: false }] }
+  })
+  await page.evaluate(() => chrome.runtime.sendMessage({ app: "GPD", action: "healthCheck", provider: "google" }))
+  await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { __accountInvalidationHeld?: boolean }).__accountInvalidationHeld)).toBe(true)
+  await page.getByRole("combobox", { name: /Library area/i }).click()
+  await page.getByRole("option", { name: "Bob album", exact: true }).click()
+  await page.evaluate(async () => {
+    ;(window as unknown as { __releaseAccountInvalidation?: () => void }).__releaseAccountInvalidation?.()
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  })
+  await expect(page.getByRole("combobox", { name: /Library area/i })).toContainText("Bob album")
+  await page.getByRole("combobox", { name: /Library area/i }).click()
+  await expect(page.getByRole("option", { name: "Bob album", exact: true })).toBeVisible()
+  await page.close()
+  await stub.close()
+  await clearStorage(context)
+})
+
 test("closes a paid prompt when a connected account changes", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = makeGroups(2, 7)

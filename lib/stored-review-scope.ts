@@ -274,7 +274,7 @@ export class StoredReviewScope {
     const restoredSettings = stored.settings
       ? normalizeStoredSettings(stored.settings)
       : params.fallbackSettings
-    const settings = params.hostProvider
+    let settings = params.hostProvider
       ? {
           ...restoredSettings,
           sourceProvider: params.hostProvider,
@@ -371,6 +371,18 @@ export class StoredReviewScope {
           }
         ))
 
+    const albumScopeIdentityVerified = Boolean(
+      (stored.scanResults && scanResultsProviderMatches && scanResultsValid) ||
+      (checkpoint && checkpointProviderMatches && checkpointValid)
+    )
+    if (identityAvailable && !albumScopeIdentityVerified && settings.albumScope) {
+      // Album identifiers and titles belong to the review's account too.
+      // Unbound legacy settings cannot establish ownership on their own.
+      // Clear them before a new account's album request can fail.
+      settings = { ...settings, albumScope: undefined }
+      if (!isCurrent()) return cancelledResult()
+      await this.writeUnqueued({ settings }, isCurrent, sourceProvider)
+    }
     if (!scanResultsValid) {
       if (!isCurrent()) return cancelledResult()
       await this.invalidateReviewUnqueued(isCurrent, sourceProvider)
@@ -521,18 +533,32 @@ export class StoredReviewScope {
   invalidateReview(
     isCurrent: () => boolean = () => true,
     shouldInvalidate?: (stored: Partial<StoredState>) => boolean,
-    provider?: PhotoProvider
-  ): Promise<void> {
+    provider?: PhotoProvider,
+    options: { clearAlbumScope?: boolean } = {}
+  ): Promise<boolean> {
     return this.storageQueue.run(async () => {
-      if (!isCurrent()) return
+      if (!isCurrent()) return false
+      let stored: Partial<StoredState> | undefined
       if (shouldInvalidate) {
-        const stored = await this.adapter.get(
-          ["scanResults", "selections"],
+        stored = await this.adapter.get(
+          ["scanResults", "selections", ...(options.clearAlbumScope ? ["settings"] : [])],
           provider
         )
-        if (!isCurrent() || !shouldInvalidate(stored)) return
+        if (!isCurrent() || !shouldInvalidate(stored)) return false
+      }
+      if (options.clearAlbumScope) {
+        stored ??= await this.adapter.get(["settings"], provider)
+        if (!isCurrent()) return false
+        if (stored.settings?.albumScope) {
+          await this.writeUnqueued(
+            { settings: { ...stored.settings, albumScope: undefined } },
+            isCurrent,
+            provider
+          )
+        }
       }
       await this.invalidateReviewUnqueued(isCurrent, provider)
+      return isCurrent()
     })
   }
 

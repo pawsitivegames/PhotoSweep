@@ -3087,6 +3087,9 @@ export default function App() {
             }
             if (accountIdentityChanged) {
               invalidatePaidConversionContext()
+              settingsRef.current = { ...settingsRef.current, albumScope: undefined }
+              setSettings({ albumScope: undefined })
+              setAlbums([])
             }
             currentAccountEmailRef.current = msg.accountEmail
             currentProviderSessionIdRef.current = msg.providerSessionId
@@ -3122,6 +3125,7 @@ export default function App() {
             // persisted review directly so legacy account-less results cannot
             // remain available once Google identifies the signed-in account.
             if (hasIdentity) {
+              const albumScopeAtHealthCheck = settingsRef.current.albumScope
               void storedReviewScope
                 .invalidateReview(healthResultLeaseIsCurrent, (stored) => {
                   const scanResults = stored.scanResults
@@ -3133,7 +3137,16 @@ export default function App() {
                         providerSessionId: msg.providerSessionId
                       })
                   )
-                }, healthCheckProvider)
+                }, healthCheckProvider, { clearAlbumScope: true })
+                .then((invalidated) => {
+                  if (
+                    !invalidated ||
+                    !healthResultLeaseIsCurrent() ||
+                    settingsRef.current.albumScope !== albumScopeAtHealthCheck
+                  ) return
+                  settingsRef.current = { ...settingsRef.current, albumScope: undefined }
+                  setSettings({ albumScope: undefined })
+                })
                 .catch((error) => {
                   const detail =
                     error instanceof Error ? error.message : String(error)

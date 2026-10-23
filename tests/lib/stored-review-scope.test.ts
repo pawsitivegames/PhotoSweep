@@ -57,6 +57,71 @@ const groups = [
 ]
 
 describe("StoredReviewScope", () => {
+  it("clears a foreign account's album scope before album enumeration succeeds", async () => {
+    const subject = adapter({
+      settings: { ...DEFAULT_SETTINGS, albumScope: { mediaKey: "private-album", title: "Alice album" } },
+      scanResults: { mediaItems, groups, scanDate: 1, totalItems: 2,
+        accountEmail: "alice@example.com", sourceProvider: "google" }
+    })
+    const restored = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS, accountEmail: "bob@example.com",
+      identityProvider: "google"
+    })
+    expect(restored.settings.albumScope).toBeUndefined()
+    expect((subject.values.settings as { albumScope?: unknown }).albumScope).toBeUndefined()
+    expect(restored.settings.similarityThreshold).toBe(DEFAULT_SETTINGS.similarityThreshold)
+    expect(restored.scanResults).toBeNull()
+  })
+
+  it("clears checkpoint-only album scope when its provider session changes", async () => {
+    const settings = { ...DEFAULT_SETTINGS, sourceProvider: "icloud" as const,
+      albumScope: { mediaKey: "private-album", title: "Prior session album" } }
+    const subject = adapter({ settings, scanCheckpoint: {
+      id: "old-session", status: "interrupted", startedAt: 1, updatedAt: 2,
+      settings, providerSessionId: "old-session", phase: "fetching", itemsProcessed: 0,
+      totalEstimate: 2, message: "Paused"
+    } })
+    const restored = await subject.scope.restore({ fallbackSettings: DEFAULT_SETTINGS,
+      hostProvider: "icloud", identityProvider: "icloud", providerSessionId: "new-session" })
+    expect(restored.settings.albumScope).toBeUndefined()
+    expect(restored.checkpoint).toBeNull()
+  })
+
+  it("clears legacy album scope without account-bound review history", async () => {
+    const subject = adapter({ settings: { ...DEFAULT_SETTINGS,
+      albumScope: { mediaKey: "unbound", title: "Unknown owner album" } } })
+    const restored = await subject.scope.restore({ fallbackSettings: DEFAULT_SETTINGS,
+      identityProvider: "google", accountEmail: "bob@example.com" })
+    expect(restored.settings.albumScope).toBeUndefined()
+  })
+
+  it("retains album scope when its saved review matches the current account", async () => {
+    const albumScope = { mediaKey: "owner-album", title: "Owner album" }
+    const subject = adapter({ settings: { ...DEFAULT_SETTINGS, albumScope },
+      scanResults: { mediaItems, groups, scanDate: 1, totalItems: 2,
+        accountEmail: "alice@example.com", sourceProvider: "google" } })
+    const restored = await subject.scope.restore({ fallbackSettings: DEFAULT_SETTINGS,
+      identityProvider: "google", accountEmail: "alice@example.com" })
+    expect(restored.settings.albumScope).toEqual(albumScope)
+  })
+
+  it.each(["matching", "changed", "superseded"] as const)("only clears album scope for a current invalid review (%s)", async (identity) => {
+    const settings = { ...DEFAULT_SETTINGS, albumScope: { mediaKey: "album", title: "Owner album" } }
+    const subject = adapter({ settings, scanResults: {
+      mediaItems, groups, scanDate: 1, totalItems: 2,
+      accountEmail: "alice@example.com", sourceProvider: "google"
+    } })
+    const invalidated = await subject.scope.invalidateReview(
+      () => identity !== "superseded",
+      stored => stored.scanResults?.accountEmail !== (identity === "matching" ? "alice@example.com" : "bob@example.com"),
+      "google", { clearAlbumScope: true }
+    )
+    expect(invalidated).toBe(identity === "changed")
+    expect((subject.values.settings as typeof settings).albumScope)
+      .toEqual(identity === "changed" ? undefined : settings.albumScope)
+    expect(Boolean(subject.values.scanResults)).toBe(identity !== "changed")
+  })
+
   it.each([false, true])("preserves pre-default-strategy tied keepers through startup (automatic override: %s)", async (automaticOverride) => {
     const tiedItems = {
       keep: { ...mediaItems.keep, creationTimestamp: 1 },
