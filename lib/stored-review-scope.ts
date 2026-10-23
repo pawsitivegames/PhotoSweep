@@ -4,9 +4,10 @@ import {
   type KeepDecisionProvenance,
   type StoredDuplicateReviewSelections
 } from "./duplicate-review-session"
-import { isKeepStrategy } from "./keep-strategy"
+import { isKeepStrategy, recommendKeepForGroup } from "./keep-strategy"
 import { getProviderOperations } from "./provider-operations"
 import { SCAN_CHECKPOINT_KEY, type ScanCheckpoint } from "./scan-checkpoint"
+import { isScanCoverage } from "./scan-coverage"
 import { areScanResultsValid } from "./scan-results"
 import {
   DEFAULT_SETTINGS,
@@ -414,6 +415,28 @@ export class StoredReviewScope {
       : null
     let selections = deserialized
     if (deserialized && hasBoundReviewGroups && stored.scanResults?.groups) {
+      // Old reviews without recorded coverage kept every tied candidate.
+      // Use the review's durable format, since settings may already have been
+      // normalized before identity detection permits review restoration.
+      if (!isScanCoverage(stored.scanResults.scanCoverage)) {
+        for (const group of stored.scanResults.groups) {
+          if (!group || !Array.isArray(group.mediaKeys)) continue
+          const provenance = deserialized.keepDecisionProvenance?.[group.id]
+          const override = deserialized.keptOverrides[group.id]
+          if (override && provenance?.source !== "automatic") continue
+          const recommendation = recommendKeepForGroup(
+            group,
+            stored.scanResults.mediaItems ?? {},
+            provenance?.strategy ?? "best_quality"
+          )
+          if (recommendation.status !== "no_confident_recommendation") continue
+          deserialized.keptOverrides[group.id] = new Set(group.mediaKeys)
+          deserialized.keepDecisionProvenance ??= {}
+          deserialized.keepDecisionProvenance[group.id] = {
+            source: "stale_fallback"
+          }
+        }
+      }
       const session = new DuplicateReviewSession({
         groups: stored.scanResults.groups,
         mediaItems: stored.scanResults.mediaItems ?? {},

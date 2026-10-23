@@ -233,13 +233,14 @@ export async function injectScanResults(
   groups: object[],
   mediaItems: Record<string, object>,
   totalItems: number,
-  accountEmail: string | null = "test@example.com"
+  accountEmail: string | null = "test@example.com",
+  recordCoverage = true
 ): Promise<void> {
   const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
   const storageKey = providerReviewStorageKey("google", "scanResults")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey }) =>
+      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
             {
@@ -250,13 +251,22 @@ export async function injectScanResults(
                 scanDate: Date.now(),
                 sourceProvider: "google",
                 scopeFingerprint,
+                ...(recordCoverage ? {
+                  scanCoverage: {
+                    status: "complete", stopReason: "exhausted",
+                    itemsVisited: totalItems, itemsReturned: totalItems,
+                    itemsSkipped: 0, unknownDateItemsSkipped: 0,
+                    canResume: false,
+                    mediaTypesCovered: { photos: true, videos: true }
+                  }
+                } : {}),
                 ...(accountEmail ? { accountEmail } : {})
               }
             },
             resolve
           )
         }),
-      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey }
+      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage }
     )
   )
 }

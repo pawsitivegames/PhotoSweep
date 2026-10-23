@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { DuplicateReviewSession } from "../../lib/duplicate-review-session"
+import {
+  applyDefaultKeepStrategyToSession,
+  DuplicateReviewSession
+} from "../../lib/duplicate-review-session"
 import { StoredReviewScope } from "../../lib/stored-review-scope"
 import { DEFAULT_SETTINGS, type StoredState } from "../../lib/types"
 
@@ -54,6 +57,64 @@ const groups = [
 ]
 
 describe("StoredReviewScope", () => {
+  it.each([false, true])("preserves pre-default-strategy tied keepers through startup (automatic override: %s)", async (automaticOverride) => {
+    const tiedItems = {
+      keep: { ...mediaItems.keep, creationTimestamp: 1 },
+      trash: { ...mediaItems.trash, creationTimestamp: 1 }
+    }
+    const subject = adapter({
+      settings: { sourceProvider: "google", similarityThreshold: 0.95, scanMode: "smart" },
+      scanResults: {
+        mediaItems: tiedItems, groups, scanDate: 1, totalItems: 2,
+        accountEmail: "buyer@example.com", sourceProvider: "google"
+      },
+      selections: {
+        version: 2, selectedGroupIds: ["group"], reviewedGroupIds: ["group"],
+        keptOverrides: automaticOverride ? { group: ["keep", "trash"] } : {},
+        keepDecisionProvenance: automaticOverride
+          ? { group: { source: "automatic", strategy: "best_quality" } }
+          : {}
+      }
+    })
+    const pending = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS, identityProvider: "google"
+    })
+    expect(pending.identityPending).toBe(true)
+    // Settings can be normalized and saved before account detection completes.
+    subject.values.settings = pending.settings
+    const restored = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS, identityProvider: "google",
+      accountEmail: "buyer@example.com"
+    })
+    // The real startup path applies the current default after storage restore.
+    const review = applyDefaultKeepStrategyToSession({
+      groups, mediaItems: tiedItems, selections: restored.selections!,
+      strategy: "best_quality"
+    })
+    expect(review.keptFor(groups[0])).toEqual(new Set(["keep", "trash"]))
+    expect(review.trashPlan().mediaKeysToTrash).toEqual([])
+    expect(review.reviewedGroupIds.has("group")).toBe(true)
+
+    subject.values.settings = restored.settings
+    const reloaded = await subject.scope.restore({
+      fallbackSettings: DEFAULT_SETTINGS, identityProvider: "google",
+      accountEmail: "buyer@example.com"
+    })
+    const afterReload = applyDefaultKeepStrategyToSession({
+      groups, mediaItems: tiedItems, selections: reloaded.selections!,
+      strategy: "best_quality"
+    })
+    expect(afterReload.keptFor(groups[0])).toEqual(new Set(["keep", "trash"]))
+    expect(afterReload.trashPlan().mediaKeysToTrash).toEqual([])
+    // An explicit keeper-menu choice can still replace the safe migration.
+    const chosen = afterReload.transition({
+      type: "apply_keep_strategy", groupIds: ["group"],
+      strategy: "best_quality", overrideManualChoices: true
+    })
+    expect(chosen.keptFor(groups[0]).size).toBe(1)
+    expect(chosen.reviewedGroupIds.has("group")).toBe(false)
+  })
+
   it("a new review releases an obsolete pending restore read without bypassing writes", async () => {
     let releaseRead!: (value: Partial<StoredState>) => void
     let markReadStarted!: () => void
@@ -967,7 +1028,7 @@ describe("StoredReviewScope", () => {
     }
   )
 
-  it("keeps legacy no-provenance hydration on the automatic default path", async () => {
+  it.each([false, true])("uses automatic no-provenance defaults only with recorded coverage (%s)", async (recordedCoverage) => {
     const subject = adapter({
       settings: { ...DEFAULT_SETTINGS, sourceProvider: "google" },
       scanResults: {
@@ -976,7 +1037,13 @@ describe("StoredReviewScope", () => {
         scanDate: 1,
         totalItems: 2,
         accountEmail: "buyer@example.com",
-        sourceProvider: "google"
+        sourceProvider: "google",
+        ...(recordedCoverage ? { scanCoverage: {
+          status: "complete" as const, stopReason: "exhausted" as const,
+          itemsVisited: 2, itemsReturned: 2, itemsSkipped: 0,
+          unknownDateItemsSkipped: 0, canResume: false,
+          mediaTypesCovered: { photos: true, videos: true }
+        } } : {})
       },
       selections: {
         selectedGroupIds: ["group"],
@@ -995,9 +1062,9 @@ describe("StoredReviewScope", () => {
       selections: restored.selections ?? undefined
     })
 
-    expect(review.decisionFor(groups[0]!).source).toBe("automatic")
-    expect(review.keptFor(groups[0]!).size).toBe(1)
-    expect(review.trashPlan(groups).mediaKeysToTrash).toHaveLength(1)
+    expect(review.decisionFor(groups[0]!).source).toBe(recordedCoverage ? "automatic" : "stale_fallback")
+    expect(review.keptFor(groups[0]!).size).toBe(recordedCoverage ? 1 : 2)
+    expect(review.trashPlan(groups).mediaKeysToTrash).toHaveLength(recordedCoverage ? 1 : 0)
   })
 
   it("removes review material from a different account", async () => {

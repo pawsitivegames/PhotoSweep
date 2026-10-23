@@ -2373,6 +2373,39 @@ const BASE_MEDIA_ITEMS = {
   }
 }
 
+test("preserves all tied legacy keepers through startup and reload", async () => {
+  await clearStorage(context)
+  await injectScanResults(context, [{
+    id: "g1", mediaKeys: ["key1", "key2"],
+    originalMediaKey: "key1", similarity: 0.99
+  }], {
+    key1: { ...BASE_MEDIA_ITEMS.key1, isOriginalQuality: null },
+    key2: { ...BASE_MEDIA_ITEMS.key2, isOriginalQuality: null }
+  }, 2, "test@example.com", false)
+  await injectSelections(context, ["g1"], {})
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await expect(page.getByText("Scan coverage was not recorded", { exact: true })).toBeVisible()
+    await expect.poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections
+    }).toMatchObject({
+      selectedGroupIds: ["g1"], keptOverrides: { g1: ["key1", "key2"] },
+      keepDecisionProvenance: { g1: { source: "stale_fallback" } }
+    })
+    const keepers = page.getByRole("button", { name: /^Keep photo[12]\.jpg / })
+    await expect(keepers).toHaveCount(2)
+    await expect(keepers.nth(0)).toHaveAttribute("aria-pressed", "true")
+    await expect(keepers.nth(1)).toHaveAttribute("aria-pressed", "true")
+    if (attempt === 0) await page.reload()
+  }
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
+
 test("persists group selections through page reload", async () => {
   // 3 groups; only g1 and g3 are selected (g2 is deselected)
   await clearStorage(context)
