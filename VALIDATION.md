@@ -24,45 +24,74 @@ These checks prove the local product flow and safety logic. They do not prove th
 
 ## Live Tiny-Album Gate
 
-Use a non-critical Google account or a tiny test album first.
+The automated live gate is scan-only and requires a reviewed synthetic album of
+1–100 items, its expected groups, and an explicitly selected installation.
+Use the configured existing signed-in Chrome CDP connection. No profile is
+launched unless `GPD_E2E_USER_DATA_DIR` is explicitly supplied; local operator
+browser instructions still take precedence. Never transfer cookies into tests.
+If HTTP discovery is unavailable, set `CDP_URL` to the existing Chrome instance's
+local debugging WebSocket endpoint; keep the endpoint out of logs and commits.
+Start the run while the owner is at Chrome. If Chrome displays **Allow remote
+debugging?**, the owner must approve the fresh connection within the harness's
+two-minute connection window. Approval of an expired request does not prove a
+new connection is authorized.
 
-Recommended command:
+Temporarily disable other PhotoSweep installations during this gate, preserving
+their storage. Multiple enabled copies can replace the shared provider-page
+command host and make the selected candidate time out. Verify the switches in
+Chrome's own extension manager, then reload the provider tab before retrying.
+Restore the prior installation state after the run.
+
+The target installation must have no saved review/checkpoint state and no open
+app panel. Use a dedicated test installation, not an owner's active cleanup.
+The harness verifies its runtime ID, name and version against the local manifest;
+no storage is cleared, and existing license/consent settings are not injected.
+A failed scan can retain a synthetic checkpoint for diagnosis. Review that state
+before explicitly preparing another run; automatic live retries are disabled.
 
 ```bash
-GPD_E2E_ALBUM_TITLE="Tiny duplicate test" npm run test:e2e
+PHOTOSWEEP_E2E_EXTENSION_ID="<exact 32-character installed test ID>" \
+PHOTOSWEEP_E2E_EXTENSION_PATH="/absolute/path/to/accepted/unpacked-extension" \
+PHOTOSWEEP_E2E_FIXTURE_MANIFEST="/absolute/path/to/private-synthetic-oracle.json" \
+GPD_E2E_SYNTHETIC_FIXTURE=1 \
+GPD_E2E_ALBUM_TITLE="Tiny synthetic duplicate test" \
+npm run test:e2e
 ```
 
-To validate a date range instead:
+The private oracle file has this shape; replace the synthetic example values
+with independently verified fixture IDs. Keep real provider IDs uncommitted.
 
-```bash
-GPD_E2E_DATE_FROM="2026-01-01" GPD_E2E_DATE_TO="2026-01-31" npm run test:e2e
+```json
+{
+  "schemaVersion": 1,
+  "provider": "google",
+  "albumTitle": "Tiny synthetic duplicate test",
+  "albumId": "synthetic-album-id",
+  "expectedMediaKeys": ["original", "copy", "control"],
+  "expectedGroups": [["original", "copy"]]
+}
 ```
 
-1. Create or choose a tiny album with two duplicate test photos and at least one non-duplicate.
-2. Open `photos.google.com` in Chrome and confirm the intended account is signed in.
-3. Load the unpacked extension from `build/chrome-mv3-prod` or `build/chrome-mv3-dev`.
-4. Open PhotoSweep and confirm the app shows the expected signed-in account.
-5. Choose the tiny album scope.
-6. Run a Smart scan.
-7. Confirm the scan result only contains the expected duplicate group.
-8. Export JSON and CSV reports.
-9. Confirm the reports list the expected keep item, Trash candidate, group id, similarity, reason, timestamp, and Google Photos link.
-10. Click **Review & move N to Trash**.
-11. Confirm the dialog requires typing the exact item count before the final button enables.
-12. Click the final **Move to Trash** button and move only the expected duplicate to Trash.
-13. Confirm the Trash result report shows the expected moved item and no unexpected failures.
-14. Open Google Photos Trash and restore the test item.
-15. Confirm the restored item appears back in Google Photos.
+The album title and underlying selected album ID must both match. There is no
+implicit today/date-range/all-library fallback. A successful terminal scan must
+match the expected count, retained-item whitelist and exact group membership;
+compact results retain grouped items only and are not a full provider inventory.
+Independent provider inventory/report proof remains a separate release gate.
+The transient progress label is not required because tiny scans can finish
+before it is observed.
 
-Required result:
+This command does not authorize Trash. Legacy `GPD_E2E_ALLOW_TRASH=1` automation
+now fails before connecting to a browser: it cannot safely bind its first visible
+group to an approved target. Use the release-gate procedure instead. Each actual
+Trash test requires separate explicit approval of an identified disposable item,
+a current pre-Trash report, independent provider inventory, and same-run Undo.
+Never permanently delete provider Trash. Preserve every failed or interrupted
+attempt and report missing prerequisites as blocked, not passing.
 
-- No unrelated media is selected or moved.
-- The pre-Trash report is saved before the Trash operation.
-- The Trash result report matches the actual Google Photos outcome.
-- Restore from Google Photos Trash works for the moved item.
-- Google Photos, iCloud Photos, and Amazon Photos use the same free and paid
-  feature limits. Provider-specific live Trash/Restore evidence is recorded
-  below before making paid multi-provider claims.
+Before making paid multi-provider claims, record independent live scan/report
+and approved Trash/restore evidence for Google Photos, iCloud Photos and Amazon
+Photos. Providers must use the same free and paid feature limits. The scan-only
+harness and mocked integration tests do not establish that provider acceptance.
 
 ## Paid Launch Validation
 
@@ -306,11 +335,10 @@ App-driven validation:
 
 Run this only after the tiny-album gate passes.
 
-The live Trash test is opt-in. It will skip unless `GPD_E2E_ALLOW_TRASH=1` is set:
-
-```bash
-GPD_E2E_ALBUM_TITLE="Tiny duplicate test" GPD_E2E_ALLOW_TRASH=1 npm run test:e2e
-```
+This is a separate manual acceptance procedure using a dedicated non-sensitive
+fixture scope. The automated tiny-album command does not accept month/year or
+date-range fallback, and `GPD_E2E_ALLOW_TRASH=1` fails closed. Each identified
+live Trash target still needs explicit approval and same-run restoration.
 
 1. Choose a low-risk month or year with known duplicates.
 2. Run Smart mode first.

@@ -924,6 +924,7 @@ async function openProviderInCurrentTab(
   allowCreate = true
 ): Promise<{ tab: chrome.tabs.Tab; alreadyOpen: boolean } | null> {
   const seenTabIds = new Set<number>()
+  let navigationAccepted = false
 
   async function tryOpenCandidate(
     targetTab: chrome.tabs.Tab | undefined
@@ -941,11 +942,16 @@ async function openProviderInCurrentTab(
           .catch(() => undefined)) ?? targetTab
       return { tab: focusedTab, alreadyOpen }
     }
+    // tabs.update can accept navigation while still exposing the old URL.
+    // Discovery may reuse an already-open provider, but must never navigate
+    // another tab while that first navigation is pending.
+    if (navigationAccepted) return null
     try {
       const openedTab = await chrome.tabs.update(targetTab.id, {
         url: providerOpenUrlForTab(provider, targetTab),
         active: true
       })
+      navigationAccepted = true
       if (isProviderPhotosPage(openedTab, provider)) {
         return { tab: openedTab, alreadyOpen }
       }
@@ -1000,7 +1006,7 @@ async function openProviderInCurrentTab(
     if (windowResult) return windowResult
   }
 
-  if (!allowCreate) return null
+  if (!allowCreate || navigationAccepted) return null
   const createdTab = await chrome.tabs.create({
     url: providerOpenUrl(provider),
     active: true
@@ -2012,8 +2018,10 @@ function handleGptkProgress(
 // ============================================================
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  const disconnectedClients = connectionSession.sidePanelClientsForProviderTab(tabId)
   const mappedTabId = connectionSession.removeTab(tabId)
   providerOperationSession.removeAppTab(tabId)
+  providerOperationSession.removeProviderTab(tabId)
   googleCompletedScans.invalidateAppTab(tabId)
   invalidateGoogleProviderTab(tabId)
   for (const [requestId, context] of pendingGoogleOriginalRequests) {
@@ -2023,6 +2031,14 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
   for (const [requestId, context] of pendingGoogleScanContexts) {
     if (context.appTabId === tabId) pendingGoogleScanContexts.delete(requestId)
+  }
+  for (const clientId of disconnectedClients) {
+    sendToAppContext(null, {
+      app: APP_ID,
+      action: "gptkLog",
+      level: "error",
+      message: "Connected photo source tab was closed."
+    }, clientId)
   }
   if (mappedTabId !== null) {
     invalidateGoogleProviderTab(mappedTabId)

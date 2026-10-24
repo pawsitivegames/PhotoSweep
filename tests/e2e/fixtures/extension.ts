@@ -2,6 +2,7 @@
  * Shared helpers for all E2E tests.
  * Handles extension launch, storage injection, and GP auth cookie injection.
  */
+import { requireLiveExtensionId } from "./live-scan-contract"
 import fs from "fs"
 import path from "path"
 import {
@@ -26,6 +27,7 @@ export const extensionPath = process.env.PHOTOSWEEP_E2E_EXTENSION_PATH
   : path.resolve(__dirname, "../../../build/chrome-mv3-dev")
 
 const extensionIds = new WeakMap<BrowserContext, string>()
+const liveContexts = new WeakSet<BrowserContext>()
 
 function installedChromiumExecutable(): string | undefined {
   const configured = process.env.PHOTOSWEEP_E2E_EXECUTABLE_PATH
@@ -54,13 +56,15 @@ async function openExtensionStoragePage(
   // opening a helper tab (CI flake). Retry before failing the suite.
   let lastError: unknown
   for (let attempt = 1; attempt <= 3; attempt += 1) {
+    let page: Page | undefined
     try {
-      const page = await context.newPage()
+      page = await context.newPage()
       // A static extension resource gives this page chrome.storage access without
       // booting the app, whose startup effects would race test storage setup.
       await page.goto(`chrome-extension://${extensionId}/manifest.json`)
       return page
     } catch (error) {
+      await page?.close().catch(() => {})
       lastError = error
       const message = error instanceof Error ? error.message : String(error)
       if (
@@ -79,122 +83,74 @@ async function openExtensionStoragePage(
 // Connect to an already-running Chrome (full E2E only)
 // ============================================================
 
-/**
- * Connect to an existing Chrome instance via CDP instead of launching a new one.
- * Used for full E2E tests: avoids Google session invalidation that occurs when
- * cookies are transferred to a new browser (Google binds sessions to device fingerprint).
- *
- * Prerequisites:
- *   Chrome must be running with --remote-debugging-port=9222 AND the extension
- *   loaded (build/chrome-mv3-dev/). The user must be logged into Google Photos.
- *
- *   macOS launch:
- *     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
- *       --remote-debugging-port=9222
- *       --user-data-dir="$HOME/chrome-debug"
- *       --disable-extensions-except=/path/to/build/chrome-mv3-dev
- *       --load-extension=/path/to/build/chrome-mv3-dev
- *
- * After tests, browser.close() only disconnects Playwright — Chrome stays open.
+/** Connect only to an explicitly selected PhotoSweep installation.
+ * The default is the existing Chrome CDP endpoint. An explicitly configured
+ * GPD_E2E_USER_DATA_DIR remains opt-in; neither path permits clearing live storage.
  */
 export async function connectToChrome(
   cdpUrl = process.env.CDP_URL || "http://localhost:9222"
-): Promise<{
-  browser: Browser
-  context: BrowserContext
-  extensionId: string
-}> {
+): Promise<{ browser: Browser; context: BrowserContext; extensionId: string }> {
+  const extensionId = requireLiveExtensionId(process.env.PHOTOSWEEP_E2E_EXTENSION_ID)
+  const expected = JSON.parse(fs.readFileSync(path.join(extensionPath, "manifest.json"), "utf8"))
   const userDataDir = process.env.GPD_E2E_USER_DATA_DIR
+  let browser: Browser
+  let context: BrowserContext
   if (userDataDir) {
     const installedBrowser = installedChromiumExecutable()
-    const context = await chromium.launchPersistentContext(
-      path.resolve(userDataDir),
-      {
-        headless: false,
-        ...(installedBrowser ? { executablePath: installedBrowser } : {}),
-        args: [
-          `--disable-extensions-except=${extensionPath}`,
-          `--load-extension=${extensionPath}`,
-          "--enable-unsafe-extension-debugging",
-          "--no-sandbox"
-        ]
-      }
-    )
-    let sw = context.serviceWorkers()[0]
-    if (!sw) sw = await context.waitForEvent("serviceworker")
-    const extensionId = new URL(sw.url()).hostname
-    rememberExtensionId(context, extensionId)
-    const browser = {
-      close: () => context.close()
-    } as Browser
-    return { browser, context, extensionId }
-  }
-
-  let browser: Browser
-  try {
-    browser = await chromium.connectOverCDP(cdpUrl)
-  } catch {
-    const macCommand =
-      `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\\n` +
-      `    --remote-debugging-port=9222 \\\n` +
-      `    --user-data-dir="$HOME/chrome-debug" \\\n` +
-      `    --disable-extensions-except="${extensionPath}" \\\n` +
-      `    --load-extension="${extensionPath}"`
-    const wslCommand =
-      `"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" \\\n` +
-      `    --remote-debugging-port=9222 \\\n` +
-      `    --user-data-dir="C:\\\\Users\\\\<you>\\\\Chrome Profiles\\\\chrome-debug" \\\n` +
-      `    --disable-extensions-except=/path/to/build/chrome-mv3-dev \\\n` +
-      `    --load-extension=/path/to/build/chrome-mv3-dev`
-    throw new Error(
-      `Could not connect to Chrome at ${cdpUrl}.\n` +
-        `Start Chrome with remote debugging and load ${extensionPath}.\n\n` +
-        `Alternatively, let Playwright launch an existing profile:\n` +
-        `  GPD_E2E_USER_DATA_DIR=.chrome-live-validation npm run test:e2e\n\n` +
-        `macOS:\n` +
-        `  ${macCommand}\n\n` +
-        `Windows WSL:\n` +
-        `  ${wslCommand}`
-    )
-  }
-
-  const context = browser.contexts()[0]
-  if (!context) throw new Error("No browser context found in connected Chrome.")
-
-  // Discover extension ID from service workers.
-  // Try SW first (fastest and most reliable), then fall back to open extension pages.
-  let extensionId = ""
-
-  const sws = context.serviceWorkers()
-  const gpdSw = sws.find((sw) => sw.url().includes("background"))
-  if (gpdSw) {
-    extensionId = new URL(gpdSw.url()).hostname
-  }
-
-  // Fallback: scan already-open extension pages (app tab may be open from prior run)
-  if (!extensionId) {
-    for (const page of context.pages()) {
-      const url = page.url()
-      // Must be a chrome-extension:// URL with a proper 32-char extension ID
-      if (
-        url.startsWith("chrome-extension://") &&
-        new URL(url).hostname.length === 32
-      ) {
-        extensionId = new URL(url).hostname
-        break
-      }
+    context = await chromium.launchPersistentContext(path.resolve(userDataDir), {
+      headless: false,
+      ...(installedBrowser ? { executablePath: installedBrowser } : {}),
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+        "--enable-unsafe-extension-debugging",
+        "--no-sandbox"
+      ]
+    })
+    browser = { close: () => context.close() } as Browser
+  } else {
+    try {
+      // Existing Chrome profiles may require the owner to approve a connection dialog.
+      browser = await chromium.connectOverCDP(cdpUrl, { timeout: 120_000 })
+    } catch {
+      throw new Error("Could not connect to the configured Chrome CDP endpoint. Keep the signed-in profile in place; configure CDP_URL explicitly if needed.")
+    }
+    context = browser.contexts()[0]
+    if (!context) {
+      await browser.close()
+      throw new Error("No browser context found in connected Chrome.")
     }
   }
-
-  if (!extensionId) {
-    throw new Error(
-      "Could not find the extension ID.\n" +
-        "Make sure the extension is loaded in Chrome (build/chrome-mv3-dev/)."
-    )
+  try {
+    // A direct manifest page wakes the selected installation without guessing
+    // from unrelated service workers or the first open extension tab.
+    rememberExtensionId(context, extensionId)
+    liveContexts.add(context)
+    await withExtensionStorage(context, async (page) => {
+      const actual = await page.evaluate(() => ({
+        id: chrome.runtime.id,
+        manifest: chrome.runtime.getManifest()
+      }))
+      if (actual.id !== extensionId || actual.manifest.name !== expected.name ||
+          actual.manifest.version !== expected.version) {
+        throw new Error("Installed test extension identity differs from PHOTOSWEEP_E2E_EXTENSION_PATH.")
+      }
+    })
+    return { browser, context, extensionId }
+  } catch (error) {
+    await browser.close()
+    throw error
   }
+}
 
-  rememberExtensionId(context, extensionId)
-  return { browser, context, extensionId }
+export async function assertEmptyLiveReviewState(context: BrowserContext): Promise<void> {
+  const keys = ["scanResults", "selections", "scanCheckpoint", ...["google", "icloud", "amazon"].flatMap((provider) =>
+    ["scanResults", "selections", "scanCheckpoint"].map((key) => `providerReview.v1.${provider}.${key}`)
+  )]
+  const present = await withExtensionStorage(context, (page) => page.evaluate((keys) =>
+    chrome.storage.local.get(keys).then((stored) => Object.keys(stored).length > 0), keys
+  ))
+  if (present) throw new Error("Live test target already has saved review/checkpoint state. Use a dedicated empty test installation; no storage was cleared.")
 }
 
 // ============================================================
@@ -277,13 +233,14 @@ export async function injectScanResults(
   groups: object[],
   mediaItems: Record<string, object>,
   totalItems: number,
-  accountEmail: string | null = "test@example.com"
+  accountEmail: string | null = "test@example.com",
+  recordCoverage = true
 ): Promise<void> {
   const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
   const storageKey = providerReviewStorageKey("google", "scanResults")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey }) =>
+      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
             {
@@ -294,13 +251,22 @@ export async function injectScanResults(
                 scanDate: Date.now(),
                 sourceProvider: "google",
                 scopeFingerprint,
+                ...(recordCoverage ? {
+                  scanCoverage: {
+                    status: "complete", stopReason: "exhausted",
+                    itemsVisited: totalItems, itemsReturned: totalItems,
+                    itemsSkipped: 0, unknownDateItemsSkipped: 0,
+                    canResume: false,
+                    mediaTypesCovered: { photos: true, videos: true }
+                  }
+                } : {}),
                 ...(accountEmail ? { accountEmail } : {})
               }
             },
             resolve
           )
         }),
-      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey }
+      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage }
     )
   )
 }
@@ -426,6 +392,9 @@ export async function readLocalStorage(
 }
 
 export async function clearStorage(context: BrowserContext): Promise<void> {
+  if (liveContexts.has(context)) {
+    throw new Error("Refusing to clear storage in a live Chrome test context.")
+  }
   // Best-effort: Playwright Chromium extension contexts sometimes reject
   // helper tabs during teardown (createTarget / closed context). Do not fail
   // an otherwise-passing test from cleanup alone.
@@ -494,10 +463,14 @@ export interface GptkOverrides {
  */
 export async function openGptkStubPage(
   context: BrowserContext,
-  overrides: GptkOverrides = {}
+  overrides: GptkOverrides = {},
+  provider: "google" | "amazon" = "google"
 ): Promise<Page> {
-  // Intercept ALL requests to photos.google.com so the content script host loads
-  await context.route("https://photos.google.com/**", async (route) => {
+  const origin = provider === "amazon"
+    ? "https://www.amazon.ca"
+    : "https://photos.google.com"
+  // Serve synthetic provider responses; no signed-in account is used.
+  await context.route(`${origin}/**`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
@@ -506,7 +479,7 @@ export async function openGptkStubPage(
   })
 
   const page = await context.newPage()
-  await page.goto("https://photos.google.com/")
+  await page.goto(provider === "amazon" ? `${origin}/photos` : `${origin}/`)
 
   // The stub supplies its own provider command handler. Mark it with the same
   // owner identity used by the service worker so test setup does not inject a
@@ -528,16 +501,22 @@ export async function openGptkStubPage(
     throw new Error("Extension build identity is unavailable for the GPTK stub.")
   }
   const ownerId = `${extensionId}:${ownerVersion}`
-  await page.evaluate((commandOwnerId) => {
+  await page.evaluate(({ commandOwnerId, provider }) => {
     const stubWindow = window as unknown as {
       __GPD_COMMAND_HOST__?: unknown
       __GPD_COMMAND_HOST_OWNER_ID__?: string
       __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+      __GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__?: string
+      __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
     }
     stubWindow.__GPD_COMMAND_HOST__ = { register: () => undefined }
     stubWindow.__GPD_COMMAND_HOST_OWNER_ID__ = commandOwnerId
     stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
-  }, ownerId)
+    if (provider === "amazon") {
+      stubWindow.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
+      stubWindow.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
+    }
+  }, { commandOwnerId: ownerId, provider })
 
   // Inject overrides so the stub responds as configured
   if (Object.keys(overrides).length > 0) {

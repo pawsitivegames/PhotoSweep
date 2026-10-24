@@ -405,6 +405,112 @@ test("clears saved results and selections when a different Google account is det
   await clearStorage(context)
 })
 
+for (const startup of [true, false]) {
+  test(`clears foreign album scope when the new account's album list fails (${startup ? "startup" : "connected switch"})`, async () => {
+    await clearStorage(context)
+    if (startup) await injectScanResults(context, [], {}, 2, "alice@example.com")
+    const seed = await context.newPage()
+    await seed.goto(`chrome-extension://${extensionId}/manifest.json`)
+    await seed.evaluate(async () => {
+      await chrome.storage.local.set({ settings: {
+        sourceProvider: "google", scanMode: "smart", similarityThreshold: 0.95,
+        albumScope: { mediaKey: "alice-album", title: "Alice private album" }
+      } })
+    })
+    await seed.close()
+    const stub = await openGptkStubPage(context, {
+      healthCheck: { data: { hasGptk: true, hasWizData: true,
+        accountEmail: startup ? "bob@example.com" : "alice@example.com" } },
+      listAlbums: startup
+        ? { success: false, error: "Album enumeration unavailable" }
+        : { data: [{ mediaKey: "alice-album", title: "Alice private album", isShared: false }] }
+    })
+    const page = await openAppTab(context, extensionId)
+    if (!startup) {
+      await page.getByRole("button", { name: /Advanced matching/i }).click()
+      await page.getByRole("combobox", { name: /Library area/i }).click()
+      await page.getByRole("option", { name: "Alice private album", exact: true }).click()
+      await page.getByRole("button", { name: /Advanced matching/i }).click()
+      await expect(page.getByRole("button", { name: "Scan this album", exact: true })).toBeVisible()
+      await stub.evaluate(() => {
+        const overrides = (window as unknown as { __gptkOverrides: Record<string, unknown> }).__gptkOverrides
+        overrides.healthCheck = { data: { hasGptk: true, hasWizData: true, accountEmail: "bob@example.com" } }
+        overrides.listAlbums = { success: false, error: "Album enumeration unavailable" }
+      })
+      await page.evaluate(() => chrome.runtime.sendMessage({ app: "GPD", action: "healthCheck", provider: "google" }))
+    }
+    await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Scan this album", exact: true })).toHaveCount(0)
+    await page.getByRole("button", { name: /Advanced matching/i }).click()
+    await expect(page.getByText("Alice private album", { exact: true })).toHaveCount(0)
+    await expect.poll(async () => {
+      const stored = await readLocalStorage(context, ["settings"])
+      return (stored.settings as { albumScope?: unknown })?.albumScope ?? null
+    }).toBeNull()
+    const commands = await stub.evaluate(() =>
+      (window as unknown as { __gptkCommandLog: { command: string }[] }).__gptkCommandLog.map(entry => entry.command))
+    expect(commands).not.toContain("getAllMediaItems")
+    expect(commands).not.toContain("trashItems")
+    await page.close()
+    await stub.close()
+    await clearStorage(context)
+  })
+}
+
+test("late old-account invalidation preserves the new account's album selection and catalog", async () => {
+  await clearStorage(context)
+  const stub = await openGptkStubPage(context, {
+    healthCheck: { data: { hasGptk: true, hasWizData: true, accountEmail: "alice@example.com" } },
+    listAlbums: { data: [{ mediaKey: "alice-album", title: "Alice album", isShared: false }] }
+  })
+  const page = await openAppTab(context, extensionId)
+  await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
+  await page.getByRole("combobox", { name: /Library area/i }).click()
+  await page.getByRole("option", { name: "Alice album", exact: true }).click()
+  await page.evaluate(async ({ resultKey }) => {
+    await chrome.storage.local.set({ [resultKey]: {
+      accountEmail: "alice@example.com", sourceProvider: "google",
+      scanDate: Date.now(), totalItems: 2, groups: [], mediaItems: {}
+    } })
+    const remove = chrome.storage.local.remove.bind(chrome.storage.local)
+    const globals = window as unknown as {
+      __accountInvalidationHeld?: boolean
+      __releaseAccountInvalidation?: () => void
+    }
+    chrome.storage.local.remove = ((keys: string | string[]) => {
+      if (Array.isArray(keys) && keys.includes(resultKey) && !globals.__accountInvalidationHeld) {
+        globals.__accountInvalidationHeld = true
+        return new Promise<void>((resolve) => {
+          globals.__releaseAccountInvalidation = () => { void remove(keys).then(resolve) }
+        })
+      }
+      return remove(keys)
+    }) as typeof chrome.storage.local.remove
+  }, { resultKey: providerReviewStorageKey("google", "scanResults") })
+  await stub.evaluate(() => {
+    const overrides = (window as unknown as { __gptkOverrides: Record<string, unknown> }).__gptkOverrides
+    overrides.healthCheck = { data: { hasGptk: true, hasWizData: true, accountEmail: "bob@example.com" } }
+    overrides.listAlbums = { data: [{ mediaKey: "bob-album", title: "Bob album", isShared: false }] }
+  })
+  await page.evaluate(() => chrome.runtime.sendMessage({ app: "GPD", action: "healthCheck", provider: "google" }))
+  await expect(page.getByText("Signed in · bob@example.com")).toBeVisible()
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { __accountInvalidationHeld?: boolean }).__accountInvalidationHeld)).toBe(true)
+  await page.getByRole("combobox", { name: /Library area/i }).click()
+  await page.getByRole("option", { name: "Bob album", exact: true }).click()
+  await page.evaluate(async () => {
+    ;(window as unknown as { __releaseAccountInvalidation?: () => void }).__releaseAccountInvalidation?.()
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  })
+  await expect(page.getByRole("combobox", { name: /Library area/i })).toContainText("Bob album")
+  await page.getByRole("combobox", { name: /Library area/i }).click()
+  await expect(page.getByRole("option", { name: "Bob album", exact: true })).toBeVisible()
+  await page.close()
+  await stub.close()
+  await clearStorage(context)
+})
+
 test("closes a paid prompt when a connected account changes", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = makeGroups(2, 7)
@@ -1644,6 +1750,112 @@ test("offers resume when a previous scan checkpoint was interrupted", async () =
   await clearStorage(context)
 })
 
+test("late provider progress cannot rewrite a paused checkpoint after reload", async () => {
+  await clearStorage(context)
+  await openGptkStubPage(context)
+  await injectScanCheckpoint(context, {
+    id: "paused-request",
+    status: "interrupted",
+    startedAt: Date.now() - 1000,
+    updatedAt: Date.now(),
+    accountEmail: "test@example.com",
+    settings: { scanMode: "smart", similarityThreshold: 0.95 },
+    phase: "fetching",
+    itemsProcessed: 0,
+    totalEstimate: 6,
+    message: "Scan paused."
+  })
+  const page = await openAppTab(context, extensionId)
+  await expect(page.getByRole("button", { name: /Continue previous scan/i })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("button", { name: /Continue previous scan/i })).toBeVisible()
+  const before = await readLocalStorage(context, ["scanCheckpoint"])
+  await page.evaluate(() => {
+    chrome.runtime.onMessage.addListener(message => {
+      if (message.action === "gptkProgress" && message.requestId === "paused-request") {
+        document.documentElement.dataset.lateProgressDelivered = "true"
+      }
+    })
+  })
+  const worker = context.serviceWorkers().find(worker =>
+    worker.url().startsWith(`chrome-extension://${extensionId}/`))
+  expect(worker).toBeTruthy()
+  await worker!.evaluate(async () => {
+    await chrome.runtime.sendMessage({
+      app: "GPD", action: "gptkProgress", command: "getAllMediaItems",
+      requestId: "paused-request", itemsProcessed: 99,
+      message: "Late progress from the paused request"
+    }).catch(() => {})
+  })
+  await expect(page.locator("html")).toHaveAttribute("data-late-progress-delivered", "true")
+  // Storage persistence is asynchronous; allow the received event's queued
+  // write to settle so this detects a mutation rather than racing ahead of it.
+  await page.waitForTimeout(150)
+  expect(await readLocalStorage(context, ["scanCheckpoint"])).toEqual(before)
+})
+
+for (const provider of ["icloud", "amazon"] as const) {
+  test(`compact panel preserves the ${provider} checkpoint while host identity loads`, async () => {
+    await clearStorage(context)
+    const settings = {
+      sourceProvider: provider,
+      scanMode: "smart",
+      similarityThreshold: 0.95,
+      smartWindowSec: 1,
+      defaultKeepStrategy: "best_quality",
+      exactOnly: false,
+      protectFavorites: true,
+      albumScope: { mediaKey: "synthetic-album", title: "Synthetic album" }
+    }
+    const checkpoint = {
+      id: "paused-synthetic-scan",
+      status: "interrupted",
+      startedAt: Date.now() - 1000,
+      updatedAt: Date.now(),
+      providerSessionId: "synthetic-session",
+      settings,
+      phase: "fetching",
+      itemsProcessed: 0
+    }
+    const settingsKey = providerReviewStorageKey(provider, "settings")
+    const checkpointKey = providerReviewStorageKey(provider, "scanCheckpoint")
+    const page = await context.newPage()
+    await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+    await page.evaluate(async ({ settingsKey, checkpointKey, settings, checkpoint }) => {
+      await chrome.storage.local.set({
+        settings,
+        [settingsKey]: settings,
+        [checkpointKey]: checkpoint
+      })
+    }, { settingsKey, checkpointKey, settings, checkpoint })
+    await page.addInitScript((source) => {
+      // Reproduce a side panel opened over a provider tab before health has
+      // supplied its account identity. No real provider account is involved.
+      const query = chrome.tabs.query.bind(chrome.tabs)
+      chrome.tabs.query = ((queryInfo: chrome.tabs.QueryInfo) =>
+        queryInfo.active
+          ? Promise.resolve([{ id: -1, url: source === "icloud"
+              ? "https://www.icloud.com/photos/"
+              : "https://www.amazon.ca/photos/" }])
+          : query(queryInfo)) as typeof chrome.tabs.query
+    }, provider)
+    await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+    await expect(page.getByRole("combobox", { name: "Photo source" }))
+      .toContainText(provider === "icloud" ? "iCloud Photos" : "Amazon Photos")
+    const saved = () => page.evaluate(async (keys) => chrome.storage.local.get(keys),
+      [settingsKey, checkpointKey])
+    // Let both startup storage hydration and the disconnected health check settle.
+    await expect(page.getByText("Connected", { exact: true })).not.toBeVisible()
+    await expect.poll(saved).toEqual({ [settingsKey]: settings, [checkpointKey]: checkpoint })
+    await page.reload()
+    await expect(page.getByRole("combobox", { name: "Photo source" }))
+      .toContainText(provider === "icloud" ? "iCloud Photos" : "Amazon Photos")
+    await expect.poll(saved).toEqual({ [settingsKey]: settings, [checkpointKey]: checkpoint })
+    await page.close()
+    await clearStorage(context)
+  })
+}
+
 test("clears resumable checkpoint when a different Google account is detected", async () => {
   await clearStorage(context)
   const gpPage = await openGptkStubPage(context, {
@@ -2266,6 +2478,39 @@ const BASE_MEDIA_ITEMS = {
     fileName: "photo6.jpg"
   }
 }
+
+test("preserves all tied legacy keepers through startup and reload", async () => {
+  await clearStorage(context)
+  await injectScanResults(context, [{
+    id: "g1", mediaKeys: ["key1", "key2"],
+    originalMediaKey: "key1", similarity: 0.99
+  }], {
+    key1: { ...BASE_MEDIA_ITEMS.key1, isOriginalQuality: null },
+    key2: { ...BASE_MEDIA_ITEMS.key2, isOriginalQuality: null }
+  }, 2, "test@example.com", false)
+  await injectSelections(context, ["g1"], {})
+  const stub = await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await expect(page.getByText("Scan coverage was not recorded", { exact: true })).toBeVisible()
+    await expect.poll(async () => {
+      const stored = await readLocalStorage(context, ["selections"])
+      return stored.selections
+    }).toMatchObject({
+      selectedGroupIds: ["g1"], keptOverrides: { g1: ["key1", "key2"] },
+      keepDecisionProvenance: { g1: { source: "stale_fallback" } }
+    })
+    const keepers = page.getByRole("button", { name: /^Keep photo[12]\.jpg / })
+    await expect(keepers).toHaveCount(2)
+    await expect(keepers.nth(0)).toHaveAttribute("aria-pressed", "true")
+    await expect(keepers.nth(1)).toHaveAttribute("aria-pressed", "true")
+    if (attempt === 0) await page.reload()
+  }
+  await page.close()
+  await stub.close()
+  await context.unroute("https://photos.google.com/**")
+  await clearStorage(context)
+})
 
 test("persists group selections through page reload", async () => {
   // 3 groups; only g1 and g3 are selected (g2 is deselected)

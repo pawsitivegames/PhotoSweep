@@ -1139,6 +1139,8 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, { status: "connecting" })
   const [sidePanelSourceConfirmed, setSidePanelSourceConfirmed] =
     useState(false)
+  const [sidePanelHostResolved, setSidePanelHostResolved] =
+    useState(!isSidePanel)
   const [storageChecked, setStorageChecked] = useState(false)
   const [settings, setSettings] = useReducer(
     (prev: ScanSettings, next: Partial<ScanSettings>) => ({ ...prev, ...next }),
@@ -2813,6 +2815,7 @@ export default function App() {
           active: true,
           currentWindow: true
         })
+        if (disposed) return
         if (
           activeTab?.id !== undefined &&
           !activeTab.url?.startsWith("chrome-extension://")
@@ -2827,21 +2830,9 @@ export default function App() {
           if (
             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
           ) {
-            reviewHydrationClosedRef.current = true
-            scanReviewGenerationRef.current += 1
-            providerConnectionTrackerRef.current.reset()
-            invalidatePaidConversionContext()
-            scanLifecycle.reset()
-            cachedMediaItemsRef.current = null
-            deferredUpgradeRef.current = null
-            setDeferredUpgrade(null)
-            pendingSelectionsRef.current = null
-            setResumeCheckpoint(null)
-            setSelectedGroupIds(new Set())
-            setReviewedGroupIds(new Set())
-            setKeptOverrides({})
-            dispatch({ type: "RESET" })
-            healthCheckAttemptsRef.current = 0
+            // Startup host discovery is not a user-requested provider switch.
+            // Restore that provider's saved scope and checkpoint below, after
+            // discovery settles, instead of overwriting them with defaults.
             const nextSettings = {
               ...settingsRef.current,
               sourceProvider: hostProvider,
@@ -2855,10 +2846,6 @@ export default function App() {
               sourceProvider: hostProvider,
               albumScope: nextSettings.albumScope
             })
-            void storedReviewScope.write({
-              settings: nextSettings,
-              checkpoint: null
-            }, undefined, hostProvider)
           }
           if (photoDataConsent === true) {
             requestHealthCheck(hostProvider)
@@ -2868,6 +2855,7 @@ export default function App() {
         // Best effort: older browsers can still use the action-click tab id.
       }
       if (disposed) return
+      setSidePanelHostResolved(true)
       port.postMessage({
         app: APP_ID,
         action: "sidePanel.ready",
@@ -3099,6 +3087,9 @@ export default function App() {
             }
             if (accountIdentityChanged) {
               invalidatePaidConversionContext()
+              settingsRef.current = { ...settingsRef.current, albumScope: undefined }
+              setSettings({ albumScope: undefined })
+              setAlbums([])
             }
             currentAccountEmailRef.current = msg.accountEmail
             currentProviderSessionIdRef.current = msg.providerSessionId
@@ -3134,6 +3125,7 @@ export default function App() {
             // persisted review directly so legacy account-less results cannot
             // remain available once Google identifies the signed-in account.
             if (hasIdentity) {
+              const albumScopeAtHealthCheck = settingsRef.current.albumScope
               void storedReviewScope
                 .invalidateReview(healthResultLeaseIsCurrent, (stored) => {
                   const scanResults = stored.scanResults
@@ -3145,7 +3137,16 @@ export default function App() {
                         providerSessionId: msg.providerSessionId
                       })
                   )
-                }, healthCheckProvider)
+                }, healthCheckProvider, { clearAlbumScope: true })
+                .then((invalidated) => {
+                  if (
+                    !invalidated ||
+                    !healthResultLeaseIsCurrent() ||
+                    settingsRef.current.albumScope !== albumScopeAtHealthCheck
+                  ) return
+                  settingsRef.current = { ...settingsRef.current, albumScope: undefined }
+                  setSettings({ albumScope: undefined })
+                })
                 .catch((error) => {
                   const detail =
                     error instanceof Error ? error.message : String(error)
@@ -3432,6 +3433,8 @@ export default function App() {
         }
         case "gptkLog":
           if ((message as { level?: string }).level === "error") {
+            const interrupted = scanLifecycle.pause()
+            if (interrupted) setResumeCheckpoint(interrupted)
             providerConnectionTrackerRef.current.markDisconnected(
               settingsRef.current.sourceProvider ?? "google"
             )
@@ -3506,6 +3509,7 @@ export default function App() {
               })
             }
           } else {
+            if (!scanLifecycle.isCurrent(progress.requestId)) break
             patchScanCheckpoint({
               phase: "fetching",
               itemsProcessed: progress.itemsProcessed,
@@ -4059,6 +4063,7 @@ export default function App() {
 
   // Load saved settings and results on mount
   useEffect(() => {
+    if (!sidePanelHostResolved) return
     if (reviewHydrationClosedRef.current) {
       setStorageChecked(true)
       return
@@ -4192,6 +4197,7 @@ export default function App() {
   }, [
     accountValidationComplete,
     isSidePanel,
+    sidePanelHostResolved,
     scanLifecycle,
     storedReviewScope
   ])
@@ -6124,8 +6130,9 @@ export default function App() {
   const sourceProvider = settings.sourceProvider ?? "google"
   const amazonProfileName =
     sourceProvider === "amazon" &&
+    amazonProfile !== null &&
     "providerSessionId" in state &&
-    amazonProfile?.providerSessionId === state.providerSessionId
+    amazonProfile.providerSessionId === state.providerSessionId
       ? amazonProfile.displayName
       : undefined
   const sidePanelHasConnection =

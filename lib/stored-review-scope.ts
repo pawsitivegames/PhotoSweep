@@ -4,9 +4,10 @@ import {
   type KeepDecisionProvenance,
   type StoredDuplicateReviewSelections
 } from "./duplicate-review-session"
-import { isKeepStrategy } from "./keep-strategy"
+import { isKeepStrategy, recommendKeepForGroup } from "./keep-strategy"
 import { getProviderOperations } from "./provider-operations"
 import { SCAN_CHECKPOINT_KEY, type ScanCheckpoint } from "./scan-checkpoint"
+import { isScanCoverage } from "./scan-coverage"
 import { areScanResultsValid } from "./scan-results"
 import {
   DEFAULT_SETTINGS,
@@ -273,7 +274,7 @@ export class StoredReviewScope {
     const restoredSettings = stored.settings
       ? normalizeStoredSettings(stored.settings)
       : params.fallbackSettings
-    const settings = params.hostProvider
+    let settings = params.hostProvider
       ? {
           ...restoredSettings,
           sourceProvider: params.hostProvider,
@@ -370,6 +371,18 @@ export class StoredReviewScope {
           }
         ))
 
+    const albumScopeIdentityVerified = Boolean(
+      (stored.scanResults && scanResultsProviderMatches && scanResultsValid) ||
+      (checkpoint && checkpointProviderMatches && checkpointValid)
+    )
+    if (identityAvailable && !albumScopeIdentityVerified && settings.albumScope) {
+      // Album identifiers and titles belong to the review's account too.
+      // Unbound legacy settings cannot establish ownership on their own.
+      // Clear them before a new account's album request can fail.
+      settings = { ...settings, albumScope: undefined }
+      if (!isCurrent()) return cancelledResult()
+      await this.writeUnqueued({ settings }, isCurrent, sourceProvider)
+    }
     if (!scanResultsValid) {
       if (!isCurrent()) return cancelledResult()
       await this.invalidateReviewUnqueued(isCurrent, sourceProvider)
@@ -414,6 +427,28 @@ export class StoredReviewScope {
       : null
     let selections = deserialized
     if (deserialized && hasBoundReviewGroups && stored.scanResults?.groups) {
+      // Old reviews without recorded coverage kept every tied candidate.
+      // Use the review's durable format, since settings may already have been
+      // normalized before identity detection permits review restoration.
+      if (!isScanCoverage(stored.scanResults.scanCoverage)) {
+        for (const group of stored.scanResults.groups) {
+          if (!group || !Array.isArray(group.mediaKeys)) continue
+          const provenance = deserialized.keepDecisionProvenance?.[group.id]
+          const override = deserialized.keptOverrides[group.id]
+          if (override && provenance?.source !== "automatic") continue
+          const recommendation = recommendKeepForGroup(
+            group,
+            stored.scanResults.mediaItems ?? {},
+            provenance?.strategy ?? "best_quality"
+          )
+          if (recommendation.status !== "no_confident_recommendation") continue
+          deserialized.keptOverrides[group.id] = new Set(group.mediaKeys)
+          deserialized.keepDecisionProvenance ??= {}
+          deserialized.keepDecisionProvenance[group.id] = {
+            source: "stale_fallback"
+          }
+        }
+      }
       const session = new DuplicateReviewSession({
         groups: stored.scanResults.groups,
         mediaItems: stored.scanResults.mediaItems ?? {},
@@ -498,18 +533,32 @@ export class StoredReviewScope {
   invalidateReview(
     isCurrent: () => boolean = () => true,
     shouldInvalidate?: (stored: Partial<StoredState>) => boolean,
-    provider?: PhotoProvider
-  ): Promise<void> {
+    provider?: PhotoProvider,
+    options: { clearAlbumScope?: boolean } = {}
+  ): Promise<boolean> {
     return this.storageQueue.run(async () => {
-      if (!isCurrent()) return
+      if (!isCurrent()) return false
+      let stored: Partial<StoredState> | undefined
       if (shouldInvalidate) {
-        const stored = await this.adapter.get(
-          ["scanResults", "selections"],
+        stored = await this.adapter.get(
+          ["scanResults", "selections", ...(options.clearAlbumScope ? ["settings"] : [])],
           provider
         )
-        if (!isCurrent() || !shouldInvalidate(stored)) return
+        if (!isCurrent() || !shouldInvalidate(stored)) return false
+      }
+      if (options.clearAlbumScope) {
+        stored ??= await this.adapter.get(["settings"], provider)
+        if (!isCurrent()) return false
+        if (stored.settings?.albumScope) {
+          await this.writeUnqueued(
+            { settings: { ...stored.settings, albumScope: undefined } },
+            isCurrent,
+            provider
+          )
+        }
       }
       await this.invalidateReviewUnqueued(isCurrent, provider)
+      return isCurrent()
     })
   }
 

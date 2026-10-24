@@ -109,4 +109,12 @@ export class PhotoProviderOperationSession {
       if (operation.appTabId === tabId) this.pending.delete(requestId)
     }
   }
+
+  removeProviderTab(tabId: number): void {
+    for (const [requestId, operation] of this.pending) {
+      if (operation.providerTabId !== tabId) continue
+      this.pending.delete(requestId)
+      operation.reject("Connected photo source tab was closed.")
+    }
+  }
 }

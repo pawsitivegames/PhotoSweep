@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "sourceFingerprint": "1fd1c715cca724349fe4b49603156793ac05e37a6ee859812522b9d6742f831c",
-  "rawReportSha256": "8a284e4869a6fd6b52c3713f42af4c35ce8d4a3896b8cc99d500f5907424477f",
+  "sourceFingerprint": "8cf33c91a0951d96f96edc12a00b13c8ca857ff495d814844cf77a4511843711",
+  "rawReportSha256": "24b28950013455390b20f442d390c723a8b64e3db1fc052585c3513455a5a9b7",
   "entries": [
     {
       "id": "69",
@@ -3280,28 +3280,6 @@
       "classification": "EQUIVALENT",
       "evidence": "The clear runs only after malformed is true. The preceding legacy mapping assigns unknown to every requested key and deletes every non-failed key; malformed mode makes every mapped status unknown.\n\nCurrent alignment: Current line 1553 maps to prior line 1538; the only target-file change is the 15-line invalidateContext insertion at lines 1203-1217, with no edits to existing lines. Prior line references in the carried evidence refer to that pre-insertion source.\n\nCurrent report alignment (2026-10-17): this reviewed mutation span maps from prior line 1553 to current line 1553; the mutated source lines and columns are unchanged.",
       "reviewer": "Codex source-level equivalence review, 2026-10-11; current mutation alignment verified by Codex on 2026-10-14"
-    },
-    {
-      "id": "2820",
-      "file": "scripts/photo-provider-command-host.js",
-      "status": "Survived",
-      "location": {
-        "start": {
-          "line": 10,
-          "column": 5
-        },
-        "end": {
-          "line": 10,
-          "column": 46
-        }
-      },
-      "mutatorName": "ConditionalExpression",
-      "replacement": "true",
-      "sourceHash": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
-      "critical": true,
-      "classification": "UNREACHABLE",
-      "evidence": "Current candidate scripts/photo-provider-command-host.js:8 maps to the same unchanged mutation range at prior line 9 in 3596547fdb4d; the reviewed semantics remain unchanged in the intervening file diff. Prior line references in the supporting evidence below refer to that revision. The production caller passes the global Window to isLocalTestEnvironment; a Window always has a Location object, so this guard is truthy and replacing it with true selects the same protocol read. The missing-location case is unreachable through the production caller.\n\nCurrent alignment: Current mutant matches the prior VALID triage by sourceHash, status, location, mutator, and replacement; prior classification remains bound to identical target code.\n\nCurrent report alignment (2026-10-17): this reviewed mutation span maps from prior line 8 to current line 10; the mutated source lines and columns are unchanged.",
-      "reviewer": "Prior independent review; current source alignment rechecked by Codex on 2026-10-09; current mutation alignment verified by Codex on 2026-10-14"
     },
     {
       "id": "2826",

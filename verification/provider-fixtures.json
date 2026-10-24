@@ -10,10 +10,10 @@
       "status": "PASS",
       "reason": "Six-item synthetic Google Photos album is configured for exact-package Trash and Undo verification.",
       "evidence": {
-        "ledger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/ROUNDTRIP-LEDGER.md",
-        "roundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/google-live-roundtrip.json",
-        "roundTripLedger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/ROUNDTRIP-LEDGER.md",
-        "inventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/google-inventory-before.json",
+        "ledger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/ROUNDTRIP-LEDGER.md",
+        "roundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/google-live-roundtrip.json",
+        "roundTripLedger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/ROUNDTRIP-LEDGER.md",
+        "inventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/google-inventory-before.json",
         "account": "pawsitivegames@gmail.com",
         "albumUrl": "https://photos.google.com/album/AF1QipNEFL1nViwe86h0FmxinNC4_Xp1e3jhsGkSCNYW",
         "itemCount": 6,
@@ -25,8 +25,8 @@
         "trashEmptyAfterUndo": true,
         "extensionId": null,
         "extensionBinding": "trusted-devtools",
-        "albumRoundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/google-live-roundtrip.json",
-        "restartRecovery": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/google-live-roundtrip.json",
+        "albumRoundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/google-live-roundtrip.json",
+        "restartRecovery": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/google-live-roundtrip.json",
         "albumTitle": "PhotoSweep Release Verification 2026-10-17 — Google Synthetic Fixtures C3"
       }
     },
@@ -37,10 +37,10 @@
       "status": "PASS",
       "reason": "Six-item synthetic iCloud Photos album is configured for exact-package Trash and Undo verification.",
       "evidence": {
-        "ledger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/ROUNDTRIP-LEDGER.md",
-        "roundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/icloud-live-roundtrip.json",
-        "roundTripLedger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/ROUNDTRIP-LEDGER.md",
-        "inventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/icloud-inventory-before.json",
+        "ledger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/ROUNDTRIP-LEDGER.md",
+        "roundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/icloud-live-roundtrip.json",
+        "roundTripLedger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/ROUNDTRIP-LEDGER.md",
+        "inventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/icloud-inventory-before.json",
         "account": "pawsitivegames@gmail.com",
         "albumUrl": "https://www.icloud.com/photos/#/albums/a,AA4525FF-6502-41E0-A6C7-E0120BF5E7BD/",
         "itemCount": 6,
@@ -52,8 +52,8 @@
         "trashEmptyAfterUndo": true,
         "extensionId": null,
         "extensionBinding": "trusted-devtools",
-        "albumRoundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/icloud-live-roundtrip.json",
-        "restartRecovery": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/icloud-live-roundtrip.json",
+        "albumRoundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/icloud-live-roundtrip.json",
+        "restartRecovery": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/icloud-live-roundtrip.json",
         "albumTitle": "PhotoSweep Parity 2026-09-25 — Mixed Images"
       }
     },
@@ -64,10 +64,10 @@
       "status": "PASS",
       "reason": "Six-item synthetic Amazon Photos album is configured for exact-package Trash and Undo verification.",
       "evidence": {
-        "ledger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/ROUNDTRIP-LEDGER.md",
-        "roundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/amazon-live-roundtrip.json",
-        "roundTripLedger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/ROUNDTRIP-LEDGER.md",
-        "inventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/amazon-inventory-before.json",
+        "ledger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/ROUNDTRIP-LEDGER.md",
+        "roundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/amazon-live-roundtrip.json",
+        "roundTripLedger": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/ROUNDTRIP-LEDGER.md",
+        "inventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/amazon-inventory-before.json",
         "account": "pawsitivegames@gmail.com",
         "albumUrl": "https://www.amazon.ca/photos/album/uE9zYvwWRISXOe9v6KSzaw",
         "itemCount": 6,
@@ -79,9 +79,9 @@
         "trashEmptyAfterUndo": true,
         "extensionId": null,
         "extensionBinding": "trusted-devtools",
-        "albumRoundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/amazon-live-roundtrip.json",
-        "restartRecovery": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/amazon-live-roundtrip.json",
-        "albumInventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.17-20261020/amazon-album-inventory-before.json",
+        "albumRoundTrip": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/amazon-live-roundtrip.json",
+        "restartRecovery": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/amazon-live-roundtrip.json",
+        "albumInventory": "tmp/verification/live-provider-roundtrip-candidate-v2.3.6.25-20261023/amazon-album-inventory-before.json",
         "albumTitle": "PhotoSweep Release Verification 2026-10-17 — Amazon Synthetic Fixtures"
       }
     }

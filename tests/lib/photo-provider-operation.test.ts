@@ -130,4 +130,22 @@ describe("PhotoProviderOperationSession", () => {
     expect(session.get("cancelled")).toBeUndefined()
     expect(session.get("closed-tab")).toBeUndefined()
   })
+
+  it("rejects pending requests once for the closed provider only", () => {
+    const session = new PhotoProviderOperationSession()
+    const closed = operation()
+    const other = operation({ providerTabId: 21 })
+    session.start("closed-provider", closed)
+    session.start("other-provider", other)
+
+    session.removeProviderTab(20)
+    session.removeProviderTab(20)
+
+    expect(closed.reject).toHaveBeenCalledExactlyOnceWith(
+      "Connected photo source tab was closed."
+    )
+    expect(session.get("closed-provider")).toBeUndefined()
+    expect(session.get("other-provider")).toBe(other)
+    expect(other.reject).not.toHaveBeenCalled()
+  })
 })

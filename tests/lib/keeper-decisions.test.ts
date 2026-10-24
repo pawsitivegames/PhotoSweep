@@ -66,6 +66,41 @@ function hydrateSelections(
 }
 
 describe("keeper decision contract", () => {
+  it.each(["manual", "stale_fallback", "legacy_preserved"] as const)(
+    "keeps provenance-only %s snapshots safe at the session boundary",
+    (source) => {
+      const restored = session({
+        selectedGroupIds: new Set([g1.id]),
+        reviewedGroupIds: new Set([g1.id]),
+        keptOverrides: {},
+        keepDecisionProvenance: { [g1.id]: { source } }
+      })
+      expect(restored.keptFor(g1)).toEqual(new Set(g1.mediaKeys))
+      expect(restored.decisionFor(g1).source).toBe("stale_fallback")
+      expect(restored.trashPlan().mediaKeysToTrash).toEqual([])
+      const afterDefault = session(applyDefaultKeepStrategyToSelections({
+        groups: [g1, g2], mediaItems, selections: restored.selections,
+        strategy: "best_quality"
+      }))
+      expect(afterDefault.keptFor(g1)).toEqual(new Set(g1.mediaKeys))
+      expect(afterDefault.decisionFor(g1).source).toBe("stale_fallback")
+      expect(afterDefault.trashPlan().mediaKeysToTrash).toEqual([])
+    }
+  )
+
+  it("retains the automatic path for provenance-only automatic snapshots", () => {
+    const restored = session({
+      selectedGroupIds: new Set([g1.id]),
+      reviewedGroupIds: new Set([g1.id]),
+      keptOverrides: {},
+      keepDecisionProvenance: {
+        [g1.id]: { source: "automatic", strategy: "best_quality" }
+      }
+    })
+    expect(restored.decisionFor(g1).source).toBe("automatic")
+    expect(restored.keptFor(g1)).toEqual(new Set(["b"]))
+  })
+
   it("marks only known groups reviewed without selecting them", () => {
     const initial = session({
       selectedGroupIds: new Set(),

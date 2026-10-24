@@ -1,144 +1,82 @@
-/**
- * Full E2E: scan flow against real Google Photos library.
- *
- * Runs inside an already-running Chrome instance via CDP — no session transfer,
- * no Google auth invalidation.
- *
- * Prerequisites:
- *   1. `npm run build`
- *   2. Chrome running with --remote-debugging-port=9222, extension loaded,
- *      and logged into Google Photos. (Same Chrome used for chrome-devtools MCP.)
- *
- * Run: `npm run test:e2e`
- */
-import { expect, test, type Page } from "@playwright/test"
+/** Signed-in Google scan only; requires an explicit installation and tiny synthetic oracle. */
+import fs from "node:fs"
+import { expect, test } from "@playwright/test"
 
-import { clearStorage, connectToChrome } from "../fixtures/extension"
+import { assertEmptyLiveReviewState, connectToChrome, readLocalStorage } from "../fixtures/extension"
+import { liveScanMatchesFixture, parseLiveScanFixture } from "../fixtures/live-scan-contract"
 
 test.setTimeout(600_000)
 
-async function expandMoreOptions(page: Page): Promise<void> {
-  const albumInput = page.getByRole("combobox", { name: /Library area/i })
-  if (await albumInput.isVisible().catch(() => false)) return
-  await page.getByRole("button", { name: /Advanced matching/i }).click()
-}
-
-async function applyConfiguredScope(page: Page): Promise<string> {
-  const albumTitle = process.env.GPD_E2E_ALBUM_TITLE
-  const dateFrom = process.env.GPD_E2E_DATE_FROM
-  const dateTo = process.env.GPD_E2E_DATE_TO
-
-  await expandMoreOptions(page)
-
-  if (albumTitle) {
-    await page.getByRole("combobox", { name: /Library area/i }).click()
-    await page
-      .getByRole("option", { name: new RegExp(albumTitle, "i") })
-      .click()
-    return `album:${albumTitle}`
+test("connects to Google Photos and completes the exact synthetic-album scan", async () => {
+  const fixturePath = process.env.PHOTOSWEEP_E2E_FIXTURE_MANIFEST
+  if (!fixturePath || process.env.GPD_E2E_SYNTHETIC_FIXTURE !== "1") {
+    throw new Error("Set PHOTOSWEEP_E2E_FIXTURE_MANIFEST and GPD_E2E_SYNTHETIC_FIXTURE=1 for a reviewed tiny synthetic album.")
   }
-
-  if (dateFrom || dateTo) {
-    if (dateFrom) await page.getByLabel("From").fill(dateFrom)
-    if (dateTo) await page.getByLabel("To").fill(dateTo)
-    return `date:${dateFrom || "start"}..${dateTo || "end"}`
+  const fixture = parseLiveScanFixture(JSON.parse(fs.readFileSync(fixturePath, "utf8")))
+  if (process.env.GPD_E2E_ALBUM_TITLE !== fixture.albumTitle ||
+      process.env.GPD_E2E_DATE_FROM || process.env.GPD_E2E_DATE_TO) {
+    throw new Error("The configured synthetic album must match its oracle; date/library fallback is not allowed.")
   }
-
-  const today = new Date().toISOString().slice(0, 10)
-  await page.getByLabel("From").fill(today)
-  await page.getByLabel("To").fill(today)
-  return `date:${today}..${today}`
-}
-
-async function waitForGooglePhotosApp(page: Page): Promise<void> {
-  await page.waitForLoadState("domcontentloaded")
-  const currentUrl = page.url()
-  const host = new URL(currentUrl).hostname
-  if (host !== "photos.google.com") {
-    throw new Error(
-      `Google Photos app did not load. Current URL is ${currentUrl}. ` +
-        "Open this profile in Chrome, sign into Google Photos, then rerun the live e2e."
-    )
-  }
-}
-
-async function waitForGptkInjection(page: Page): Promise<void> {
-  const deadline = Date.now() + 15_000
-  while (Date.now() < deadline) {
-    const injected = await page
-      .evaluate(() => typeof window.gptkApi !== "undefined")
-      .catch(() => false)
-    if (injected) return
-    await page.waitForTimeout(250)
-  }
-
-  throw new Error(
-    `Google Photos Toolkit did not inject into ${page.url()}. ` +
-      "Confirm the extension is loaded and the page is the Google Photos app."
-  )
-}
-
-test("connects to Google Photos and completes a scan", async () => {
   const { browser, context, extensionId } = await connectToChrome()
-  const gpPage = await context.newPage()
-  const appPage = await context.newPage()
-
+  let gpPage: Awaited<ReturnType<typeof context.newPage>> | undefined
+  let appPage: Awaited<ReturnType<typeof context.newPage>> | undefined
   try {
-    // Try to clear cached results so we exercise the full scan path.
-    // clearStorage is best-effort — silently skipped if no SW available via CDP.
-    await clearStorage(context)
-
-    // Load Google Photos — must be open for the service worker to find the GP tab
-    await gpPage.goto("https://photos.google.com")
-    await waitForGooglePhotosApp(gpPage)
-    await waitForGptkInjection(gpPage)
-
-    // Open the app tab
-    await appPage.goto(`chrome-extension://${extensionId}/tabs/app.html`)
-
-    // Wait for the app to be ready — either fresh or with saved results.
-    const scanButton = appPage.getByRole("button", {
-      name: /Check (entire library|this album|this date range)/i
-    })
-    const rescanButton = appPage.getByRole("button", { name: "Scan again" })
-
-    await expect(scanButton.or(rescanButton)).toBeVisible({ timeout: 15_000 })
-
-    if (await rescanButton.isVisible()) {
-      await rescanButton.click()
+    // Never reset an installed extension's settings, licenses, consent or review.
+    // A dedicated empty review target avoids overwriting an owner's prior work.
+    await assertEmptyLiveReviewState(context)
+    if (context.pages().some((page) => page.url().startsWith(`chrome-extension://${extensionId}/tabs/`))) {
+      throw new Error("Close the selected test installation's existing app panels before running live automation.")
     }
-
-    await expect(scanButton).toBeVisible({ timeout: 15_000 })
-
-    const scope = await applyConfiguredScope(appPage)
-    test.info().annotations.push({
-      type: "live-scope",
-      description: scope
-    })
-
-    await scanButton.click()
-
-    // Scanning progress should appear
-    await expect(appPage.getByText(/Reading your library/i)).toBeVisible({
-      timeout: 10_000
-    })
-
-    // Wait for scan to complete (real libraries can take minutes)
-    await expect(appPage.getByText(/photos and videos checked/)).toBeVisible({
-      timeout: 300_000
-    })
-
-    // Should show either results or no-duplicates state
-    const hasDuplicates = await appPage
-      .getByText(/Duplicate Sets Ready/)
-      .isVisible()
-    const hasNoDuplicates = await appPage
-      .getByText("No duplicate sets found in this scan.")
-      .isVisible()
-    expect(hasDuplicates || hasNoDuplicates).toBe(true)
+    gpPage = await context.newPage()
+    await gpPage.goto("https://photos.google.com")
+    if (new URL(gpPage.url()).hostname !== "photos.google.com") {
+      throw new Error("Google Photos sign-in is required in the configured Chrome profile.")
+    }
+    appPage = await context.newPage()
+    await appPage.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+    const disclosure = appPage.getByRole("button", { name: "I understand, continue", exact: true })
+    const source = appPage.getByRole("combobox", { name: "Photo source", exact: true })
+    await expect(source.or(disclosure)).toBeVisible({ timeout: 20_000 })
+    if (await disclosure.isVisible()) await disclosure.click()
+    await expect(source).toHaveText("Google Photos")
+    const area = appPage.getByRole("combobox", { name: "Library area", exact: true })
+    await expect(area).toBeVisible({ timeout: 30_000 })
+    await area.click()
+    await appPage.getByRole("option", {
+      name: `${fixture.albumTitle} (${fixture.expectedMediaKeys.length})`, exact: true
+    }).click()
+    await expect.poll(() => area.evaluate((el, expected) =>
+      (el.parentElement?.querySelector("input") as HTMLInputElement | null)?.value === expected,
+      fixture.albumId
+    )).toBe(true)
+    await appPage.getByRole("button", { name: /Scan options/ }).click()
+    await appPage.getByLabel("From", { exact: true }).fill("")
+    await appPage.getByLabel("To", { exact: true }).fill("")
+    const scan = appPage.getByRole("button", { name: "Scan this album", exact: true })
+    await expect(scan).toBeEnabled()
+    await scan.click()
+    // A tiny fixture can finish before a transient progress label is observed.
+    await expect(appPage.getByText(/Scan complete ·/)).toBeVisible({ timeout: 300_000 })
+    await expect.poll(async () => {
+      const saved = await readLocalStorage(context, ["scanResults"])
+      return liveScanMatchesFixture(saved.scanResults, fixture)
+    }, { timeout: 15_000, message: "Synthetic album count/membership/group oracle must match" }).toBe(true)
+    test.info().annotations.push({ type: "live-scope", description: "Reviewed synthetic Google album; exact scope ID/count/groups checked; scan only" })
   } finally {
-    await gpPage.close()
-    await appPage.close()
-    await browser.close()
+    // Only pages opened by this test are closed. Pause an unfinished owned scan
+    // before disconnecting; preserve any synthetic checkpoint for diagnosis.
+    try {
+      if (appPage && !appPage.isClosed()) {
+        const pause = appPage.getByRole("button", { name: "Pause Scan", exact: true })
+        if (await pause.isVisible()) {
+          await pause.click()
+          await expect(pause).not.toBeVisible({ timeout: 30_000 })
+        }
+      }
+    } finally {
+      await appPage?.close()
+      await gpPage?.close()
+      await browser.close()
+    }
   }
 })

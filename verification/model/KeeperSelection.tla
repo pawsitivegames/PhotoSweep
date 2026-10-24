@@ -248,6 +248,7 @@ ManualTrashAll(group) ==
   /\ UNCHANGED <<selectedStrategy, dispatchCount,
                  confirmedDispatchCount, reviewedGroupsAtDispatch>>
 
+(* A saved legacy keeper choice in a review with recorded coverage. *)
 RestoreValidLegacyChoice(group, keptSet) ==
   /\ group \in EligibleGroups
   /\ keptSet \subseteq PresentMembers(group)
@@ -267,6 +268,8 @@ RestoreValidLegacyChoice(group, keptSet) ==
   /\ UNCHANGED <<selectedStrategy, includedGroups, dispatchCount,
                  confirmedDispatchCount, reviewedGroupsAtDispatch>>
 
+(* Also abstracts ambiguous implicit/automatic keepers in an old review
+   without recorded coverage; its storage decoder is tested separately. *)
 RestoreStaleKeeperFallback(group) ==
   /\ group \in EligibleGroups
   /\ dispatchCount = 0

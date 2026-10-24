@@ -26,6 +26,16 @@ const packageScripts = JSON.parse(
 const agents = readFileSync(resolve(root, "AGENTS.md"), "utf8")
 
 describe("formal verification npm lifecycle", () => {
+  it("documents the explicit scan-only live target and oracle contract", () => {
+    const validation = readFileSync(resolve(root, "VALIDATION.md"), "utf8")
+    for (const name of ["PHOTOSWEEP_E2E_EXTENSION_ID", "PHOTOSWEEP_E2E_EXTENSION_PATH",
+      "PHOTOSWEEP_E2E_FIXTURE_MANIFEST", "GPD_E2E_SYNTHETIC_FIXTURE", "GPD_E2E_ALBUM_TITLE"]) {
+      expect(validation).toContain(name)
+    }
+    expect(validation).toContain("no storage is cleared")
+    expect(validation).toContain("does not authorize Trash")
+    expect(packageScripts["test:e2e"]).toBe("playwright test --config playwright.e2e.config.ts")
+  })
   it("isolates sandbox package routing and fails closed without its own key", () => {
     const workflow = readFileSync(
       resolve(root, ".github/workflows/build-extension-package.yml"), "utf8"
