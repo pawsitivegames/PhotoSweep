@@ -12,6 +12,10 @@
  */
 import { expect, test, type BrowserContext, type Page } from "@playwright/test"
 
+import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
+import { buildScanScopeFingerprint } from "../../../lib/review-preflight"
+import { DEFAULT_SETTINGS } from "../../../lib/types"
+
 import {
   clearStorage,
   injectEntitlement,
@@ -34,6 +38,7 @@ test.afterEach(async () => {
     await page.close().catch(() => {})
   }
   await context.unroute("https://photos.google.com/**").catch(() => {})
+  await context.unroute("https://www.amazon.ca/**").catch(() => {})
 })
 
 test.afterAll(async () => {
@@ -238,6 +243,93 @@ async function readRecoveryHistory(context: BrowserContext): Promise<any[]> {
 // ============================================================
 // Trash: baseline (< 25 items, single batch)
 // ============================================================
+
+test("Amazon Undo after a late Trash result stays mounted without a profile name", async () => {
+  await clearStorage(context)
+  const stub = await openGptkStubPage(context, {
+    trashItems: { data: { outcomes: [
+      { operation: "trash", targetKey: "dedup-group0-item1", status: "confirmed" }
+    ] } },
+    restoreItems: { data: { outcomes: [
+      { operation: "restore", targetKey: "dedup-group0-item1", status: "confirmed" }
+    ] } }
+  }, "amazon")
+  await stub.evaluate(() => {
+    const send = window.postMessage.bind(window)
+    const held: Array<() => void> = []
+    ;(window as unknown as { __heldTrashMessages: Array<() => void> }).__heldTrashMessages = held
+    window.postMessage = ((message: { command?: string; action?: string }, targetOrigin: string) => {
+      if (message?.command === "trashItems" &&
+          (message.action === "gptkProgress" || message.action === "gptkResult")) {
+        held.push(() => send(message, targetOrigin))
+      } else {
+        send(message, targetOrigin)
+      }
+    }) as typeof window.postMessage
+  })
+  const providerSessionId = await stub.evaluate(() =>
+    (window as unknown as { __gptkProviderSessionId: string }).__gptkProviderSessionId)
+  await stub.evaluate((providerSessionId) => {
+    ;(window as unknown as { __gptkOverrides: Record<string, unknown> }).__gptkOverrides.healthCheck = {
+      data: { hasGptk: true, hasWizData: true, accountEmail: "test@example.com", providerSessionId }
+    }
+  }, providerSessionId)
+  const { groups, mediaItems } = makeGroups(1, 2)
+  for (const item of Object.values(mediaItems)) item.provider = "amazon"
+  const settings = { ...DEFAULT_SETTINGS, sourceProvider: "amazon" as const }
+  const worker = context.serviceWorkers()[0]
+  await worker.evaluate(async ({ settings, groups, mediaItems, providerSessionId, scopeFingerprint, settingsKey, resultsKey }) => {
+    await chrome.storage.local.set({
+      settings,
+      [settingsKey]: settings,
+      [resultsKey]: {
+        groups, mediaItems, totalItems: 2, scanDate: Date.now(),
+        sourceProvider: "amazon", accountEmail: "test@example.com",
+        providerSessionId, scopeFingerprint,
+        scanCoverage: {
+          status: "complete", stopReason: "exhausted", itemsVisited: 2,
+          itemsReturned: 2, itemsSkipped: 0, unknownDateItemsSkipped: 0,
+          canResume: false, mediaTypesCovered: { photos: true, videos: true }
+        }
+      }
+    })
+  }, {
+    settings, groups, mediaItems, providerSessionId,
+    scopeFingerprint: buildScanScopeFingerprint(settings),
+    settingsKey: providerReviewStorageKey("amazon", "settings"),
+    resultsKey: providerReviewStorageKey("amazon", "scanResults")
+  })
+  const page = await openAppTab(context, extensionId)
+  const pageErrors: string[] = []
+  page.on("pageerror", error => pageErrors.push(error.message))
+  await includeAllAndOpenTrashDialog(page)
+  await page.clock.install()
+  await confirmTrashDialog(page, 1)
+  await page.clock.runFor(100)
+  await stub.waitForFunction(() =>
+    (window as unknown as { __heldTrashMessages: Array<() => void> })
+      .__heldTrashMessages.length === 2, undefined, { timeout: 5_000 })
+  await page.clock.fastForward(120_001)
+  await expect(page.getByText(/Do not retry.*reconcil/i).first()).toBeVisible()
+  await stub.evaluate(() => {
+    const held = (window as unknown as { __heldTrashMessages: Array<() => void> }).__heldTrashMessages
+    held.splice(0).forEach(send => send())
+  })
+  await expect(page.getByRole("button", { name: /^Undo(?: moved items)?$/i })).toBeVisible()
+  await page.getByRole("button", { name: /^Undo(?: moved items)?$/i }).click()
+  await expect.poll(() => readRecoveryHistory(context)).toMatchObject([
+    { provider: "amazon", status: "restored", movedCount: 1, restoreUnknownCount: 0 }
+  ])
+  await expect(page.getByRole("main")).toBeVisible()
+  expect(pageErrors).toEqual([])
+  await page.getByRole("button", { name: /^Recovery ·/ }).click()
+  await expect(page.getByRole("dialog", { name: "Recovery history" })
+    .getByText("Restored", { exact: true })).toBeVisible()
+  const commands = await stub.evaluate(() =>
+    (window as unknown as { __gptkCommandLog: Array<{ command: string }> }).__gptkCommandLog)
+  expect(commands.filter(x => x.command === "trashItems")).toHaveLength(1)
+  expect(commands.filter(x => x.command === "restoreItems")).toHaveLength(1)
+})
 
 test("trashes selected groups and removes them from the UI", async () => {
   await clearStorage(context)

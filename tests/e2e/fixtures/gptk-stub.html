@@ -192,7 +192,8 @@
               trashedCount: dedupKeys.length,
               trashedKeys: mediaKeysToTrash,
               trashedDedupKeys: dedupKeys,
-              retryAttempts: 0
+              retryAttempts: 0,
+              ...(override?.data || {})
             }, undefined, args?.providerSessionId)
           }
           return
@@ -201,7 +202,8 @@
           trashedCount: dedupKeys.length,
           trashedKeys: mediaKeysToTrash,
           trashedDedupKeys: dedupKeys,
-          retryAttempts: 0
+          retryAttempts: 0,
+          ...(override?.data || {})
         }, undefined, args?.providerSessionId)
       }
 
@@ -239,7 +241,8 @@
           : []
         reply(command, requestId, {
           restoredCount: restoredDedupKeys.length,
-          restoredDedupKeys
+          restoredDedupKeys,
+          ...(override?.data || {})
         }, undefined, args?.providerSessionId)
       }
 

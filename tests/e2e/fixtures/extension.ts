@@ -463,10 +463,14 @@ export interface GptkOverrides {
  */
 export async function openGptkStubPage(
   context: BrowserContext,
-  overrides: GptkOverrides = {}
+  overrides: GptkOverrides = {},
+  provider: "google" | "amazon" = "google"
 ): Promise<Page> {
-  // Intercept ALL requests to photos.google.com so the content script host loads
-  await context.route("https://photos.google.com/**", async (route) => {
+  const origin = provider === "amazon"
+    ? "https://www.amazon.ca"
+    : "https://photos.google.com"
+  // Serve synthetic provider responses; no signed-in account is used.
+  await context.route(`${origin}/**`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
@@ -475,7 +479,7 @@ export async function openGptkStubPage(
   })
 
   const page = await context.newPage()
-  await page.goto("https://photos.google.com/")
+  await page.goto(provider === "amazon" ? `${origin}/photos` : `${origin}/`)
 
   // The stub supplies its own provider command handler. Mark it with the same
   // owner identity used by the service worker so test setup does not inject a
@@ -497,16 +501,22 @@ export async function openGptkStubPage(
     throw new Error("Extension build identity is unavailable for the GPTK stub.")
   }
   const ownerId = `${extensionId}:${ownerVersion}`
-  await page.evaluate((commandOwnerId) => {
+  await page.evaluate(({ commandOwnerId, provider }) => {
     const stubWindow = window as unknown as {
       __GPD_COMMAND_HOST__?: unknown
       __GPD_COMMAND_HOST_OWNER_ID__?: string
       __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+      __GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__?: string
+      __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
     }
     stubWindow.__GPD_COMMAND_HOST__ = { register: () => undefined }
     stubWindow.__GPD_COMMAND_HOST_OWNER_ID__ = commandOwnerId
     stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
-  }, ownerId)
+    if (provider === "amazon") {
+      stubWindow.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
+      stubWindow.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
+    }
+  }, { commandOwnerId: ownerId, provider })
 
   // Inject overrides so the stub responds as configured
   if (Object.keys(overrides).length > 0) {

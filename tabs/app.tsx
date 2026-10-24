@@ -6130,8 +6130,9 @@ export default function App() {
   const sourceProvider = settings.sourceProvider ?? "google"
   const amazonProfileName =
     sourceProvider === "amazon" &&
+    amazonProfile !== null &&
     "providerSessionId" in state &&
-    amazonProfile?.providerSessionId === state.providerSessionId
+    amazonProfile.providerSessionId === state.providerSessionId
       ? amazonProfile.displayName
       : undefined
   const sidePanelHasConnection =
