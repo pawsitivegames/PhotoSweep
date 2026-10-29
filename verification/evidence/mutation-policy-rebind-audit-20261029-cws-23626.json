@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "status": "REBOUND_AND_VALIDATED_BY_NORMAL_RELEASE_RUN",
+  "recordedAtUtc": "2026-10-29T09:53:33.422Z",
+  "artifact": {
+    "path": "build/photosweep-cws-v2.3.6.26-sha256-c682b6bc8a82.zip",
+    "sha256": "c682b6bc8a828b6a6e1d8ab8c49772c062cd9601e3d760522580d7f466aa05a6",
+    "sourceCommit": "fc634ef5a2da233bd5c991fbfe80eaa7bacd4560",
+    "sourceFingerprint": "0f7dd90ed0ef9dd8dc2d1cd6e1457116b849a1fc06d4687ca1c32ca52d8d85a2"
+  },
+  "previous": {
+    "sourceFingerprint": "350322ee380447d0d0f0404e67872b829717d9ff488f8abfa76b60aa07063f1f",
+    "canonicalReportSha256": "546f46bbaaddbffd48d6d665fffb25aa2e87c09444123f17933c6d32a11bb8f1",
+    "policySha256": "b3b4800170d386eef9fcd90dc6a087bbaaeaa36776b3de3234239f841e47a196"
+  },
+  "comparison": {
+    "status": "PASS",
+    "method": "Compare all current native non-kills to existing reviewed policy; require each recorded distinct detected peer to retain Killed status with killedBy test evidence. No new classification or waiver.",
+    "diagnosticCanonicalReportSha256": "546f46bbaaddbffd48d6d665fffb25aa2e87c09444123f17933c6d32a11bb8f1",
+    "diagnosticSourceFingerprint": "40639206b7ae262e4b3d7008d32a7e59535803239a2a9f48f2ac207d7d92be8c",
+    "reviewedNonKills": 233,
+    "detectedPeers": 233,
+    "classificationCounts": {
+      "EQUIVALENT": 164,
+      "UNREACHABLE": 37,
+      "DUPLICATE": 32
+    },
+    "mutationTargetsSourceSha256": {
+      "lib/duplicate-review-session.ts": "801c60af395c3879c608ff7547833f6fa720ea6594d0405874bc931ebb54b8ce",
+      "lib/keep-strategy.ts": "30e0514605c918ec76456c707db73341d3bfdd9cfea0217e6a9bf959c81960f6",
+      "lib/trash-execution.ts": "46ac2824d40d63a09fdefd6e57d790634165730ec744bbd8e5a5885782d1bf71",
+      "lib/trash-lifecycle.ts": "67545cf03296bf401d023bc54089d3bd3ceec8388e40ae79fcfee21a4d4e4802",
+      "scripts/photo-provider-command-host.js": "fad42e7fdffa0ece56184429a8ae307126befdf03fc25cef583e570088885026",
+      "lib/review-preflight.ts": "b48c4bd8d15bd299edfe974d2aa4df455c2e23abb5c7251ecbd5ce2f8a70db9b",
+      "lib/trash-dispatch-guard.ts": "a2f45f193c4e161e06f85d5e21f0c47a04c6bad4b3cb8b0550b340f1196a3a4a"
+    },
+    "sourceDrift": false,
+    "thresholdsUnchanged": true,
+    "diagnosticRawFileSha256": "0064a2a8302042f015c84b90c0c2f44e77e2d3594f8ecd90e296136f64084a58"
+  },
+  "policyRebind": {
+    "changedFields": [
+      "sourceFingerprint",
+      "rawReportSha256"
+    ],
+    "entriesUnchanged": true,
+    "sourceFingerprint": "0f7dd90ed0ef9dd8dc2d1cd6e1457116b849a1fc06d4687ca1c32ca52d8d85a2",
+    "canonicalReportSha256": "546f46bbaaddbffd48d6d665fffb25aa2e87c09444123f17933c6d32a11bb8f1"
+  },
+  "limitations": [
+    "Diagnostic refresh deliberately returns FAIL; acceptance requires the subsequent normal release run.",
+    "Mutation proof does not replace live provider or exact-package Chrome proof."
+  ],
+  "diagnosticCorrection": "First normal gate rejected a raw-file digest mistakenly used as the canonical policy digest. Both reports have identical canonical projections; this metadata-only correction uses mutation-triage.json, retaining the failed run.",
+  "failedNormalRun": "tmp/verification/cws-release-20261029-uifbcybm/release-scope",
+  "acceptedRun": {
+    "path": "tmp/verification/cws-release-20261029-uifbcybm/release-final/mutation.json",
+    "status": "PASS",
+    "sourceFingerprint": "0f7dd90ed0ef9dd8dc2d1cd6e1457116b849a1fc06d4687ca1c32ca52d8d85a2",
+    "canonicalReportSha256": "546f46bbaaddbffd48d6d665fffb25aa2e87c09444123f17933c6d32a11bb8f1",
+    "mutantsTotal": 4614,
+    "mutantsKilled": 4381,
+    "mutantsReviewed": 233,
+    "mutantsUnresolved": 0,
+    "criticalSurvivors": 0,
+    "sourceDrift": false
+  }
+}
