@@ -1,5 +1,6 @@
 export const MUTATION_TARGETS = Object.freeze([
   "lib/trash-lifecycle.ts",
+  "lib/trash-execution.ts",
   "lib/trash-dispatch-guard.ts",
   "lib/review-preflight.ts",
   "lib/duplicate-review-session.ts",
@@ -9,6 +10,7 @@ export const MUTATION_TARGETS = Object.freeze([
 
 export const MUTATION_TEST_FILES = Object.freeze([
   "tests/lib/trash-lifecycle.test.ts",
+  "tests/lib/trash-execution.test.ts",
   "tests/lib/trash-dispatch-guard.test.ts",
   "tests/lib/review-preflight.test.ts",
   "tests/lib/keep-strategy.test.ts",

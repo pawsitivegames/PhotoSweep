@@ -2,6 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { parseProviderResult } from "../../lib/provider-operation-contract"
 
 type ProviderCommandHost = {
   providerSessionId: string
@@ -401,6 +402,15 @@ async function sendProviderRetrievalCancellation(
 }
 
 describe("PARITY-02 provider command host session binding", () => {
+  it("emits page-world success and unsupported envelopes accepted by the extension contract", async () => {
+    const post = vi.spyOn(window, "postMessage")
+    activeTestHost!.postResult("healthCheck", "wire-health", { hasGptk: true })
+    const success = post.mock.calls.at(-1)![0]
+    expect(parseProviderResult(success, "healthCheck")).toMatchObject({ success: true, data: { hasGptk: true } })
+    activeTestHost!.postError("getVideoPlaybackUrl", "wire-unsupported", "Unavailable", undefined, undefined, "unsupported_capability")
+    expect(parseProviderResult(post.mock.calls.at(-1)![0], "getVideoPlaybackUrl")).toMatchObject({ success: false, errorCode: "unsupported_capability" })
+  })
+
   it("persists the generated session ID in tab sessionStorage", () => {
     const host = activeTestHost!
 

@@ -1,5 +1,7 @@
 # PhotoSweep Chrome Web Store Listing Draft
 
+> Storage note (2026-10-26): Raw artifacts under `tmp/verification/` were removed from this checkout to reclaim space. Historical summaries remain, but those files are unavailable for inspection and do not verify the current candidate.
+
 Status: **Superseded draft; do not submit.** This copy was prepared against the
 v2.3.6.10 ZIP `build/photosweep-cws-v2.3.6.10-sha256-1f88c143cbfd.zip` (SHA-256
 `1f88c143cbfd00b50f5f106687243b9cdc32c49f22ba681fa07410cf2166e79d`). The
@@ -8,9 +10,9 @@ and Amazon Trash/Undo release gates remain blocked. The public listing is still
 v2.3.0.2. No current-candidate listing copy has been approved. Recheck every
 claim against the final immutable candidate, provider evidence, public policy,
 and saved Dashboard fields before preparing replacement copy. See the
-[current gate ledger](REMAINING_GATES_STATUS.md), [current public listing
-observation](../tmp/verification/public-store-listing-20261020/listing.json),
-and [v2.3.6.20 package record](../tmp/verification/runs/release-v2.3.6.20-20261020-02/verification-summary.json).
+[current gate ledger](REMAINING_GATES_STATUS.md), current public listing
+observation (former local path: `tmp/verification/public-store-listing-20261020/listing.json`),
+and v2.3.6.20 package record (former local path: `tmp/verification/runs/release-v2.3.6.20-20261020-02/verification-summary.json`).
 
 ## Proposed listing text
 
@@ -51,7 +53,7 @@ have independent policies and availability.
 
 ## Evidence and release limits
 
-- The historical [public listing capture from October 17](../tmp/verification/cws-listing-20261017/public-listing.json)
+- The historical public listing capture from October 17 (former local path: `tmp/verification/cws-listing-20261017/public-listing.json`)
   reports version `2.3.0.2`, last updated September 29, 2026, and the label
   “Offers in-app purchases.” The current October 20 listing check also reports
   version `2.3.0.2`; see the linked observation above.

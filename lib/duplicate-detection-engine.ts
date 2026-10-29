@@ -14,9 +14,9 @@ import {
 } from "./duplicate-classifier"
 import {
   createCachedMediaMetadata,
-  EmbeddingCache,
   scopedEmbeddingCacheKey
 } from "./embedding-cache"
+import { browserDetectionRuntime, type DetectionEmbeddingStore, type DetectionRuntime, type DetectionWorker } from "./detection-runtime"
 import { selectDefaultKeep } from "./keep-strategy"
 import { buildThumbUrl } from "./photo-url"
 import { StabilityTracker } from "./scan-log"
@@ -351,9 +351,10 @@ export async function fullDetectDuplicates(
   signal?: AbortSignal,
   logger?: ScanLogger,
   onPartialGroups?: DuplicateGroupsCallback,
-  cacheNamespace?: string
+  cacheNamespace?: string,
+  runtime: DetectionRuntime = browserDetectionRuntime
 ): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
-  const scanStart = performance.now()
+  const scanStart = runtime.now()
 
   // Filter to items with thumbnails (photos only, skip videos)
   // Include items with thumbnails. Video posters work too — two copies of the
@@ -376,84 +377,14 @@ export async function fullDetectDuplicates(
     fetchThumbnailsMs: 0,
     computeEmbeddingsMs: 0,
     communityDetectionMs: 0,
-    totalMs: Math.round(performance.now() - scanStart),
+    totalMs: Math.round(runtime.now() - scanStart),
     ...extra
   })
 
   if (candidates.length < 2) return { groups: [], timing: emptyTiming() }
 
-  const keys = candidates.map((item) =>
-    scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
-  )
-
-  // Open the managed embedding cache used by the cache UI.
-  let cache: EmbeddingCache | null = null
-  try {
-    cache = await EmbeddingCache.open()
-  } catch {
-    /* cache unavailable */
-  }
-
-  // Stage A: get cached key set via a single getAllKeys() call.
-  // Only the set of keys is needed here — no embedding values loaded yet.
-  // This tells fetchThumbnails which items to skip downloading.
-  const cachedKeySet: Set<string> = cache
-    ? await cache.compatibleKeys(MODEL_PATH).catch(() => new Set<string>())
-    : new Set()
-  const cacheHits = keys.filter((k) => cachedKeySet.has(k)).length
-  console.log(
-    `[GPD] embedding cache: ${cacheHits}/${candidates.length} hits, skipping thumbnails`
-  )
-
-  // Inform logger of candidates/cacheHits now that they're known.
-  // Fire-and-forget — runs concurrently with thumbnail fetching.
-  logger?.updateInfo({ candidates: candidates.length, cacheHits })
-
-  // Wrap onProgress to feed stability tracking alongside the UI callback.
-  const stabilityTracker = new StabilityTracker((est) =>
-    logger?.recordStableEstimate(est)
-  )
-  const trackedProgress: ProgressCallback = (progress) => {
-    onProgress?.(progress)
-    stabilityTracker.update(progress.phase, progress.current, progress.total)
-  }
-
-  // Step 1: Download thumbnails — skip items whose embedding is already cached
-  const t1 = performance.now()
-  const blobs = await fetchThumbnails(
-    candidates,
-    cachedKeySet,
-    trackedProgress,
-    signal,
-    cacheNamespace
-  )
-  const fetchThumbnailsMs = Math.round(performance.now() - t1)
-  console.log(
-    `[GPD] fetchThumbnails: ${candidates.length - cacheHits} items in ${fetchThumbnailsMs}ms`
-  )
-  await logger?.phaseComplete("fetchThumbnailsMs", fetchThumbnailsMs)
-
-  signal?.throwIfAborted()
-
-  // Step 2: Compute embeddings — values loaded in bulk inside computeEmbeddings
-  const t2 = performance.now()
-  const { embeddings, validIndices } = await computeEmbeddings(
-    blobs,
-    candidates,
-    cache,
-    cachedKeySet,
-    trackedProgress,
-    signal,
-    cacheNamespace
-  ).finally(() => {
-    cache?.close()
-    cache = null
-  })
-  const computeEmbeddingsMs = Math.round(performance.now() - t2)
-  console.log(
-    `[GPD] computeEmbeddings: ${embeddings.length} items (${cacheHits} cached) in ${computeEmbeddingsMs}ms`
-  )
-  await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs)
+  const { embeddings, validIndices, cacheHits, fetchThumbnailsMs, computeEmbeddingsMs, trackedProgress } =
+    await prepareVisualCandidates(candidates, onProgress, signal, logger, cacheNamespace, runtime)
 
   if (validIndices.length !== candidates.length) {
     throw processedCandidateError(
@@ -495,8 +426,8 @@ export async function fullDetectDuplicates(
   // Progress updates come from the worker during detection.
   trackedProgress({ phase: "detecting_duplicates", current: 0, total: 0 })
   await new Promise<void>((r) => setTimeout(r, 0))
-  const workerUrl = chrome.runtime.getURL("scripts/embedder-worker.js")
-  const t3 = performance.now()
+  const workerUrl = runtime.resourceUrl("scripts/embedder-worker.js")
+  const t3 = runtime.now()
   const videoPosterGroups = findVideoPosterDuplicateGroups(
     candidates,
     embeddings,
@@ -520,10 +451,11 @@ export async function fullDetectDuplicates(
     signal,
     onPartialGroups
       ? (groups) => onPartialGroups(buildGroups(groups))
-      : undefined
+      : undefined,
+    runtime
   )
-  const communityDetectionMs = Math.round(performance.now() - t3)
-  const totalMs = Math.round(performance.now() - scanStart)
+  const communityDetectionMs = Math.round(runtime.now() - t3)
+  const totalMs = Math.round(runtime.now() - scanStart)
   console.log(
     `[GPD] communityDetection: ${indexGroups.length} groups in ${communityDetectionMs}ms`
   )
@@ -719,7 +651,8 @@ async function runSmartDetectionInWorker(
   workerUrl: string,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
-  onPartialGroups?: (groups: number[][]) => void
+  onPartialGroups?: (groups: number[][]) => void,
+  runtime: DetectionRuntime = browserDetectionRuntime
 ): Promise<number[][]> {
   const n = embeddings.length
   if (n === 0) return []
@@ -728,7 +661,7 @@ async function runSmartDetectionInWorker(
   const flat = new Float32Array(n * dim)
   for (let i = 0; i < n; i++) flat.set(embeddings[i], i * dim)
 
-  const worker = new Worker(workerUrl)
+  const worker = runtime.createWorker(workerUrl)
 
   return new Promise<number[][]>((resolve, reject) => {
     let settled = false
@@ -802,9 +735,10 @@ export async function smartDetectDuplicates(
   signal?: AbortSignal,
   logger?: ScanLogger,
   onPartialGroups?: DuplicateGroupsCallback,
-  cacheNamespace?: string
+  cacheNamespace?: string,
+  runtime: DetectionRuntime = browserDetectionRuntime
 ): Promise<DuplicateGroup[]> {
-  const scanStart = performance.now()
+  const scanStart = runtime.now()
   // Include items with thumbnails. Video posters work too — two copies of the
   // same clip have identical poster frames, which produce near-identical
   // embeddings.
@@ -902,71 +836,8 @@ export async function smartDetectDuplicates(
     )
   }
 
-  const keys = subset.map((item) =>
-    scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
-  )
-
-  // Open the managed embedding cache used by the cache UI.
-  let cache: EmbeddingCache | null = null
-  try {
-    cache = await EmbeddingCache.open()
-  } catch {
-    /* cache unavailable */
-  }
-
-  const cachedKeySet: Set<string> = cache
-    ? await cache.compatibleKeys(MODEL_PATH).catch(() => new Set<string>())
-    : new Set()
-  const cacheHits = keys.filter((k) => cachedKeySet.has(k)).length
-  console.log(
-    `[GPD] embedding cache: ${cacheHits}/${subset.length} hits, skipping thumbnails`
-  )
-
-  logger?.updateInfo({ candidates: subset.length, cacheHits })
-
-  // Wrap onProgress to feed stability tracking alongside the UI callback.
-  const stabilityTracker = new StabilityTracker((est) =>
-    logger?.recordStableEstimate(est)
-  )
-  const trackedProgress: ProgressCallback = (progress) => {
-    onProgress?.(progress)
-    stabilityTracker.update(progress.phase, progress.current, progress.total)
-  }
-
-  const t1 = performance.now()
-  const blobs = await fetchThumbnails(
-    subset,
-    cachedKeySet,
-    trackedProgress,
-    signal,
-    cacheNamespace
-  )
-  const fetchThumbnailsMs = Math.round(performance.now() - t1)
-  console.log(
-    `[GPD] fetchThumbnails: ${subset.length - cacheHits} items in ${fetchThumbnailsMs}ms`
-  )
-  await logger?.phaseComplete("fetchThumbnailsMs", fetchThumbnailsMs)
-
-  signal?.throwIfAborted()
-
-  const t2 = performance.now()
-  const { embeddings, validIndices } = await computeEmbeddings(
-    blobs,
-    subset,
-    cache,
-    cachedKeySet,
-    trackedProgress,
-    signal,
-    cacheNamespace
-  ).finally(() => {
-    cache?.close()
-    cache = null
-  })
-  const computeEmbeddingsMs = Math.round(performance.now() - t2)
-  console.log(
-    `[GPD] computeEmbeddings: ${embeddings.length} items (${cacheHits} cached) in ${computeEmbeddingsMs}ms`
-  )
-  await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs)
+  const { embeddings, validIndices, cacheHits, fetchThumbnailsMs, computeEmbeddingsMs, trackedProgress } =
+    await prepareVisualCandidates(subset, onProgress, signal, logger, cacheNamespace, runtime)
 
   if (validIndices.length !== subset.length) {
     throw processedCandidateError(
@@ -1040,8 +911,8 @@ export async function smartDetectDuplicates(
   // Offload pairwise comparison to worker
   trackedProgress({ phase: "detecting_duplicates", current: 0, total: 0 })
   await new Promise<void>((r) => setTimeout(r, 0)) // flush React phase update
-  const workerUrl = chrome.runtime.getURL("scripts/embedder-worker.js")
-  const t3 = performance.now()
+  const workerUrl = runtime.resourceUrl("scripts/embedder-worker.js")
+  const t3 = runtime.now()
   const buildGroups = (indexGroups: number[][]): DuplicateGroup[] =>
     mergeDuplicateItemGroups([
       ...indexGroups.map((indices) =>
@@ -1064,10 +935,11 @@ export async function smartDetectDuplicates(
     signal,
     onPartialGroups
       ? (groups) => onPartialGroups(buildGroups(groups))
-      : undefined
+      : undefined,
+    runtime
   )
-  const communityDetectionMs = Math.round(performance.now() - t3)
-  const totalMs = Math.round(performance.now() - scanStart)
+  const communityDetectionMs = Math.round(runtime.now() - t3)
+  const totalMs = Math.round(runtime.now() - scanStart)
   console.log(
     `[GPD] communityDetection: ${indexGroups.length} groups in ${communityDetectionMs}ms`
   )
@@ -1081,12 +953,76 @@ export async function smartDetectDuplicates(
 // Step 1: Fetch thumbnails
 // ============================================================
 
+async function prepareVisualCandidates(
+  items: GpdMediaItem[],
+  onProgress: ProgressCallback | undefined,
+  signal: AbortSignal | undefined,
+  logger: ScanLogger | undefined,
+  cacheNamespace: string | undefined,
+  runtime: DetectionRuntime
+) {
+  const cache = await runtime.openCache().catch(() => null)
+  try {
+    const keys = items.map((item) =>
+      scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
+    )
+    const cachedKeySet = cache
+      ? await cache.compatibleKeys(MODEL_PATH).catch(() => new Set<string>())
+      : new Set<string>()
+    const cacheHits = keys.filter((key) => cachedKeySet.has(key)).length
+    logger?.updateInfo({ candidates: items.length, cacheHits })
+    const stabilityTracker = new StabilityTracker((estimate) =>
+      logger?.recordStableEstimate(estimate)
+    )
+    const trackedProgress: ProgressCallback = (progress) => {
+      onProgress?.(progress)
+      stabilityTracker.update(progress.phase, progress.current, progress.total)
+    }
+    const fetchStart = runtime.now()
+    const blobs = await fetchThumbnails(
+      items,
+      cachedKeySet,
+      trackedProgress,
+      signal,
+      cacheNamespace,
+      runtime
+    )
+    const fetchThumbnailsMs = Math.round(runtime.now() - fetchStart)
+    await logger?.phaseComplete("fetchThumbnailsMs", fetchThumbnailsMs)
+    signal?.throwIfAborted()
+    const embeddingStart = runtime.now()
+    const { embeddings, validIndices } = await computeEmbeddings(
+      blobs,
+      items,
+      cache,
+      cachedKeySet,
+      trackedProgress,
+      signal,
+      cacheNamespace,
+      runtime
+    )
+    const computeEmbeddingsMs = Math.round(runtime.now() - embeddingStart)
+    await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs)
+    return {
+      embeddings,
+      validIndices,
+      cacheHits,
+      fetchThumbnailsMs,
+      computeEmbeddingsMs,
+      trackedProgress
+    }
+  } finally {
+    cache?.close()
+  }
+}
+
 async function fetchThumbnails(
   items: GpdMediaItem[],
   cachedKeySet: Set<string>,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
-  cacheNamespace?: string
+  cacheNamespace?: string,
+  runtime: DetectionRuntime = browserDetectionRuntime
 ): Promise<(Blob | null)[]> {
   const concurrency = 10
   const fetchTimeoutMs = 8000
@@ -1131,7 +1067,7 @@ async function fetchThumbnails(
           : entry.item.provider && entry.item.provider !== "google"
             ? entry.item.thumb
             : buildThumbUrl(entry.item.thumb, { height: THUMB_HEIGHT })
-        const response = await fetch(url, {
+        const response = await runtime.fetch(url, {
           credentials: "include",
           signal: (
             AbortSignal as typeof AbortSignal & {
@@ -1189,11 +1125,12 @@ function dominantEmbeddingDimension(embeddings: Float32Array[]): number | null {
 export async function computeEmbeddings(
   blobs: (Blob | null)[],
   items: GpdMediaItem[],
-  cache: EmbeddingCache | null,
+  cache: DetectionEmbeddingStore | null,
   cachedKeySet: Set<string>,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
-  cacheNamespace?: string
+  cacheNamespace?: string,
+  runtime: DetectionRuntime = browserDetectionRuntime
 ): Promise<{ embeddings: Float32Array[]; validIndices: number[] }> {
   const keys = items.map((item) =>
     scopedEmbeddingCacheKey(item.mediaKey, cacheNamespace)
@@ -1227,25 +1164,26 @@ export async function computeEmbeddings(
     // Fetch model once on main thread; workers receive clones
     let modelBuffer: ArrayBuffer
     try {
-      const resp = await fetch(chrome.runtime.getURL(MODEL_PATH))
+      const resp = await runtime.fetch(runtime.resourceUrl(MODEL_PATH), { signal })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       modelBuffer = await resp.arrayBuffer()
     } catch (e) {
+      signal?.throwIfAborted()
       throw new Error(
         `Failed to load bundled model: ${e instanceof Error ? e.message : e}`
       )
     }
 
-    const wasmLoaderUrl = chrome.runtime.getURL(
+    const wasmLoaderUrl = runtime.resourceUrl(
       "scripts/vision_wasm_internal.js"
     )
-    const wasmBinaryUrl = chrome.runtime.getURL(
+    const wasmBinaryUrl = runtime.resourceUrl(
       "scripts/vision_wasm_internal.wasm"
     )
-    const workerUrl = chrome.runtime.getURL("scripts/embedder-worker.js")
+    const workerUrl = runtime.resourceUrl("scripts/embedder-worker.js")
     const numWorkers = Math.max(
       1,
-      Math.min(navigator.hardwareConcurrency ?? 4, 8)
+      Math.min(runtime.hardwareConcurrency(), 8)
     )
 
     console.log(
@@ -1255,10 +1193,10 @@ export async function computeEmbeddings(
     // Create and init all workers in parallel
     const workers = Array.from(
       { length: numWorkers },
-      () => new Worker(workerUrl)
+      () => runtime.createWorker(workerUrl)
     )
 
-    await Promise.all(
+    const initialization = Promise.all(
       workers.map(
         (w, i) =>
           new Promise<void>((resolve, reject) => {
@@ -1282,27 +1220,46 @@ export async function computeEmbeddings(
             )
           })
       )
-    ).catch((e) => {
-      workers.forEach((w) => w.terminate())
-      throw new Error(`Worker init failed: ${e.message}`)
-    })
+    )
+    let abortInitialization: (() => void) | undefined
+    try {
+      await new Promise<void>((resolve, reject) => {
+        abortInitialization = () =>
+          reject(new DOMException("Aborted", "AbortError"))
+        signal?.addEventListener("abort", abortInitialization, { once: true })
+        if (signal?.aborted) abortInitialization()
+        initialization.then(() => resolve(), reject)
+      })
+    } catch (error) {
+      workers.forEach((worker) => worker.terminate())
+      if (error instanceof DOMException && error.name === "AbortError")
+        throw error
+      throw new Error(
+        `Worker init failed: ${error instanceof Error ? error.message : error}`
+      )
+    } finally {
+      if (abortInitialization)
+        signal?.removeEventListener("abort", abortInitialization)
+    }
 
     // Work queue: pull-based dispatch so fast workers take more items
     let queuePos = 0
     let completedItems = 0
     let pendingWorkers = numWorkers
 
+    let abortBatch: (() => void) | undefined
     await new Promise<void>((resolve, reject) => {
-      signal?.addEventListener(
-        "abort",
-        () => {
-          workers.forEach((w) => w.terminate())
-          reject(new DOMException("Aborted", "AbortError"))
-        },
-        { once: true }
-      )
+      abortBatch = () => {
+        workers.forEach((worker) => worker.terminate())
+        reject(new DOMException("Aborted", "AbortError"))
+      }
+      signal?.addEventListener("abort", abortBatch, { once: true })
+      if (signal?.aborted) {
+        abortBatch()
+        return
+      }
 
-      const dispatch = (w: Worker) => {
+      const dispatch = (w: DetectionWorker) => {
         const start = queuePos
         if (start >= toCompute.length) {
           if (--pendingWorkers === 0) resolve()
@@ -1319,7 +1276,7 @@ export async function computeEmbeddings(
       workers.forEach((w) => {
         w.onmessage = (e) => {
           if (e.data.type !== "results") return
-          const records: Parameters<EmbeddingCache["setMany"]>[0] = []
+          const records: Parameters<DetectionEmbeddingStore["setMany"]>[0] = []
           for (const { localIdx, embedding } of e.data.results as Array<{
             localIdx: number
             embedding: ArrayBuffer
@@ -1355,9 +1312,11 @@ export async function computeEmbeddings(
         }
         dispatch(w)
       })
+    }).finally(() => {
+      if (abortBatch) signal?.removeEventListener("abort", abortBatch)
+      workers.forEach((worker) => worker.terminate())
     })
 
-    workers.forEach((w) => w.terminate())
   }
 
   await Promise.all(cacheWrites)
@@ -1413,7 +1372,8 @@ export async function runCommunityDetectionInWorker(
   workerUrl: string,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
-  onPartialGroups?: (groups: number[][]) => void
+  onPartialGroups?: (groups: number[][]) => void,
+  runtime: DetectionRuntime = browserDetectionRuntime
 ): Promise<number[][]> {
   const n = embeddings.length
   if (n < 2) return []
@@ -1429,7 +1389,7 @@ export async function runCommunityDetectionInWorker(
     const rootB = find(b)
     if (rootA !== rootB) parent[rootA] = rootB
   }
-  const worker = new Worker(workerUrl)
+  const worker = runtime.createWorker(workerUrl)
 
   const buildComponents = (): number[][] => {
     const components = new Map<number, number[]>()

@@ -10,6 +10,7 @@ import {
   type ProviderHealthOutcome
 } from "../lib/provider-connection-session"
 import { PhotoProviderOperationSession } from "../lib/photo-provider-operation"
+import { readProviderCommand } from "../lib/provider-operation-contract"
 import {
   isAllowedLicenseSessionSender,
   isLicenseSessionExternalMessage,
@@ -1437,6 +1438,14 @@ async function handleGptkCommand(
   sender: chrome.runtime.MessageSender
 ): Promise<void> {
   const senderTabId = await getSenderTabId(sender)
+  if (!readProviderCommand(message)) {
+    if (typeof message.requestId === "string") sendToAppContext(senderTabId, {
+      app: APP_ID, action: "gptkResult", command: message.command,
+      requestId: message.requestId, provider: message.provider, success: false,
+      error: "The provider command has an invalid message format."
+    }, message.clientId)
+    return
+  }
   const provider = message.provider ?? "google"
   const trustedUiBase = trustedExtensionUiContext(sender, message.clientId)
   const trustedUi = trustedUiBase

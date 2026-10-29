@@ -479,11 +479,11 @@ export async function openGptkStubPage(
   })
 
   const page = await context.newPage()
-  await page.goto(provider === "amazon" ? `${origin}/photos` : `${origin}/`)
 
   // The stub supplies its own provider command handler. Mark it with the same
   // owner identity used by the service worker so test setup does not inject a
-  // second, real command handler that races the stub's responses.
+  // second, real command handler that races the stub's responses. Install this
+  // before navigation: document-idle injection can run before goto completes.
   const extensionId = extensionIds.get(context)
   if (!extensionId) {
     throw new Error("Extension ID is unavailable for the GPTK stub page.")
@@ -501,22 +501,27 @@ export async function openGptkStubPage(
     throw new Error("Extension build identity is unavailable for the GPTK stub.")
   }
   const ownerId = `${extensionId}:${ownerVersion}`
-  await page.evaluate(({ commandOwnerId, provider }) => {
+  await page.addInitScript(({ commandOwnerId, provider }) => {
     const stubWindow = window as unknown as {
       __GPD_COMMAND_HOST__?: unknown
       __GPD_COMMAND_HOST_OWNER_ID__?: string
       __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+      __GPD_GOOGLE_COMMAND_HANDLER_LOADED__?: boolean
       __GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__?: string
       __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
+      gptkApi?: unknown
     }
     stubWindow.__GPD_COMMAND_HOST__ = { register: () => undefined }
     stubWindow.__GPD_COMMAND_HOST_OWNER_ID__ = commandOwnerId
     stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
+    stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
+    stubWindow.gptkApi = {}
     if (provider === "amazon") {
       stubWindow.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
       stubWindow.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
     }
   }, { commandOwnerId: ownerId, provider })
+  await page.goto(provider === "amazon" ? `${origin}/photos` : `${origin}/`)
 
   // Inject overrides so the stub responds as configured
   if (Object.keys(overrides).length > 0) {

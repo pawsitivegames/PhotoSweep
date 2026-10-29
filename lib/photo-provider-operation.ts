@@ -1,3 +1,8 @@
+import {
+  isProviderCommand,
+  parseProviderResult,
+  readProviderResult
+} from "./provider-operation-contract"
 import { APP_ID } from "./types"
 import type { GptkResultMessage, PhotoProvider } from "./types"
 
@@ -41,9 +46,11 @@ export class PhotoProviderOperationSession {
   }
 
   completeFromProvider(
-    message: GptkResultMessage,
+    value: unknown,
     providerTabId: number | undefined
   ): PhotoProviderOperationCompletion | undefined {
+    const message = readProviderResult(value)
+    if (!message) return undefined
     const operation = this.fromProvider(message.requestId, providerTabId)
     if (!operation) return undefined
 
@@ -55,20 +62,26 @@ export class PhotoProviderOperationSession {
       (!message.provider ||
         !finished.provider ||
         message.provider === finished.provider)
-    const result: GptkResultMessage = responseMatchesOperation
-      ? {
-          ...message,
-          ...(finished.provider ? { provider: finished.provider } : {})
-        }
-      : {
-          app: APP_ID,
-          action: "gptkResult",
-          command: finished.command ?? message.command,
-          requestId: message.requestId,
-          provider: finished.provider,
-          success: false,
-          error: "The provider response did not match the routed command."
-        }
+    const payloadValid =
+      !isProviderCommand(message.command) ||
+      parseProviderResult(message, message.command) !== null
+    const result: GptkResultMessage =
+      responseMatchesOperation && payloadValid
+        ? {
+            ...message,
+            ...(finished.provider ? { provider: finished.provider } : {})
+          }
+        : {
+            app: APP_ID,
+            action: "gptkResult",
+            command: finished.command ?? message.command,
+            requestId: message.requestId,
+            provider: finished.provider,
+            success: false,
+            error: !responseMatchesOperation
+              ? "The provider response did not match the routed command."
+              : "The provider returned an invalid operation result."
+          }
 
     return {
       operation: finished,

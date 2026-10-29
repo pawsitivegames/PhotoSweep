@@ -1860,7 +1860,22 @@ describe("license API", () => {
 
 
 describe("analytics outcome contract", () => {
+  it.each([{ reviewSource: "test@example.com" }, { reviewDismissalReason: "private free text" }])("rejects unbounded review context: %j", async (fields) => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv, store})
+    const response = await api(new Request("https://license.test/analytics", {
+      method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({name: "review_prompt_dismissed", installId: "123e4567-e89b-42d3-a456-426614174000", extensionVersion: "2.3.6.25", dayKey: "2026-10-29", ...fields})
+    }))
+    expect(response.status).toBe(400)
+    expect(store.snapshot().analyticsEvents).toEqual([])
+  })
+
   it.each([
+    { name: "review_prompt_shown", reviewSource: "cleanup" },
+    { name: "review_link_clicked", reviewSource: "help" },
+    { name: "review_prompt_dismissed", reviewSource: "cleanup", reviewDismissalReason: "feedback" },
     { name: "trash_completed", photoCountBucket: "0" },
     { name: "undo_attempted", photoCountBucket: "1-99" },
     { name: "error", errorCategory: "undo_partial" }

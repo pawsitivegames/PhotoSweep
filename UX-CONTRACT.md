@@ -45,6 +45,23 @@
 | Choose keepers automatically | `components/ActionBar.tsx` | `handleKeepStrategySelection` in `lib/keep-strategy-feedback.ts` | All scan groups, including groups hidden by the current result filter | Keep-strategy application flow |
 | Trash proposal | `lib/duplicate-review-session.ts` | `trashPlan()` | Included, eligible, unkept items only | Safety properties and Trash lifecycle flows |
 | Trash confirmation | `tabs/app.tsx` and the existing confirmation dialog | Current review gate, audit export, typed-count confirmation, and provider result | Provider-specific confirmation | Trash integration flows and live provider checklist |
+| Store review invitation | `components/RatingPrompt.tsx`, `components/ReviewLink.tsx`, `lib/rating-prompt.ts` | Confirmed positive cleanup and persistent prompt preferences | Inline results invitation / voluntary Help link | Rating state, component, and rating-flow integration tests |
+
+## Optional store reviews
+
+- Invite an honest review inline after a confirmed positive cleanup; keep Undo
+  available and never require a rating to continue. Scan-only, failed, partial,
+  dry-run, and zero-move outcomes do not create new eligibility.
+- Unanswered eligible invitations survive reopening. Opening reviews or email
+  feedback defers another invitation by three successful cleanups; neither action
+  proves a rating was submitted. Only “Don't ask again” creates a new permanent
+  opt-out. Preserve all legacy `completed: true` records as opt-outs.
+- Voluntary review links remain available in Help and the footer, including for
+  people who opted out of invitations. Every review link opens the same Store
+  reviews page. No satisfaction filter or reward is used.
+- The existing optional analytics consent covers bounded invitation views,
+  review-link clicks, and dismissal reasons. Aggregate click counts and actual
+  Chrome Web Store rating counts remain separate observations.
 
 ## Selection and review contract
 

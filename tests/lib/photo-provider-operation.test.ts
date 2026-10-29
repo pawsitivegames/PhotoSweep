@@ -29,11 +29,21 @@ function result(overrides: Partial<GptkResultMessage> = {}): GptkResultMessage {
     requestId: "request",
     provider: "google",
     success: true,
+    data: [],
     ...overrides
   }
 }
 
 describe("PhotoProviderOperationSession", () => {
+  it("turns a malformed known-command success into a terminal failure for its owner", () => {
+    const session = new PhotoProviderOperationSession()
+    session.start("request", operation())
+    const completion = session.completeFromProvider(result({ data: { mediaItems: [] } }), 20)
+    expect(completion?.result).toMatchObject({ success: false, requestId: "request", provider: "google",
+      error: "The provider returned an invalid operation result." })
+    expect(session.get("request")).toBeUndefined()
+  })
+
   it("accepts a terminal result only from the owning provider tab", () => {
     const session = new PhotoProviderOperationSession()
     const pending = operation()

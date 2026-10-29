@@ -1,6 +1,6 @@
 # Release readiness evidence — 2026-10-05
 
-This note supports the current status blocks in the parity and remaining-gates documents. Raw run logs remain preserved locally under `tmp/verification/` and are intentionally not committed. The paths below identify local hash inputs; hashes were computed from those files on 2026-10-05.
+This note supports the current status blocks in the parity and remaining-gates documents. Raw run logs were preserved locally under `tmp/verification/` and intentionally not committed; those local copies were removed on 2026-10-26 to reclaim space. The paths below identify the original hash inputs; hashes were computed from those files on 2026-10-05.
 
 ## Official registered-source run
 

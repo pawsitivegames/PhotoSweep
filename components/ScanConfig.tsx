@@ -46,6 +46,8 @@ import {
 import { photoSweepColors } from "../lib/theme"
 import type { GpdAlbum, PhotoProvider, ScanSettings } from "../lib/types"
 
+import { ReviewLink } from "./ReviewLink"
+
 function formatWindow(sec: number): string {
   if (sec < 60) return `${sec}s`
   if (sec < 3600) return `${Math.round(sec / 60)}m`
@@ -125,6 +127,7 @@ interface ScanConfigProps {
   onUpgrade?: (detail?: string) => void
   amazonProfileName?: string
   compact?: boolean
+  onReview?: () => void
 }
 
 export function ScanConfig({
@@ -149,6 +152,7 @@ export function ScanConfig({
   entitlement,
   onUpgrade,
   amazonProfileName,
+  onReview,
   compact = false
 }: ScanConfigProps) {
   const dateRangeInvalid = isDateRangeInvalid(settings)
@@ -1535,6 +1539,9 @@ export function ScanConfig({
               sx={{ fontWeight: 750 }}>
               Send feedback
             </Button>
+            <Box sx={{ mt: 1 }}>
+              <ReviewLink onOpen={onReview} />
+            </Box>
           </AccordionDetails>
         </Accordion>
       </Paper>

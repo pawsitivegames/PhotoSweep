@@ -39,6 +39,9 @@ const ANALYTICS_EVENT_NAMES = new Set([
   "restore_not_found",
   "entitlement_refreshed",
   "export_clicked",
+  "review_prompt_shown",
+  "review_link_clicked",
+  "review_prompt_dismissed",
   "trash_attempted",
   "trash_completed",
   "undo_attempted",
@@ -46,6 +49,8 @@ const ANALYTICS_EVENT_NAMES = new Set([
   "error"
 ])
 const ANALYTICS_PROVIDERS = new Set(["google", "icloud", "amazon"])
+const ANALYTICS_REVIEW_SOURCES = new Set(["cleanup", "help"])
+const ANALYTICS_REVIEW_DISMISSALS = new Set(["later", "never", "feedback"])
 const ANALYTICS_SCAN_MODES = new Set(["smart", "full"])
 const ANALYTICS_COUNT_BUCKETS = new Set([
   "0",
@@ -336,6 +341,8 @@ function sanitizeAnalyticsEvent(input) {
   }
   if (
     hasInvalidOptionalEnum(input, "provider", ANALYTICS_PROVIDERS) ||
+    hasInvalidOptionalEnum(input, "reviewSource", ANALYTICS_REVIEW_SOURCES) ||
+    hasInvalidOptionalEnum(input, "reviewDismissalReason", ANALYTICS_REVIEW_DISMISSALS) ||
     hasInvalidOptionalEnum(input, "scanMode", ANALYTICS_SCAN_MODES) ||
     hasInvalidOptionalEnum(input, "planId", ANALYTICS_PLAN_IDS) ||
     hasInvalidOptionalEnum(input, "upgradeReason", ANALYTICS_UPGRADE_REASONS) ||
@@ -367,6 +374,8 @@ function sanitizeAnalyticsEvent(input) {
     installId: input.installId,
     extensionVersion: input.extensionVersion,
     dayKey: input.dayKey,
+    ...(input.reviewSource !== undefined ? {reviewSource: optionalEnum(input.reviewSource, ANALYTICS_REVIEW_SOURCES)} : {}),
+    ...(input.reviewDismissalReason !== undefined ? {reviewDismissalReason: optionalEnum(input.reviewDismissalReason, ANALYTICS_REVIEW_DISMISSALS)} : {}),
     provider: optionalEnum(input.provider, ANALYTICS_PROVIDERS),
     scanMode: optionalEnum(input.scanMode, ANALYTICS_SCAN_MODES),
     planId: optionalEnum(input.planId, ANALYTICS_PLAN_IDS),

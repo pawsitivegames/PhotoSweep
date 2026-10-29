@@ -1,5 +1,7 @@
 # Chrome Web Store Refresh
 
+> Storage note (2026-10-26): Raw artifacts under `tmp/verification/` were removed from this checkout to reclaim space. Historical summaries remain, but those files are unavailable for inspection and do not verify the current candidate.
+
 ## Current release-gate candidate — 20 October 2026 (v2.3.6.20, 495da9d7ece1)
 
 Candidate ZIP `build/photosweep-cws-v2.3.6.20-sha256-495da9d7ece1.zip`, SHA-256
@@ -12,7 +14,7 @@ October, the source fingerprint matched the sidecar and the strict
 `npm run audit:extension-package` passed under Node 24.20.0.
 
 The saved full release run
-[release-v2.3.6.20-20261020-02](../tmp/verification/runs/release-v2.3.6.20-20261020-02/verification-summary.json)
+release-v2.3.6.20-20261020-02 (former local path: `tmp/verification/runs/release-v2.3.6.20-20261020-02/verification-summary.json`)
 is **BLOCKED**, but its package audit binds the different
 `9af889a21a8b` ZIP and source fingerprint `b6b7713c…`. Its production build
 digest also differs from the current build tree. That run is not full-release
@@ -31,8 +33,8 @@ The same-day Chrome Stable observation shows public listing version `2.3.0.2`
 (updated September 29, 2026), with 23 users, no ratings, and an in-app-purchases
 badge. The Developer Dashboard shows published `2.3.0.2`, draft `2.3.6.1`, and
 no candidate `2.3.6.20`; the saved privacy declarations have not been reconciled
-against this candidate. See the [listing observation](../tmp/verification/public-store-listing-20261020/listing.json)
-and [dashboard observation](../tmp/verification/cws-dashboard-read-only-20261020/dashboard.json).
+against this candidate. See the listing observation (former local path: `tmp/verification/public-store-listing-20261020/listing.json`)
+and dashboard observation (former local path: `tmp/verification/cws-dashboard-read-only-20261020/dashboard.json`).
 No listing change, upload, or submission was made.
 
 A read-only production `GET /health` probe at `2026-10-20T20:04:36Z` returned
@@ -41,8 +43,8 @@ made. The latest read-only Cloud Run inventory found production and test sharing
 the default Compute service account, no configured
 `PHOTOSWEEP_FIRESTORE_DATABASE_ID`, and shared project-level grants for
 Firestore, Secret Manager, Artifact Registry, Storage, and Logging. The local
-database-selection support is implemented but not deployed. See the [Cloud Run
-inventory](../tmp/verification/cloudrun-runtime-isolation-recheck-20261020T142048Z.json).
+database-selection support is implemented but not deployed. See the Cloud Run
+inventory (former local path: `tmp/verification/cloudrun-runtime-isolation-recheck-20261020T142048Z.json`).
 
 Fresh root and GPTK production-only audits report zero vulnerabilities. The
 full root development-tree audit reports four moderate Parcel/Plasmo findings.
@@ -81,8 +83,8 @@ The package build and separate strict ZIP audit pass. Focused current-source
 checks pass for typecheck, recovery readback, trusted provider binding, the
 development-server Origin guard, the 438-test fast suite, provider/TTL/video
 seams, local `/health`, and GPTK API/FormData behavior. The GPTK Vitest config
-warning was removed by moving its ESM config to `.mts`. See the [current focused
-evidence](../tmp/verification/current-source-recovery-binding-20261019-01/verification-summary.json).
+warning was removed by moving its ESM config to `.mts`. See the current focused
+evidence (former local path: `tmp/verification/current-source-recovery-binding-20261019-01/verification-summary.json`).
 The full suite and mutation gate are reserved for the final pass, as requested.
 
 No provider runtime evidence is bound to c88a. The prior Chrome inventory was
@@ -131,43 +133,43 @@ The exact-candidate release run completed 17 commands with `sourceDrift=false`:
 checks passed: 119 test files / 2,280 tests, typecheck, headless integration
 72/72, and strict package audit. Mutation testing reported 4,171 mutants,
 3,956 killed, 215 reviewed and resolved non-killed mutants, zero critical
-survivors, and 94.85%. See the [release summary](../tmp/verification/release-current-20261019T0620Z/verification-summary.json),
-[evidence ledger](../tmp/verification/release-current-20261019T0620Z/evidence.json),
-[mutation result](../tmp/verification/release-current-20261019T0620Z/mutation.json),
-[unit log](../tmp/verification/current-source-tests-20261019T0628Z/unit-tests.log),
-[integration log](../tmp/verification/current-source-tests-20261019T0628Z/headless-integration.log),
-and [package audit](../tmp/verification/current-source-tests-20261019T0628Z/package-audit-after-integration.log).
+survivors, and 94.85%. See the release summary (former local path: `tmp/verification/release-current-20261019T0620Z/verification-summary.json`),
+evidence ledger (former local path: `tmp/verification/release-current-20261019T0620Z/evidence.json`),
+mutation result (former local path: `tmp/verification/release-current-20261019T0620Z/mutation.json`),
+unit log (former local path: `tmp/verification/current-source-tests-20261019T0628Z/unit-tests.log`),
+integration log (former local path: `tmp/verification/current-source-tests-20261019T0628Z/headless-integration.log`),
+and package audit (former local path: `tmp/verification/current-source-tests-20261019T0628Z/package-audit-after-integration.log`).
 
 Google, iCloud, and Amazon live round trips plus all-provider and Amazon video
 playback remain blocked because exact-package runtime evidence is missing. A
 read-only Chrome DevTools attach attempt timed out before listing pages or
-extensions; see the [attach result](../tmp/verification/release-followup-20261019T064659Z/chrome-devtools-attach.json).
+extensions; see the attach result (former local path: `tmp/verification/release-followup-20261019T064659Z/chrome-devtools-attach.json`).
 Earlier provider evidence is not reused across package hashes.
 
 The [public Chrome Web Store listing](https://chromewebstore.google.com/detail/photosweep-for-google-pho/niggncodoibinbianpkdpepmhfljifbo)
 was reread on 19 October. It remains v2.3.0.2 (updated 29 September), says album
 scope is Google Photos only, and displays “Offers in-app purchases” while its
-description says checkout uses Stripe. The [captured listing facts](../tmp/verification/release-followup-20261019T1125Z/cws-listing.json)
+description says checkout uses Stripe. The captured listing facts (former local path: `tmp/verification/release-followup-20261019T1125Z/cws-listing.json`)
 need reconciliation with the saved Developer Dashboard declaration before a
 submission. No Dashboard edit, package upload, submission, or public listing
 change was made.
 
 Both production `/health` URLs returned 404 at 11:25 UTC on 19 October; the
 local route and its 35-test license API suite pass, but no deployment was made.
-The [latest health probes](../tmp/verification/release-followup-20261019T1125Z/production-health.json)
+The latest health probes (former local path: `tmp/verification/release-followup-20261019T1125Z/production-health.json`)
 record the result. The public privacy and refunds pages both returned HTTP 200;
 the privacy page states 90-day analytics retention, the refund contact sentence
 has the corrected spacing, and production Firestore TTL is active on
-`prod_analytics_events.expiresAt`. See the [page and TTL evidence](../tmp/verification/release-followup-20261019T1125Z/public-policy-and-ttl.json).
+`prod_analytics_events.expiresAt`. See the page and TTL evidence (former local path: `tmp/verification/release-followup-20261019T1125Z/public-policy-and-ttl.json`).
 A fresh Node 24
 audit reports zero production vulnerabilities and four moderate full-tree
 Parcel dev-server findings. The current Plasmo release remains 0.90.5 and pins
 Parcel 2.9.3; the paired Parcel 2.16.4 override crashes the Plasmo adapter and
 was reverted. The supported `npm run dev` path has a tested HTTP/WebSocket
-Origin guard. See the [health probes](../tmp/verification/release-followup-20261019T064659Z/production-health.json),
-[full dependency audit](../tmp/verification/dependency-refresh-20261019T-current-54dOeq/full.json),
-[production audit](../tmp/verification/dependency-refresh-20261019T-current-54dOeq/production.json),
-and [Parcel compatibility trial](../tmp/verification/dependency-patch-20261017/experiment-summary.md).
+Origin guard. See the health probes (former local path: `tmp/verification/release-followup-20261019T064659Z/production-health.json`),
+full dependency audit (former local path: `tmp/verification/dependency-refresh-20261019T-current-54dOeq/full.json`),
+production audit (former local path: `tmp/verification/dependency-refresh-20261019T-current-54dOeq/production.json`),
+and Parcel compatibility trial (former local path: `tmp/verification/dependency-patch-20261017/experiment-summary.md`).
 
 The public privacy page states 90-day analytics retention and Firestore TTL
 deletion; the approved refund contact spacing is live. Hosted CI cannot verify
@@ -289,7 +291,7 @@ playback coverage is one of one declared playback marketplaces (`amazon.ca`);
 broader Amazon scan coverage does not imply video playback in other regions.
 After install, the Amazon connection state remained “Not connected” following a
 tab reload; no additional scan was started. The post-reload worker/ping probe
-timed out. See the [exact-package runtime evidence](../tmp/verification/exact-candidate-20261015-05bb-final/runtime-evidence.md).
+timed out. See the exact-package runtime evidence (former local path: `tmp/verification/exact-candidate-20261015-05bb-final/runtime-evidence.md`).
 
 The public listing was rechecked on 15 October and remains version `2.3.0.2`
 (updated 29 September). It still says album scope is Google Photos only. The
@@ -549,4 +551,4 @@ is Google Photos only, and displays “Offers in-app purchases.” The current
 candidate supports personal album scans on Google Photos, iCloud Photos, and
 Amazon Photos where supported, and its optional license checkout uses Stripe.
 These listing/declaration differences must be corrected and rechecked before
-submission. See the [read-only public listing observation](../tmp/verification/exact-candidate-20261015-05bb-final/chrome-web-store-public-listing-20261015.md).
+submission. See the read-only public listing observation (former local path: `tmp/verification/exact-candidate-20261015-05bb-final/chrome-web-store-public-listing-20261015.md`).

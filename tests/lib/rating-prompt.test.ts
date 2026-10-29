@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   completeRatingPrompt,
   deferRatingPrompt,
+  getRatingPromptEligibility,
   RATING_PROMPT_STORAGE_KEY,
+  recordRatingPromptAction,
   recordSuccessfulCleanup,
   recordSuccessfulScan
 } from "../../lib/rating-prompt"
@@ -58,11 +60,47 @@ describe("rating prompt state", () => {
     expect(store[RATING_PROMPT_STORAGE_KEY]).toBeUndefined()
   })
 
-  it("never prompts again after review or permanent dismissal", async () => {
+  it("never prompts again after permanent dismissal", async () => {
     await recordSuccessfulCleanup(1)
     await completeRatingPrompt()
 
     await expect(recordSuccessfulCleanup(1)).resolves.toBe(false)
   })
 
+  it.each(["review_opened", "feedback_opened"] as const)(
+    "records %s without claiming a rating or permanently opting out",
+    async (action) => {
+      await recordSuccessfulCleanup(1)
+      await recordRatingPromptAction(action)
+      expect(store[RATING_PROMPT_STORAGE_KEY]).toMatchObject({
+        completed: false,
+        lastAction: action,
+        nextPromptAt: 4
+      })
+      await expect(getRatingPromptEligibility()).resolves.toBe(false)
+      await recordSuccessfulCleanup(1)
+      await recordSuccessfulCleanup(1)
+      await expect(recordSuccessfulCleanup(1)).resolves.toBe(true)
+    }
+  )
+
+  it("keeps an unanswered cleanup invitation eligible after reopening", async () => {
+    await expect(getRatingPromptEligibility()).resolves.toBe(false)
+    await recordSuccessfulCleanup(1)
+    await expect(getRatingPromptEligibility()).resolves.toBe(true)
+  })
+
+  it("preserves ambiguous legacy opt-outs even after voluntary review and feedback", async () => {
+    store[RATING_PROMPT_STORAGE_KEY] = {
+      successfulScans: 5,
+      successfulCleanups: 2,
+      nextPromptAt: 1,
+      completed: true
+    }
+    await expect(getRatingPromptEligibility()).resolves.toBe(false)
+    await recordRatingPromptAction("review_opened")
+    await recordRatingPromptAction("feedback_opened")
+    await expect(recordSuccessfulCleanup(1)).resolves.toBe(false)
+    expect(store[RATING_PROMPT_STORAGE_KEY]).toMatchObject({ completed: true })
+  })
 })

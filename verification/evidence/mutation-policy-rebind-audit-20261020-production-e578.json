@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-21T04:36:27.046516+00:00",
+  "status": "PASS",
+  "candidateCodeCommit": "fac10311e665c85d907c7e7055e9f2e920905f94",
+  "artifactSha256": "e5781765e5e6ce85ed0b27c2db7feb9059c469b5afd3f200606e8525368adaf7",
+  "diagnosticResult": "tmp/verification/diagnostic-refresh/53c97274-c21d-4503-94a9-ab3fa467b637/mutation.json",
+  "diagnosticResultSha256": "aa9759625ada453fb7c418b549947d0cd738c119a32e3010213ea8e7a50927d7",
+  "diagnosticAcceptedAsPass": false,
+  "fullMutantIdentityAndMultiplicityIdentical": true,
+  "mutantsTotal": 4171,
+  "outcomeChanges": [
+    {
+      "file": "scripts/photo-provider-command-host.js",
+      "id": "2820",
+      "from": "Survived",
+      "to": "Killed",
+      "reason": "Fresh static mutation replaces the location-object guard with true; the mocked iCloud account-rotation test observes an absent response. Production passes a Window with Location. Prior unreachable waiver is retired because this report detects it; no additional production-strength claim is inferred."
+    }
+  ],
+  "reviewedNonKilledExactMatches": 214,
+  "newWaivers": 0,
+  "retiredWaivers": 1,
+  "retainedDispositionsChanged": false,
+  "thresholdsChanged": false,
+  "sourceRootsChanged": false,
+  "testOrRuntimeSourceChanged": false,
+  "selectedSourcePrereview": "tmp/verification/release-ready-followup-20261020/mutation-selected-source-prereview.json",
+  "sourceFingerprintFrom": "1fd1c715cca724349fe4b49603156793ac05e37a6ee859812522b9d6742f831c",
+  "sourceFingerprintTo": "fa61b84bd8d5f7d059514aeebf41c977970adfa59e990379ec0d1f3d8fc01d54",
+  "canonicalReportSha256From": "8a284e4869a6fd6b52c3713f42af4c35ce8d4a3896b8cc99d500f5907424477f",
+  "canonicalReportSha256To": "e1ac3893233d12986eb64aca1a5b2a222f49d673b1a1c17a301f5b790fbff639",
+  "previousPolicySha256": "88d553a4d08ba378285013027eb666db239a30e85a924869794af532f13845cc",
+  "currentPolicySha256": "5efca3d128f61a171ad032603081fa288e97ab3b500802751a83d963b02ea91e",
+  "normalVerification": {
+    "status": "PASS",
+    "artifact": "tmp/verification/release-ready-followup-20261020/registered-production-release-accepted/mutation.json",
+    "artifactSha256": "9556c7fdea2f3e12c93bad3e36d87961d6eb4da81ecb635ddb45cd78628ceb03",
+    "acceptedAggregateStatus": "BLOCKED",
+    "sourceDrift": false
+  }
+}

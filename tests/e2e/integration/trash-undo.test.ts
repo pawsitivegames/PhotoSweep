@@ -250,7 +250,7 @@ test("Amazon Undo after a late Trash result stays mounted without a profile name
     trashItems: { data: { outcomes: [
       { operation: "trash", targetKey: "dedup-group0-item1", status: "confirmed" }
     ] } },
-    restoreItems: { data: { outcomes: [
+    restoreItems: { holdResponse: true, data: { outcomes: [
       { operation: "restore", targetKey: "dedup-group0-item1", status: "confirmed" }
     ] } }
   }, "amazon")
@@ -317,6 +317,22 @@ test("Amazon Undo after a late Trash result stays mounted without a profile name
   })
   await expect(page.getByRole("button", { name: /^Undo(?: moved items)?$/i })).toBeVisible()
   await page.getByRole("button", { name: /^Undo(?: moved items)?$/i }).click()
+  await stub.waitForFunction(() =>
+    Object.keys((window as unknown as {
+      __gptkHeldRestoreResponses: Record<string, unknown>
+    }).__gptkHeldRestoreResponses).length === 1)
+  // Let snapshot validation run before the provider's terminal restore reply.
+  await page.clock.runFor(100)
+  await expect(page.getByRole("heading", { name: "1 Duplicate Set to Review", exact: true })).toBeVisible()
+  await stub.evaluate(() => {
+    const held = (window as unknown as {
+      __gptkHeldRestoreResponses: Record<string, (data: unknown) => void>
+    }).__gptkHeldRestoreResponses
+    Object.values(held)[0]({
+      restoredDedupKeys: ["dedup-group0-item1"],
+      outcomes: [{ operation: "restore", targetKey: "dedup-group0-item1", status: "confirmed" }]
+    })
+  })
   await expect.poll(() => readRecoveryHistory(context)).toMatchObject([
     { provider: "amazon", status: "restored", movedCount: 1, restoreUnknownCount: 0 }
   ])
@@ -377,9 +393,8 @@ test("trashes selected groups and removes them from the UI", async () => {
   })
   await expect(
     page.getByText("How was your PhotoSweep cleanup?")
-  ).not.toBeVisible()
-  await page.getByRole("button", { name: "Dismiss undo notification" }).click()
-  await expect(page.getByText("How was your PhotoSweep cleanup?")).toBeVisible()
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Maybe later" }).click()
 
   // Review list should no longer show duplicate sets

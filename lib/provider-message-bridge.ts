@@ -1,6 +1,7 @@
+import { isProviderPageMessage } from "./provider-operation-contract"
 import { APP_ID } from "./types"
-import type { AppMessage } from "./types"
 import type {
+  AppMessage,
   ProviderOriginalHashCancelMessage,
   ProviderOriginalHashFetchMessage,
   ProviderOriginalHashRelayResponse
@@ -31,7 +32,7 @@ export function installProviderMessageBridge(relayOriginalHashes = false) {
       msg.action === "gptkProgress" ||
       msg.action === "gptkLog"
     ) {
-      safeSendRuntimeMessage(msg)
+      if (isProviderPageMessage(event.data)) safeSendRuntimeMessage(msg)
       return
     }
 
@@ -100,5 +101,4 @@ export function installProviderMessageBridge(relayOriginalHashes = false) {
       window.postMessage(message)
     }
   })
-
 }

@@ -1,12 +1,16 @@
 export const RATING_PROMPT_STORAGE_KEY = "ratingPrompt"
 
-const SCANS_BEFORE_REPROMPT = 3
+const CLEANUPS_BEFORE_REPROMPT = 3
+
+export type RatingPromptAction =
+  "review_opened" | "feedback_opened" | "later" | "never"
 
 export type RatingPromptState = {
   successfulScans: number
   successfulCleanups: number
   nextPromptAt: number
   completed: boolean
+  lastAction?: RatingPromptAction
 }
 
 const DEFAULT_STATE: RatingPromptState = {
@@ -39,7 +43,14 @@ function normalizeState(value: unknown): RatingPromptState {
       candidate.nextPromptAt >= 1
         ? Math.floor(candidate.nextPromptAt)
         : 1,
-    completed: candidate.completed === true
+    // Legacy completion reasons cannot be recovered. Preserve every existing
+    // completion as an opt-out rather than risking another unsolicited prompt.
+    completed: candidate.completed === true,
+    ...(["review_opened", "feedback_opened", "later", "never"].includes(
+      candidate.lastAction ?? ""
+    )
+      ? { lastAction: candidate.lastAction }
+      : {})
   }
 }
 
@@ -52,12 +63,20 @@ async function saveState(state: RatingPromptState): Promise<void> {
   await chrome.storage.local.set({ [RATING_PROMPT_STORAGE_KEY]: state })
 }
 
+export async function getRatingPromptEligibility(): Promise<boolean> {
+  const current = await loadState()
+  return (
+    !current.completed && current.successfulCleanups >= current.nextPromptAt
+  )
+}
+
 /**
  * Legacy migration hook. Scan completion no longer makes a review prompt
  * eligible; eligibility is tied to confirmed positive cleanup instead.
  */
 export async function recordSuccessfulScan(): Promise<boolean> {
   const current = await loadState()
+  if (current.completed) return false
   const next = {
     ...current,
     successfulScans: current.successfulScans + 1
@@ -72,6 +91,7 @@ export async function recordSuccessfulCleanup(
 ): Promise<boolean> {
   if (!Number.isFinite(movedCount) || movedCount <= 0) return false
   const current = await loadState()
+  if (current.completed) return false
   const next = {
     ...current,
     successfulCleanups: current.successfulCleanups + 1
@@ -81,14 +101,23 @@ export async function recordSuccessfulCleanup(
 }
 
 export async function deferRatingPrompt(): Promise<void> {
-  const current = await loadState()
-  await saveState({
-    ...current,
-    nextPromptAt: current.successfulCleanups + SCANS_BEFORE_REPROMPT
-  })
+  await recordRatingPromptAction("later")
 }
 
 export async function completeRatingPrompt(): Promise<void> {
+  await recordRatingPromptAction("never")
+}
+
+/** A review-page visit is an attempt, never evidence of a submitted rating. */
+export async function recordRatingPromptAction(
+  action: RatingPromptAction
+): Promise<void> {
   const current = await loadState()
-  await saveState({ ...current, completed: true })
+  if (current.completed) return
+  await saveState({
+    ...current,
+    lastAction: action,
+    completed: action === "never",
+    nextPromptAt: current.successfulCleanups + CLEANUPS_BEFORE_REPROMPT
+  })
 }

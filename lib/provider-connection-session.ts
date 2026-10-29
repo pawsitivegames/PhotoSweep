@@ -5,6 +5,7 @@ import {
   type ProviderHealthSnapshot
 } from "./types"
 import { providerHealthUnavailableMessage } from "./provider-operations"
+import { parseProviderResult, type ProviderCommandData } from "./provider-operation-contract"
 
 export interface ProviderConnectionAdapter {
   ensureReachable(tabId: number, provider: PhotoProvider): Promise<boolean>
@@ -183,22 +184,14 @@ export class ProviderConnectionSession {
     adapter: ProviderHealthAdapter
   ): Promise<ProviderHealthOutcome> {
     let result = await adapter.check(providerTabId, provider)
-    let data = result.data as {
-      hasGptk: boolean
-      accountEmail?: string
-      accountDisplayName?: unknown
-      health?: unknown
-    }
+    let parsed = parseProviderResult(result, "healthCheck")
+    let data: ProviderCommandData["healthCheck"] = parsed?.success ? parsed.data : { hasGptk: false }
     if (provider === "google" && !data.hasGptk) {
       const injected = await adapter.ensureGoogleMainWorldScripts(providerTabId)
       if (injected) {
         result = await adapter.check(providerTabId, provider)
-        data = result.data as {
-          hasGptk: boolean
-          accountEmail?: string
-          accountDisplayName?: unknown
-          health?: unknown
-        }
+        parsed = parseProviderResult(result, "healthCheck")
+        data = parsed?.success ? parsed.data : { hasGptk: false }
       }
     }
     if (provider === "google") {

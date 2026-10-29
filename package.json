@@ -1,8 +1,8 @@
 {
   "name": "photosweep",
-  "displayName": "PhotoSweep for Google Photos™",
+  "displayName": "PhotoSweep for Google Photos\u2122",
   "version": "2.3.6",
-  "chromeVersion": "2.3.6.25",
+  "chromeVersion": "2.3.6.26",
   "description": "Find duplicates in Google Photos, iCloud Photos, and Amazon Photos where available. Review each Trash move. Matching stays local.",
   "author": "Mack Talcott",
   "scripts": {
