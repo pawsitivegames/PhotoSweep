@@ -1,4 +1,4 @@
-import { Firestore } from "@google-cloud/firestore"
+import { FieldValue, Firestore } from "@google-cloud/firestore"
 import { ANALYTICS_RETENTION_MS } from "./analytics-retention.mjs"
 
 const DEFAULT_COLLECTION_PREFIX = "photosweep"
@@ -103,9 +103,16 @@ export function createFirestoreLicenseStore({
     async upsertLicense(license) {
       const cleanLicense = stripUndefined(license)
       await firestoreClient.runTransaction(async (transaction) => {
-        transaction.set(licenses.doc(cleanLicense.sessionId), cleanLicense, {
-          merge: true
-        })
+        transaction.set(
+          licenses.doc(cleanLicense.sessionId),
+          {
+            ...cleanLicense,
+            // Omitted expiry means permanent access. A merged upgrade must
+            // remove the previous pass expiry instead of retaining it.
+            expiresAt: cleanLicense.expiresAt ?? FieldValue.delete()
+          },
+          { merge: true }
+        )
         for (const purchase of purchasesForLicense(cleanLicense)) {
           await setIndex(
             "email",
