@@ -321,10 +321,20 @@ export function ScanConfig({
           boxSizing: "border-box",
           border: "1px solid",
           borderColor: compact ? "transparent" : photoSweepColors.border,
-          borderRadius: compact ? 1.5 : 1.5,
+          borderRadius: 1.5,
           bgcolor: compact ? "transparent" : photoSweepColors.surface,
           boxShadow: "none"
         }}>
+        {compact && (
+          <Box sx={{ mb: 1.25 }}>
+            <Typography component="h2" variant="subtitle1" fontWeight={700}>
+              Set up your scan
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Choose a library or album, then check your scan plan below.
+            </Typography>
+          </Box>
+        )}
         {compact && isAmazon && amazonProfileName && (
           <Alert severity="info" sx={{ mb: 2, alignItems: "flex-start" }}>
             <Typography component="div" variant="body2" sx={{
@@ -347,17 +357,19 @@ export function ScanConfig({
           <Box
             sx={{
               display: "flex",
-              flexDirection: { xs: "column", md: "row" },
-              gap: 3,
+              gap: { xs: 1.5, sm: 2.5 },
               mb: 3,
-              alignItems: { md: "center" }
+              alignItems: "center",
+              p: { xs: 1.5, sm: 2.5 },
+              borderRadius: 1.5,
+              bgcolor: photoSweepColors.surfaceSoft
             }}>
             <Box
               sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 1,
-                bgcolor: photoSweepColors.primarySoft,
+                width: { xs: 36, sm: 48 },
+                height: { xs: 36, sm: 48 },
+                borderRadius: 0.75,
+                bgcolor: photoSweepColors.surface,
                 color: "primary.main",
                 display: "grid",
                 placeItems: "center",
@@ -367,10 +379,11 @@ export function ScanConfig({
               }}>
               <PhotoLibraryRoundedIcon />
             </Box>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h5" gutterBottom sx={{
-                fontWeight: 700
-              }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                component="h2"
+                variant="h5"
+                sx={{ mb: 0.5, fontSize: { xs: "1.125rem", sm: "1.5rem" } }}>
                 Find copies across your photo library
               </Typography>
               <Typography variant="body2" sx={{
@@ -427,9 +440,7 @@ export function ScanConfig({
             <Stack
               direction="column"
               spacing={2}
-              sx={{
-                alignItems: { xs: "stretch", md: "center" }
-              }}>
+              sx={{ pb: 2 }}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="overline" sx={{
                   color: "text.secondary"
@@ -966,76 +977,6 @@ export function ScanConfig({
           </Alert>
         )}
 
-        {compact ? (
-          <Typography
-            variant="caption"
-            sx={{
-              color: "text.secondary",
-              display: "block",
-              mb: 0.25,
-              fontWeight: 700
-            }}>
-            {useRecommendedFirstScope
-              ? "Recommended first scan"
-              : settings.scanMode === "smart"
-                ? "Smart scan"
-                : "Full scan"}
-          </Typography>
-        ) : (
-          <Box
-            sx={{
-              mb: 1.5,
-              px: 1.5,
-              py: 1.25,
-              borderRadius: 2,
-              border: "1px solid",
-              borderColor:
-                settings.scanMode === "smart"
-                  ? photoSweepColors.primaryBorder
-                  : photoSweepColors.border,
-              bgcolor:
-                settings.scanMode === "smart"
-                  ? photoSweepColors.primarySoft
-                  : photoSweepColors.surfaceSoft
-            }}>
-            <Typography variant="body2" sx={{
-              fontWeight: 800
-            }}>
-              {useRecommendedFirstScope
-                ? "Recent 30 days · Recommended"
-                : settings.scanMode === "smart"
-                  ? "Smart scan · Recommended"
-                  : "Full scan"}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                display: "block",
-                mt: 0.25,
-                lineHeight: 1.35
-              }}>
-              {useRecommendedFirstScope
-                ? "Starts with a smaller date range. Widen it or scan all dates after you see the first results."
-                : settings.scanMode === "smart"
-                  ? "Compares photos and videos saved close together. It is faster and works well for normal duplicates."
-                  : `Compares every item in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks to find copies saved far apart.`}
-            </Typography>
-          </Box>
-        )}
-        {compact && useRecommendedFirstScope && (
-          <Typography
-            variant="caption"
-            sx={{
-              color: "text.secondary",
-              display: "block",
-              mb: 0.25,
-              lineHeight: 1.3
-            }}>
-            Start with a smaller range, then widen it after you see the first results.
-          </Typography>
-        )}
-
         {showUnscopedFullScanWarning && compact && (
           <Alert
             severity="warning"
@@ -1069,12 +1010,10 @@ export function ScanConfig({
             Boolean(settings.dateRange?.from || settings.dateRange?.to)
           }
           sx={{
-            border: "1px solid",
+            borderTop: "1px solid",
             borderColor: photoSweepColors.border,
-            borderRadius: compact ? 1.5 : 2,
-            bgcolor: compact
-              ? photoSweepColors.surface
-              : photoSweepColors.surface,
+            borderRadius: 0,
+            bgcolor: "transparent",
             width: "100%",
             maxWidth: "100%",
             boxSizing: "border-box",
@@ -1413,77 +1352,104 @@ export function ScanConfig({
           </AccordionDetails>
         </Accordion>
 
-        <Button
-          variant="contained"
-          fullWidth
-          size="large"
-          startIcon={<SearchRoundedIcon />}
-          onClick={() => {
-            if (!scanGate.allowed) {
-              onUpgrade?.(
-                scanGate.reason === "full_scan_locked"
-                  ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
-                  : scanGate.reason === "unscoped_scan_locked"
-                    ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
-                    : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
-              )
-              return
-            }
-            if (useRecommendedFirstScope) {
-              onSettingsChange({ dateRange: recommendedDateRange })
-              onStartScan(startSettings)
-              return
-            }
-            onStartScan()
-          }}
-          disabled={dateRangeInvalid}
+        <Box
+          component="section"
+          aria-label="Scan plan"
           sx={{
-            mt: compact ? 0.75 : 0,
-            mb: compact ? 0.75 : 2,
-            minHeight: compact ? 42 : undefined,
-            borderRadius: compact ? 1.5 : 2,
-            fontSize: compact ? 14 : undefined,
-            boxShadow: compact
-              ? `0 4px 12px ${photoSweepColors.primaryShadow}`
-              : `0 12px 26px ${photoSweepColors.primaryShadow}`,
-            "&:hover": {
-              boxShadow: compact
-                ? `0 6px 16px ${photoSweepColors.primaryShadow}`
-                : `0 16px 34px ${photoSweepColors.primaryShadow}`
-            }
+            display: "grid",
+            gridTemplateColumns: compact
+              ? "1fr"
+              : { xs: "1fr", sm: "minmax(0, 1fr) minmax(210px, 0.8fr)" },
+            alignItems: "center",
+            gap: compact ? 1 : 2.5,
+            p: compact ? 1.25 : 2,
+            mt: 1.5,
+            mb: 1.5,
+            borderRadius: 1.5,
+            bgcolor: photoSweepColors.primarySoft
           }}>
-          {batchLimit
-            ? `Scan up to ${batchLimit.toLocaleString()} records`
-            : settings.albumScope && supportsAlbumScope
-              ? "Scan this album"
-              : settings.dateRange?.from || settings.dateRange?.to
-                ? "Scan this date range"
+          <Box>
+            <Typography variant="caption" color="primary.dark" fontWeight={700}>
+              Scan plan
+            </Typography>
+            <Typography component="h3" variant="subtitle1" fontWeight={700}>
+              {useRecommendedFirstScope
+                ? "Recent 30 days · Recommended"
+                : albumLabel ||
+                  (settings.dateRange?.from || settings.dateRange?.to
+                    ? "Selected date range"
+                    : "Entire library")}
+            </Typography>
+            {(settings.dateRange?.from || settings.dateRange?.to) && (
+              <Typography component="div" variant="caption" color="text.secondary">
+                {dateRangeSummary}
+              </Typography>
+            )}
+            <Typography component="div" variant="body2" color="text.secondary">
+              {batchLimit
+                ? `Check up to ${batchLimit.toLocaleString()} library records.`
                 : useRecommendedFirstScope
-                  ? "Scan the last 30 days"
-                  : "Scan entire library"}
-        </Button>
-
-        {useRecommendedFirstScope && (
-          <Button
-            fullWidth
-            size="small"
-            onClick={() => onStartScan(settings)}
-            sx={{ mb: compact ? 0.5 : 2, fontWeight: 750 }}>
-            Scan all dates instead
-          </Button>
-        )}
+                  ? "Start with recent items. You can widen the range after seeing your results."
+                  : settings.scanMode === "smart"
+                    ? "Smart scan compares items saved close together."
+                    : "Full scan checks for copies saved far apart."}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "grid", gap: 0.25, minWidth: 0 }}>
+            <Button
+              variant="contained"
+              fullWidth
+              size="large"
+              startIcon={<SearchRoundedIcon />}
+              onClick={() => {
+                if (!scanGate.allowed) {
+                  onUpgrade?.(
+                    scanGate.reason === "full_scan_locked"
+                      ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
+                      : scanGate.reason === "unscoped_scan_locked"
+                        ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
+                        : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
+                  )
+                  return
+                }
+                if (useRecommendedFirstScope) {
+                  onSettingsChange({ dateRange: recommendedDateRange })
+                  onStartScan(startSettings)
+                  return
+                }
+                onStartScan()
+              }}
+              disabled={dateRangeInvalid}>
+              {batchLimit
+                ? `Scan up to ${batchLimit.toLocaleString()} records`
+                : settings.albumScope && supportsAlbumScope
+                  ? "Scan this album"
+                  : settings.dateRange?.from || settings.dateRange?.to
+                    ? "Scan this date range"
+                    : useRecommendedFirstScope
+                      ? "Scan the last 30 days"
+                      : "Scan entire library"}
+            </Button>
+            {useRecommendedFirstScope && (
+              <Button
+                fullWidth
+                size="small"
+                onClick={() => onStartScan(settings)}>
+                Scan all dates instead
+              </Button>
+            )}
+          </Box>
+        </Box>
 
         <Accordion
           disableGutters
           elevation={0}
           sx={{
             mt: 1,
-            border: "1px solid",
+            borderTop: "1px solid",
             borderColor: photoSweepColors.border,
-            borderRadius: compact ? 1.5 : 2,
-            bgcolor: compact
-              ? photoSweepColors.surface
-              : photoSweepColors.surface,
+            borderRadius: 0,
+            bgcolor: "transparent",
             width: "100%",
             maxWidth: "100%",
             boxSizing: "border-box",

@@ -15,6 +15,7 @@ import {
   launchExtension,
   makeGroups,
   openAppTab,
+  openReviewTools,
   openGptkStubPage,
   type GptkOverrides
 } from "../fixtures/extension"
@@ -103,6 +104,7 @@ async function setup({
 }
 
 async function cleanup(page: Page, layout: "page" | "panel" = "page") {
+  await openReviewTools(page)
   await page
     .getByRole("button", {
       name:
@@ -115,7 +117,7 @@ async function cleanup(page: Page, layout: "page" | "panel" = "page") {
     .locator("[data-review-group-id]")
     .getByRole("button", { name: /currently kept; this is the last kept copy/ })
     .click()
-  await page.getByRole("button", { name: /Review & move 1 to Trash/i }).click()
+  await page.getByRole("button", { name: /Review 1 proposed item/i }).click()
   await page.getByLabel("Type 1 to confirm").fill("1")
   await page
     .getByRole("checkbox", {
@@ -155,6 +157,7 @@ test("scan-only results have a voluntary review link and no automatic invitation
     .getByRole("contentinfo")
     .getByRole("link", { name: "Leave an honest review" })
   await expect(link).toHaveAttribute("href", CHROME_WEB_STORE_REVIEWS_URL)
+  await openReviewTools(page)
   await page.getByRole("button", { name: /Scan again/i }).click()
   await page.getByText("Help & feedback", { exact: true }).click()
   await expect(
@@ -230,6 +233,7 @@ test("the narrow side panel supports keyboard deferral while keeping Undo availa
   await panel.setViewportSize({ width: 360, height: 800 })
   await panel.emulateMedia({ reducedMotion: "reduce" })
   await panel.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+  await openReviewTools(panel)
   await expect(
     panel.getByRole("button", {
       name: /^Include all 1 available set in cleanup$/i

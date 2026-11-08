@@ -17,6 +17,7 @@ import {
   launchExtension,
   makeGroups,
   openAppTab,
+  openReviewTools,
   openGptkStubPage,
   readLocalStorage,
   reviewShownKeepers
@@ -271,6 +272,7 @@ test("filters review groups by exact and similar classification", async () => {
   })
   await expect(page.getByText("Similar", { exact: true })).toBeVisible()
 
+  await openReviewTools(page)
   await page.getByRole("button", { name: /^Include all 2 available sets in cleanup$/i }).click()
   await page.getByRole("button", { name: /Verified identical \(1\)/i }).click()
   await expect(
@@ -278,6 +280,7 @@ test("filters review groups by exact and similar classification", async () => {
   ).toBeVisible()
   await expect(page.getByText("Similar", { exact: true })).not.toBeVisible()
   await expect(page.getByText("2 available sets", { exact: false })).toBeVisible()
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -287,7 +290,7 @@ test("filters review groups by exact and similar classification", async () => {
     page
       .getByRole("region", { name: "Cleanup summary" })
       .getByRole("status")
-  ).toHaveText(
+  ).toContainText(
     "2 sets included · 2 need review"
   )
   await expect(page.getByText("Verified identical", { exact: true })).toBeVisible()
@@ -320,6 +323,125 @@ test("filters review groups by exact and similar classification", async () => {
   await clearStorage(context)
 })
 
+test("guided review previews all available sets from All before including them", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 2)
+  for (const key of groups[1].mediaKeys) {
+    mediaItems[key].contentHash = {
+      value: "a".repeat(64),
+      algorithm: "sha256",
+      provenance: "original-content",
+      verificationSource: "local-original-bytes"
+    }
+  }
+  await injectScanResults(context, groups, mediaItems, 4)
+  await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  const summary = page.getByRole("region", { name: "Cleanup summary" })
+  await expect(summary).toContainText("0 sets included")
+  await expect(page.getByRole("button", { name: "Choose keepers automatically" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Review one at a time" }).click()
+  await expect.poll(() =>
+    page.evaluate(() => Boolean(document.activeElement?.closest("[data-review-group-id]")))
+  ).toBe(true)
+  await expect(summary).toContainText("0 sets included")
+
+  await page.getByRole("button", { name: /Candidates & similar \(1\)/i }).click()
+  await expect(page.locator("[data-review-group-id]")).toHaveCount(1)
+  const prepare = page.getByRole("button", { name: "Preview all 2 sets" })
+  await expect(prepare).toHaveCount(0)
+  await page.getByRole("button", { name: "All sets (2)" }).click()
+  await prepare.click()
+  const preview = page.getByRole("dialog", { name: "Preview all sets" })
+  await expect(preview).toContainText("2 copies proposed for Trash")
+  await preview.getByRole("button", { name: "Cancel" }).click()
+  await expect(summary).toContainText("0 sets included")
+
+  await prepare.click()
+  await preview.getByRole("button", { name: "Include all 2 sets" }).click()
+  await expect(summary).toContainText("2 sets included")
+  const reviewProposal = summary.getByRole("button", { name: "Review 2 proposed items" })
+  await expect(reviewProposal).toBeFocused()
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  await reviewProposal.click()
+  const confirmation = page.getByRole("dialog", { name: "Move to Trash" })
+  await expect(confirmation.getByLabel("Type 2 to confirm")).toBeVisible()
+  await expect(confirmation.getByRole("button", { name: "Move to Trash" })).toBeDisabled()
+})
+
+test("the Exact filter previews and includes only verified identical sets", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(3, 2)
+  for (const [index, group] of groups.slice(1).entries()) {
+    for (const key of group.mediaKeys) {
+      mediaItems[key].contentHash = {
+        value: (index === 0 ? "a" : "b").repeat(64),
+        algorithm: "sha256",
+        provenance: "original-content",
+        verificationSource: "local-original-bytes"
+      }
+    }
+  }
+  await injectScanResults(context, groups, mediaItems, 6)
+  await injectSelections(context, [groups[0].id])
+  await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  const summary = page.getByRole("region", { name: "Cleanup summary" })
+  await expect(summary).toContainText("1 set included")
+  await page.getByRole("button", { name: "Verified identical (2)" }).click()
+  const exactAction = page.getByRole("button", { name: "Preview all 2 exact sets" })
+  const preview = page.getByRole("dialog", { name: "Preview exact sets" })
+  await exactAction.click()
+  await expect(preview).toContainText("2 copies proposed for Trash")
+  const copies = preview.getByRole("list", { name: "Copies proposed for Trash" })
+  await expect(copies.getByRole("listitem")).toHaveText([
+    "photo-group1-item1.jpg",
+    "photo-group2-item1.jpg"
+  ])
+  await preview.getByRole("button", { name: "Cancel" }).click()
+  await expect(summary).toContainText("1 set included")
+
+  await exactAction.click()
+  await preview.getByRole("button", { name: "Include all 2 exact sets" }).click()
+  await expect(summary).toContainText("2 sets included")
+  await expect(summary.getByRole("button", { name: "Review 2 proposed items" })).toBeFocused()
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  await page.reload()
+  await expect(summary).toContainText("2 sets included")
+  await expect(
+    page.locator('[data-review-group-id="group-0"]').getByRole("checkbox")
+  ).toHaveAttribute("aria-checked", "false")
+  await summary.getByRole("button", { name: "Review 2 proposed items" }).click()
+  const confirmation = page.getByRole("dialog", { name: "Move to Trash" })
+  await expect(confirmation.getByLabel("Type 2 to confirm")).toBeVisible()
+  await expect(confirmation.getByRole("button", { name: "Move to Trash" })).toBeDisabled()
+})
+
+test("an empty Exact filter explains when a saved scan needs a fresh provider session", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(2, 2)
+  for (const item of Object.values(mediaItems)) {
+    item.provider = "google"
+    item.mediaKind = "photo"
+    item.originalContentVerificationCapability = "available"
+  }
+  await injectScanResults(context, groups, mediaItems, 4)
+  await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  const exact = page.getByRole("button", { name: "Verified identical (0)" })
+  await exact.click()
+  await expect(page.getByText("No verified exact sets")).toBeVisible()
+  await expect(page.getByRole("button", { name: /Preview all/i })).toHaveCount(0)
+  const verification = page.getByRole("region", { name: "Verify similar sets" })
+  const verify = verification.getByRole("button", { name: "Verify all similar sets" })
+  await expect(verify).toBeDisabled()
+  await expect(verification).toContainText("Scan again to verify originals")
+  await expect(verification.getByRole("button", { name: "Scan again" })).toBeVisible()
+  await expect(exact).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("region", { name: "Cleanup summary" })).toContainText("0 sets included")
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+})
+
 test("review next reveals a hidden set and focuses it without authorizing Trash", async () => {
   await clearStorage(context)
   const { groups, mediaItems } = makeGroups(2, 2)
@@ -337,7 +459,7 @@ test("review next reveals a hidden set and focuses it without authorizing Trash"
   await page.getByRole("button", { name: /Candidates & similar \(1\)/i }).click()
   await expect(
     page.getByText(
-      /Review each included set, then confirm before anything moves\./
+      /Review the remaining sets before confirming cleanup\./
     )
   ).toBeVisible()
   const target = page.locator(`[data-review-group-id="${groups[1].id}"]`)
@@ -348,7 +470,7 @@ test("review next reveals a hidden set and focuses it without authorizing Trash"
   await expect.poll(() => target.evaluate(card => card.contains(document.activeElement))).toBe(true)
   expect(await readLocalStorage(context, ["selections"])).toEqual(before)
   await expect(page.getByRole("dialog")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: /Review & move .* to Trash/ })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /Review .* proposed items?/ })).toHaveCount(0)
   await page.close()
   await stub.close()
   await clearStorage(context)
@@ -539,9 +661,10 @@ test("closes a paid prompt when a connected account changes", async () => {
       exact: true
     })
   ).toBeVisible({ timeout: 8_000 })
+  await openReviewTools(page)
   await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
     await reviewShownKeepers(page)
-  await page.getByRole("button", { name: /Review & move 12 to Trash/i }).click()
+  await page.getByRole("button", { name: /Review 12 proposed items/i }).click()
   await expect(
     page.getByRole("heading", { name: "Unlock larger cleanup" })
   ).toBeVisible()
@@ -608,10 +731,11 @@ test("drops a delayed old-account trash result after identity changes", async ()
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+    await openReviewTools(page)
     await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
     await reviewShownKeepers(page)
     await page
-      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .getByRole("button", { name: /Review 8 proposed items/i })
       .click()
     await expect(
       page.getByRole("heading", { name: "Move to Trash" })
@@ -694,6 +818,7 @@ test("reconciles a pending Trash result after retry resets a disconnected app", 
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+    await openReviewTools(page)
     await page
       .getByRole("button", {
         name: /^Include all [0-9]+ shown sets? in cleanup$/i
@@ -701,7 +826,7 @@ test("reconciles a pending Trash result after retry resets a disconnected app", 
       .click()
     await reviewShownKeepers(page)
     await page
-      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .getByRole("button", { name: /Review 8 proposed items/i })
       .click()
     await expect(
       page.getByRole("heading", { name: "Move to Trash" })
@@ -816,10 +941,11 @@ test("dispatch-authorization rejects account drift during deferred audit persist
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+    await openReviewTools(page)
     await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
     await reviewShownKeepers(page)
     await page
-      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .getByRole("button", { name: /Review 8 proposed items/i })
       .click()
     await page.getByLabel("Type 8 to confirm").fill("8")
     await page
@@ -960,10 +1086,11 @@ test("dispatch-authorization rejects selection drift during deferred audit persi
       })
     ).toBeVisible({ timeout: 8_000 })
     await expect(page.getByText("Signed in · alice@example.com")).toBeVisible()
+    await openReviewTools(page)
     await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
     await reviewShownKeepers(page)
     await page
-      .getByRole("button", { name: /Review & move 8 to Trash/i })
+      .getByRole("button", { name: /Review 8 proposed items/i })
       .click()
     await page.getByLabel("Type 8 to confirm").fill("8")
     await page
@@ -1198,10 +1325,11 @@ test("does not open a stale checkout tab after results reset", async () => {
         exact: true
       })
     ).toBeVisible({ timeout: 8_000 })
+    await openReviewTools(page)
     await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
     await reviewShownKeepers(page)
     await page
-      .getByRole("button", { name: /Review & move 12 to Trash/i })
+      .getByRole("button", { name: /Review 12 proposed items/i })
       .click()
     await expect(
       page.getByRole("heading", { name: "Unlock larger cleanup" })
@@ -1215,6 +1343,7 @@ test("does not open a stale checkout tab after results reset", async () => {
     await page
       .getByRole("button", { name: "Keep reviewing free results" })
       .click()
+    await openReviewTools(page)
     await page.getByRole("button", { name: "Scan again", exact: true }).click()
 
     releaseCheckout()
@@ -1294,7 +1423,7 @@ test("keeps the free-results exit clickable after an unverified checkout return"
       })
     ).toBeVisible({ timeout: 8_000 })
     await page
-      .getByRole("button", { name: /Review & move 12 to Trash/i })
+      .getByRole("button", { name: /Review 12 proposed items/i })
       .click()
     await expect(
       page.getByRole("heading", { name: "Unlock larger cleanup" })
@@ -1328,7 +1457,7 @@ test("keeps the free-results exit clickable after an unverified checkout return"
       .getByRole("button", { name: "Keep reviewing free results" })
       .click()
     await expect(
-      page.getByRole("button", { name: /Review & move 12 to Trash/i })
+      page.getByRole("button", { name: /Review 12 proposed items/i })
     ).toBeVisible()
     await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
   } finally {
@@ -2553,12 +2682,12 @@ test("persists group selections through page reload", async () => {
     timeout: 5000
   })
 
-  const checkboxes = page.locator('input[type="checkbox"]')
+  const checkboxes = page.getByRole("checkbox", { name: /Include this set of .* for cleanup/i })
   await expect(checkboxes.nth(0)).toBeChecked() // g1 selected
   await expect(checkboxes.nth(1)).not.toBeChecked() // g2 deselected
   await expect(checkboxes.nth(2)).toBeChecked() // g3 selected
 
-  await checkboxes.nth(1).check()
+  await checkboxes.nth(1).click()
   await expect(checkboxes.nth(1)).toBeChecked()
   await expect
     .poll(async () => {
@@ -2582,10 +2711,10 @@ test("persists group selections through page reload", async () => {
   await expect(checkboxes.nth(1)).toBeChecked()
   await expect(checkboxes.nth(2)).toBeChecked()
   await expect(
-    page.getByText("3 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("3 items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review & move 3 to Trash/i })
+    page.getByRole("button", { name: /Review 3 proposed items/i })
   ).toBeVisible()
 
   await page.close()
@@ -2637,6 +2766,8 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
   ).toBeVisible({
     timeout: 5_000
   })
+
+  await openReviewTools(page)
 
   await page.getByRole("button", { name: /Scan again/i }).click()
   await expect(
@@ -2774,6 +2905,7 @@ test("applies an automatic keep strategy and preserves it after reload", async (
     })
   ).toHaveAttribute("aria-pressed", "true")
 
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -2888,6 +3020,7 @@ test("applies all six keep strategies through the app toolbar", async () => {
   )
 
   for (const strategy of strategies) {
+    await openReviewTools(page)
     await page
       .getByRole("button", { name: /Choose keepers automatically/i })
       .first()
@@ -2905,8 +3038,8 @@ test("applies all six keep strategies through the app toolbar", async () => {
       page
         .getByRole("region", { name: "Cleanup summary" })
         .getByRole("status")
-    ).toHaveText(
-      "1 set included · 1 need review"
+    ).toContainText(
+      "1 set included · 1 needs review"
     )
     await expect(page.getByRole("checkbox", { name: /Include this set of [0-9]+ photos for cleanup/ })).toHaveAttribute(
       "aria-checked",
@@ -2941,7 +3074,7 @@ test("applies all six keep strategies through the app toolbar", async () => {
       page.getByRole("button", { name: /Review next set (\(1 left\))/i })
     ).toBeEnabled()
     await expect(
-      page.getByRole("button", { name: /Review & move 1 to Trash/i })
+      page.getByRole("button", { name: /Review 1 proposed item/i })
     ).not.toBeVisible()
   }
 
@@ -2978,8 +3111,8 @@ test("applies all six keep strategies through the app toolbar", async () => {
   ).toBeVisible({ timeout: 5_000 })
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
-    "1 set included · 1 need review"
+  ).toContainText(
+    "1 set included · 1 needs review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -3092,6 +3225,7 @@ test("applies Best quality independently across two completed duplicate sets", a
       ).__gptkCommandLog?.length ?? 0
   )
 
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -3106,7 +3240,7 @@ test("applies Best quality independently across two completed duplicate sets", a
   )
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
+  ).toContainText(
     "0 sets included · 2 need review"
   )
 
@@ -3154,7 +3288,7 @@ test("applies Best quality independently across two completed duplicate sets", a
   await page.reload()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
+  ).toContainText(
     "0 sets included · 2 need review"
   )
   for (const [fileName, isKept] of expectedKeeperStates) {
@@ -3231,6 +3365,7 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
     })
   ).toBeVisible({ timeout: 5000 })
 
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -3268,8 +3403,8 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
   }
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
-    "0 sets included · 1 need review"
+  ).toContainText(
+    "0 sets included · 1 needs review"
   )
 
   await expect
@@ -3299,8 +3434,8 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
   await page.reload()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
-    "0 sets included · 1 need review"
+  ).toContainText(
+    "0 sets included · 1 needs review"
   )
   const restoredSettings = await readLocalStorage(context, ["settings"])
   expect(restoredSettings.settings).toMatchObject({
@@ -3326,7 +3461,7 @@ test("uses a deterministic keeper and proposes non-keepers without dispatching T
     )
   }
   await expect(
-    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+    page.getByRole("button", { name: "Review one at a time" })
   ).toBeEnabled()
 
   const commandsAfterStrategy = await stub.evaluate(
@@ -3389,9 +3524,10 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   ).toBeVisible({ timeout: 5000 })
   await expect(
-    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("0 items proposed for Trash", { exact: true })
   ).toBeVisible()
 
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -3403,10 +3539,10 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   ).toHaveAttribute("aria-pressed", "true")
   await expect(
-    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("0 items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review next set (\(1 left\))/i })
+    page.getByRole("button", { name: "Review one at a time" })
   ).toBeEnabled()
 
   await expect
@@ -3429,11 +3565,12 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
   ).toBeVisible()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets included")
+  ).toContainText("0 sets included")
 
+  await openReviewTools(page)
   await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
   await expect(
-    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("1 item proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -3441,7 +3578,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
 
   await expect(page.getByRole("button", { name: /^All [0-9]+ shown sets? already included in cleanup$/i })).toBeDisabled()
   await expect(
-    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("1 item proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -3464,12 +3601,12 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   await page.reload()
   await expect(
-    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("1 item proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
-    "1 set included · 1 need review"
+  ).toContainText(
+    "1 set included · 1 needs review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -3499,6 +3636,7 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   ).toHaveAttribute("aria-pressed", "false")
 
+  await openReviewTools(page)
   await page.getByRole("button", { name: /^Remove [0-9]+ shown sets? from cleanup$/i }).click()
   await expect(
     page.getByRole("button", { name: /Review next set \(1 left\)/i })
@@ -3526,10 +3664,10 @@ test("Automatic keeper choices do not select sets; bulk cleanup actions stay sep
     })
   await page.reload()
   await expect(
-    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("0 items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review 1 proposed item/i })
   ).not.toBeVisible()
   await expect
     .poll(() => readLocalStorage(context, ["settings", "selections"]))
@@ -3693,10 +3831,10 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
 
   await page.getByRole("button", { name: "Skip cleanup for this set" }).click()
   await expect(
-    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("0 items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review 1 proposed item/i })
   ).not.toBeVisible()
 
   await expect
@@ -3715,7 +3853,7 @@ test("per-photo Keep and per-set Skip update the visible review state", async ()
     })
   await page.reload()
   await expect(
-    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("0 items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", {
@@ -3780,7 +3918,7 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
     })
     .click()
   await expect(
-    page.getByText("1 item proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("1 item proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect
     .poll(async () => {
@@ -3791,6 +3929,7 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
     })
     .toMatchObject({ selectedGroupIds: ["g1"], reviewedGroupIds: ["g1"] })
 
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -3806,8 +3945,8 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
   )
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
-    "1 set included · 1 need review"
+  ).toContainText(
+    "1 set included · 1 needs review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -3838,8 +3977,8 @@ test("Keeper-rule changes reopen a selected set when its Trash targets change", 
   await page.reload()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText(
-    "1 set included · 1 need review"
+  ).toContainText(
+    "1 set included · 1 needs review"
   )
   await expect(
     page.getByRole("button", { name: /Review next set (\(1 left\))/i })
@@ -3951,7 +4090,8 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
 
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets included")
+  ).toContainText("0 sets included")
+  await openReviewTools(page)
   await page
     .getByRole("button", { name: /Choose keepers automatically/i })
     .first()
@@ -3966,7 +4106,7 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
 
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets included")
+  ).toContainText("0 sets included")
   await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeDisabled()
@@ -4008,7 +4148,7 @@ test("Keeper-rule changes replace manual choices without selecting skipped sets"
   await page.reload()
   await expect(
     page.getByRole("region", { name: "Cleanup summary" }).getByRole("status")
-  ).toHaveText("0 sets included")
+  ).toContainText("0 sets included")
   await expect(
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeDisabled()
@@ -4058,7 +4198,7 @@ test("persists trash-all copy choices through page reload", async () => {
 
   await page.getByRole("button", { name: /Mark all copies for Trash/i }).click()
   await expect(
-    page.getByRole("button", { name: /Review & move 2 to Trash/i })
+    page.getByRole("button", { name: /Review 2 proposed items/i })
   ).toBeVisible()
   await expect(page.locator(".MuiCard-root").nth(0)).toContainText(
     "Proposed for Trash"
@@ -4087,7 +4227,7 @@ test("persists trash-all copy choices through page reload", async () => {
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /Review & move 2 to Trash/i })
+    page.getByRole("button", { name: /Review 2 proposed items/i })
   ).toBeVisible()
   await expect(page.locator(".MuiCard-root").nth(0)).toContainText(
     "Proposed for Trash"
@@ -4132,7 +4272,7 @@ test("keeps all current copies when every saved keeper key is stale", async () =
     page.getByRole("button", { name: /No media items proposed for Trash/i })
   ).toBeVisible()
   await expect(
-    page.getByText("0 items proposed for Trash. Review each included set, then confirm before anything moves.", { exact: true })
+    page.getByText("0 items proposed for Trash", { exact: true })
   ).toBeVisible()
   await expect(page.locator(".MuiCard-root").nth(0)).not.toContainText(
     "Proposed for Trash"
@@ -4321,7 +4461,7 @@ test("ignores malformed saved selections without crashing on load", async () => 
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /Review & move 1 to Trash/i })
+    page.getByRole("button", { name: /Review 1 proposed item/i })
   ).not.toBeVisible()
 
   await page.close()

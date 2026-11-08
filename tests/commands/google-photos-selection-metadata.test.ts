@@ -189,7 +189,7 @@ describe("Google completed-scan quality metadata", () => {
       )
       const result = await waitForResult(messages)
       expect(result.scanCoverage).toMatchObject({ status: "complete" })
-      expect(listRequest).toHaveBeenCalledWith("EzkLib", expect.any(Array))
+      expect(listRequest).toHaveBeenCalledWith("EzkLib", expect.any(Array), expect.any(AbortSignal))
       expect(infoRequest).toHaveBeenCalledTimes(Math.ceil(items.length / 2))
       expect(
         infoRequest.mock.calls.map(
@@ -295,7 +295,7 @@ describe("Google completed-scan quality metadata", () => {
         creationTimestampProvenance: "unknown"
       })
       expect(result.data[0].size).toBeUndefined()
-      expect(infoRequest).toHaveBeenCalledWith("EWgK9e", expect.any(Array))
+      expect(infoRequest).toHaveBeenCalledWith("EWgK9e", expect.any(Array), expect.any(AbortSignal))
     } finally {
       restore()
       listRequest.mockRestore()
@@ -338,7 +338,7 @@ describe("Google completed-scan quality metadata", () => {
       const result = await waitForResult(messages, changedAccountRequestId)
       expect(result.scanCoverage?.status).not.toBe("complete")
       expect(result.error).toContain("account changed during the scan")
-      expect(infoRequest).toHaveBeenCalledWith("EWgK9e", expect.any(Array))
+      expect(infoRequest).toHaveBeenCalledWith("EWgK9e", expect.any(Array), expect.any(AbortSignal))
     } finally {
       window.WIZ_global_data.oPEP7c = originalAccount
       restore()

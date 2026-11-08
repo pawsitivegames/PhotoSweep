@@ -1,16 +1,16 @@
 ---
 version: 1
 name: "PhotoSweep"
-description: "A calm, review-first photo cleanup utility with a blue-and-gold sweep identity."
+description: "A light workspace for reviewing duplicate photos, with a blue-and-gold sweep identity."
 colors:
-  canvas: "#F3F6FB"
+  canvas: "#F7F8FA"
   surface: "#FFFFFF"
   surface-soft: "#EDF3FF"
-  surface-subtle: "#F7F9FC"
-  border: "#E1E7EF"
-  border-strong: "#C8D2E0"
+  surface-subtle: "#F6F8FB"
+  border: "#D9E1EB"
+  border-strong: "#A7B5C7"
   ink: "#1B2D42"
-  muted: "#5E7087"
+  muted: "#53657B"
   primary: "#255BD4"
   primary-dark: "#1948AD"
   primary-border: "#A7BCE8"
@@ -41,6 +41,8 @@ components:
   button: { min-height: "40px", contained-min-height: "44px", focus-ring: "3px" }
   review-card: { selected-border: "2px", default-border: "1px" }
   dialog: { border-radius: "12px" }
+  masthead: { backgroundColor: "{colors.surface}", textColor: "{colors.ink}" }
+  masthead-caption: { backgroundColor: "{colors.surface}", textColor: "{colors.muted}" }
 ---
 
 # PhotoSweep Design System
@@ -69,8 +71,9 @@ review state carry the attention.
   page for longer scans and denser result lists.
 - **Register:** Trustworthy utility. State what an action changes before using
   cleanup language, and use “proposed for Trash” until the user confirms.
-- **Memorable signature:** Blue selection and progress accents paired with the
-  golden sweep in the brand mark.
+- **Memorable signature:** A white header carries the blue-and-gold brand mark.
+  Numbered step markers borrow their shape from a photo index and show where
+  the user is in the scan and review sequence.
 - **Restraint:** Keep result cards and scan controls readable in the narrow
   side panel. Avoid decorative gradients and low-contrast inactive states.
 - **Anti-references:** Teal listing artwork, one-click-cleaner language, and
@@ -82,9 +85,10 @@ review state carry the attention.
 
 ## Colors
 
-The canvas is cool and light, with white cards, quiet slate text, and a single
-royal-blue action color. Blue also marks selected cleanup sets; the heading and
-photo chips explain exactly what that selection means. Success, warning, and
+The header uses dark text and a white surface. The workspace uses a cool light
+canvas, white photo sets, slate text, and a royal-blue action color. Blue also
+marks selected cleanup sets. The heading and photo labels explain what that
+selection means. Success, warning, and
 error colors describe state and never substitute for text. The gold belongs to
 the official mark, not to routine controls. The current extension theme is
 light-only.
@@ -105,12 +109,16 @@ when the card truncates them.
 
 ## Layout
 
-The side panel stacks scope, review controls, one result set, and the cleanup
-summary. Controls stay full-width or use a two-column action row only when
-their labels remain clear. The full page shares the same components and tokens
-while using a wider, virtualized review list. Keep photo choices within their
-set and the cleanup inclusion control in the set header. Do not dim excluded
-sets as if they were disabled.
+Both surfaces use the same header and five-step index. The side panel stacks
+each step number above its label. The full page pairs numbers with labels
+when space allows. Once results arrive, the side panel leads with the review
+tools and makes successful scan coverage expandable. Group the selected scope, matching summary, and primary
+scan action in one scan plan. In review, show the filter and its next action
+above a contact sheet of photo and video copies. Give verification feedback
+the same placement as the verification action. The side panel puts two
+copies side by side where they fit. The full page uses a virtualized list.
+Each set places keeper choices before the explicit cleanup inclusion
+control. Excluded sets remain fully legible.
 
 Use the existing MUI spacing and component overrides. The values in the
 frontmatter document the current review-card, toolbar, and content-width
@@ -118,15 +126,17 @@ geometry; component-specific exceptions remain in their owner components.
 
 ## Elevation and depth
 
-Separate sections with borders and small, soft shadows. A selected set gets a
-stronger blue border and a pale blue header. Unselected sets remain fully
-opaque. Reserve deep shadow and dark overlays for the photo viewer. Avoid
-blurred glass effects in review controls and cleanup summaries.
+Separate toolbars and optional settings with a single rule. Use small shadows
+where controls float over content. A selected set gets a stronger blue border and a pale blue
+cleanup area. The sticky cleanup summary leads with the number of media
+items proposed for Trash.
+Unselected sets remain fully opaque. Reserve deep shadow and dark overlays
+for the photo viewer. The cleanup summary uses a solid surface.
 
 ## Shapes
 
-Controls use the theme's 8px base radius. Dialogs use 12px; large review cards
-use a larger rounded container with a tighter radius in the side panel. Chips
+Controls use the theme's 8px base radius. Dialogs use 12px. Review cards use a
+16px radius on the full page and 12px in the side panel. Chips
 and pills remain compact. Focus outlines are visible and must not be clipped by
 sticky containers.
 
@@ -137,10 +147,10 @@ sticky containers.
 - **Default:** White surface, quiet border, full-opacity text and media.
 - **Hover/active:** Small border or surface change; do not move content or
   resize a control.
-- **Focus-visible:** Three-pixel primary-blue outline with an offset.
-- **Selected keeper:** A visible “Keep this copy” or “Suggested keeper” chip
+- **Focus-visible:** Use a three-pixel primary-blue outline with an offset.
+- **Selected keeper:** A visible “Keep this copy” or “Suggested keep” label
   and blue card treatment.
-- **Selected cleanup set:** Checked set control, pale-blue header, and an
+- **Selected cleanup set:** Checked set control, pale-blue cleanup area, and an
   explicit “Selected for cleanup” state.
 - **Needs review:** Warning-colored state label; never signal this only by
   color.

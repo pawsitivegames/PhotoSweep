@@ -83,7 +83,7 @@ describe("ScanProgress", () => {
       renderScanProgress({ itemsProcessed: 123, totalEstimate: 0 })
       expect(screen.getByText("123", { exact: false })).toBeInTheDocument()
       expect(
-        screen.getByText(/You can leave this tab open/i)
+        screen.getByText(/Leave the photo library tab open/i)
       ).toBeInTheDocument()
     })
 

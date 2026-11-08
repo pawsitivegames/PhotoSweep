@@ -26,7 +26,9 @@ import GlobalStyles from "@mui/material/GlobalStyles"
 import IconButton from "@mui/material/IconButton"
 import LinearProgress from "@mui/material/LinearProgress"
 import MenuItem from "@mui/material/MenuItem"
+import Paper from "@mui/material/Paper"
 import Snackbar from "@mui/material/Snackbar"
+import Stack from "@mui/material/Stack"
 import { ThemeProvider } from "@mui/material/styles"
 import TextField from "@mui/material/TextField"
 import Toolbar from "@mui/material/Toolbar"
@@ -66,7 +68,10 @@ import {
   DecisionMemoryStore
 } from "../lib/decision-memory"
 import type { DeleteReport } from "../lib/delete-report"
-import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
+import {
+  classifyDuplicateGroup,
+  isLocallyVerifiedOriginalHash
+} from "../lib/duplicate-classifier"
 import { DuplicateDetectionEngine } from "../lib/duplicate-detector"
 import {
   applyDefaultKeepStrategyToSession,
@@ -147,6 +152,7 @@ import {
   MAX_ORIGINAL_BYTES_PER_REVIEW,
   getOriginalContentVerificationUnavailableMessage,
   getProviderRetrievalSessionError,
+  isOriginalReviewBudgetExhausted,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   isVideoForPlayback,
@@ -482,7 +488,8 @@ function SidePanelConnectionSetup({
         display: "flex",
         flexDirection: "column",
         alignItems: "stretch",
-        maxWidth: "100%",
+        width: "100%",
+        maxWidth: 900,
         mx: "auto",
         gap: 1.25
       }}>
@@ -492,17 +499,10 @@ function SidePanelConnectionSetup({
           borderColor: "divider",
           borderRadius: 2,
           bgcolor: photoSweepColors.surface,
-          p: 1.25
+          p: { xs: 2, sm: 3 }
         }}>
-        <Typography variant="overline" sx={{
-          color: "text.secondary"
-        }}>
-          Step 1
-        </Typography>
-        <Typography variant="subtitle1" gutterBottom sx={{
-          fontWeight: 800
-        }}>
-          Choose photo source
+        <Typography component="h2" variant="h5" gutterBottom>
+          Connect a photo library
         </Typography>
         <Typography
           variant="body2"
@@ -526,21 +526,17 @@ function SidePanelConnectionSetup({
           <MenuItem value="icloud">iCloud Photos</MenuItem>
           <MenuItem value="amazon">Amazon Photos</MenuItem>
         </TextField>
-        <Box
-          sx={{
-            border: "1px solid",
-            borderColor: photoSweepColors.border,
-            borderRadius: 2,
-            p: 0.5,
-            bgcolor: photoSweepColors.surfaceSoft
-          }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
           <Button
-            size="small"
+            variant="contained"
+            endIcon={<OpenInNewRoundedIcon />}
+            onClick={() => onOpenProvider(selectedProvider)}>
+            Open {providerLabel(selectedProvider)}
+          </Button>
+          <Button
             variant="outlined"
             startIcon={<RefreshRoundedIcon />}
-            onClick={onRetry}
-            fullWidth
-            sx={{ fontWeight: 800 }}>
+            onClick={onRetry}>
             Retry connection
           </Button>
         </Box>
@@ -580,7 +576,13 @@ type WorkflowStepItem = {
   status: TimelineStepStatus
 }
 
-function WorkflowProgress({ steps }: { steps: WorkflowStepItem[] }) {
+function WorkflowProgress({
+  steps,
+  compact = false
+}: {
+  steps: WorkflowStepItem[]
+  compact?: boolean
+}) {
   return (
     <Box
       component="ol"
@@ -588,17 +590,15 @@ function WorkflowProgress({ steps }: { steps: WorkflowStepItem[] }) {
       sx={{
         listStyle: "none",
         m: 0,
-        px: 0.5,
-        py: 0.5,
+        mb: compact ? 0 : 2.5,
+        p: 0.5,
         display: "grid",
         gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
-        gap: 0.25,
-        border: "1px solid",
-        borderColor: photoSweepColors.border,
-        borderRadius: 1.5,
-        bgcolor: photoSweepColors.surface
+        gap: 0.5,
+        borderBottom: "1px solid",
+        borderColor: "divider"
       }}>
-      {steps.map((step, position) => {
+      {steps.map((step) => {
         const isActive = step.status === "active"
         const isComplete = step.status === "complete"
         const markerColor = isComplete
@@ -620,67 +620,52 @@ function WorkflowProgress({ steps }: { steps: WorkflowStepItem[] }) {
             aria-label={`${step.title}: ${statusLabel}`}
             sx={{
               minWidth: 0,
-              position: "relative",
-              display: "grid",
-              justifyItems: "center",
-              gap: 0.35,
-              color: markerColor,
-              opacity: step.status === "locked" ? 0.72 : 1,
-              "&::before":
-                position === 0
-                  ? undefined
-                  : {
-                      content: '""',
-                      position: "absolute",
-                      top: 9,
-                      right: "50%",
-                      width: "100%",
-                      height: 2,
-                      bgcolor:
-                        steps[position - 1]?.status === "complete"
-                          ? photoSweepColors.success
-                          : photoSweepColors.border,
-                      zIndex: 0
-                    }
+              display: "flex",
+              flexDirection: compact ? "column" : { xs: "column", sm: "row" },
+              alignItems: "center",
+              justifyContent: "center",
+              gap: compact ? 0.35 : 0.85,
+              py: compact ? 0.55 : 0.85,
+              borderRadius: 1,
+              bgcolor: isActive ? "primary.light" : "transparent",
+              color: markerColor
             }}>
             <Box
+              aria-hidden="true"
               sx={{
-                width: 18,
-                height: 18,
-                borderRadius: "50%",
+                width: 23,
+                height: 20,
+                borderRadius: 0.5,
+                flexShrink: 0,
                 display: "grid",
                 placeItems: "center",
-                border: "1.5px solid",
-                borderColor: markerColor,
                 bgcolor: isComplete
                   ? photoSweepColors.successSoft
                   : isActive
-                    ? photoSweepColors.primarySoft
+                    ? photoSweepColors.primary
                     : photoSweepColors.surfaceSoft,
-                color: markerColor,
+                color: isActive ? "primary.contrastText" : markerColor,
                 fontSize: 10,
                 lineHeight: 1,
-                fontWeight: 800,
-                zIndex: 1,
-                "& svg": { fontSize: 12 }
+                fontWeight: 700,
+                fontVariantNumeric: "tabular-nums",
+                "& svg": { fontSize: 14 }
               }}>
               {isComplete ? (
                 <CheckCircleRoundedIcon />
               ) : (
-                step.index
+                String(step.index).padStart(2, "0")
               )}
             </Box>
             <Typography
               variant="caption"
-              noWrap
               sx={{
                 maxWidth: "100%",
-                fontSize: 10.5,
-                lineHeight: 1.1,
-                fontWeight: isActive ? 800 : 650,
-                color: isActive ? photoSweepColors.ink : markerColor,
-                overflow: "hidden",
-                textOverflow: "ellipsis"
+                textAlign: "center",
+                fontSize: compact ? 11 : { xs: 11, sm: 13 },
+                lineHeight: 1.2,
+                fontWeight: isActive ? 700 : 600,
+                color: isActive ? "primary.dark" : "text.secondary"
               }}>
               {step.title}
             </Typography>
@@ -693,9 +678,11 @@ function WorkflowProgress({ steps }: { steps: WorkflowStepItem[] }) {
 
 function SidePanelTimelineStep({
   status,
-  children
+  children,
+  framed = true
 }: Pick<WorkflowStepItem, "status"> & {
   children?: ReactNode
+  framed?: boolean
 }) {
   if (status !== "active" || !children) return null
 
@@ -705,13 +692,12 @@ function SidePanelTimelineStep({
         minWidth: 0,
         width: "100%",
         display: "grid",
-        gap: 0.75,
-        p: 1,
-        border: "1px solid",
-        borderColor: photoSweepColors.border,
+        gap: framed ? 0.75 : 1.25,
+        p: framed ? 1.25 : 0,
+        border: framed ? "1px solid" : 0,
+        borderColor: "divider",
         borderRadius: 1.5,
-        bgcolor: photoSweepColors.surface,
-        boxShadow: "none",
+        bgcolor: framed ? photoSweepColors.surface : "transparent",
         "& > *": {
           minWidth: 0,
           maxWidth: "100%",
@@ -741,13 +727,9 @@ function SidePanelSourceBar({
         display: "grid",
         gridTemplateColumns: "minmax(0, 1fr) max-content",
         alignItems: "center",
-        gap: 0.75,
-        border: "1px solid",
-        borderColor: photoSweepColors.border,
-        borderRadius: 2,
-        bgcolor: photoSweepColors.surface,
-        boxShadow: "none",
-        p: 0.5
+        gap: 1.25,
+        bgcolor: photoSweepColors.canvasTop,
+        py: 0.5
       }}>
       <TextField
         select
@@ -794,19 +776,8 @@ function SidePanelSourceBar({
           display: "inline-flex",
           alignItems: "center",
           gap: 0.45,
-          px: 0.9,
-          py: 0.65,
-          borderRadius: 999,
-          bgcolor: connected
-            ? photoSweepColors.successSoft
-            : photoSweepColors.surfaceSoft,
-          border: "1px solid",
-          borderColor: connected
-            ? photoSweepColors.successSoft
-            : photoSweepColors.border,
           color: connected ? photoSweepColors.success : photoSweepColors.muted,
-          fontWeight: 850,
-          fontSize: 11,
+          fontWeight: 600,
           lineHeight: 1
         }}>
         <Box
@@ -827,27 +798,31 @@ function SidePanelSourceBar({
   )
 }
 
-function SidePanelBrandHeader() {
+function WorkspaceBrand() {
   return (
     <Box
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 0.85,
-        px: 0.35,
-        py: 0.2
+        minWidth: 0,
+        flexGrow: 1,
+        gap: 1
       }}>
       <PhotoSweepBrandMark size={34} />
-      <Typography
-        variant="subtitle1"
-        sx={{
-          fontWeight: 850,
-          letterSpacing: 0,
-          color: photoSweepColors.ink,
-          lineHeight: 1
-        }}>
-        PhotoSweep
-      </Typography>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          component="h1"
+          variant="subtitle1"
+          sx={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>
+          PhotoSweep
+        </Typography>
+        <Typography
+          component="div"
+          variant="caption"
+          sx={{ color: "text.secondary", lineHeight: 1.4 }}>
+          Photo library cleanup
+        </Typography>
+      </Box>
     </Box>
   );
 }
@@ -1126,6 +1101,25 @@ export default function App() {
   const [resumeCheckpoint, setResumeCheckpoint] =
     useState<ScanCheckpoint | null>(null)
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all")
+  const [bulkVerification, setBulkVerification] = useState<{
+    startedFromExact: boolean
+    setsMovedToExact: number
+    total: number
+    verified: number
+    failed: number
+    running: boolean
+    stopped: boolean
+    stopReason: "budget" | "session" | null
+    lastError?: string
+  } | null>(null)
+  const bulkVerificationControllerRef = useRef<AbortController | null>(null)
+  const [bulkReviewSource, setBulkReviewSource] = useState<{
+    session: DuplicateReviewSession
+    groups: DuplicateGroup[]
+    exactOnly: boolean
+  } | null>(null)
+  const proposalButtonRef = useRef<HTMLButtonElement>(null)
+  const focusProposalOnCloseRef = useRef(false)
   const [reviewFocusGroupId, setReviewFocusGroupId] = useState<string | null>(
     null
   )
@@ -3763,6 +3757,9 @@ export default function App() {
     [groups, groupClassificationById]
   )
   const similarGroupCount = groups.length - exactGroupCount
+  const exactBulkReview = reviewFilter === "exact"
+  const exactFilterEmpty =
+    exactBulkReview && exactGroupCount === 0 && similarGroupCount > 0
   const filteredGroups = useMemo(() => {
     if (reviewFilter === "all") return groups
     return groups.filter(
@@ -3773,9 +3770,138 @@ export default function App() {
     () => getVisibleGroups(filteredGroups, entitlement),
     [filteredGroups, entitlement]
   )
+  const verificationScope = state.status === "results" && stateIdentityValidated
+    ? JSON.stringify([
+        state.sourceProvider,
+        state.providerSessionId,
+        state.accountEmail,
+        state.scopeFingerprint,
+        state.scanDate
+      ])
+    : null
+  const verificationSessionCurrent = Boolean(
+    verificationScope &&
+      resultIdentitySessionId &&
+      state.status === "results" &&
+      state.providerSessionId === resultIdentitySessionId &&
+      state.scopeFingerprint &&
+      (resultProvider !== "google" || state.accountEmail === resultIdentityAccountEmail)
+  )
+  useEffect(() => {
+    setBulkVerification(null)
+    return () => {
+      const controller = bulkVerificationControllerRef.current
+      bulkVerificationControllerRef.current = null
+      controller?.abort()
+    }
+  }, [verificationScope])
+
+  const similarGroupsToVerify = useMemo(() => {
+    if (!verificationScope) return []
+    if (reviewFilter === "similar") return visibleGroups
+    if (!exactFilterEmpty) return []
+    return getVisibleGroups(
+      groups.filter((group) => groupClassificationById.get(group.id) === "similar"),
+      entitlement
+    )
+  }, [entitlement, exactFilterEmpty, groupClassificationById, groups, reviewFilter, verificationScope, visibleGroups])
+  const similarItemsToVerify = useMemo(() => {
+    const mediaKeys = new Set(similarGroupsToVerify.flatMap((group) => group.mediaKeys))
+    return Array.from(mediaKeys).flatMap((key) => {
+      const item = displayMediaItems[key]
+      return item &&
+        item.mediaKind !== "live-photo" &&
+        !isLocallyVerifiedOriginalHash(item.contentHash) &&
+        getOriginalContentVerificationUnavailableMessage(item) === null
+        ? [item]
+        : []
+    })
+  }, [displayMediaItems, similarGroupsToVerify])
+
+  const handleVerifySimilarSets = async () => {
+    if (
+      state.status !== "results" ||
+      !verificationSessionCurrent ||
+      bulkVerificationControllerRef.current ||
+      bulkVerification?.stopReason === "budget" ||
+      similarItemsToVerify.length === 0
+    ) return
+
+    const controller = new AbortController()
+    bulkVerificationControllerRef.current = controller
+    const verifiedMediaItems = { ...displayMediaItems }
+    const progress = {
+      startedFromExact: exactBulkReview,
+      setsMovedToExact: 0,
+      total: similarItemsToVerify.length,
+      verified: 0,
+      failed: 0,
+      running: true,
+      stopped: false,
+      stopReason: null as "budget" | "session" | null,
+      lastError: undefined as string | undefined
+    }
+    setBulkVerification({ ...progress })
+    try {
+      // Use a fixed queue. Groups can leave Similar as their hashes match.
+      for (const item of similarItemsToVerify) {
+        if (controller.signal.aborted) break
+        const current = stateRef.current
+        if (
+          current.status !== "results" ||
+          current.scanDate !== state.scanDate ||
+          current.sourceProvider !== state.sourceProvider ||
+          current.providerSessionId !== state.providerSessionId ||
+          current.accountEmail !== state.accountEmail ||
+          current.scopeFingerprint !== state.scopeFingerprint ||
+          currentIdentityProviderRef.current !== state.sourceProvider ||
+          currentProviderSessionIdRef.current !== state.providerSessionId
+        ) {
+          progress.stopReason = "session"
+          break
+        }
+
+        try {
+          const result = await handleVerifyOriginal(item, controller.signal)
+          verifiedMediaItems[item.mediaKey] = {
+            ...item,
+            contentHash: result.contentHash
+          }
+          progress.verified += 1
+        } catch (error) {
+          if (controller.signal.aborted) break
+          progress.failed += 1
+          progress.lastError = safeProviderRetrievalError(error)
+          if (isOriginalReviewBudgetExhausted(progress.lastError)) {
+            progress.stopReason = "budget"
+            break
+          }
+        }
+        if (bulkVerificationControllerRef.current === controller) {
+          setBulkVerification({ ...progress })
+        }
+      }
+    } finally {
+      if (bulkVerificationControllerRef.current === controller) {
+        bulkVerificationControllerRef.current = null
+        setBulkVerification({
+          ...progress,
+          setsMovedToExact: similarGroupsToVerify.filter(
+            (group) => classifyDuplicateGroup(group, verifiedMediaItems).duplicateKind === "exact"
+          ).length,
+          running: false,
+          stopped: controller.signal.aborted || progress.stopReason !== null
+        })
+      }
+    }
+  }
   const cleanupScopeGroups = useMemo(
     () => getVisibleGroups(groups, entitlement),
     [groups, entitlement]
+  )
+  const exactCleanupGroups = useMemo(
+    () => cleanupScopeGroups.filter((group) => groupClassificationById.get(group.id) === "exact"),
+    [cleanupScopeGroups, groupClassificationById]
   )
   const lockedGroupCount = useMemo(
     () => getLockedGroupCount(filteredGroups, entitlement),
@@ -3868,15 +3994,54 @@ export default function App() {
     )
     if (!nextGroup) return
 
-    setReviewFilter(groupClassificationById.get(nextGroup.id) ?? "all")
+    if (!visibleGroups.some((group) => group.id === nextGroup.id)) {
+      setReviewFilter(groupClassificationById.get(nextGroup.id) ?? "all")
+    }
     setReviewFocusGroupId(nextGroup.id)
-  }, [cleanupScopeGroups, groupClassificationById, reviewSession])
-  const handleReviewAll = useCallback(() => {
-    updateReviewSelections({
-      type: "mark_groups_reviewed",
-      groupIds: cleanupScopeGroups.map((group) => group.id)
-    })
-  }, [cleanupScopeGroups, updateReviewSelections])
+  }, [cleanupScopeGroups, groupClassificationById, reviewSession, visibleGroups])
+  const bulkReview = useMemo(() => {
+    if (
+      !stateIdentityValidated ||
+      bulkReviewSource?.session !== reviewSession ||
+      bulkReviewSource.groups !== cleanupScopeGroups ||
+      bulkReviewSource.exactOnly !== (reviewFilter === "exact")
+    ) {
+      return null
+    }
+    const exactOnly = bulkReviewSource.exactOnly
+    const batchGroups = exactOnly ? exactCleanupGroups : cleanupScopeGroups
+    let action: DuplicateReviewAction = {
+      type: "select_groups",
+      groupIds: batchGroups.map((group) => group.id)
+    }
+    if (exactOnly) {
+      // Explicitly choosing only exact sets also skips the other sets in
+      // scope. Commit both decisions together with the existing keeper picks.
+      const selections = reviewSession.update({
+        type: "mark_groups_reviewed",
+        groupIds: cleanupScopeGroups.map((group) => group.id)
+      })
+      selections.selectedGroupIds = new Set(batchGroups.map((group) => group.id))
+      action = { type: "replace", selections }
+    }
+    const plan = reviewSession.transition(action).trashPlan(cleanupScopeGroups)
+    return { action, plan, exactOnly, groupCount: batchGroups.length }
+  }, [bulkReviewSource, cleanupScopeGroups, exactCleanupGroups, reviewFilter, reviewSession, stateIdentityValidated])
+
+  const handleAcceptBulkReview = () => {
+    if (
+      !bulkReview ||
+      (!bulkReview.exactOnly && bulkReview.plan.mediaKeysToTrash.length === 0) ||
+      stateRef.current.status !== "results" ||
+      reviewSessionRef.current !== bulkReviewSource?.session
+    ) {
+      return
+    }
+    if (updateReviewSelections(bulkReview.action)) {
+      focusProposalOnCloseRef.current = true
+      setBulkReviewSource(null)
+    }
+  }
   const handleReviewFocusGroupHandled = useCallback(
     () => setReviewFocusGroupId(null),
     []
@@ -5245,8 +5410,17 @@ export default function App() {
       ? cleanupTrashPlan.mediaKeysToTrash.length
       : 0
   const includedGroupCount = cleanupScopeGroups.filter((group) =>
-    reviewSession.selectedGroupIds.has(group.id)
+    selectedGroupIds.has(group.id)
   ).length
+  const canPrepareBulkReview = exactBulkReview
+    ? exactCleanupGroups.length > 0 && (
+        !allCleanupScopeGroupsReviewed ||
+        selectedGroupIds.size !== exactCleanupGroups.length ||
+        exactCleanupGroups.some((group) => !selectedGroupIds.has(group.id))
+      )
+    : cleanupScopeGroups.length > 0 && (
+        !allCleanupScopeGroupsReviewed || includedGroupCount < cleanupScopeGroups.length
+      )
   const selectedShownGroupCount = visibleGroups.filter((group) =>
     selectedGroupIds.has(group.id)
   ).length
@@ -5406,11 +5580,234 @@ export default function App() {
       }} />
   )
 
+  const setsMovedToExact = bulkVerification?.setsMovedToExact ?? 0
+  const showReviewExact = setsMovedToExact > 0 && !exactBulkReview
+  const hasUncheckedOriginals = similarItemsToVerify.length > 0
+  const reviewBudgetExhausted = bulkVerification?.stopReason === "budget"
+  const needsFreshVerificationScan =
+    (hasUncheckedOriginals && !verificationSessionCurrent) ||
+    bulkVerification?.stopReason === "session" ||
+    Boolean(
+      bulkVerification &&
+        !bulkVerification.running &&
+        bulkVerification.failed === bulkVerification.total &&
+        /\bscan (?:the current account )?again\b/i.test(bulkVerification.lastError ?? "")
+    )
+  const verificationRecovery = reviewBudgetExhausted
+    ? "Scan a smaller date range to check more originals."
+    : needsFreshVerificationScan
+      ? "Scan again to verify originals in the current provider session."
+      : null
+  const showVerifySimilar = hasUncheckedOriginals || exactFilterEmpty
+  const showVerificationNote = verificationRecovery || !bulkVerification ||
+    (exactFilterEmpty && !bulkVerification.running && !hasUncheckedOriginals)
+  const verificationPanel = (bulkVerification?.running ||
+    exactFilterEmpty ||
+    (exactBulkReview && bulkVerification?.startedFromExact) ||
+    (reviewFilter === "similar" && (visibleGroups.length > 0 || bulkVerification))) ? (
+    <Paper
+      component="section"
+      aria-label="Verify similar sets"
+      tabIndex={-1}
+      variant="outlined"
+      sx={{ width: "100%", p: isSidePanel ? 1.25 : 1.5, display: "grid", gap: 0.75 }}>
+      {bulkVerification ? (
+        <Box role="status" aria-live="polite">
+          <Typography variant="subtitle2" fontWeight={700}>
+            {bulkVerification.running
+              ? "Verifying original files"
+              : reviewBudgetExhausted
+                ? "Review download limit reached"
+                : bulkVerification.stopped
+                  ? "Verification stopped"
+                  : bulkVerification.failed > 0 ? "Verification finished with errors" : "Verification complete"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {bulkVerification.verified.toLocaleString()} of {bulkVerification.total.toLocaleString()} originals checked successfully
+            {bulkVerification.failed > 0 && ` · ${bulkVerification.failed.toLocaleString()} could not be checked`}
+          </Typography>
+          {!bulkVerification.running && (
+            <Typography variant="body2" fontWeight={700}>
+              {setsMovedToExact.toLocaleString()} {setsMovedToExact === 1 ? "set" : "sets"} moved to Exact
+            </Typography>
+          )}
+          {!bulkVerification.running && bulkVerification.lastError && !reviewBudgetExhausted && (
+            <Typography variant="caption" color="text.secondary">
+              {bulkVerification.lastError}
+            </Typography>
+          )}
+        </Box>
+      ) : (
+        <Box>
+          <Typography variant="subtitle2" fontWeight={700}>
+            {exactFilterEmpty ? "No verified exact sets" : "Check for exact duplicates"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Verify originals to see which similar sets are byte-for-byte identical.
+          </Typography>
+        </Box>
+      )}
+      {bulkVerification?.running ? (
+        <>
+          <LinearProgress
+            aria-label="Original file verification progress"
+            variant="determinate"
+            value={100 * (bulkVerification.verified + bulkVerification.failed) / bulkVerification.total}
+          />
+          <Button
+            sx={{ justifySelf: "start" }}
+            onClick={(event) => {
+              event.currentTarget.closest("section")?.focus()
+              bulkVerificationControllerRef.current?.abort()
+            }}>
+            Stop verification
+          </Button>
+        </>
+      ) : (showReviewExact || showVerifySimilar || verificationRecovery) && (
+        <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.75}>
+          {showReviewExact && (
+            <Button variant="contained" onClick={() => {
+              setReviewFilter("exact")
+              document.getElementById("exact-review-filter")?.focus()
+            }}>
+              Review exact sets
+            </Button>
+          )}
+          {showVerifySimilar && (
+            <Button
+              variant={showReviewExact ? "outlined" : "contained"}
+              disabled={!hasUncheckedOriginals || Boolean(verificationRecovery)}
+              onClick={(event) => {
+                event.currentTarget.closest("section")?.focus()
+                void handleVerifySimilarSets()
+              }}>
+              Verify all similar sets
+            </Button>
+          )}
+          {verificationRecovery && (
+            <Button variant={setsMovedToExact > 0 ? "outlined" : "contained"} onClick={handleReset}>
+              {reviewBudgetExhausted ? "Change scan settings" : "Scan again"}
+            </Button>
+          )}
+        </Stack>
+      )}
+      {showVerificationNote && (
+        <Typography variant="caption" color="text.secondary">
+          {verificationRecovery ?? (hasUncheckedOriginals
+            ? "Checks run locally, with limits of 25 MiB per file and 100 MiB per review."
+            : "No eligible unchecked originals in the similar sets available to review.")}
+        </Typography>
+      )}
+    </Paper>
+  ) : null
+
+  const reviewWorkspace = state.status === "results" && groups.length > 0 ? (
+    <>
+      {shouldShowDeferredUpgrade(
+        deferredUpgrade,
+        groups.length,
+        true
+      ) && (
+        <DeferredUpgradeBanner
+          prompt={deferredUpgrade}
+          onOpen={handleOpenDeferredUpgrade}
+          onDismiss={handleDismissDeferredUpgrade}
+        />
+      )}
+      <ActionBar
+        totalItems={state.totalItems}
+        groupCount={visibleGroups.length}
+        totalGroupCount={groups.length}
+        availableGroupCount={cleanupScopeGroups.length}
+        exactAvailableGroupCount={exactCleanupGroups.length}
+        hiddenAvailableGroupCount={hiddenAvailableGroupCount}
+        reviewedGroupCount={reviewedVisibleGroupCount}
+        selectedShownGroupCount={selectedShownGroupCount}
+        includedGroupCount={includedGroupCount}
+        exactGroupCount={exactGroupCount}
+        similarGroupCount={similarGroupCount}
+        reviewFilter={reviewFilter}
+        onReviewFilterChange={setReviewFilter}
+        onIncludeAllEligible={reviewFilter === "all" ? handleIncludeAllEligible : undefined}
+        onPrepareAll={reviewFilter !== "similar" && canPrepareBulkReview &&
+          !(exactBulkReview && bulkVerification?.running)
+          ? () => setBulkReviewSource({
+              session: reviewSession,
+              groups: cleanupScopeGroups,
+              exactOnly: exactBulkReview
+            })
+          : undefined}
+        onReviewIndividually={
+          reviewFilter === "all" &&
+          cleanupScopeGroups.length > 0 &&
+          reviewedCleanupScopeGroupCount === 0 &&
+          includedGroupCount === 0
+            ? handleReviewNext
+            : undefined
+        }
+        verificationPanel={verificationPanel}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onRescan={handleReset}
+        onExportJson={handleExportJson}
+        onExportCsv={handleExportCsv}
+        onApplyKeepStrategy={handleApplyKeepStrategy}
+        recoveryHistoryCount={recoveryHistory.length}
+        onOpenRecoveryHistory={() => setRecoveryHistoryOpen(true)}
+        onClearDecisionMemory={handleClearDecisionMemory}
+        compact={isSidePanel}
+      />
+      {lockedGroupCount > 0 && (
+        <Alert severity="info" sx={{ mb: isSidePanel ? 0 : 2, py: 0.65 }}>
+          {lockedGroupCount.toLocaleString()} more duplicate set
+          {lockedGroupCount === 1 ? "" : "s"} found. Upgrade to
+          review and clean the full scan.
+        </Alert>
+      )}
+      {!exactFilterEmpty && (
+        <DuplicateGroups
+          groups={visibleGroups}
+          onClearFilter={reviewFilter === "all" ? undefined : () => setReviewFilter("all")}
+          focusGroupId={reviewFocusGroupId}
+          onFocusGroupHandled={handleReviewFocusGroupHandled}
+          mediaItems={displayMediaItems}
+          trashPlanMediaKeys={trashPlanMediaKeys}
+          selectedGroupIds={selectedGroupIds}
+          reviewedGroupIds={reviewedGroupIds}
+          onToggleGroup={handleToggleGroup}
+          onSkipGroup={handleSkipGroup}
+          getKeptForGroup={getKept}
+          getKeepDecisionForGroup={getKeepDecision}
+          onToggleKept={handleToggleKept}
+          onTrashAll={handleTrashAllCopies}
+          onVerifyOriginal={bulkVerification?.running ? undefined : handleVerifyOriginal}
+          onLoadVideo={handleLoadVideo}
+          compact={isSidePanel}
+        />
+      )}
+      <CleanupBar
+        includedGroupCount={includedGroupCount}
+        duplicateCount={duplicateCount}
+        reviewedGroupCount={reviewedCleanupScopeGroupCount}
+        totalGroupCount={cleanupScopeGroups.length}
+        onReviewNext={handleReviewNext}
+        showReviewNext={reviewedCleanupScopeGroupCount > 0 || includedGroupCount > 0}
+        proposalButtonRef={proposalButtonRef}
+        onTrash={handleTrash}
+        compact={isSidePanel}
+      />
+    </>
+  ) : null
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <GlobalStyles
         styles={{
+          html: {
+            scrollbarColor: `${photoSweepColors.borderStrong} ${photoSweepColors.canvasTop}`,
+            "@media (forced-colors: active)": { scrollbarColor: "auto" }
+          },
           body: {
             background: photoSweepColors.canvasTop,
             overflowX: "hidden",
@@ -5427,7 +5824,31 @@ export default function App() {
         }}
       />
 
-      {!isSidePanel && (
+      {isSidePanel ? (
+        <AppBar position="static" elevation={0}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              px: { xs: 1.5, sm: 2 },
+              py: 1.25
+            }}>
+            <WorkspaceBrand />
+            <Button
+              color="inherit"
+              size="small"
+              startIcon={<HistoryRoundedIcon />}
+              onClick={() => setRecoveryHistoryOpen(true)}>
+              {recoveryHistoryReadError
+                ? "Recovery"
+                : recoveryHistory.length > 0
+                  ? `Recovery · ${recoveryHistory.length}`
+                  : "Recovery"}
+            </Button>
+          </Box>
+        </AppBar>
+      ) : (
         <AppBar position="sticky" elevation={0}>
           <Toolbar
             sx={{
@@ -5437,17 +5858,7 @@ export default function App() {
               mx: "auto",
               px: { xs: 2, md: 3 }
             }}>
-            <PhotoSweepBrandMark size={34} />
-            <Typography
-              variant="h6"
-              noWrap
-              sx={{
-                fontWeight: 700,
-                flexGrow: 1,
-                letterSpacing: 0
-              }}>
-              PhotoSweep
-            </Typography>
+            <WorkspaceBrand />
             {"accountEmail" in state && state.accountEmail ? (
               <Typography
                 variant="body2"
@@ -5466,13 +5877,16 @@ export default function App() {
                 noWrap
                 title="The Amazon profile name is for display only; PhotoSweep binds this session using the current Photos page."
                 sx={{
-                  color: "text.secondary"
+                  color: "text.secondary",
+                  maxWidth: "32vw",
+                  fontSize: 12
                 }}>
                 Amazon Photos profile: {amazonProfileName} · session only
               </Typography>
             ) : null}
             {recoveryHistory.length > 0 && (
               <Button
+                color="inherit"
                 size="small"
                 startIcon={<HistoryRoundedIcon />}
                 onClick={() => setRecoveryHistoryOpen(true)}>
@@ -5482,7 +5896,8 @@ export default function App() {
             {recoveryHistoryReadError && (
               <Button
                 size="small"
-                color="warning"
+                color="inherit"
+                sx={{ color: "warning.main" }}
                 onClick={() => setRecoveryHistoryOpen(true)}>
                 Recovery unavailable
               </Button>
@@ -5503,7 +5918,7 @@ export default function App() {
               : 1360,
           mx: "auto",
           px: isSidePanel ? { xs: 1.5, sm: 2 } : { xs: 2, md: 3 },
-        py: isSidePanel ? 1 : { xs: 2, md: 3 },
+          py: isSidePanel ? 1.25 : { xs: 2, md: 3 },
           minHeight: isSidePanel ? "100vh" : "calc(100vh - 64px)",
           background: "transparent",
           "&.photosweep-panel": { width: "100%" },
@@ -5515,30 +5930,9 @@ export default function App() {
           <Box
             sx={{
               display: "grid",
-              gap: 0.75,
+              gap: 1,
               pb: 1
             }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 1
-              }}>
-              <SidePanelBrandHeader />
-              <Button
-                size="small"
-                startIcon={<HistoryRoundedIcon />}
-                onClick={() => setRecoveryHistoryOpen(true)}
-                sx={{ minHeight: 36, fontWeight: 600 }}>
-                {recoveryHistoryReadError
-                  ? "Recovery"
-                  : recoveryHistory.length > 0
-                    ? `Recovery · ${recoveryHistory.length}`
-                    : "Recovery"}
-              </Button>
-            </Box>
-            {analyticsConsentNotice}
             {recoveryHistoryReadError && (
               <Alert severity="warning" sx={{ py: 0.5 }}>
                 Recovery history is unavailable. Restore actions are paused.
@@ -5551,17 +5945,25 @@ export default function App() {
               onProviderChange={handleOpenProvider}
             />
 
-            <WorkflowProgress steps={workflowSteps} />
+            {state.status !== "results" && (
+              <WorkflowProgress steps={workflowSteps} compact />
+            )}
 
             <SidePanelTimelineStep
               status={sourceStepComplete ? "complete" : "active"}>
+              <Typography component="h2" variant="subtitle1" fontWeight={700}>
+                Connect a photo library
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Choose your provider above, then continue in its tab.
+              </Typography>
               <Button
                 variant="contained"
                 fullWidth
                 endIcon={<OpenInNewRoundedIcon />}
                 onClick={() => handleOpenProvider(sourceProvider)}
-                sx={{ minHeight: 42, borderRadius: 2, fontWeight: 850 }}>
-                Continue
+                sx={{ mt: 0.5 }}>
+                Open {providerLabel(sourceProvider)}
               </Button>
             </SidePanelTimelineStep>
 
@@ -5573,6 +5975,12 @@ export default function App() {
                     ? "active"
                     : "locked"
               }>
+              <Typography component="h2" variant="subtitle1" fontWeight={700}>
+                Sign in to {providerLabel(sourceProvider)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Once your library loads, PhotoSweep can check it for duplicates.
+              </Typography>
               {state.status === "disconnected" && (
                 <Alert severity="warning" sx={{ py: 0.6 }}>
                   {state.error}
@@ -5608,7 +6016,7 @@ export default function App() {
                   startIcon={<OpenInNewRoundedIcon />}
                   onClick={() => handleOpenProvider(sourceProvider)}
                   sx={{ fontWeight: 800 }}>
-                  Open
+                  Open library
                 </Button>
                 {state.status === "disconnected" && (
                   <Button
@@ -5696,6 +6104,7 @@ export default function App() {
             </SidePanelTimelineStep>
 
             <SidePanelTimelineStep
+              framed={state.status !== "results" || groups.length === 0}
               status={
                 state.status === "results" || state.status === "trashing"
                   ? "active"
@@ -5716,81 +6125,7 @@ export default function App() {
                     onChangeSettings={handleReset}
                   />
                 )}
-              {state.status === "results" && groups.length > 0 && (
-                <>
-                  {shouldShowDeferredUpgrade(
-                    deferredUpgrade,
-                    groups.length,
-                    state.status === "results"
-                  ) && (
-                    <DeferredUpgradeBanner
-                      prompt={deferredUpgrade}
-                      onOpen={handleOpenDeferredUpgrade}
-                      onDismiss={handleDismissDeferredUpgrade}
-                    />
-                  )}
-                  <ActionBar
-                    totalItems={state.totalItems}
-                    groupCount={visibleGroups.length}
-                    totalGroupCount={groups.length}
-                    availableGroupCount={cleanupScopeGroups.length}
-                    hiddenAvailableGroupCount={hiddenAvailableGroupCount}
-                    reviewedGroupCount={reviewedVisibleGroupCount}
-                    selectedShownGroupCount={selectedShownGroupCount}
-                    includedGroupCount={includedGroupCount}
-                    exactGroupCount={exactGroupCount}
-                    similarGroupCount={similarGroupCount}
-                    reviewFilter={reviewFilter}
-                    onReviewFilterChange={setReviewFilter}
-                    onIncludeAllEligible={handleIncludeAllEligible}
-                    onSelectAll={handleSelectAll}
-                    onDeselectAll={handleDeselectAll}
-                    onRescan={handleReset}
-                    onExportJson={handleExportJson}
-                    onExportCsv={handleExportCsv}
-                    onApplyKeepStrategy={handleApplyKeepStrategy}
-                    recoveryHistoryCount={recoveryHistory.length}
-                    onOpenRecoveryHistory={() => setRecoveryHistoryOpen(true)}
-                    onClearDecisionMemory={handleClearDecisionMemory}
-                    compact
-                  />
-                  {lockedGroupCount > 0 && (
-                    <Alert severity="info" sx={{ mb: 1, py: 0.65 }}>
-                      {lockedGroupCount.toLocaleString()} more duplicate set
-                      {lockedGroupCount === 1 ? "" : "s"} found. Upgrade to
-                      review and clean the full scan.
-                    </Alert>
-                  )}
-                  <DuplicateGroups
-                    groups={visibleGroups}
-                    focusGroupId={reviewFocusGroupId}
-                    onFocusGroupHandled={handleReviewFocusGroupHandled}
-                    mediaItems={displayMediaItems}
-                    trashPlanMediaKeys={trashPlanMediaKeys}
-                    selectedGroupIds={selectedGroupIds}
-                    reviewedGroupIds={reviewedGroupIds}
-                    onToggleGroup={handleToggleGroup}
-                    onSkipGroup={handleSkipGroup}
-                    getKeptForGroup={getKept}
-                    getKeepDecisionForGroup={getKeepDecision}
-                    onToggleKept={handleToggleKept}
-                    onTrashAll={handleTrashAllCopies}
-                    onVerifyOriginal={handleVerifyOriginal}
-                    onLoadVideo={handleLoadVideo}
-                    compact
-                  />
-                  <CleanupBar
-                    includedGroupCount={includedGroupCount}
-                    duplicateCount={duplicateCount}
-                    reviewedGroupCount={reviewedCleanupScopeGroupCount}
-                    totalGroupCount={cleanupScopeGroups.length}
-                    onReviewNext={handleReviewNext}
-                    onReviewAll={handleReviewAll}
-                    onTrash={handleTrash}
-                    compact
-                  />
-                </>
-              )}
+              {reviewWorkspace}
               {state.status === "trashing" && (
                 <Box sx={{ display: "grid", gap: 1 }}>
                   <Typography variant="body2" sx={{
@@ -5817,6 +6152,7 @@ export default function App() {
               )}
             </SidePanelTimelineStep>
 
+            {state.status === "results" && analyticsConsentNotice}
             <SidePanelSafetyFooter />
           </Box>
         ) : (
@@ -5929,82 +6265,7 @@ export default function App() {
                   <ScanEmptyState onChangeSettings={handleReset} />
                 )}
 
-              {state.status === "results" && groups.length > 0 && (
-                <>
-                  {shouldShowDeferredUpgrade(
-                    deferredUpgrade,
-                    groups.length,
-                    state.status === "results"
-                  ) && (
-                    <DeferredUpgradeBanner
-                      prompt={deferredUpgrade}
-                      onOpen={handleOpenDeferredUpgrade}
-                      onDismiss={handleDismissDeferredUpgrade}
-                    />
-                  )}
-                  <ActionBar
-                    totalItems={state.totalItems}
-                    groupCount={visibleGroups.length}
-                    totalGroupCount={groups.length}
-                    availableGroupCount={cleanupScopeGroups.length}
-                    hiddenAvailableGroupCount={hiddenAvailableGroupCount}
-                    reviewedGroupCount={reviewedVisibleGroupCount}
-                    selectedShownGroupCount={selectedShownGroupCount}
-                    includedGroupCount={includedGroupCount}
-                    exactGroupCount={exactGroupCount}
-                    similarGroupCount={similarGroupCount}
-                    reviewFilter={reviewFilter}
-                    onReviewFilterChange={setReviewFilter}
-                    onIncludeAllEligible={handleIncludeAllEligible}
-                    onSelectAll={handleSelectAll}
-                    onDeselectAll={handleDeselectAll}
-                    onRescan={handleReset}
-                    onExportJson={handleExportJson}
-                    onExportCsv={handleExportCsv}
-                    onApplyKeepStrategy={handleApplyKeepStrategy}
-                    recoveryHistoryCount={recoveryHistory.length}
-                    onOpenRecoveryHistory={() => setRecoveryHistoryOpen(true)}
-                    onClearDecisionMemory={handleClearDecisionMemory}
-                    compact={isSidePanel}
-                  />
-                  {lockedGroupCount > 0 && (
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      {lockedGroupCount.toLocaleString()} more duplicate set
-                      {lockedGroupCount === 1 ? "" : "s"} found. Upgrade to
-                      review and clean the full scan.
-                    </Alert>
-                  )}
-                  <DuplicateGroups
-                    groups={visibleGroups}
-                    focusGroupId={reviewFocusGroupId}
-                    onFocusGroupHandled={handleReviewFocusGroupHandled}
-                    mediaItems={displayMediaItems}
-                    trashPlanMediaKeys={trashPlanMediaKeys}
-                    selectedGroupIds={selectedGroupIds}
-                    reviewedGroupIds={reviewedGroupIds}
-                    onToggleGroup={handleToggleGroup}
-                    onSkipGroup={handleSkipGroup}
-                    getKeptForGroup={getKept}
-                    getKeepDecisionForGroup={getKeepDecision}
-                    onToggleKept={handleToggleKept}
-                    onTrashAll={handleTrashAllCopies}
-                    onVerifyOriginal={handleVerifyOriginal}
-                    onLoadVideo={handleLoadVideo}
-                    compact={isSidePanel}
-                  />
-                  <CleanupBar
-                    includedGroupCount={includedGroupCount}
-                    duplicateCount={duplicateCount}
-                    reviewedGroupCount={reviewedCleanupScopeGroupCount}
-                    totalGroupCount={cleanupScopeGroups.length}
-                    onReviewNext={handleReviewNext}
-                    onReviewAll={handleReviewAll}
-                    onTrash={handleTrash}
-                    compact={isSidePanel}
-                  />
-                </>
-              )}
-
+              {reviewWorkspace}
               {state.status === "trashing" && (
                 <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
                   <Typography variant="h5" gutterBottom sx={{
@@ -6152,10 +6413,74 @@ export default function App() {
         onClear={handleClearRecoveryHistory}
       />
 
+      <Dialog
+        open={bulkReview !== null}
+        onClose={() => setBulkReviewSource(null)}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby="bulk-review-title"
+        aria-describedby="bulk-review-description"
+        slotProps={{
+          transition: {
+            onExited: () => {
+              if (focusProposalOnCloseRef.current) {
+                focusProposalOnCloseRef.current = false
+                const button = proposalButtonRef.current
+                if (button?.disabled) button.closest("section")?.focus()
+                else button?.focus()
+              }
+            }
+          }
+        }}>
+        <DialogTitle id="bulk-review-title">
+          {bulkReview?.exactOnly ? "Preview exact sets" : "Preview all sets"}
+        </DialogTitle>
+        {bulkReview && (
+          <DialogContent>
+            <DialogContentText id="bulk-review-description">
+              {bulkReview.exactOnly
+                ? "This uses the current keeper picks for the available exact sets. Any other sets you previously included will be left out of cleanup."
+                : "This uses the current keeper picks for every available set, including sets hidden by the filter or skipped earlier."}
+            </DialogContentText>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 1.5 }}>
+              {bulkReview.plan.mediaKeysToTrash.length.toLocaleString()} {bulkReview.plan.mediaKeysToTrash.length === 1 ? "copy" : "copies"} proposed for Trash
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {bulkReview.plan.mediaKeysToTrash.length > 0
+                ? "Include the sets now, then review the proposed items before confirming Trash."
+                : "Review sets one at a time if you want to change which copies are kept."}
+            </Typography>
+            {bulkReview.exactOnly && bulkReview.plan.mediaKeysToTrash.length > 0 && (
+              <Box
+                component="ul"
+                aria-label="Copies proposed for Trash"
+                sx={{ mt: 1, mb: 0, pl: 2.5, overflowWrap: "anywhere" }}>
+                {bulkReview.plan.mediaKeysToTrash.map((mediaKey) => (
+                  <Typography component="li" variant="body2" key={mediaKey}>
+                    {displayMediaItems[mediaKey]?.fileName || "Unnamed item"}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button autoFocus onClick={() => setBulkReviewSource(null)}>
+            {bulkReview?.exactOnly || bulkReview?.plan.mediaKeysToTrash.length ? "Cancel" : "Done"}
+          </Button>
+          {bulkReview && (bulkReview.exactOnly || bulkReview.plan.mediaKeysToTrash.length > 0) && (
+            <Button variant="contained" onClick={handleAcceptBulkReview}>
+              Include all {bulkReview.groupCount.toLocaleString()} {bulkReview.exactOnly ? "exact " : ""}{bulkReview.groupCount === 1 ? "set" : "sets"}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Trash confirm dialog */}
       <Dialog
         open={!!trashConfirm}
         onClose={handleCloseTrashConfirm}
+        aria-describedby="trash-confirm-summary"
         fullWidth
         maxWidth="xs"
         slotProps={{
@@ -6184,6 +6509,24 @@ export default function App() {
         }}>
         <DialogTitle>Move to Trash</DialogTitle>
         <DialogContent>
+          <Box
+            id="trash-confirm-summary"
+            sx={{
+              p: 1.5,
+              mb: 1.5,
+              borderRadius: 1,
+              bgcolor: photoSweepColors.surfaceSubtle
+            }}>
+            <Typography variant="h5" sx={{ mb: 0.5 }}>
+              {trashConfirmDisplayCountForRender} duplicate
+              {trashConfirmDisplayCountForRender !== 1 ? "s" : ""}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              You can restore these items from{" "}
+              {providerTrashDestination(settings.sourceProvider)}. PhotoSweep
+              saves a JSON audit report before moving anything.
+            </Typography>
+          </Box>
           {reportError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {reportError}
@@ -6205,14 +6548,6 @@ export default function App() {
               </Typography>
             </Alert>
           )}
-          <DialogContentText>
-            Move {trashConfirmDisplayCountForRender} duplicate
-            {trashConfirmDisplayCountForRender !== 1 ? "s" : ""} to trash? You can
-            restore them from{" "}
-            {providerTrashDestination(settings.sourceProvider)}. A JSON audit
-            report will be saved before anything is moved. Items are moved in
-            batches of {TRASH_BATCH_SIZE}.
-          </DialogContentText>
           <Alert severity="info" sx={{ mt: 1.5 }}>
             {providerRecoveryWindowNotice(settings.sourceProvider)} Restore
             items before they are permanently deleted.

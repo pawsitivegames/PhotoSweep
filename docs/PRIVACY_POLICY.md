@@ -36,8 +36,8 @@ review, report, Trash, undo, original-byte verification, and diagnostics feature
 - signed entitlement token state cached for offline/paid-access checks
 - a provider account email or identifier exposed by a signed-in provider page,
   when needed to associate saved scan state with the provider account
-- when you click “Verify original bytes,” the selected item's original bytes are
-  fetched into the browser for a local SHA-256 check. The check is limited to
+- when you click “Verify original bytes” or “Verify all similar sets,” the
+  eligible originals are fetched into the browser for a local SHA-256 check. The check is limited to
   25 MiB per item and 100 MiB per review. Amazon Photos original-byte checks are
   currently verified only for Amazon Photos Canada. The digest and byte count
   are retained with the review; the original bytes and temporary resource URLs
@@ -69,7 +69,7 @@ operation to that provider. The provider applies its own account, Trash, and
 permanent-deletion rules.
 
 Original-byte verification is optional and starts only when the user clicks
-“Verify original bytes.” The browser requests the selected item's original from
+“Verify original bytes” or “Verify all similar sets.” The browser requests each eligible original from
 the selected provider or its media host, computes SHA-256 locally, and keeps the
 result with the review. PhotoSweep does not send the fetched original bytes to
 its license or analytics service.

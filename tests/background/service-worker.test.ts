@@ -2629,11 +2629,11 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
-
-    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
-      gpTabId,
-      expect.objectContaining({ command: "getAllMediaItems", requestId })
+    await vi.waitFor(() =>
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+        gpTabId,
+        expect.objectContaining({ command: "getAllMediaItems", requestId })
+      )
     )
   })
 
@@ -2666,7 +2666,12 @@ describe("gptkCommand routing", () => {
       },
       appSender()
     )
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.waitFor(() =>
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+        gpTabId,
+        expect.objectContaining({ command: "getAllMediaItems", requestId })
+      )
+    )
 
     vi.clearAllMocks()
     dispatchMessage(
@@ -2680,16 +2685,16 @@ describe("gptkCommand routing", () => {
       },
       gpSender(gpTabId)
     )
-    await new Promise((r) => setTimeout(r, 10))
-
-    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
-      appTabId,
-      expect.objectContaining({
-        action: "gptkProgress",
-        command: "getAllMediaItems",
-        requestId,
-        itemsProcessed: 25
-      })
+    await vi.waitFor(() =>
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+        appTabId,
+        expect.objectContaining({
+          action: "gptkProgress",
+          command: "getAllMediaItems",
+          requestId,
+          itemsProcessed: 25
+        })
+      )
     )
   })
 })

@@ -165,6 +165,14 @@ export async function reviewShownKeepers(page: Page): Promise<void> {
   }
 }
 
+export async function openReviewTools(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "More review tools" })
+  await toggle.waitFor()
+  if ((await toggle.getAttribute("aria-expanded")) === "false") {
+    await toggle.click()
+  }
+}
+
 export async function launchExtension(): Promise<{
   context: BrowserContext
   extensionId: string

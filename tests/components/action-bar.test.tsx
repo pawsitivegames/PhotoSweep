@@ -40,7 +40,7 @@ interface Props {
   compact?: boolean
 }
 
-function renderActionBar(props: Props = {}) {
+function renderActionBar(props: Props = {}, revealTools = true) {
   const defaults = {
     totalItems: 500,
     groupCount: 3,
@@ -62,8 +62,7 @@ function renderActionBar(props: Props = {}) {
   const merged = { ...defaults, ...props }
   const selectedShownGroupCount =
     props.selectedShownGroupCount ?? Math.min(1, merged.groupCount)
-  return {
-    ...render(
+  const view = render(
       <ThemeProvider theme={theme}>
         <ActionBar
           totalItems={merged.totalItems}
@@ -88,9 +87,10 @@ function renderActionBar(props: Props = {}) {
           compact={merged.compact}
         />
       </ThemeProvider>
-    ),
-    callbacks: merged
-  }
+  )
+  const tools = screen.queryByRole("button", { name: "More review tools" })
+  if (tools && revealTools) fireEvent.click(tools)
+  return { ...view, callbacks: merged }
 }
 
 // ============================================================
@@ -225,7 +225,7 @@ describe("ActionBar", () => {
             onReviewNext={onReviewNext} onTrash={onTrash} />
         </ThemeProvider>
       )
-      fireEvent.click(screen.getByRole("button", { name: "Review & move 4 to Trash" }))
+      fireEvent.click(screen.getByRole("button", { name: "Review 4 proposed items" }))
       expect(onTrash).toHaveBeenCalledOnce()
       expect(onReviewNext).toHaveBeenCalledOnce()
     })
@@ -239,7 +239,6 @@ describe("ActionBar", () => {
             reviewedGroupCount={1}
             totalGroupCount={3}
             onReviewNext={vi.fn()}
-            onReviewAll={vi.fn()}
             onTrash={vi.fn()}
           />
         </ThemeProvider>
@@ -264,7 +263,7 @@ describe("ActionBar", () => {
         </ThemeProvider>
       )
       const btn = screen.getByRole("button", {
-        name: /Review & move 4 to Trash/i
+        name: /Review 4 proposed items/i
       })
       expect(btn).toBeEnabled()
     })

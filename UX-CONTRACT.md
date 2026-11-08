@@ -40,7 +40,7 @@
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
 | Photo keeper choice | `components/DuplicateGroups.tsx` | `toggle_kept` in `lib/duplicate-review-session.ts` | Photo cards in side panel and full page | Keeper/session component and integration flows |
-| Cleanup set selection | Set header in `components/DuplicateGroups.tsx` | `selectedGroupIds` and `select_groups` / `deselect_groups` | Per-set / all sets available to review / all sets shown by current filter | Selection component and integration flows |
+| Cleanup set selection | Set cleanup control in `components/DuplicateGroups.tsx` | `selectedGroupIds` and `select_groups` / `deselect_groups` | Per-set / all sets available to review / all sets shown by current filter | Selection component and integration flows |
 | Bulk cleanup selection | `components/ActionBar.tsx` | `handleIncludeAllEligible` / `handleSelectAll` / `handleDeselectAll` in `tabs/app.tsx` | All sets available to review or current visible filter, as labeled | ActionBar component and app integration flows |
 | Choose keepers automatically | `components/ActionBar.tsx` | `handleKeepStrategySelection` in `lib/keep-strategy-feedback.ts` | All scan groups, including groups hidden by the current result filter | Keep-strategy application flow |
 | Trash proposal | `lib/duplicate-review-session.ts` | `trashPlan()` | Included, eligible, unkept items only | Safety properties and Trash lifecycle flows |
@@ -70,7 +70,7 @@ Photo keeper choices and cleanup inclusion are independent decisions.
 - Selecting a photo changes which copy or copies are kept. It does not add the
   set to cleanup. A user choice marks that set reviewed but leaves its current
   inclusion state unchanged.
-- A set header checkbox selects the set for cleanup. Its eligible unkept
+- The checkbox below the photo choices selects the set for cleanup. Its eligible unkept
   copies may then appear in the Trash proposal. Selection does not move
   anything.
 - “Skip cleanup for this set” keeps that set out of the Trash proposal and marks it
@@ -110,7 +110,7 @@ Photo keeper choices and cleanup inclusion are independent decisions.
 |---|---|---|---|---|---|---|
 | Start a scan | Main scan button | Scan progress and cancel/resume state | Coverage and result count | Keep scope/settings available and report provider failure | Existing scan screen | `components/ScanConfig.tsx`, `tabs/app.tsx` |
 | Choose a keeper | Select a photo card | Immediate local review update | Keep/suggested/proposed state updates on the set | Last keeper cannot be removed; explain all-copies exception | Stay on the same set | `components/DuplicateGroups.tsx`, `lib/duplicate-review-session.ts` |
-| Include a set | Set checkbox or “Include all shown sets in cleanup” | Immediate local selection update | Included set and Trash proposal counts update | Remove shown sets from cleanup or use “Skip cleanup for this set” | Stay on the same set/filter | `components/ActionBar.tsx`, `components/DuplicateGroups.tsx` |
+| Include a set | “Include this set in cleanup” or “Include all shown sets in cleanup” | Immediate local selection update | Included set and Trash proposal counts update | Remove shown sets from cleanup or use “Skip cleanup for this set” | Stay on the same set/filter | `components/ActionBar.tsx`, `components/DuplicateGroups.tsx` |
 | Include all available sets | “Include all available sets” | Add all sets available to review and return newly included sets to review | Scan-wide included-set and remaining-review counts update | Use individual checkboxes or the shown-set removal action | Stay on the same filter | `components/ActionBar.tsx`, `lib/duplicate-review-session.ts` |
 | Choose keepers automatically | Choose a keeper rule | Local recommendation update | Explain changes, manual choices replaced, and unchanged cleanup selection | Existing per-set keeper choices remain editable | Stay in review | `lib/keep-strategy-feedback.ts` |
 | Move to Trash | Final review button | Audit export and typed-count confirmation | Provider result and supported Undo | Keep result/error report and provider recovery guidance | Existing result surface | `tabs/app.tsx`, `lib/trash-lifecycle.ts` |
@@ -118,17 +118,36 @@ Photo keeper choices and cleanup inclusion are independent decisions.
 ## Navigation and responsive behavior
 
 - The side panel and full page share scan and review components.
-- The compact review toolbar shows two ordered, visually distinct steps:
-  choose keeper photos, then include sets in cleanup. Its rule action explains
-  scan-wide scope. The prominent include-all action spans the scan sets
-  available to review; the filter-scoped include and remove actions explain
-  their current-filter scope.
+- The result filter precedes its primary action. All offers “Preview all sets”
+  and “Review one at a time.” The preview covers all available sets, including
+  any that were skipped. Explicit acceptance includes those sets and accepts
+  their current keeper choices. Trash confirmation remains a separate step.
+- With Exact selected, “Preview all exact sets” previews the eligible
+  verified-identical sets and lists the copies proposed for Trash. Accepting
+  the preview includes only those sets and skips the other sets in scope,
+  including previously selected sets. Canceling preserves the selection.
+- Verify similar originals directly from an empty Exact filter or from Similar.
+  Verification keeps the active filter, reports how many originals were checked
+  and how many sets moved to Exact, and leaves cleanup selection untouched.
+  If the scan belongs to an earlier provider session, offer a fresh scan.
+  If the review download limit is reached, preserve the matches already verified
+  and offer to change the scan settings.
+  The scan-wide inclusion action is available from All.
+- Individual review focuses the next set that needs a decision. The set
+  checkbox includes it and Skip cleanup leaves it out. The cleanup summary
+  shows how many sets are included and how many copies are proposed.
+- Each review set presents the copies to keep before the checkbox to include
+  the set in cleanup. Standalone keeper rules and filter-scoped bulk actions
+  live under “More review tools.” The keeper rule action explains its
+  scan-wide scope. An empty Similar filter offers “Show all sets.”
 - “Include all shown” and “Remove shown” stay within the current result filter.
   “Include all available” crosses filters and returns newly included sets to
   review. Choosing keepers automatically applies to the entire scan and names
   that wider scope.
 - Cleanup summary counts use the full eligible cleanup scope across filters,
   so changing a filter does not make the Trash gate appear complete early.
+  Once review is complete, the primary action opens the proposal for
+  confirmation. The destructive button is inside the confirmation dialog.
 - Keep photo sets, selected keeper chips, cleanup selection state, and action
   labels readable in both compact and full-page layouts.
 

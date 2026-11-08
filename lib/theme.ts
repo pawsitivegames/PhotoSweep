@@ -61,7 +61,8 @@ const theme = createTheme({
     ].join(","),
     h5: {
       fontWeight: 700,
-      letterSpacing: 0
+      letterSpacing: "-0.035em",
+      lineHeight: 1.2
     },
     h6: {
       fontWeight: 700,
@@ -82,10 +83,9 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: photoSweepColors.surfaceTint,
+          backgroundColor: photoSweepColors.surface,
           color: photoSweepColors.ink,
-          boxShadow: `0 1px 0 ${photoSweepColors.shadow}`,
-          backdropFilter: "saturate(160%) blur(18px)"
+          borderBottom: `1px solid ${photoSweepColors.border}`
         }
       }
     },
@@ -109,6 +109,9 @@ const theme = createTheme({
           "&:focus-visible": {
             outline: `3px solid ${photoSweepColors.primary}`,
             outlineOffset: 2
+          },
+          "@media (prefers-reduced-motion: reduce)": {
+            transition: "none"
           }
         }
       }
@@ -159,6 +162,9 @@ const theme = createTheme({
             color: photoSweepColors.primary,
             backgroundColor: photoSweepColors.primarySoft,
             borderColor: photoSweepColors.primaryBorder
+          },
+          "@media (prefers-reduced-motion: reduce)": {
+            transition: "none"
           }
         }
       }

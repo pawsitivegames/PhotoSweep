@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 // Raw RPC responses from Google's batchexecute endpoint are untyped JSON.
 // The no-unsafe-* rules are expected for this low-level API layer.
 
@@ -23,6 +23,32 @@ import type {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+class ApiHttpError extends Error {
+  constructor(readonly status: number, statusText: string) {
+    super(`HTTP ${status} ${statusText}`);
+  }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('The Google Photos request was aborted.', 'AbortError');
+}
+
+function waitForRetry(delayMs: number, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal);
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      reject(new DOMException('The Google Photos request was aborted.', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 export default class Api {
   private static readonly MAX_RETRIES = 3;
   private static readonly RETRY_BASE_DELAY_MS = 2000;
@@ -38,9 +64,10 @@ export default class Api {
    *
    * @param rpcid - The RPC method identifier (e.g. `'lcxiM'`, `'EzkLib'`).
    * @param requestData - The payload to send, will be JSON-stringified.
+   * @param signal - Optional cancellation for this read and its retry delays.
    * @returns The parsed JSON payload from the `wrb.fr` envelope.
    */
-  async makeApiRequest(rpcid: string, requestData: unknown): Promise<any> {
+  async makeApiRequest(rpcid: string, requestData: unknown, signal?: AbortSignal): Promise<any> {
     const wrappedData: unknown[][][] = [[[rpcid, JSON.stringify(requestData), null, 'generic']]];
 
     const requestDataString = `f.req=${encodeURIComponent(JSON.stringify(wrappedData))}&at=${encodeURIComponent(windowGlobalData.at)}&`;
@@ -67,6 +94,7 @@ export default class Api {
 
     for (let attempt = 1; attempt <= Api.MAX_RETRIES; attempt++) {
       try {
+        throwIfAborted(signal);
         const response = await fetch(url, {
           headers: {
             'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
@@ -74,38 +102,66 @@ export default class Api {
           body: requestDataString,
           method: 'POST',
           credentials: 'include',
+          signal,
         });
 
+        throwIfAborted(signal);
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status} ${response.statusText}`);
+          throw new ApiHttpError(response.status, response.statusText);
         }
 
         const responseBody = await response.text();
+        throwIfAborted(signal);
 
         if (!responseBody) {
           throw new Error('Empty response body');
         }
 
-        const jsonLines = responseBody.split('\n').filter((line) => line.includes('wrb.fr'));
+        // A batch can include framing, bookkeeping rows and other RPCs.
+        // Select by both envelope marker and RPC ID, never by row order.
+        const matchingEnvelopes: unknown[][] = [];
+        let hasEnvelope = false;
+        for (const line of responseBody.split('\n')) {
+          if (!line.includes('wrb.fr')) continue;
+          const rows: unknown = JSON.parse(line);
+          if (!Array.isArray(rows)) continue;
+          for (const row of rows as unknown[]) {
+            if (!Array.isArray(row) || row[0] !== 'wrb.fr') continue;
+            hasEnvelope = true;
+            if (row[1] === rpcid) matchingEnvelopes.push(row);
+          }
+        }
 
-        if (jsonLines.length === 0) {
+        if (!hasEnvelope) {
           throw new Error('No wrb.fr envelope found in response');
         }
-
-        const parsedData = JSON.parse(jsonLines[0]);
-
-        if (!parsedData?.[0]?.[2]) {
-          throw new Error('Missing payload in parsed response');
+        if (matchingEnvelopes.length === 0) {
+          throw new Error('No matching RPC envelope found in response');
+        }
+        if (matchingEnvelopes.length > 1) {
+          throw new Error('Multiple matching RPC envelopes found in response');
         }
 
-        return JSON.parse(parsedData[0][2]);
+        const payload = matchingEnvelopes[0][2];
+        if (payload === null || payload === undefined || payload === '') {
+          throw new Error('Missing payload in parsed response');
+        }
+        if (typeof payload !== 'string') {
+          throw new Error('Invalid payload type in parsed response');
+        }
+
+        return JSON.parse(payload);
       } catch (error) {
+        throwIfAborted(signal);
         lastError = error instanceof Error ? error : new Error(String(error));
         console.error(`Error in ${rpcid} request (attempt ${attempt}/${Api.MAX_RETRIES}):`, lastError.message);
 
+        if (lastError.name === 'AbortError' ||
+            (lastError instanceof ApiHttpError && (lastError.status === 401 || lastError.status === 403))) {
+          throw lastError;
+        }
         if (attempt < Api.MAX_RETRIES) {
-          const delay = Api.RETRY_BASE_DELAY_MS * attempt;
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          await waitForRetry(Api.RETRY_BASE_DELAY_MS * attempt, signal);
         }
       }
     }
@@ -139,12 +195,13 @@ export default class Api {
 
   async getItemsByUploadedDate(
     pageId: string | null = null,
-    parseResponse = true
+    parseResponse = true,
+    signal?: AbortSignal
   ): Promise<LibraryGenericPage> {
     const rpcid = 'EzkLib';
     const requestData = ['', [[4, 'ra', 0, 0]], pageId];
     try {
-      const response = await this.makeApiRequest(rpcid, requestData);
+      const response = await this.makeApiRequest(rpcid, requestData, signal);
       if (parseResponse) return parser(response, rpcid) as LibraryGenericPage;
       return response;
     } catch (error) {
@@ -277,12 +334,13 @@ export default class Api {
   async getAlbums(
     pageId: string | null = null,
     pageSize = 100,
-    parseResponse = true
+    parseResponse = true,
+    signal?: AbortSignal
   ): Promise<AlbumsPage> {
     const rpcid = 'Z5xsfc';
     const requestData = [pageId, null, null, null, 1, null, null, pageSize, [2], 5];
     try {
-      const response = await this.makeApiRequest(rpcid, requestData);
+      const response = await this.makeApiRequest(rpcid, requestData, signal);
       if (parseResponse) return parser(response, rpcid) as AlbumsPage;
       return response;
     } catch (error) {
@@ -295,12 +353,13 @@ export default class Api {
     albumMediaKey: string,
     pageId: string | null = null,
     authKey: string | null = null,
-    parseResponse = true
+    parseResponse = true,
+    signal?: AbortSignal
   ): Promise<AlbumItemsPage> {
     const rpcid = 'snAcKc';
     const requestData = [albumMediaKey, pageId, null, authKey];
     try {
-      const response = await this.makeApiRequest(rpcid, requestData);
+      const response = await this.makeApiRequest(rpcid, requestData, signal);
       if (parseResponse) return parser(response, rpcid) as AlbumItemsPage;
       return response;
     } catch (error) {
@@ -658,14 +717,15 @@ export default class Api {
 
   async getBatchMediaInfo(
     mediaKeyArray: string[],
-    parseResponse = true
+    parseResponse = true,
+    signal?: AbortSignal
   ): Promise<BulkMediaInfo[]> {
     const rpcid = 'EWgK9e';
     const mappedKeys = mediaKeyArray.map((id) => [id]);
     // prettier-ignore
     const requestData = [[[mappedKeys], [[null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, [], null, null, null, null, null, null, null, null, null, null, []]]]];
     try {
-      let response = await this.makeApiRequest(rpcid, requestData);
+      let response = await this.makeApiRequest(rpcid, requestData, signal);
       response = response?.[0]?.[1];
       if (parseResponse) return parser(response, rpcid) as BulkMediaInfo[];
       return response;

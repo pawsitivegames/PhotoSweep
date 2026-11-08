@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   MAX_ORIGINAL_BYTES_PER_ITEM,
   getOriginalContentVerificationUnavailableMessage,
+  isOriginalReviewBudgetExhausted,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   getProviderRetrievalSessionError,
@@ -15,6 +16,22 @@ import {
 
 const expected = { mediaKey: "item-a", scopeFingerprint: "scope-a" }
 const sha256 = "a".repeat(64)
+
+describe("original review download budget", () => {
+  it.each([
+    "The Google Photos review has reached its approved original-fetch budget.",
+    "The iCloud review has reached its 100 MiB original-fetch budget.",
+    "The Amazon Photos review has reached its 100 MiB original-fetch budget."
+  ])("stops the queue for a depleted review budget: %s", (message) => {
+    expect(isOriginalReviewBudgetExhausted(message)).toBe(true)
+  })
+
+  it("leaves smaller files eligible when only the current original exceeds the remaining budget", () => {
+    expect(isOriginalReviewBudgetExhausted(
+      "The Google Photos original exceeds the remaining approved byte budget."
+    )).toBe(false)
+  })
+})
 
 describe("original content verification capability", () => {
   it("returns a fail-closed message before requests for unsupported items or regions", () => {

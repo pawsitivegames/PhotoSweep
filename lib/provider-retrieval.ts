@@ -8,6 +8,12 @@ import { AMAZON_VIDEO_DOWNLOAD_HOST } from "./provider-sites"
 export const MAX_ORIGINAL_BYTES_PER_ITEM = 25 * 1024 * 1024
 export const MAX_ORIGINAL_BYTES_PER_REVIEW = 100 * 1024 * 1024
 
+export function isOriginalReviewBudgetExhausted(message: string): boolean {
+  return /^The (Google Photos|Amazon Photos|iCloud) review has reached its (100 MiB|approved) original-fetch budget\.$/.test(
+    message
+  )
+}
+
 export function getOriginalContentVerificationUnavailableMessage(
   item: Pick<
     GpdMediaItem,
