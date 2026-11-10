@@ -1832,6 +1832,7 @@ describe("provider command-host retrieval cache and budget oracles", () => {
         mediaKey: string,
         value: unknown
       ) => boolean
+      hasExpiredResources: (provider: string, scopeFingerprint: string) => boolean
       clearResources: (provider?: string) => void
       reserveBudget: (input: Record<string, unknown>) => any
       consumeChunk: (reservation: any, byteLength: number) => boolean
@@ -1996,11 +1997,20 @@ describe("provider command-host retrieval cache and budget oracles", () => {
       vi.setSystemTime(originalNow)
       const expiredResource = { id: "expires" }
       cache.rememberResource("google", host.providerSessionId, scope, "expires", expiredResource)
+      vi.setSystemTime(originalNow + 1000)
+      cache.rememberResource("google", host.providerSessionId, scope, "newer", { id: "newer" })
       vi.setSystemTime(originalNow + 15 * 60 * 1000)
       expect(cache.getResource("google", host.providerSessionId, scope, "expires")).toEqual({ id: "expires" })
       vi.setSystemTime(originalNow + 15 * 60 * 1000 + 1)
       expect(cache.getResource("google", host.providerSessionId, scope, "expires")).toBeUndefined()
       expect(cache.isCurrentResource("google", host.providerSessionId, scope, "expires", expiredResource)).toBe(false)
+      expect(cache.hasExpiredResources("google", scope)).toBe(false)
+      vi.setSystemTime(originalNow + 15 * 60 * 1000 + 1000)
+      expect(cache.hasExpiredResources("google", scope)).toBe(false)
+      vi.setSystemTime(originalNow + 15 * 60 * 1000 + 1001)
+      expect(cache.hasExpiredResources("google", scope)).toBe(true)
+      expect(cache.hasExpiredResources("google", "different-scope")).toBe(false)
+      expect(cache.hasExpiredResources("icloud", scope)).toBe(false)
     } finally {
       vi.clearAllTimers()
       vi.useRealTimers()
@@ -2030,6 +2040,55 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     cache.rememberResource("google", host.providerSessionId, scope, "unrefreshed-10000", { index: 10000 })
     expect(cache.getResource("google", host.providerSessionId, scope, "unrefreshed-0")).toBeUndefined()
     expect(cache.getResource("google", host.providerSessionId, scope, "unrefreshed-1")).toEqual({ index: 1 })
+  })
+
+  it("rejects original retrieval for an expired review before invoking the provider handler", async () => {
+    const host = activeTestHost!
+    const scope = "expired-original-review"
+    await activateScope(host, "amazon", scope)
+    const startedAt = Date.now()
+    const now = vi.spyOn(Date, "now").mockReturnValue(startedAt)
+    const postMessage = vi.spyOn(window, "postMessage").mockImplementation(() => {})
+    try {
+      resource(host).rememberResource("amazon", host.providerSessionId, scope, "photo", { id: "photo" })
+      now.mockReturnValue(startedAt + 15 * 60 * 1000 + 1)
+      await sendOriginalRetrieval("expired-review-request", host.providerSessionId, scope)
+      expect(retrievalHandler).not.toHaveBeenCalled()
+      expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+        requestId: "expired-review-request",
+        success: false,
+        error: "Original media review has expired. Scan again."
+      }), "*")
+    } finally {
+      postMessage.mockRestore()
+      now.mockRestore()
+    }
+  })
+
+  it("clears the review expiry only with its provider or the entire cache", async () => {
+    const host = activeTestHost!
+    const cache = resource(host)
+    const scope = "clear-expired-original-review"
+    await activateScope(host, "google", scope)
+    const startedAt = Date.now()
+    const now = vi.spyOn(Date, "now").mockReturnValue(startedAt)
+    try {
+      cache.rememberResource("google", host.providerSessionId, scope, "photo", { id: "photo" })
+      now.mockReturnValue(startedAt + 15 * 60 * 1000 + 1)
+      cache.clearResources("icloud")
+      expect(cache.hasExpiredResources("google", scope)).toBe(true)
+      cache.clearResources("google")
+      expect(cache.hasExpiredResources("google", scope)).toBe(false)
+
+      now.mockReturnValue(startedAt)
+      cache.rememberResource("google", host.providerSessionId, scope, "photo", { id: "photo" })
+      now.mockReturnValue(startedAt + 15 * 60 * 1000 + 1)
+      expect(cache.hasExpiredResources("google", scope)).toBe(true)
+      cache.reset()
+      expect(cache.hasExpiredResources("google", scope)).toBe(false)
+    } finally {
+      now.mockRestore()
+    }
   })
 
   it("clears review budgets when a provider identity starts a fresh session", async () => {

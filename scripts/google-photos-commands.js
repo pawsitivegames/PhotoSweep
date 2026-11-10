@@ -1007,8 +1007,8 @@ async function fetchGoogleItemInfo(requestId, args, resource, signal) {
   if (typeof api?.getItemInfo !== "function") {
     throw new Error("Google Photos original metadata is unavailable. Reload the page and scan again.")
   }
-  const info = await withTimeout(
-    Promise.resolve().then(() => api.getItemInfo(resource.mediaKey)),
+  const info = await withGoogleReadTimeout(
+    (requestSignal) => api.getItemInfo(resource.mediaKey, null, null, true, requestSignal),
     MEDIA_PAGE_TIMEOUT_MS,
     "Reading Google Photos item metadata",
     signal
@@ -1071,6 +1071,7 @@ function cancelGoogleOriginalHashRequest(requestId, args) {
       {
         app: "GPD",
         action: "providerOriginalHash.cancel",
+        provider: "google",
         requestId,
         providerSessionId: args.providerSessionId,
         scanScopeFingerprint: args.scanScopeFingerprint,
@@ -1146,6 +1147,7 @@ function fetchGoogleOriginalHashViaExtension(requestId, args, resource, resource
         {
           app: "GPD",
           action: "providerOriginalHash.fetch",
+          provider: "google",
           requestId,
           providerSessionId: args.providerSessionId,
           scanScopeFingerprint: args.scanScopeFingerprint,

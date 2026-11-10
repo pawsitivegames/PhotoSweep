@@ -2957,6 +2957,7 @@ describe("Google original media retrieval", () => {
     ) as any
     expect(relayRequest).toMatchObject({
       app: "GPD",
+      provider: "google",
       requestId: "google-original-hash",
       providerSessionId: googleTestSessionId,
       scanScopeFingerprint: scopeFingerprint,
@@ -3208,7 +3209,7 @@ describe("Google original media retrieval", () => {
       success: true,
       data: { mediaKey, scopeFingerprint, playbackUrl }
     })
-    expect(getItemInfo).toHaveBeenCalledWith(mediaKey)
+    expect(getItemInfo).toHaveBeenCalledWith(mediaKey, null, null, true, expect.any(AbortSignal))
     expect(getDownloadUrl).toHaveBeenCalledTimes(1)
     restore()
   })
@@ -3797,6 +3798,7 @@ describe("Google original media retrieval", () => {
       expect.objectContaining({
         app: "GPD",
         action: "providerOriginalHash.cancel",
+        provider: "google",
         requestId: "google-cancellable-fetch",
         providerSessionId: googleTestSessionId,
         scanScopeFingerprint: scopeFingerprint,
@@ -3848,6 +3850,52 @@ describe("Google original media retrieval", () => {
     ).toHaveLength(1)
     streamedMessages.restore()
     restore()
+  })
+
+  it("aborts the metadata fetch when original verification is stopped", async () => {
+    const scopeFingerprint = "google-original-metadata-abort"
+    const { messages, restore } = collectMessages()
+    const requestId = "google-original-metadata-request"
+    let markMetadataStarted!: (signal?: AbortSignal) => void
+    const metadataStarted = new Promise<AbortSignal | undefined>((resolve) => {
+      markMetadataStarted = resolve
+    })
+    const getItemInfo = vi.fn((
+      _mediaKey: string, _albumKey: null, _authKey: null, _parseResponse: boolean,
+      signal?: AbortSignal
+    ) => new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(signal.reason), { once: true })
+      markMetadataStarted(signal)
+    }))
+    ;(window as any).gptkApiUtils = { api: { ...mockApi, getItemInfo } }
+    try {
+      await scanWithMessages(
+        messages,
+        [makeItem("google-metadata-abort-photo", { mimeType: "image/jpeg" })],
+        "google-metadata-abort-scan",
+        scopeFingerprint
+      )
+      sendCommand("getOriginalContentHash", requestId, {
+        requestId,
+        mediaKey: "google-metadata-abort-photo",
+        userOptIn: true,
+        providerSessionId: googleTestSessionId,
+        scanScopeFingerprint: scopeFingerprint,
+        maxBytes: 1024
+      })
+      const signal = await metadataStarted
+      expect(signal?.aborted).toBe(false)
+      sendCommand("cancelProviderRequest", "google-metadata-abort-command", {
+        targetRequestId: requestId,
+        providerSessionId: googleTestSessionId,
+        scanScopeFingerprint: scopeFingerprint
+      })
+      expect(await waitForMessage(messages, requestId)).toMatchObject({ success: false })
+      expect(signal?.aborted).toBe(true)
+      expect(messages.some((message: any) => message?.action === "providerOriginalHash.fetch")).toBe(false)
+    } finally {
+      restore()
+    }
   })
 
   it("reserves aggregate bytes before concurrent downloads and keeps the budget outside the LRU cache", async () => {

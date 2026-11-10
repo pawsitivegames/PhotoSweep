@@ -1545,15 +1545,20 @@ async function handleGptkCommand(
         (message.command !== "getVideoPlaybackUrl" ||
           expectedMediaKind === "video")
     )
-    const item = argsMatch
-      ? googleCompletedScans.hasItem({
+    const reviewBinding = argsMatch
+      ? {
           appTabId: senderTabId,
           ...(trustedUi?.clientId ? { clientId: trustedUi.clientId } : {}),
           providerTabId,
-          provider: "google",
+          provider,
           accountEmail: accountEmail!,
           providerSessionId: providerSessionId as string,
-          scopeFingerprint: scopeFingerprint as string,
+          scopeFingerprint: scopeFingerprint as string
+        }
+      : null
+    const item = reviewBinding
+      ? googleCompletedScans.hasItem({
+          ...reviewBinding,
           mediaKey: mediaKey as string,
           expectedMediaKind: expectedMediaKind!
         })
@@ -1578,7 +1583,9 @@ async function handleGptkCommand(
           requestId: message.requestId,
           provider,
           success: false,
-          error: "The Google Photos item is outside the active scanned review. Scan again before retrieving media."
+          error: reviewBinding && !googleCompletedScans.hasReview(reviewBinding)
+            ? "Original media review has expired. Scan again."
+            : "The Google Photos item is outside the active scanned review. Scan again before retrieving media."
         },
         message.clientId
       )

@@ -14,6 +14,25 @@ export function isOriginalReviewBudgetExhausted(message: string): boolean {
   )
 }
 
+export function originalReviewRecovery(message: string): "stale-review" | "missing-item" | null {
+  if (
+    /^The (Google Photos item|Amazon Photos original|iCloud original) is not present in this recent review\. Scan again\.$/.test(message) ||
+    message === "The Google Photos item is outside the active scanned review. Scan again before retrieving media."
+  ) {
+    return "missing-item"
+  }
+  if (
+    /^Original media (retrieval must match the (most recent|current) scan scope|retrieval must match the current provider session|is available only for an item in the current, session-bound review|review has expired)\b/.test(message) ||
+    /^The (Google Photos|Amazon Photos|iCloud)( Photos)? (provider session changed|review scope (changed|is missing or invalid))\b/.test(message) ||
+    /^The provider (account, page session, or review scope changed|returned a result from a different page session)\b/.test(message) ||
+    /^The signed-in Google Photos account changed\./.test(message) ||
+    /^(The iCloud Photos|Amazon Photos) account changed (after review|while (verifying|finalizing) original)/.test(message)
+  ) {
+    return "stale-review"
+  }
+  return null
+}
+
 export function getOriginalContentVerificationUnavailableMessage(
   item: Pick<
     GpdMediaItem,

@@ -121,7 +121,8 @@ Photo keeper choices and cleanup inclusion are independent decisions.
 - The result filter precedes its primary action. All offers “Preview all sets”
   and “Review one at a time.” The preview covers all available sets, including
   any that were skipped. Explicit acceptance includes those sets and accepts
-  their current keeper choices. Trash confirmation remains a separate step.
+  their current keeper choices. The preview and separate Trash confirmation
+  list the proposed copies.
 - With Exact selected, “Preview all exact sets” previews the eligible
   verified-identical sets and lists the copies proposed for Trash. Accepting
   the preview includes only those sets and skips the other sets in scope,
@@ -131,7 +132,8 @@ Photo keeper choices and cleanup inclusion are independent decisions.
   and how many sets moved to Exact, and leaves cleanup selection untouched.
   If the scan belongs to an earlier provider session, offer a fresh scan.
   If the review download limit is reached, preserve the matches already verified
-  and offer to change the scan settings.
+  and offer to change the scan settings. Ask before discarding the current
+  review to rescan or change settings.
   The scan-wide inclusion action is available from All.
 - Individual review focuses the next set that needs a decision. The set
   checkbox includes it and Skip cleanup leaves it out. The cleanup summary

@@ -68,6 +68,20 @@ describe('Api.makeApiRequest', () => {
     expect(requestUrl.searchParams.has('rapt')).toBe(false);
   });
 
+  it('passes item metadata cancellation through to fetch without retrying', async () => {
+    const controller = new AbortController();
+    fetchMock.mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+    }));
+    const request = new Api().getItemInfo('test-media', null, null, true, controller.signal);
+    const rejected = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
+    controller.abort();
+    await rejected;
+    await vi.runAllTimersAsync();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('finds the requested RPC after bookkeeping and other RPC rows', async () => {
     respondWith(JSON.stringify([
       ['di', 17], rpcRow('otherRpc', { wrong: true }),

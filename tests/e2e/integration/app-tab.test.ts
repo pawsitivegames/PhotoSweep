@@ -9,6 +9,8 @@ import { expect, test, type BrowserContext } from "@playwright/test"
 
 import { providerReviewStorageKey } from "../../../lib/provider-review-storage"
 import { ALBUM_LIST_REQUEST_TIMEOUT_MS } from "../../../lib/provider-operations"
+import { buildScanScopeFingerprint } from "../../../lib/review-preflight"
+import { DEFAULT_SETTINGS } from "../../../lib/types"
 import {
   clearStorage,
   injectScanCheckpoint,
@@ -354,6 +356,9 @@ test("guided review previews all available sets from All before including them",
   await prepare.click()
   const preview = page.getByRole("dialog", { name: "Preview all sets" })
   await expect(preview).toContainText("2 copies proposed for Trash")
+  const proposedNames = ["photo-group0-item1.jpg", "photo-group1-item1.jpg"]
+  await expect(preview.getByRole("list", { name: "Copies proposed for Trash" })
+    .getByRole("listitem")).toHaveText(proposedNames)
   await preview.getByRole("button", { name: "Cancel" }).click()
   await expect(summary).toContainText("0 sets included")
 
@@ -365,6 +370,8 @@ test("guided review previews all available sets from All before including them",
   await expect(page.getByRole("dialog")).toHaveCount(0)
   await reviewProposal.click()
   const confirmation = page.getByRole("dialog", { name: "Move to Trash" })
+  await expect(confirmation.getByRole("list", { name: "Copies proposed for Trash" })
+    .getByRole("listitem")).toHaveText(proposedNames)
   await expect(confirmation.getByLabel("Type 2 to confirm")).toBeVisible()
   await expect(confirmation.getByRole("button", { name: "Move to Trash" })).toBeDisabled()
 })
@@ -440,7 +447,129 @@ test("an empty Exact filter explains when a saved scan needs a fresh provider se
   await expect(exact).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByRole("region", { name: "Cleanup summary" })).toContainText("0 sets included")
   await expect(page.getByRole("dialog")).toHaveCount(0)
+
+  await verification.getByRole("button", { name: "Scan again" }).click()
+  const discard = page.getByRole("dialog", { name: "Discard this review?" })
+  await expect(discard.getByRole("button", { name: "Keep reviewing" })).toBeFocused()
+  await discard.getByRole("button", { name: "Keep reviewing" }).click()
+  await expect(discard).toHaveCount(0)
+  await expect(verification.getByRole("button", { name: "Scan again" })).toBeFocused()
+  expect((await readLocalStorage(context, "scanResults")).scanResults).toBeDefined()
 })
+
+for (const recovery of [
+  { error: "Original media review has expired. Scan again.", requests: 2, action: "Scan again" },
+  { error: "The Google Photos item is not present in this recent review. Scan again.", requests: 4, action: "Scan again" },
+  { error: "The Google Photos review has reached its 100 MiB original-fetch budget.", requests: 2, action: "Change scan settings" }
+]) {
+  test(`preserves a partial original verification after ${recovery.error}`, async () => {
+    await clearStorage(context)
+    const { groups, mediaItems } = makeGroups(1, 4)
+    for (const item of Object.values(mediaItems)) {
+      item.provider = "google"
+      item.mediaKind = "photo"
+      item.originalContentVerificationCapability = "available"
+    }
+    const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
+    const firstMediaKey = groups[0].mediaKeys[0]
+    const originalUrl = "https://lh3.google.com/synthetic-roundtable-original"
+    const originalText = "Synthetic original bytes"
+    const contentHash = {
+      value: await import("node:crypto").then(({ createHash }) =>
+        createHash("sha256").update(originalText).digest("hex")),
+      algorithm: "sha256",
+      provenance: "original-content",
+      verificationSource: "local-original-bytes",
+      contentRole: "single-file"
+    }
+    const stub = await openGptkStubPage(context, {
+      getAllMediaItems: { data: Object.values(mediaItems) },
+      getOriginalContentHash: {
+        sequence: [
+          { holdResponse: true },
+          { success: false, error: recovery.error }
+        ]
+      }
+    })
+    const providerSessionId = await stub.evaluate(
+      () => (window as unknown as { __gptkProviderSessionId: string }).__gptkProviderSessionId
+    )
+    await stub.evaluate(({ firstMediaKey, originalUrl }) => {
+      window.addEventListener("message", ({ source, data }) => {
+        if (source !== window || data?.action !== "gptkCommand" ||
+          data.command !== "getOriginalContentHash" || data.args?.mediaKey !== firstMediaKey) return
+        window.postMessage({
+          ...data.args,
+          app: "GPD",
+          action: "providerOriginalHash.fetch",
+          provider: "google",
+          resourceUrl: originalUrl
+        }, "*")
+      })
+    }, { firstMediaKey, originalUrl })
+    const worker = context.serviceWorkers()[0]
+    await worker.evaluate(({ originalText, originalUrl }) => {
+      const fetchProvider = globalThis.fetch
+      globalThis.fetch = async (url, options) => {
+        if (String(url) !== originalUrl) return fetchProvider(url, options)
+        const response = new Response(originalText, { headers: { "Content-Type": "image/jpeg" } })
+        Object.defineProperty(response, "url", {
+          value: originalUrl.replace("lh3.google.com", "lh3.googleusercontent.com")
+        })
+        return response
+      }
+    }, { originalText, originalUrl })
+    await injectScanResults(context, groups, mediaItems, 4, "test@example.com", true, providerSessionId)
+    const page = await openAppTab(context, extensionId)
+    await page.getByRole("checkbox", { name: /Include this set/ }).click()
+
+    // Register the same synthetic rows through the worker's normal terminal
+    // scan path. Injected review storage alone cannot authorize original reads.
+    const scan = await page.evaluate(async ({ providerSessionId, scopeFingerprint }) => {
+      const requestId = crypto.randomUUID()
+      const result = new Promise<boolean>((resolve) => {
+        const listener = (message: { requestId?: string; success?: boolean }) => {
+          if (message.requestId !== requestId) return
+          chrome.runtime.onMessage.removeListener(listener)
+          resolve(message.success === true)
+        }
+        chrome.runtime.onMessage.addListener(listener)
+      })
+      await chrome.runtime.sendMessage({
+        app: "GPD",
+        action: "gptkCommand",
+        command: "getAllMediaItems",
+        provider: "google",
+        requestId,
+        args: { accountEmail: "test@example.com", providerSessionId, scanScopeFingerprint: scopeFingerprint }
+      })
+      return result
+    }, { providerSessionId, scopeFingerprint })
+    expect(scan).toBe(true)
+
+    await page.getByRole("button", { name: "Verified identical (0)" }).click()
+    const panel = page.getByRole("region", { name: "Verify similar sets" })
+    const verify = panel.getByRole("button", { name: "Verify all similar sets" })
+    await verify.click()
+    const recover = panel.getByRole("button", { name: recovery.action, exact: true })
+    await expect(recover).toBeVisible()
+    await expect(panel).toContainText("1 of 4 originals checked successfully")
+    await expect(verify).toBeDisabled()
+    expect(await stub.evaluate(() => {
+      const { __gptkCommandLog } = window as unknown as {
+        __gptkCommandLog: { command: string }[]
+      }
+      return __gptkCommandLog.filter(({ command }) => command === "getOriginalContentHash").length
+    })).toBe(recovery.requests)
+    await recover.click()
+    const discard = page.getByRole("dialog", { name: "Discard this review?" })
+    await discard.getByRole("button", { name: "Keep reviewing" }).click()
+    await expect(discard).toHaveCount(0)
+    await expect(page.getByRole("region", { name: "Cleanup summary" })).toContainText("1 set included")
+    await expect.poll(async () => (await readLocalStorage(context, "scanResults")).scanResults)
+      .toMatchObject({ mediaItems: { [firstMediaKey]: { contentHash } } })
+  })
+}
 
 test("review next reveals a hidden set and focuses it without authorizing Trash", async () => {
   await clearStorage(context)

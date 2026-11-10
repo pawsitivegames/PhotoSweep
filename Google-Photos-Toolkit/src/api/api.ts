@@ -683,12 +683,13 @@ export default class Api {
     mediaKey: string,
     albumMediaKey: string | null = null,
     authKey: string | null = null,
-    parseResponse = true
+    parseResponse = true,
+    signal?: AbortSignal
   ): Promise<ItemInfo> {
     const rpcid = 'VrseUb';
     const requestData = [mediaKey, null, authKey, null, albumMediaKey];
     try {
-      const response = await this.makeApiRequest(rpcid, requestData);
+      const response = await this.makeApiRequest(rpcid, requestData, signal);
       if (parseResponse) return parser(response, rpcid) as ItemInfo;
       return response;
     } catch (error) {

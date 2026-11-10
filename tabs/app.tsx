@@ -156,6 +156,7 @@ import {
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   isVideoForPlayback,
+  originalReviewRecovery,
   safeProviderRetrievalError,
   validateOriginalContentHashResult,
   validateVideoPlaybackResult
@@ -1101,6 +1102,7 @@ export default function App() {
   const [resumeCheckpoint, setResumeCheckpoint] =
     useState<ScanCheckpoint | null>(null)
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all")
+  const [verificationRescanScope, setVerificationRescanScope] = useState<string | null>(null)
   const [bulkVerification, setBulkVerification] = useState<{
     startedFromExact: boolean
     setsMovedToExact: number
@@ -1110,6 +1112,7 @@ export default function App() {
     running: boolean
     stopped: boolean
     stopReason: "budget" | "session" | null
+    needsFreshScan: boolean
     lastError?: string
   } | null>(null)
   const bulkVerificationControllerRef = useRef<AbortController | null>(null)
@@ -3824,6 +3827,7 @@ export default function App() {
       !verificationSessionCurrent ||
       bulkVerificationControllerRef.current ||
       bulkVerification?.stopReason === "budget" ||
+      bulkVerification?.needsFreshScan ||
       similarItemsToVerify.length === 0
     ) return
 
@@ -3839,6 +3843,7 @@ export default function App() {
       running: true,
       stopped: false,
       stopReason: null as "budget" | "session" | null,
+      needsFreshScan: false,
       lastError: undefined as string | undefined
     }
     setBulkVerification({ ...progress })
@@ -3858,6 +3863,7 @@ export default function App() {
           currentProviderSessionIdRef.current !== state.providerSessionId
         ) {
           progress.stopReason = "session"
+          progress.needsFreshScan = true
           break
         }
 
@@ -3874,6 +3880,12 @@ export default function App() {
           progress.lastError = safeProviderRetrievalError(error)
           if (isOriginalReviewBudgetExhausted(progress.lastError)) {
             progress.stopReason = "budget"
+            break
+          }
+          const recovery = originalReviewRecovery(progress.lastError)
+          if (recovery) progress.needsFreshScan = true
+          if (recovery === "stale-review") {
+            progress.stopReason = "session"
             break
           }
         }
@@ -5586,13 +5598,7 @@ export default function App() {
   const reviewBudgetExhausted = bulkVerification?.stopReason === "budget"
   const needsFreshVerificationScan =
     (hasUncheckedOriginals && !verificationSessionCurrent) ||
-    bulkVerification?.stopReason === "session" ||
-    Boolean(
-      bulkVerification &&
-        !bulkVerification.running &&
-        bulkVerification.failed === bulkVerification.total &&
-        /\bscan (?:the current account )?again\b/i.test(bulkVerification.lastError ?? "")
-    )
+    bulkVerification?.needsFreshScan
   const verificationRecovery = reviewBudgetExhausted
     ? "Scan a smaller date range to check more originals."
     : needsFreshVerificationScan
@@ -5602,6 +5608,7 @@ export default function App() {
   const showVerificationNote = verificationRecovery || !bulkVerification ||
     (exactFilterEmpty && !bulkVerification.running && !hasUncheckedOriginals)
   const verificationPanel = (bulkVerification?.running ||
+    bulkVerification?.needsFreshScan ||
     exactFilterEmpty ||
     (exactBulkReview && bulkVerification?.startedFromExact) ||
     (reviewFilter === "similar" && (visibleGroups.length > 0 || bulkVerification))) ? (
@@ -5685,7 +5692,9 @@ export default function App() {
             </Button>
           )}
           {verificationRecovery && (
-            <Button variant={setsMovedToExact > 0 ? "outlined" : "contained"} onClick={handleReset}>
+            <Button
+              variant={setsMovedToExact > 0 ? "outlined" : "contained"}
+              onClick={() => setVerificationRescanScope(verificationScope)}>
               {reviewBudgetExhausted ? "Change scan settings" : "Scan again"}
             </Button>
           )}
@@ -6450,7 +6459,7 @@ export default function App() {
                 ? "Include the sets now, then review the proposed items before confirming Trash."
                 : "Review sets one at a time if you want to change which copies are kept."}
             </Typography>
-            {bulkReview.exactOnly && bulkReview.plan.mediaKeysToTrash.length > 0 && (
+            {bulkReview.plan.mediaKeysToTrash.length > 0 && (
               <Box
                 component="ul"
                 aria-label="Copies proposed for Trash"
@@ -6473,6 +6482,30 @@ export default function App() {
               Include all {bulkReview.groupCount.toLocaleString()} {bulkReview.exactOnly ? "exact " : ""}{bulkReview.groupCount === 1 ? "set" : "sets"}
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={verificationRescanScope !== null && verificationRescanScope === verificationScope}
+        onClose={() => setVerificationRescanScope(null)}
+        aria-labelledby="verification-rescan-title"
+        aria-describedby="verification-rescan-description">
+        <DialogTitle id="verification-rescan-title">Discard this review?</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="verification-rescan-description">
+            Continuing clears this scan’s verified matches, keeper choices, and Trash proposal.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button autoFocus onClick={() => setVerificationRescanScope(null)}>Keep reviewing</Button>
+          <Button
+            color="error"
+            onClick={() => {
+              setVerificationRescanScope(null)
+              handleReset()
+            }}>
+            Discard review
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -6527,6 +6560,19 @@ export default function App() {
               saves a JSON audit report before moving anything.
             </Typography>
           </Box>
+          {trashConfirm && (
+            <Box
+              component="ul"
+              aria-label="Copies proposed for Trash"
+              tabIndex={0}
+              sx={{ mt: 0, mb: 1.5, pl: 2.5, maxHeight: 160, overflow: "auto", overflowWrap: "anywhere" }}>
+              {trashConfirm.mediaKeysToTrash.map((mediaKey) => (
+                <Typography component="li" variant="body2" key={mediaKey}>
+                  {displayMediaItems[mediaKey]?.fileName || "Unnamed item"}
+                </Typography>
+              ))}
+            </Box>
+          )}
           {reportError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {reportError}

@@ -59,6 +59,8 @@ describe("GoogleCompletedScanRegistry", () => {
     }
 
     expect(registry.hasItem({ ...current, mediaKey: "not-returned" })).toBeNull()
+    expect(registry.hasReview(current)).toBe(true)
+    expect(registry.hasReview({ ...current, scopeFingerprint: "other-scope" })).toBe(false)
     expect(registry.hasItem({ ...current, accountEmail: "other@example.com" })).toBeNull()
     expect(registry.hasItem({ ...current, scopeFingerprint: "other-scope" })).toBeNull()
     expect(registry.hasItem({ ...current, providerSessionId: "other-session" })).toBeNull()
