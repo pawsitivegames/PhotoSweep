@@ -147,8 +147,9 @@ export default class ApiUtils {
     return await this.getAllItems<MediaItem>(this.api.getAlbumPage.bind(this.api), sharedLinkId);
   }
 
-  async getAllMediaInAlbum(albumMediaKey: string): Promise<MediaItem[]> {
-    return await this.getAllItems<MediaItem>(this.api.getAlbumPage.bind(this.api), albumMediaKey);
+  async getAllMediaInAlbum(albumMediaKey: string, signal?: AbortSignal): Promise<MediaItem[]> {
+    return await this.getAllItems<MediaItem>((pageId: string | null = null) =>
+      this.api.getAlbumPage(albumMediaKey, pageId, null, true, signal));
   }
 
   async getAllMediaInAlbumWithContext(albumMediaKey: string): Promise<{ title?: string; items: MediaItem[] }> {

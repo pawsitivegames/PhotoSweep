@@ -1,6 +1,8 @@
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import Typography from "@mui/material/Typography"
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
+import { photoSweepColors } from "../lib/photo-sweep-colors"
 
 export function ScanEmptyState({
   compact = false,
@@ -20,16 +22,32 @@ export function ScanEmptyState({
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              pt: 8,
-              gap: 2
+              mx: "auto",
+              maxWidth: 600,
+              p: { xs: 2.5, sm: 4 },
+              gap: 1.5,
+              textAlign: "center",
+              bgcolor: photoSweepColors.surface,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1.5
             }
       }>
-      <Typography
-        variant={compact ? "body2" : "h6"}
-        color={compact ? "text.primary" : "text.secondary"}
-        sx={{
-          fontWeight: compact ? 800 : undefined
-        }}>
+      {!compact && !identityPending && (
+        <Box
+          sx={{
+            display: "grid",
+            placeItems: "center",
+            width: 44,
+            height: 44,
+            borderRadius: 1,
+            bgcolor: "primary.light",
+            color: "primary.main"
+          }}>
+          <SearchRoundedIcon />
+        </Box>
+      )}
+      <Typography component="h2" variant={compact ? "subtitle2" : "h5"}>
         {identityPending
           ? "Confirming the connected photo library"
           : "No duplicate sets found in this scan."}

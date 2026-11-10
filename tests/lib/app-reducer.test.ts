@@ -436,6 +436,40 @@ describe("TRASH_COMPLETE", () => {
 // ============================================================
 
 describe("RESTORE_SNAPSHOT", () => {
+  it.each(["google", "icloud", "amazon"] as const)(
+    "restores the captured %s identity after a Trash timeout disconnected the app",
+    (sourceProvider) => {
+      const accountEmail =
+        sourceProvider === "google" ? "person@example.com" : undefined
+      const disconnected = appReducer(
+        {
+          ...trashingState,
+          sourceProvider,
+          accountEmail,
+          providerSessionId: "provider-session",
+        },
+        { type: "TRASH_ERROR", error: "The provider has not confirmed Trash yet." },
+      )
+      const restore = {
+        type: "RESTORE_SNAPSHOT" as const,
+        mediaItems,
+        groups,
+        totalItems: 4,
+        sourceProvider,
+        accountEmail,
+        providerSessionId: "provider-session",
+        scopeFingerprint: "captured-scope",
+      }
+      expect(appReducer(disconnected, restore)).toMatchObject({
+        status: "results",
+        sourceProvider,
+        accountEmail,
+        providerSessionId: "provider-session",
+        scopeFingerprint: "captured-scope",
+      })
+    }
+  )
+
   it("restores previous results state", () => {
     const next = appReducer(
       { status: "results", mediaItems: {}, groups: [], totalItems: 0 },

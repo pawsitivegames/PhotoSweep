@@ -697,32 +697,34 @@ describe("PhotoViewerModal — chip display", () => {
       />
     )
     expect(screen.getByText("Keep")).toBeInTheDocument()
-    expect(screen.queryByText("Trash")).not.toBeInTheDocument()
+    expect(screen.queryByText("Proposed for Trash")).not.toBeInTheDocument()
   })
 
-  it("shows Trash chip for a non-kept item in a selected group", () => {
+  it("labels a copy in the current Trash proposal", () => {
     wrap(
       <PhotoViewerModal
         {...defaultProps}
         initialIndex={1}
         keptSet={new Set(["img1"])} // img2 is not kept
         isGroupSelected={true}
+        trashPlanMediaKeys={new Set(["img2"])}
       />
     )
-    expect(screen.getByText("Trash")).toBeInTheDocument()
+    expect(screen.getByText("Proposed for Trash")).toBeInTheDocument()
     expect(screen.queryByText("Keep")).not.toBeInTheDocument()
   })
 
-  it("shows no chip for non-kept item in a deselected group", () => {
+  it("does not label a copy outside the Trash proposal even if its set is included", () => {
     wrap(
       <PhotoViewerModal
         {...defaultProps}
         initialIndex={1}
         keptSet={new Set(["img1"])}
-        isGroupSelected={false}
+        isGroupSelected={true}
+        trashPlanMediaKeys={new Set()}
       />
     )
-    expect(screen.queryByText("Trash")).not.toBeInTheDocument()
+    expect(screen.queryByText("Proposed for Trash")).not.toBeInTheDocument()
     expect(screen.queryByText("Keep")).not.toBeInTheDocument()
   })
 })

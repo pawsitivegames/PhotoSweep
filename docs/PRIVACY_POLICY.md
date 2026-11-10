@@ -1,6 +1,6 @@
 # PhotoSweep Privacy Policy
 
-Last updated: 2026-10-13
+Last updated: 2026-10-20
 
 ## Summary
 
@@ -36,8 +36,8 @@ review, report, Trash, undo, original-byte verification, and diagnostics feature
 - signed entitlement token state cached for offline/paid-access checks
 - a provider account email or identifier exposed by a signed-in provider page,
   when needed to associate saved scan state with the provider account
-- when you click “Verify original bytes,” the selected item's original bytes are
-  fetched into the browser for a local SHA-256 check. The check is limited to
+- when you click “Verify original bytes” or “Verify all similar sets,” the
+  eligible originals are fetched into the browser for a local SHA-256 check. The check is limited to
   25 MiB per item and 100 MiB per review. Amazon Photos original-byte checks are
   currently verified only for Amazon Photos Canada. The digest and byte count
   are retained with the review; the original bytes and temporary resource URLs
@@ -69,7 +69,7 @@ operation to that provider. The provider applies its own account, Trash, and
 permanent-deletion rules.
 
 Original-byte verification is optional and starts only when the user clicks
-“Verify original bytes.” The browser requests the selected item's original from
+“Verify original bytes” or “Verify all similar sets.” The browser requests each eligible original from
 the selected provider or its media host, computes SHA-256 locally, and keeps the
 result with the review. PhotoSweep does not send the fetched original bytes to
 its license or analytics service.
@@ -101,7 +101,9 @@ License and support data may include:
 
 Optional client telemetry is sent only after the user accepts the in-product
 disclosure. It helps measure reliability and feature use and can be declined
-without affecting scans, review, reports, Trash, licensing, or recovery. The
+without affecting scans, review, reports, Trash, licensing, or recovery. Review invitation views,
+review-link clicks, and bounded dismissal choices are included when consented;
+PhotoSweep does not receive review text or verify who submitted a Store rating. The
 validated event data does not include photo content, filenames, album names, raw
 reports, or provider URLs. The install id is a random UUID kept in Chrome
 extension storage. It is not derived from or linked to a Google, iCloud, or Amazon
@@ -197,10 +199,14 @@ resource URLs.
 
 License records are retained while needed to provide paid access, receipts,
 refund handling, support, fraud prevention, accounting, tax, and legal
-compliance. Consent-based usage-metrics events expire 90 days after server
+compliance. Consent-based usage-metrics events in the active database expire 90 days after server
 receipt and are deleted by Firestore TTL, typically within 24 hours after
 expiry. This analytics period does not apply to license, payment, recovery,
 accounting, tax, or legal records.
+
+Production database backups are scheduled daily with a 14-day retention.
+Records deleted from the active database may remain in backup snapshots until
+those backups expire.
 
 ## Refunds And Deletion Requests
 

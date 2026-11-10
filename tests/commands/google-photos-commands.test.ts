@@ -1230,7 +1230,8 @@ describe("getAllMediaItems — field mapping", () => {
       ) as any
       expect(getBatchMediaInfo).toHaveBeenCalledWith(
         mediaItems.map((item) => item.mediaKey),
-        false
+        false,
+        expect.any(AbortSignal)
       )
       expect(result?.data.map((item: any) => item.isOriginalQuality)).toEqual([
         true,
@@ -2093,7 +2094,7 @@ describe("getAllMediaItems — field mapping", () => {
 
     expect(
       (window as any).gptkApiUtils.getAllMediaInAlbum
-    ).toHaveBeenCalledWith("album-key")
+    ).toHaveBeenCalledWith("album-key", expect.any(AbortSignal))
     expect(
       (window as any).gptkApi.getItemsByUploadedDate
     ).not.toHaveBeenCalled()
@@ -2158,8 +2159,8 @@ describe("getAllMediaItems — field mapping", () => {
     await waitForMessage(messages, "req-album-page-1")
 
     const getAlbumPage = (window as any).gptkApiUtils.api.getAlbumPage
-    expect(getAlbumPage).toHaveBeenCalledWith("album-key", null)
-    expect(getAlbumPage).toHaveBeenCalledWith("album-key", "next")
+    expect(getAlbumPage).toHaveBeenCalledWith("album-key", null, null, true, expect.any(AbortSignal))
+    expect(getAlbumPage).toHaveBeenCalledWith("album-key", "next", null, true, expect.any(AbortSignal))
     expect(
       (window as any).gptkApiUtils.getAllMediaInAlbum
     ).not.toHaveBeenCalled()
@@ -2582,8 +2583,8 @@ describe("listAlbums", () => {
     await waitForMessage(messages, "req-albums-pages-1")
 
     const getAlbums = (window as any).gptkApiUtils.api.getAlbums
-    expect(getAlbums).toHaveBeenCalledWith(null, 100, false)
-    expect(getAlbums).toHaveBeenCalledWith("next", 100, false)
+    expect(getAlbums).toHaveBeenCalledWith(null, 100, false, expect.any(AbortSignal))
+    expect(getAlbums).toHaveBeenCalledWith("next", 100, false, expect.any(AbortSignal))
     expect((window as any).gptkApiUtils.getAllAlbums).not.toHaveBeenCalled()
 
     const result = messages.find(
@@ -2956,6 +2957,7 @@ describe("Google original media retrieval", () => {
     ) as any
     expect(relayRequest).toMatchObject({
       app: "GPD",
+      provider: "google",
       requestId: "google-original-hash",
       providerSessionId: googleTestSessionId,
       scanScopeFingerprint: scopeFingerprint,
@@ -3207,7 +3209,7 @@ describe("Google original media retrieval", () => {
       success: true,
       data: { mediaKey, scopeFingerprint, playbackUrl }
     })
-    expect(getItemInfo).toHaveBeenCalledWith(mediaKey)
+    expect(getItemInfo).toHaveBeenCalledWith(mediaKey, null, null, true, expect.any(AbortSignal))
     expect(getDownloadUrl).toHaveBeenCalledTimes(1)
     restore()
   })
@@ -3796,6 +3798,7 @@ describe("Google original media retrieval", () => {
       expect.objectContaining({
         app: "GPD",
         action: "providerOriginalHash.cancel",
+        provider: "google",
         requestId: "google-cancellable-fetch",
         providerSessionId: googleTestSessionId,
         scanScopeFingerprint: scopeFingerprint,
@@ -3847,6 +3850,52 @@ describe("Google original media retrieval", () => {
     ).toHaveLength(1)
     streamedMessages.restore()
     restore()
+  })
+
+  it("aborts the metadata fetch when original verification is stopped", async () => {
+    const scopeFingerprint = "google-original-metadata-abort"
+    const { messages, restore } = collectMessages()
+    const requestId = "google-original-metadata-request"
+    let markMetadataStarted!: (signal?: AbortSignal) => void
+    const metadataStarted = new Promise<AbortSignal | undefined>((resolve) => {
+      markMetadataStarted = resolve
+    })
+    const getItemInfo = vi.fn((
+      _mediaKey: string, _albumKey: null, _authKey: null, _parseResponse: boolean,
+      signal?: AbortSignal
+    ) => new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(signal.reason), { once: true })
+      markMetadataStarted(signal)
+    }))
+    ;(window as any).gptkApiUtils = { api: { ...mockApi, getItemInfo } }
+    try {
+      await scanWithMessages(
+        messages,
+        [makeItem("google-metadata-abort-photo", { mimeType: "image/jpeg" })],
+        "google-metadata-abort-scan",
+        scopeFingerprint
+      )
+      sendCommand("getOriginalContentHash", requestId, {
+        requestId,
+        mediaKey: "google-metadata-abort-photo",
+        userOptIn: true,
+        providerSessionId: googleTestSessionId,
+        scanScopeFingerprint: scopeFingerprint,
+        maxBytes: 1024
+      })
+      const signal = await metadataStarted
+      expect(signal?.aborted).toBe(false)
+      sendCommand("cancelProviderRequest", "google-metadata-abort-command", {
+        targetRequestId: requestId,
+        providerSessionId: googleTestSessionId,
+        scanScopeFingerprint: scopeFingerprint
+      })
+      expect(await waitForMessage(messages, requestId)).toMatchObject({ success: false })
+      expect(signal?.aborted).toBe(true)
+      expect(messages.some((message: any) => message?.action === "providerOriginalHash.fetch")).toBe(false)
+    } finally {
+      restore()
+    }
   })
 
   it("reserves aggregate bytes before concurrent downloads and keeps the budget outside the LRU cache", async () => {
@@ -5318,6 +5367,141 @@ describe("getAllMediaItems — page timeout", () => {
       (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
     ) as any
     expect(result?.success).toBe(true)
+    restore()
+  })
+})
+
+
+describe("Google scan read interruption and retry boundaries", () => {
+  const item = {
+    mediaKey: "interrupt-media", dedupKey: "interrupt-dedup",
+    thumb: "https://thumb.invalid/interrupt", timestamp: 1700000000000,
+    creationTimestamp: 1700000000000
+  }
+
+  it.each([401, 403])("returns HTTP %i authentication guidance without outer retries", async (status) => {
+    vi.useFakeTimers()
+    const getPage = vi.fn().mockRejectedValue(Object.assign(new Error(`HTTP ${status}`), { status }))
+    ;(window as any).gptkApi = { getItemsByUploadedDate: getPage }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "read-auth", {})
+    const result = await waitForMessageWithFakeTimers(messages, "read-auth")
+    expect(result).toMatchObject({ success: false, scanCoverage: { stopReason: "auth_expired" } })
+    expect(getPage).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    restore()
+  })
+
+  it("retains recovery from a transient page failure", async () => {
+    vi.useFakeTimers()
+    const getPage = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error("HTTP 503"), { status: 503 }))
+      .mockResolvedValue({ items: [], nextPageId: null })
+    ;(window as any).gptkApi = { getItemsByUploadedDate: getPage }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "read-recovery", {})
+    const result = await waitForMessageWithFakeTimers(messages, "read-recovery")
+    expect(result).toMatchObject({ success: true, scanCoverage: { status: "complete" } })
+    expect(getPage).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+    restore()
+  })
+
+  it("aborts the in-flight page read on cancel and publishes one terminal result", async () => {
+    vi.useFakeTimers()
+    let aborted = false
+    const getPage = vi.fn((_cursor, _parse, signal?: AbortSignal) => new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => {
+        aborted = true
+        reject(new DOMException("Aborted", "AbortError"))
+      }, { once: true })
+    }))
+    ;(window as any).gptkApi = { getItemsByUploadedDate: getPage }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "read-cancel", {})
+    await waitForCondition(() => getPage.mock.calls.length === 1, "pending read")
+    sendCommand("cancelScan", "read-cancel-command", { targetRequestId: "read-cancel" })
+    const result = await waitForMessageWithFakeTimers(messages, "read-cancel")
+    await vi.runAllTimersAsync()
+    expect(result).toMatchObject({ success: true, scanCoverage: { stopReason: "cancelled" } })
+    expect(aborted).toBe(true)
+    expect(getPage).toHaveBeenCalledTimes(1)
+    expect(messages.filter((m: any) => m.action === "gptkResult" && m.requestId === "read-cancel")).toHaveLength(1)
+    expect(vi.getTimerCount()).toBe(0)
+    restore()
+  })
+
+  it("aborts each timed-out read before retrying, without overlapping requests", async () => {
+    vi.useFakeTimers()
+    let active = 0
+    let maxActive = 0
+    const getPage = vi.fn((_cursor, _parse, signal?: AbortSignal) => new Promise((_resolve, reject) => {
+      active += 1
+      maxActive = Math.max(maxActive, active)
+      signal?.addEventListener("abort", () => {
+        active -= 1
+        reject(new DOMException("Aborted", "AbortError"))
+      }, { once: true })
+    }))
+    ;(window as any).gptkApi = { getItemsByUploadedDate: getPage }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "read-timeout", {})
+    await waitForCondition(() => getPage.mock.calls.length === 1, "first timed read")
+    await vi.advanceTimersByTimeAsync(70_000)
+    const result = await waitForMessageWithFakeTimers(messages, "read-timeout")
+    expect(result).toMatchObject({ success: false, error: expect.stringMatching(/timed out/), scanCoverage: { stopReason: "provider_error" } })
+    expect(getPage).toHaveBeenCalledTimes(3)
+    expect(maxActive).toBe(1)
+    expect(active).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+    restore()
+  })
+
+  it("cancels the outer retry backoff before another page read", async () => {
+    vi.useFakeTimers()
+    const getPage = vi.fn().mockRejectedValue(new Error("temporary network error"))
+    ;(window as any).gptkApi = { getItemsByUploadedDate: getPage }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "read-backoff-cancel", {})
+    await waitForCondition(() => getPage.mock.calls.length === 1, "failed first read")
+    await vi.advanceTimersByTimeAsync(0)
+    sendCommand("cancelScan", "read-backoff-cancel-command", { targetRequestId: "read-backoff-cancel" })
+    const result = await waitForMessageWithFakeTimers(messages, "read-backoff-cancel")
+    await vi.runAllTimersAsync()
+    expect(result).toMatchObject({ success: true, scanCoverage: { stopReason: "cancelled" } })
+    expect(getPage).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    restore()
+  })
+
+  it("aborts supplemental metadata reads when the scan is cancelled", async () => {
+    vi.useFakeTimers()
+    ;(window as any).gptkApi = { getItemsByUploadedDate: vi.fn().mockResolvedValue({ items: [item], nextPageId: null }) }
+    let aborted = false
+    const getBatchMediaInfo = vi.fn((_keys, _parse, signal?: AbortSignal) => new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => { aborted = true; reject(new DOMException("Aborted", "AbortError")) }, { once: true })
+    }))
+    ;(window as any).gptkApiUtils = { api: { getBatchMediaInfo } }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "metadata-cancel", {})
+    await waitForCondition(() => getBatchMediaInfo.mock.calls.length === 1, "pending metadata read")
+    sendCommand("cancelScan", "metadata-cancel-command", { targetRequestId: "metadata-cancel" })
+    const result = await waitForMessageWithFakeTimers(messages, "metadata-cancel")
+    expect(result).toMatchObject({ success: true, scanCoverage: { stopReason: "cancelled" } })
+    expect(aborted).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+    restore()
+  })
+
+  it("surfaces expired authentication during supplemental metadata instead of declaring completion", async () => {
+    ;(window as any).gptkApi = { getItemsByUploadedDate: vi.fn().mockResolvedValue({ items: [item], nextPageId: null }) }
+    const getBatchMediaInfo = vi.fn().mockRejectedValue(Object.assign(new Error("HTTP 401"), { status: 401 }))
+    ;(window as any).gptkApiUtils = { api: { getBatchMediaInfo } }
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "metadata-auth", {})
+    const result = await waitForMessage(messages, "metadata-auth")
+    expect(result).toMatchObject({ success: false, scanCoverage: { stopReason: "auth_expired" } })
+    expect(getBatchMediaInfo).toHaveBeenCalledTimes(1)
     restore()
   })
 })

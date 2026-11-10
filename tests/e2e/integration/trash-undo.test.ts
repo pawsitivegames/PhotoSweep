@@ -23,6 +23,7 @@ import {
   launchExtension,
   makeGroups,
   openAppTab,
+  openReviewTools,
   openGptkStubPage
 } from "../fixtures/extension"
 
@@ -83,23 +84,20 @@ async function includeAllAndOpenTrashDialog(
   await expect(page.getByText(`Signed in · ${accountEmail}`)).toBeVisible({
     timeout: 8_000
   })
-  await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
   if (reviewAllAtOnce) {
-    // Large result lists virtualize review cards. Use the explicit bulk-review
-    // action so offscreen groups are reviewed without changing keeper choices.
-    const reviewAllButton = page.getByRole("button", {
-      name: /^Mark all [0-9]+ eligible sets as reviewed$/i
-    })
-    await expect(reviewAllButton).toBeVisible()
-    await reviewAllButton.click()
+    await page.getByRole("button", { name: /^Preview all [0-9]+ sets$/i }).click()
+    const bulk = page.getByRole("dialog", { name: "Preview all sets" })
+    await bulk.getByRole("button", { name: /^Include all [0-9]+ sets$/i }).click()
   } else {
+    await openReviewTools(page)
+    await page.getByRole("button", { name: /^Include all [0-9]+ shown sets? in cleanup$/i }).click()
     // Inclusion proposes sets; an explicit keeper decision completes review.
     for (const card of await page.locator("[data-review-group-id]").all()) {
       await card.getByRole("button", { name: /currently kept; this is the last kept copy/ }).click()
     }
   }
   await page
-    .getByRole("button", { name: /Review & move \d+ to Trash/i })
+    .getByRole("button", { name: /Review \d+ proposed items?/i })
     .click()
 }
 
@@ -250,7 +248,7 @@ test("Amazon Undo after a late Trash result stays mounted without a profile name
     trashItems: { data: { outcomes: [
       { operation: "trash", targetKey: "dedup-group0-item1", status: "confirmed" }
     ] } },
-    restoreItems: { data: { outcomes: [
+    restoreItems: { holdResponse: true, data: { outcomes: [
       { operation: "restore", targetKey: "dedup-group0-item1", status: "confirmed" }
     ] } }
   }, "amazon")
@@ -317,6 +315,22 @@ test("Amazon Undo after a late Trash result stays mounted without a profile name
   })
   await expect(page.getByRole("button", { name: /^Undo(?: moved items)?$/i })).toBeVisible()
   await page.getByRole("button", { name: /^Undo(?: moved items)?$/i }).click()
+  await stub.waitForFunction(() =>
+    Object.keys((window as unknown as {
+      __gptkHeldRestoreResponses: Record<string, unknown>
+    }).__gptkHeldRestoreResponses).length === 1)
+  // Let snapshot validation run before the provider's terminal restore reply.
+  await page.clock.runFor(100)
+  await expect(page.getByRole("heading", { name: "1 Duplicate Set to Review", exact: true })).toBeVisible()
+  await stub.evaluate(() => {
+    const held = (window as unknown as {
+      __gptkHeldRestoreResponses: Record<string, (data: unknown) => void>
+    }).__gptkHeldRestoreResponses
+    Object.values(held)[0]({
+      restoredDedupKeys: ["dedup-group0-item1"],
+      outcomes: [{ operation: "restore", targetKey: "dedup-group0-item1", status: "confirmed" }]
+    })
+  })
   await expect.poll(() => readRecoveryHistory(context)).toMatchObject([
     { provider: "amazon", status: "restored", movedCount: 1, restoreUnknownCount: 0 }
   ])
@@ -377,9 +391,8 @@ test("trashes selected groups and removes them from the UI", async () => {
   })
   await expect(
     page.getByText("How was your PhotoSweep cleanup?")
-  ).not.toBeVisible()
-  await page.getByRole("button", { name: "Dismiss undo notification" }).click()
-  await expect(page.getByText("How was your PhotoSweep cleanup?")).toBeVisible()
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Maybe later" }).click()
 
   // Review list should no longer show duplicate sets
@@ -459,10 +472,12 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
     timeout: 8_000
   })
 
-  await page.locator(`[data-review-group-id="${groups[1].id}"]`).getByRole("button", { name: "Skip cleanup for this set", exact: true }).click()
-  await page.locator('input[type="checkbox"]').first().click()
+  const firstGroup = page.locator(`[data-review-group-id="${groups[0].id}"]`)
+  const secondGroup = page.locator(`[data-review-group-id="${groups[1].id}"]`)
+  await secondGroup.getByRole("button", { name: "Skip cleanup for this set", exact: true }).click()
+  await firstGroup.getByRole("checkbox", { name: /Include this set/ }).click()
   await page
-    .getByRole("button", { name: /Review & move \d+ to Trash/i })
+    .getByRole("button", { name: /Review \d+ proposed items?/i })
     .click()
   await confirmTrashDialog(page, 10)
   await expect(page.getByText(/moved to trash/i)).toBeVisible({
@@ -471,8 +486,8 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
 
   // Select the one remaining group directly. This preserves the same cleanup
   // session, so the dialog must enforce the already-used free allowance.
-  await page.locator('input[type="checkbox"]').first().click()
-  await page.getByRole("button", { name: /Review & move 1 to Trash/i }).click()
+  await secondGroup.getByRole("checkbox", { name: /Include this set/ }).click()
+  await page.getByRole("button", { name: /Review 1 proposed item/i }).click()
 
   await expect(page.getByRole("dialog")).toBeVisible()
   await expect(

@@ -25,14 +25,8 @@ import { applyStrykerVitestRunnerCompat } from "../../verification/stryker-vites
 
 const repositoryRoot = resolve(process.cwd())
 const mutationRunner = join(repositoryRoot, "verification/run-mutation.mjs")
-const requiredMutationFiles = [
-  "lib/trash-lifecycle.ts",
-  "lib/trash-dispatch-guard.ts",
-  "lib/review-preflight.ts",
-  "lib/duplicate-review-session.ts",
-  "lib/keep-strategy.ts",
-  "scripts/photo-provider-command-host.js"
-]
+const requiredMutationFiles = [...MUTATION_TARGETS]
+const moduleCount = requiredMutationFiles.length
 
 type RunnerOptions = {
   report?: unknown
@@ -580,6 +574,11 @@ process.exit(Number.parseInt(process.env.VERIFICATION_STUB_EXIT ?? "0", 10))
 }
 
 describe("mutation runner integrity", () => {
+  it("includes asynchronous Trash execution in the destructive mutation scope", () => {
+    expect(MUTATION_TARGETS).toContain("lib/trash-execution.ts")
+    expect(MUTATION_TEST_FILES).toContain("tests/lib/trash-execution.test.ts")
+  })
+
   it("keeps the pinned TLC JAR out of disposable Stryker worker copies", async () => {
     const config = await import("../../stryker.config.mjs")
 
@@ -865,7 +864,7 @@ describe("mutation runner integrity", () => {
       status: "PASS",
       exitCode: 0,
       checksRun: 1,
-      filesMutated: 6,
+      filesMutated: moduleCount,
       sourceDrift: false
     })
     expect(run.result.sourceFingerprintBefore).toBe(
@@ -889,7 +888,7 @@ describe("mutation runner integrity", () => {
       sourceFingerprintAfter: run.result.sourceFingerprintAfter,
       policyStatus: "NOT_REQUIRED",
       summary: {
-        mutantsTotal: 6,
+        mutantsTotal: moduleCount,
         mutantsReviewed: 0,
         mutantsResolved: 0,
         mutantsUnresolved: 0,
@@ -897,7 +896,7 @@ describe("mutation runner integrity", () => {
         criticalSurvivors: 0
       }
     })
-    expect(run.triage.entries).toHaveLength(6)
+    expect(run.triage.entries).toHaveLength(moduleCount)
     for (const entry of run.triage.entries) {
       expect(entry).toMatchObject({
         file: expect.any(String),
@@ -953,13 +952,13 @@ describe("mutation runner integrity", () => {
     expect(run.result).toMatchObject({
       status: "PASS",
       mutationTriagePolicyStatus: "VALID",
-      mutantsReviewed: 6,
-      mutantsResolved: 6,
+      mutantsReviewed: moduleCount,
+      mutantsResolved: moduleCount,
       mutantsUnresolved: 0,
       mutantsUnreviewed: 0
     })
     expect(run.triage?.summary).toMatchObject({
-      mutantsResolved: 6,
+      mutantsResolved: moduleCount,
       mutantsUnresolved: 0,
       mutantsUnreviewed: 0
     })
@@ -1016,7 +1015,7 @@ describe("mutation runner integrity", () => {
       exitCode: 1,
       childExitCode: 0,
       checksRun: 1,
-      mutantsTotal: 6,
+      mutantsTotal: moduleCount,
       mutationTriagePolicyStatus: "STALE_OR_INVALID",
       mutationTriagePolicyError: expect.stringContaining("source fingerprint")
     })
@@ -1282,11 +1281,11 @@ describe("mutation runner integrity", () => {
         exitCode: 1,
         childExitCode: 0,
         mutationScorePercent: 95,
-        mutantsTotal: 600,
-        mutantsKilled: 570,
-        mutantsIncomplete: 30
+        mutantsTotal: 100 * moduleCount,
+        mutantsKilled: 95 * moduleCount,
+        mutantsIncomplete: 5 * moduleCount
       })
-      expect(run.result.statusCounts[incompleteStatus]).toBe(30)
+      expect(run.result.statusCounts[incompleteStatus]).toBe(5 * moduleCount)
     }
   )
 
@@ -1304,12 +1303,12 @@ describe("mutation runner integrity", () => {
       childExitCode: 0,
       mutationScorePercent: 95,
       coveredMutationScorePercent: 100,
-      mutantsTotal: 600,
-      mutantsKilled: 570,
-      mutantsNoCoverage: 30,
-      mutantsNoCoverageUnresolved: 30,
-      mutantsUnreviewed: 30,
-      mutantsUnresolved: 30,
+      mutantsTotal: 100 * moduleCount,
+      mutantsKilled: 95 * moduleCount,
+      mutantsNoCoverage: 5 * moduleCount,
+      mutantsNoCoverageUnresolved: 5 * moduleCount,
+      mutantsUnreviewed: 5 * moduleCount,
+      mutantsUnresolved: 5 * moduleCount,
       mutationTriagePolicyStatus: "NOT_CONFIGURED"
     })
   })
@@ -1330,9 +1329,9 @@ describe("mutation runner integrity", () => {
       exitCode: 0,
       mutationScorePercent: 95,
       coveredMutationScorePercent: 100,
-      mutantsTotal: 600,
-      mutantsKilled: 570,
-      mutantsNoCoverage: 30,
+      mutantsTotal: 100 * moduleCount,
+      mutantsKilled: 95 * moduleCount,
+      mutantsNoCoverage: 5 * moduleCount,
       mutantsNoCoverageUnresolved: 0,
       mutantsUnreviewed: 0,
       mutantsUnresolved: 0,
@@ -1340,8 +1339,8 @@ describe("mutation runner integrity", () => {
       mutationTriagePolicyStatus: "VALID"
     })
     expect(run.triage.summary).toMatchObject({
-      mutantsReviewed: 30,
-      mutantsResolved: 30,
+      mutantsReviewed: 5 * moduleCount,
+      mutantsResolved: 5 * moduleCount,
       mutantsUnresolved: 0
     })
   })
@@ -1360,7 +1359,7 @@ describe("mutation runner integrity", () => {
     expect(run.result).toMatchObject({
       status: "PASS",
       mutationScorePercent: 95,
-      mutantsSurvived: 30,
+      mutantsSurvived: 5 * moduleCount,
       criticalSurvivors: 0,
       mutantsUnreviewed: 0,
       mutantsUnresolved: 0
@@ -1380,8 +1379,8 @@ describe("mutation runner integrity", () => {
     expect(run.child.status).toBe(1)
     expect(run.result).toMatchObject({
       status: "FAIL",
-      criticalSurvivors: 30,
-      mutantsUnresolved: 30,
+      criticalSurvivors: 5 * moduleCount,
+      mutantsUnresolved: 5 * moduleCount,
       mutantsUnreviewed: 0,
       mutationTriagePolicyStatus: "VALID"
     })
@@ -1412,17 +1411,17 @@ describe("mutation runner integrity", () => {
 
     expect(run.result).toMatchObject({
       checksRun: 1,
-      mutantsNoCoverage: 6,
-      mutantsUnresolved: 6
+      mutantsNoCoverage: moduleCount,
+      mutantsUnresolved: moduleCount
     })
     expect(run.triage).toMatchObject({
       rawReportSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
       sourceFingerprint: run.result.sourceFingerprint,
-      summary: { mutantsUnreviewed: 6, mutantsNoCoverageUnresolved: 6 }
+      summary: { mutantsUnreviewed: moduleCount, mutantsNoCoverageUnresolved: moduleCount }
     })
   })
 
-  it("rejects a report missing five required mutation modules", () => {
+  it("rejects a report missing configured mutation modules", () => {
     const report = mutationReport()
     for (const fileName of requiredMutationFiles.slice(1)) {
       delete report.files[fileName]
@@ -1436,7 +1435,7 @@ describe("mutation runner integrity", () => {
       childExitCode: 0,
       checksRun: 0
     })
-    expect(run.result.message).toContain("exactly 6 configured mutation files")
+    expect(run.result.message).toContain(`exactly ${moduleCount} configured mutation files`)
     expect(run.result.message).toContain("missing:")
   })
 
@@ -1498,22 +1497,22 @@ describe("mutation runner integrity", () => {
     expect(run.result).toMatchObject({
       status: "FAIL",
       childExitCode: 0,
-      mutantsTotal: 48,
-      mutantsKilled: 6,
-      mutantsNoCoverage: 6,
-      mutantsTimedOut: 6,
-      mutantsErrored: 12,
-      mutantsIncomplete: 12,
+      mutantsTotal: 8 * moduleCount,
+      mutantsKilled: moduleCount,
+      mutantsNoCoverage: moduleCount,
+      mutantsTimedOut: moduleCount,
+      mutantsErrored: 2 * moduleCount,
+      mutantsIncomplete: 2 * moduleCount,
       mutationScorePercent: 12.5,
       statusCounts: {
-        Killed: 6,
-        NoCoverage: 6,
-        Timeout: 6,
-        RuntimeError: 6,
-        CompileError: 6,
-        Survived: 6,
-        Ignored: 6,
-        Pending: 6
+        Killed: moduleCount,
+        NoCoverage: moduleCount,
+        Timeout: moduleCount,
+        RuntimeError: moduleCount,
+        CompileError: moduleCount,
+        Survived: moduleCount,
+        Ignored: moduleCount,
+        Pending: moduleCount
       }
     })
     expect(

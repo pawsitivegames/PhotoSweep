@@ -8,7 +8,6 @@ import Dialog from "@mui/material/Dialog"
 import DialogActions from "@mui/material/DialogActions"
 import DialogContent from "@mui/material/DialogContent"
 import DialogTitle from "@mui/material/DialogTitle"
-import Divider from "@mui/material/Divider"
 import List from "@mui/material/List"
 import ListItem from "@mui/material/ListItem"
 import ListItemText from "@mui/material/ListItemText"
@@ -92,93 +91,96 @@ export function RecoveryHistoryDialog({
             {records.map((record, index) => {
               const restorable = isRecoveryRestorable(record)
               return (
-                <Box key={record.operationId}>
-                  <ListItem
-                    disableGutters
-                    sx={{
-                      alignItems: "flex-start",
-                      gap: 1,
-                      py: 1.1
-                    }}
-                    secondaryAction={
-                      restorable ? (
-                        <Button
+                <ListItem
+                  key={record.operationId}
+                  divider={index < records.length - 1}
+                  disableGutters
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: restorable
+                      ? { xs: "minmax(0, 1fr)", sm: "minmax(0, 1fr) auto" }
+                      : "minmax(0, 1fr)",
+                    alignItems: "center",
+                    gap: 1,
+                    py: 1.1
+                  }}>
+                  <ListItemText
+                    primary={
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.75,
+                          flexWrap: "wrap"
+                        }}>
+                        <Typography variant="body2" sx={{
+                          fontWeight: 800
+                        }}>
+                          {providerLabel(record.provider)}
+                        </Typography>
+                        <Chip
                           size="small"
-                          startIcon={<RestoreRoundedIcon />}
-                          onClick={() => onRestore(record)}>
-                          Restore
-                        </Button>
-                      ) : undefined
-                    }>
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.75,
-                            pr: restorable ? 10 : 0
-                          }}>
-                          <Typography variant="body2" sx={{
-                            fontWeight: 800
-                          }}>
-                            {providerLabel(record.provider)}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={statusLabel(record.status)}
-                            color={
-                              record.status === "restored"
-                                ? "success"
-                                : record.status === "restore_failed" ||
-                                    record.status === "restore_partial" ||
-                                    record.status === "failed" ||
-                                    record.status === "unknown" ||
-                                    record.status === "restore_unknown"
-                                  ? "warning"
-                                  : "default"
-                            }
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Box
-                          component="span"
-                          sx={{ display: "grid", gap: 0.2 }}>
-                          <Typography component="span" variant="caption">
-                            {new Date(record.createdAt).toLocaleString()} ·{" "}
-                            {record.scopeLabel ?? "Scoped library"}
-                          </Typography>
-                          <Typography component="span" variant="caption">
-                            {record.movedCount.toLocaleString()} moved ·{" "}
-                            {record.failedCount.toLocaleString()} failed
-                            {(record.unknownCount ?? 0) > 0
-                              ? ` · ${(record.unknownCount ?? 0).toLocaleString()} outcome unknown`
-                              : ""}
-                            {(record.notDispatchedCount ?? 0) > 0
-                              ? ` · ${(record.notDispatchedCount ?? 0).toLocaleString()} not dispatched`
-                              : ""}
-                            {(record.restoreUnknownCount ?? 0) > 0
-                              ? ` · ${(record.restoreUnknownCount ?? 0).toLocaleString()} restore outcome unknown`
-                              : ""}
-                            {record.lastError ? ` · ${record.lastError}` : ""}
-                          </Typography>
-                          {restorable && (
-                            <>
-                              <Typography component="span" variant="caption">
-                                Restore from {providerTrashDestination(record.provider)}.
-                              </Typography>
-                              <Typography component="span" variant="caption">
-                                {providerRecoveryWindowNotice(record.provider)}
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  {index < records.length - 1 && <Divider />}
-                </Box>
+                          label={statusLabel(record.status)}
+                          color={
+                            record.status === "restored"
+                              ? "success"
+                              : record.status === "restore_failed" ||
+                                  record.status === "restore_partial" ||
+                                  record.status === "failed" ||
+                                  record.status === "unknown" ||
+                                  record.status === "restore_unknown"
+                                ? "warning"
+                                : "default"
+                          }
+                        />
+                      </Box>
+                    }
+                    secondary={
+                      <Box
+                        component="span"
+                        sx={{ display: "grid", gap: 0.2 }}>
+                        <Typography component="span" variant="caption">
+                          {new Date(record.createdAt).toLocaleString()} ·{" "}
+                          {record.scopeLabel ?? "Scoped library"}
+                        </Typography>
+                        <Typography component="span" variant="caption">
+                          {record.movedCount.toLocaleString()} moved ·{" "}
+                          {record.failedCount.toLocaleString()} failed
+                          {(record.unknownCount ?? 0) > 0
+                            ? ` · ${(record.unknownCount ?? 0).toLocaleString()} outcome unknown`
+                            : ""}
+                          {(record.notDispatchedCount ?? 0) > 0
+                            ? ` · ${(record.notDispatchedCount ?? 0).toLocaleString()} not dispatched`
+                            : ""}
+                          {(record.restoreUnknownCount ?? 0) > 0
+                            ? ` · ${(record.restoreUnknownCount ?? 0).toLocaleString()} restore outcome unknown`
+                            : ""}
+                          {record.lastError ? ` · ${record.lastError}` : ""}
+                        </Typography>
+                        {restorable && (
+                          <>
+                            <Typography component="span" variant="caption">
+                              Restore from {providerTrashDestination(record.provider)}.
+                            </Typography>
+                            <Typography component="span" variant="caption">
+                              {providerRecoveryWindowNotice(record.provider)}
+                            </Typography>
+                          </>
+                        )}
+                      </Box>
+                    }
+                  />
+                  {restorable && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<RestoreRoundedIcon />}
+                      onClick={() => onRestore(record)}
+                      sx={{ justifySelf: "start" }}>
+                      Restore
+                    </Button>
+                  )}
+                </ListItem>
               );
             })}
           </List>

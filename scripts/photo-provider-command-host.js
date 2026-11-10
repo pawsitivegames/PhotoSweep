@@ -229,6 +229,7 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
   const ORIGINAL_MEDIA_MAX_BYTES_PER_REVIEW = 100 * 1024 * 1024
   const originalMediaRetrieval = (() => {
     const resources = new Map()
+    let newestResource = null
     const budgets = new Map()
     const reservationStates = new WeakMap()
     const budgetViews = new WeakMap()
@@ -354,7 +355,9 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
       }
       const key = resourceKey(provider, sessionId, scopeFingerprint, mediaKey)
       if (resources.has(key)) resources.delete(key)
-      resources.set(key, { provider, resource, storedAt: Date.now() })
+      const storedAt = Date.now()
+      resources.set(key, { provider, resource, storedAt })
+      newestResource = { provider, scopeFingerprint, storedAt }
       // One call can increase the cache by at most one entry, so one eviction suffices.
       if (resources.size > ORIGINAL_MEDIA_RESOURCE_CACHE_MAX) {
         resources.delete(resources.keys().next().value)
@@ -405,6 +408,7 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
     }
 
     function clearResources(provider) {
+      if (!provider || newestResource?.provider === provider) newestResource = null
       if (!provider) {
         resources.clear()
         return
@@ -554,13 +558,18 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
       rememberResource,
       getResource,
       isCurrentResource,
+      hasExpiredResources(provider, scopeFingerprint) {
+        return newestResource?.provider === provider &&
+          newestResource.scopeFingerprint === scopeFingerprint &&
+          Date.now() - newestResource.storedAt > ORIGINAL_MEDIA_RESOURCE_MAX_AGE_MS
+      },
       clearResources,
       reserveBudget,
       consumeChunk,
       accountResult,
       releaseBudget,
       reset() {
-        resources.clear()
+        clearResources()
         budgets.clear()
       }
     })
@@ -1002,6 +1011,14 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
           requestId,
           "Original media retrieval must match the most recent scan scope in this provider page session. Scan again and review the current items."
         )
+        return
+      }
+
+      if (
+        isProviderRetrieval &&
+        originalMediaRetrieval.hasExpiredResources(messageProvider, activeScanScopeFingerprint)
+      ) {
+        postError(command, requestId, "Original media review has expired. Scan again.")
         return
       }
 

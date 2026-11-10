@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext } from "@playwright/test"
-import { clearStorage, launchExtension, openAppTab, openGptkStubPage, injectScanResults, makeGroups } from "../fixtures/extension"
+import { clearStorage, launchExtension, openAppTab, openGptkStubPage, injectScanResults, makeGroups, openReviewTools } from "../fixtures/extension"
 
 let context: BrowserContext
 let extensionId: string
@@ -135,6 +135,7 @@ test("a scan paused during cache lookup emits no scan attempt or provider dispat
     await expect(page.getByText("Signed in · test@example.com")).toBeVisible({ timeout: 10000 })
     await page.getByRole("button", { name: "Allow", exact: true }).click()
     await expect.poll(() => events.filter(event => event.name === "provider_connected").length).toBe(1)
+    await openReviewTools(page)
     await page.getByRole("button", { name: /Scan again/i }).click()
     await expect(page.getByRole("button", { name: /^Scan the last 30 days$/ })).toBeVisible()
     await page.evaluate(() => {

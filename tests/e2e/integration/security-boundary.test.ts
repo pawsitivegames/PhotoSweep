@@ -11,7 +11,7 @@ import {
   getProviderCommandPublicKey,
   withProviderCommandCapability
 } from "../../../lib/provider-command-capability"
-import { launchExtension } from "../fixtures/extension"
+import { launchExtension, openGptkStubPage } from "../fixtures/extension"
 
 function base64UrlEncode(bytes: ArrayBuffer): string {
   let binary = ""
@@ -30,6 +30,41 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await context.close()
+})
+
+test("provider fixture declares command ownership before automatic injection", async () => {
+  await context.addInitScript(() => {
+    if (location.hostname !== "photos.google.com") return
+    document.addEventListener("DOMContentLoaded", () => {
+      const fixture = window as unknown as {
+        __GPD_COMMAND_HOST_OWNER_ID__?: string
+        __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+        __GPD_GOOGLE_COMMAND_HANDLER_LOADED__?: boolean
+        gptkApi?: unknown
+        __initialFixtureOwnership?: unknown
+      }
+      fixture.__initialFixtureOwnership = {
+        host: fixture.__GPD_COMMAND_HOST_OWNER_ID__,
+        handler: fixture.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__,
+        loaded: fixture.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__,
+        hasToolkit: fixture.gptkApi !== undefined
+      }
+    }, { once: true })
+  })
+  const page = await openGptkStubPage(context)
+  try {
+    const observed = await page.evaluate(() => {
+      const fixture = window as unknown as {
+        __initialFixtureOwnership?: unknown
+        __GPD_COMMAND_HOST_OWNER_ID__?: string
+      }
+      return { initial: fixture.__initialFixtureOwnership, owner: fixture.__GPD_COMMAND_HOST_OWNER_ID__ }
+    })
+    expect(observed.owner).toMatch(new RegExp(`^${extensionId}:`))
+    expect(observed.initial).toEqual({ host: observed.owner, handler: observed.owner, loaded: true, hasToolkit: true })
+  } finally {
+    await page.close()
+  }
 })
 
 test("SAFE-10 security-boundary blocks unauthorized browser dispatch", async () => {

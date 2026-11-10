@@ -95,6 +95,19 @@ export function getTrustedContentHash(
   return isTrustedContentHash(item.contentHash) ? item.contentHash : null
 }
 
+export function isLocallyVerifiedOriginalHash(
+  value: unknown
+): value is ContentHashEvidence & {
+  algorithm: "sha256"
+  verificationSource: "local-original-bytes"
+} {
+  return (
+    isTrustedContentHash(value) &&
+    value.algorithm === "sha256" &&
+    value.verificationSource === "local-original-bytes"
+  )
+}
+
 export function normalizedMediaKind(item: GpdMediaItem):
   | "photo"
   | "video"
@@ -142,14 +155,8 @@ export function contentHashBucketIdentity(item: GpdMediaItem): string | null {
 }
 
 export function verifiedContentHashIdentity(item: GpdMediaItem): string | null {
-  const hash = getTrustedContentHash(item)
-  if (
-    !hash ||
-    hash.algorithm !== "sha256" ||
-    hash.verificationSource !== "local-original-bytes"
-  ) {
-    return null
-  }
+  const hash = item.contentHash
+  if (!isLocallyVerifiedOriginalHash(hash)) return null
   const mediaKind = normalizedMediaKind(item)
   if (mediaKind === "unknown") return null
   if (

@@ -1,5 +1,7 @@
 # PhotoSweep Licensing Backend
 
+> Storage note (2026-10-26): Raw artifacts under `tmp/verification/` were removed from this checkout to reclaim space. Historical summaries remain, but those files are unavailable for inspection and do not verify the current candidate.
+
 This repo includes a minimal Stripe Checkout and signed-entitlement API in
 `server/license-api.mjs`. It is framework-neutral: deploy it behind any runtime
 or adapter that can pass a Web `Request` to `createLicenseApi()`.
@@ -80,6 +82,15 @@ access.
 - `POST /analytics`
 
   - Body is one allowlisted product/reliability event.
+  - Review activity uses `review_prompt_shown`, `review_link_clicked`, and
+    `review_prompt_dismissed`. Optional `reviewSource` is `cleanup` or `help`;
+    `reviewDismissalReason` is `later`, `never`, or `feedback`. These bounded
+    values carry no review text, account details, or photo data. The existing
+    consent and retention rules apply. Deploy the updated API allowlist before
+    releasing a client that sends these events.
+  - `npm run analytics:export` includes those event counts in
+    `eventCountsByName`. Compare them with actual Chrome Web Store ratings;
+    link clicks are not verified submissions and cannot identify who rated.
   - Accepted fields are event name, opaque UUID v4 install id, extension version,
     UTC day key, provider, scan mode, plan id, count buckets, and error category.
   - `provider_connected` requires a provider. Client telemetry without all three
@@ -96,10 +107,10 @@ access.
     documents, all with expiry timestamps, none past due, and corrected all 22
     rows that lacked expiry at the start of that run. Counts do not identify
     which records TTL deleted. Firestore deletion is asynchronous, so do not
-    treat saved counts as current deletion evidence. See the [TTL check](../tmp/verification/release-followup-20261019T1125Z/public-policy-and-ttl.json),
-    [backfill result](../tmp/verification/runs/20261014T083352Z-analytics-retention-preflight/analytics-retention-backfill-result.json),
-    [October 14 count](../tmp/verification/manual-20261014-node24/analytics-ttl-current-counts.json),
-    and [October 17 reconciliation](../tmp/verification/retention-20261017/backfill-20261017T100221.259Z.json).
+    treat saved counts as current deletion evidence. See the TTL check (former local path: `tmp/verification/release-followup-20261019T1125Z/public-policy-and-ttl.json`),
+    backfill result (former local path: `tmp/verification/runs/20261014T083352Z-analytics-retention-preflight/analytics-retention-backfill-result.json`),
+    October 14 count (former local path: `tmp/verification/manual-20261014-node24/analytics-ttl-current-counts.json`),
+    and October 17 reconciliation (former local path: `tmp/verification/retention-20261017/backfill-20261017T100221.259Z.json`).
 
 - `POST /stripe/webhook`
   - Verifies the `Stripe-Signature` header.

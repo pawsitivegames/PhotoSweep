@@ -24,6 +24,9 @@ const ANALYTICS_EVENT_NAMES = new Set<AnalyticsEventName>([
   "restore_not_found",
   "entitlement_refreshed",
   "export_clicked",
+  "review_prompt_shown",
+  "review_link_clicked",
+  "review_prompt_dismissed",
   "trash_attempted",
   "trash_completed",
   "undo_attempted",
@@ -35,6 +38,8 @@ const ANALYTICS_PROVIDERS = new Set<PhotoProvider>([
   "icloud",
   "amazon"
 ])
+const ANALYTICS_REVIEW_SOURCES = new Set(["cleanup", "help"])
+const ANALYTICS_REVIEW_DISMISSALS = new Set(["later", "never", "feedback"])
 const ANALYTICS_SCAN_MODES = new Set<ScanMode>(["smart", "full"])
 const ANALYTICS_COUNT_BUCKETS = new Set([
   "0",
@@ -95,6 +100,9 @@ export type AnalyticsEventName =
   | "restore_not_found"
   | "entitlement_refreshed"
   | "export_clicked"
+  | "review_prompt_shown"
+  | "review_link_clicked"
+  | "review_prompt_dismissed"
   | "trash_attempted"
   | "trash_completed"
   | "undo_attempted"
@@ -103,6 +111,8 @@ export type AnalyticsEventName =
 
 export interface PrivacySafeAnalyticsEvent {
   name: AnalyticsEventName
+  reviewSource?: "cleanup" | "help"
+  reviewDismissalReason?: "later" | "never" | "feedback"
   provider?: PhotoProvider
   scanMode?: ScanMode
   planId?: Entitlement["planId"]
@@ -135,6 +145,10 @@ export function buildAnalyticsEvent(
   if (!name) return undefined
   return {
     name,
+    ...(optionalAllowed(event.reviewSource, ANALYTICS_REVIEW_SOURCES)
+      ? { reviewSource: event.reviewSource } : {}),
+    ...(optionalAllowed(event.reviewDismissalReason, ANALYTICS_REVIEW_DISMISSALS)
+      ? { reviewDismissalReason: event.reviewDismissalReason } : {}),
     provider: optionalAllowed(event.provider, ANALYTICS_PROVIDERS),
     scanMode: optionalAllowed(event.scanMode, ANALYTICS_SCAN_MODES),
     planId: optionalAllowed(event.planId, ANALYTICS_PLAN_IDS),

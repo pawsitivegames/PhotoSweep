@@ -1,3 +1,5 @@
+import CheckBoxOutlineBlankRoundedIcon from "@mui/icons-material/CheckBoxOutlineBlankRounded"
+import CheckBoxRoundedIcon from "@mui/icons-material/CheckBoxRounded"
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
@@ -7,7 +9,6 @@ import Card from "@mui/material/Card"
 import CardActionArea from "@mui/material/CardActionArea"
 import CardContent from "@mui/material/CardContent"
 import CardMedia from "@mui/material/CardMedia"
-import Checkbox from "@mui/material/Checkbox"
 import Chip from "@mui/material/Chip"
 import IconButton from "@mui/material/IconButton"
 import Paper from "@mui/material/Paper"
@@ -50,11 +51,12 @@ const REVIEW_LIST_FALLBACK_WIDTH = 900
 const REVIEW_CARD_WIDTH = 190
 const EMPTY_TRASH_PLAN_MEDIA_KEYS: ReadonlySet<string> = new Set()
 const REVIEW_CARD_GAP = 12
-const REVIEW_ROW_HEADER_HEIGHT = 82
+const REVIEW_LIST_SCROLLBAR_GUTTER = 20
+const REVIEW_ROW_HEADER_HEIGHT = 100
 const REVIEW_ROW_VERTICAL_PADDING = 24
 // Allow room for wrapped keeper guidance; underestimated rows overlap the next set.
-const REVIEW_CARD_ESTIMATED_HEIGHT = 340
-const REVIEW_ROW_ACTION_HEIGHT = 54
+const REVIEW_CARD_ESTIMATED_HEIGHT = 365
+const REVIEW_ROW_ACTION_HEIGHT = 95
 const REVIEW_ROW_MARGIN_BOTTOM = 16
 
 /**
@@ -90,12 +92,12 @@ function storageStatusLabel(item: GpdMediaItem): string {
 const sxPaperBase = {
   mb: 2,
   overflow: "hidden",
-  borderRadius: 3,
+  borderRadius: 2,
   border: "1px solid",
   borderColor: "divider",
   background: photoSweepColors.surface,
-  boxShadow: `0 16px 44px ${photoSweepColors.shadow}`,
-  transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+  "@media (prefers-reduced-motion: reduce)": { transition: "none" }
 }
 const sxGroupHeader = {
   display: "flex",
@@ -104,36 +106,27 @@ const sxGroupHeader = {
   gap: 1,
   px: 2,
   py: 1.25,
-  backgroundColor: photoSweepColors.surfaceTint,
-  borderBottom: "1px solid",
-  borderColor: "divider",
-  cursor: "pointer",
-  userSelect: "none"
+  backgroundColor: photoSweepColors.surface
 }
-const sxCheckbox = { p: 0.5, mr: 0.5 }
-const sxChipSimilarity = { fontSize: 11 }
 const sxThumbnailsWrapper = {
   display: "flex",
   flexWrap: "wrap",
   gap: 1.5,
   p: 1.5,
-  backgroundColor: photoSweepColors.surfaceSubtle
+  backgroundColor: photoSweepColors.surface
 }
 const sxItemWrapper = {
   position: "relative",
   width: REVIEW_CARD_WIDTH,
   flexShrink: 0,
   "& .viewer-btn": { opacity: 0 },
-  "&:hover .viewer-btn": { opacity: 1 }
+  "&:hover .viewer-btn, &:focus-within .viewer-btn": { opacity: 1 }
 }
 const sxCardBase = {
   width: "100%",
   overflow: "hidden",
-  boxShadow: "0 1px 3px rgba(27, 45, 66, 0.05)",
-  transition: "border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease",
-  "&:hover": {
-    boxShadow: "0 6px 16px rgba(27, 45, 66, 0.1)"
-  }
+  transition: "border-color 0.15s ease, background-color 0.15s ease",
+  "@media (prefers-reduced-motion: reduce)": { transition: "none" }
 }
 const sxCardContent = {
   p: 1,
@@ -144,26 +137,43 @@ const sxCardContent = {
 }
 const sxViewerBtn = {
   position: "absolute",
-  top: 6,
-  right: 6,
-  bgcolor: "rgba(27,45,66,0.78)",
+  top: 0,
+  right: 0,
   color: "white",
-  transition: "opacity 0.15s ease, background-color 0.15s ease",
+  transition: "opacity 0.15s ease",
+  "@media (prefers-reduced-motion: reduce)": { transition: "none" },
   minWidth: 44,
   minHeight: 44,
-  backdropFilter: "blur(10px)",
-  boxShadow: `0 8px 18px ${photoSweepColors.shadowDeep}`,
-  "&:hover": { bgcolor: "rgba(27,45,66,0.94)" }
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    inset: 8,
+    borderRadius: "50%",
+    bgcolor: "rgba(27, 45, 66, 0.82)"
+  },
+  "&:hover::before": { bgcolor: photoSweepColors.ink },
+  "& svg": { position: "relative" }
 }
 const sxOpenInFullIcon = { fontSize: 14 }
-const sxStatusChip = { width: "fit-content", height: 20, fontSize: 11 }
+const sxStatusChip = {
+  width: "fit-content",
+  height: "auto",
+  minHeight: 20,
+  fontSize: 11,
+  border: 0,
+  "& .MuiChip-label": { whiteSpace: "normal", px: 0, py: 0.25, lineHeight: 1.25 },
+  "& .MuiChip-icon": { ml: 0, mr: 0.5 }
+}
 const sxVirtualList: CSSProperties = {
   overflowX: "hidden"
 }
 // ──────────────────────────────────────────────────────────────────────
 
 function estimateGroupRowHeight(group: DuplicateGroup, width: number): number {
-  const usableWidth = Math.max(width, REVIEW_CARD_WIDTH)
+  const usableWidth = Math.max(
+    width - 2 * REVIEW_CARD_GAP - REVIEW_LIST_SCROLLBAR_GUTTER,
+    REVIEW_CARD_WIDTH
+  )
   const columns = Math.max(
     1,
     Math.floor(
@@ -394,6 +404,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
         : decisionSource === "stale_fallback"
           ? "Keeping all copies until saved keeper data is reviewed"
           : describeKeepRecommendation(recommendation)
+  const lastKeeperHintId = `last-kept-copy-${encodeURIComponent(group.id)}`
 
   return (
     <Paper
@@ -403,169 +414,101 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
         sxPaperBase,
         {
           mb: compact ? 0 : sxPaperBase.mb,
-          borderRadius: compact ? 2.25 : sxPaperBase.borderRadius,
+          borderRadius: compact ? 1.5 : sxPaperBase.borderRadius,
           borderWidth: isSelected ? 2 : 1,
-          borderColor: isSelected ? "primary.main" : "divider",
-          boxShadow: isSelected
-            ? compact
-              ? `0 8px 22px ${photoSweepColors.primaryShadow}`
-              : `0 18px 52px ${photoSweepColors.primaryShadow}`
-            : undefined
+          borderColor: isSelected ? "primary.main" : "divider"
         }
       ]}>
-      {/* Group header */}
       <Box
-        role={readOnly ? undefined : "checkbox"}
-        tabIndex={readOnly ? undefined : 0}
-        aria-checked={readOnly ? undefined : isSelected}
-        aria-label={
-          readOnly
-            ? undefined
-            : `Include this set of ${group.mediaKeys.length} ${groupItemKind(
-                group,
-                mediaItems
-              )} for cleanup`
-        }
-        onClick={() => {
-          if (!readOnly) onToggleGroup(group.id)
-        }}
-        onKeyDown={(event) => {
-          if (!readOnly && (event.key === "Enter" || event.key === " ")) {
-            event.preventDefault()
-            onToggleGroup(group.id)
-          }
-        }}
         sx={[
           sxGroupHeader,
-          !readOnly
-            ? {
-                cursor: "pointer",
-                "&:focus-visible": {
-                  outline: "3px solid",
-                  outlineColor: "primary.main",
-                  outlineOffset: -3
-                }
-              }
-            : undefined,
-          compact
-            ? {
-                px: 1.1,
-                py: 1,
-              gap: 0.85
-              }
-            : undefined,
-          !readOnly
-            ? {
-                bgcolor: isSelected
-                  ? photoSweepColors.primarySoft
-                  : photoSweepColors.surfaceSubtle
-              }
-            : undefined
+          compact ? { px: 1.25, py: 1, gap: 0.75 } : undefined
         ]}>
-        {!readOnly && (
-          <Checkbox
-            size="small"
-            checked={isSelected}
-            tabIndex={-1}
-            onChange={() => onToggleGroup(group.id)}
-            onClick={(e) => e.stopPropagation()}
-            slotProps={{
-              input: { "aria-hidden": true }
-            }}
-            sx={sxCheckbox}
-          />
-        )}
         <Box sx={{ flex: 1, minWidth: compact ? 0 : 180 }}>
-          <Typography variant="subtitle2" sx={{
-            fontWeight: 700
-          }}>
-            {group.mediaKeys.length} {groupItemKind(group, mediaItems)}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={[{
-              color: "text.secondary"
-            }, compact ? { display: "block", lineHeight: 1.35 } : undefined]}>
-            Select photos to choose keepers. Include this set in cleanup; it
-            adds eligible unkept copies to the Trash proposal and marks the
-            set reviewed.
-          </Typography>
-          <Typography
-            variant="caption"
-            color={
-              recommendation.status === "no_confident_recommendation"
-                ? "warning.main"
-                : "primary.main"
-            }
-            data-testid={`keep-decision-${group.id}`}
-            sx={compact ? { display: "block", lineHeight: 1.35 } : undefined}>
-            {decisionSummary}
-          </Typography>
-        </Box>
-        <Stack
-          direction="row"
-          spacing={0.75}
-          useFlexGap
-          sx={{
-            flexWrap: "wrap",
-            width: compact ? "100%" : { xs: "100%", sm: "auto" }
-          }}>
-          <Chip
-            label={`${Math.round(group.similarity * 100)}% match`}
-            size="small"
-            variant="outlined"
-            sx={sxChipSimilarity}
-          />
-          <Chip
-            label={classificationLabel}
-            size="small"
-            color={classificationColor}
-            variant="outlined"
-            title={classificationTitle}
-            sx={sxChipSimilarity}
-          />
-          {!classification.canProposeTrash && (
-            <Chip
-              label="Review only"
-              size="small"
-              variant="outlined"
-              title="This relationship is not eligible for an automatic Trash proposal."
-              sx={sxChipSimilarity}
-            />
-          )}
-          {!readOnly && (
-            <Chip
-              label={
-                !isReviewed
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, alignItems: "center" }}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              {group.mediaKeys.length} {groupItemKind(group, mediaItems)}
+            </Typography>
+            {!readOnly && (
+              <Typography
+                variant="caption"
+                color={!isReviewed ? "warning.main" : isSelected ? "primary.main" : "text.secondary"}>
+                {!isReviewed
                   ? isSelected
                     ? "Selected · needs review"
                     : "Review this set"
                   : isSelected
                     ? "Selected for cleanup"
-                    : "Not selected"
-              }
-              size="small"
-              color={
-                !isReviewed ? "warning" : isSelected ? "primary" : "default"
-              }
-              variant={isReviewed ? "filled" : "outlined"}
-              sx={sxChipSimilarity}
-            />
+                    : "Not selected"}
+              </Typography>
+            )}
+          </Box>
+          <Typography
+            display="block"
+            variant="caption"
+            color={
+              recommendation.status === "no_confident_recommendation"
+                ? "warning.main"
+                : "text.secondary"
+            }
+            data-testid={`keep-decision-${group.id}`}
+            sx={compact ? { lineHeight: 1.35 } : undefined}>
+            {decisionSummary}
+          </Typography>
+        </Box>
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{
+            flexWrap: "wrap",
+            width: compact ? "100%" : { xs: "100%", sm: "auto" }
+          }}>
+          <Typography variant="caption" color="text.secondary">
+            {Math.round(group.similarity * 100)}% match
+          </Typography>
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            color={classificationColor === "default" ? "text.secondary" : `${classificationColor}.main`}
+            title={classificationTitle}>
+            {classificationLabel}
+          </Typography>
+          {!classification.canProposeTrash && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              title="This relationship is not eligible for an automatic Trash proposal.">
+              Review only
+            </Typography>
           )}
+
         </Stack>
       </Box>
 
-      {/* Thumbnails */}
+      {!readOnly && (
+        <Typography
+          variant="caption"
+          component="div"
+          sx={{
+            px: compact ? 1 : 1.5,
+            pt: 0.5,
+            color: "text.secondary",
+            fontWeight: 700
+          }}>
+          Choose the copies to keep
+        </Typography>
+      )}
       <Box
         sx={[
           sxThumbnailsWrapper,
           compact
             ? {
                 display: "grid",
-                gridTemplateColumns: "1fr",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: 1,
                 p: 1,
-                bgcolor: photoSweepColors.surfaceSubtle
+                "@media (max-width: 280px)": { gridTemplateColumns: "1fr" }
               }
             : undefined
         ]}>
@@ -582,7 +525,6 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             !isKept &&
             !favoriteProtected &&
             trashPlanMediaKeys.has(key)
-          const lastKeeperHintId = `last-kept-copy-${encodeURIComponent(group.id)}-${encodeURIComponent(key)}`
           const isUserDecision =
             decisionSource === "manual" ||
             decisionSource === "legacy_preserved" ||
@@ -601,6 +543,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 compact
                   ? {
                       width: "100%",
+                      minWidth: 0,
                       "& .viewer-btn": { opacity: 1 }
                     }
                   : undefined
@@ -610,12 +553,6 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 sx={[
                   sxCardBase,
                   {
-                    "&:hover": compact
-                      ? {
-                          transform: "none",
-                          boxShadow: "0 4px 12px rgba(27, 45, 66, 0.08)"
-                        }
-                      : sxCardBase["&:hover"],
                     bgcolor: isExplicitlyKept
                       ? photoSweepColors.primarySoft
                       : movesToTrash
@@ -626,16 +563,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                       : movesToTrash
                         ? "error.main"
                         : "divider",
-                    borderWidth: isExplicitlyKept || movesToTrash ? 2 : 1,
-                    boxShadow: isExplicitlyKept
-                      ? compact
-                        ? `0 6px 16px ${photoSweepColors.primaryShadow}`
-                        : `0 12px 28px ${photoSweepColors.primaryShadow}`
-                      : movesToTrash
-                        ? compact
-                          ? `0 6px 16px ${photoSweepColors.errorShadow}`
-                          : `0 12px 28px ${photoSweepColors.errorShadow}`
-                        : undefined
+                    borderWidth: isExplicitlyKept || movesToTrash ? 2 : 1
                   }
                 ]}>
                 <CardActionArea
@@ -682,7 +610,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                           : buildThumbUrl(item.thumb, { height: 200 })
                     }
                     alt={item.fileName || item.mediaKey}
-                    height={compact ? 196 : 132}
+                    height={compact ? 116 : 152}
                     fit={compact ? "contain" : "cover"}
                   />
                   <CardContent
@@ -703,9 +631,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         variant="caption"
                         noWrap
                         title={item.fileName}
-                        sx={{
-                          display: "block"
-                        }}>
+                        sx={{ display: "block", fontWeight: 700 }}>
                         {item.fileName}
                       </Typography>
                     )}
@@ -726,7 +652,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                           color: "text.secondary",
                           display: "block"
                         }}>
-                        <span style={{ opacity: 0.6 }}>
+                        <span>
                           {item.timestampProvenance === "capture"
                             ? "Taken "
                             : item.timestampProvenance === "creation"
@@ -745,14 +671,17 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         )}
                       </Typography>
                     ) : null}
-                    {item.creationTimestamp ? (
+                    {item.creationTimestamp &&
+                    (item.creationTimestamp !== item.timestamp ||
+                      item.creationTimestampProvenance !==
+                        item.timestampProvenance) ? (
                       <Typography
                         variant="caption"
                         sx={{
                           color: "text.secondary",
                           display: "block"
                         }}>
-                        <span style={{ opacity: 0.6 }}>
+                        <span>
                           {item.creationTimestampProvenance === "creation"
                             ? "Uploaded "
                             : item.creationTimestampProvenance === "modified"
@@ -833,20 +762,6 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         sx={sxStatusChip}
                       />
                     ) : null}
-                    {isLastKeptCopy && (
-                      <Typography
-                        id={lastKeeperHintId}
-                        variant="caption"
-                        sx={{
-                          color: "text.secondary",
-                          maxWidth: "100%",
-                          whiteSpace: "normal",
-                          lineHeight: 1.35
-                        }}>
-                        At least one copy stays kept. Use “Mark all copies for
-                        Trash” to move every copy to Trash.
-                      </Typography>
-                    )}
                   </CardContent>
                 </CardActionArea>
               </Card>
@@ -870,28 +785,72 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
       {!readOnly && (
         <Box
           sx={{
-            px: compact ? 1 : 1.5,
-            pb: compact ? 1 : 1.5,
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 0.75,
-            bgcolor: photoSweepColors.surfaceSubtle
+            p: compact ? 1 : 1.5,
+            borderTop: "1px solid",
+            borderColor: isSelected ? photoSweepColors.primaryBorder : "divider",
+            bgcolor: isSelected ? photoSweepColors.primarySoft : "background.paper"
           }}>
-          <Button
-            size="small"
-            variant="outlined"
-            title="Keep this set out of the Trash proposal and mark it reviewed."
-            onClick={() => onSkipGroup(group.id)}>
-            Skip cleanup for this set
-          </Button>
-          <Button
-            size="small"
-            color="error"
-            variant={keptSet.size === 0 ? "contained" : "outlined"}
-            startIcon={<DeleteOutlineRoundedIcon />}
-            onClick={() => onTrashAll(group)}>
-            Mark all copies for Trash
-          </Button>
+          <Box
+            role="checkbox"
+            tabIndex={0}
+            aria-checked={isSelected}
+            aria-label={`Include this set of ${group.mediaKeys.length} ${groupItemKind(group, mediaItems)} for cleanup`}
+            onClick={() => onToggleGroup(group.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onToggleGroup(group.id)
+              }
+            }}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              minHeight: 44,
+              width: "fit-content",
+              cursor: "pointer",
+              borderRadius: 1,
+              pr: 1,
+              "&:hover": { bgcolor: photoSweepColors.primarySoft }
+            }}>
+            <Box sx={{ display: "grid", placeItems: "center", width: 30, flexShrink: 0 }}>
+              {isSelected ? <CheckBoxRoundedIcon color="primary" /> : <CheckBoxOutlineBlankRoundedIcon color="action" />}
+            </Box>
+            <Box sx={{ py: 0.5 }}>
+              <Typography variant="body2" fontWeight={700}>
+                Include this set in cleanup
+              </Typography>
+              <Typography component="div" variant="caption" color="text.secondary">
+                Add eligible copies you haven’t kept to the Trash proposal.
+              </Typography>
+            </Box>
+          </Box>
+          {keptSet.size === 1 && (
+            <Typography
+              id={lastKeeperHintId}
+              component="div"
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.5 }}>
+              Keep at least one copy, or choose “Mark all copies for Trash” to propose every eligible copy.
+            </Typography>
+          )}
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mt: 0.5 }}>
+            <Button
+              size="small"
+              title="Keep this set out of the Trash proposal and mark it reviewed."
+              onClick={() => onSkipGroup(group.id)}>
+              Skip cleanup for this set
+            </Button>
+            <Button
+              size="small"
+              color="error"
+              variant={keptSet.size === 0 ? "outlined" : "text"}
+              startIcon={<DeleteOutlineRoundedIcon />}
+              onClick={() => onTrashAll(group)}>
+              Mark all copies for Trash
+            </Button>
+          </Stack>
         </Box>
       )}
     </Paper>
@@ -921,6 +880,7 @@ interface DuplicateGroupsProps {
   readOnly?: boolean
   heading?: string
   compact?: boolean
+  onClearFilter?: () => void
   focusGroupId?: string | null
   onFocusGroupHandled?: () => void
 }
@@ -996,6 +956,7 @@ export function DuplicateGroups({
   readOnly = false,
   heading,
   compact = false,
+  onClearFilter,
   focusGroupId,
   onFocusGroupHandled
 }: DuplicateGroupsProps) {
@@ -1188,11 +1149,12 @@ export function DuplicateGroups({
       ).find((element) => element.dataset.reviewGroupId === focusGroupId)
       if (!card) return
 
-      const firstAction =
+      const focusTarget =
         card.querySelector<HTMLElement>("button:not(:disabled)") ??
-        card.querySelector<HTMLElement>('[role="checkbox"]')
-      firstAction?.focus({ preventScroll: true })
-      card.scrollIntoView({
+        card.querySelector<HTMLElement>('[role="checkbox"]') ??
+        card
+      focusTarget.focus({ preventScroll: true })
+      focusTarget.scrollIntoView({
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
           : "smooth",
@@ -1221,6 +1183,19 @@ export function DuplicateGroups({
   }, [compact, focusGroupId, listGroups, onFocusGroupHandled])
 
   if (groups.length === 0) {
+    if (onClearFilter) {
+      return (
+        <Paper variant="outlined" sx={{ p: 2, mb: 1.5 }}>
+          <Typography variant="subtitle1" fontWeight={700}>No sets in this filter</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Your scan found matches in another category.
+          </Typography>
+          <Button size="small" onClick={onClearFilter} sx={{ mt: 0.5 }}>
+            Show all sets
+          </Button>
+        </Paper>
+      )
+    }
     const totalItems = Object.keys(mediaItems).length
     return (
       <Box sx={{ textAlign: "center", py: 8 }}>
@@ -1319,6 +1294,7 @@ export function DuplicateGroups({
           initialIndex={viewerState.index}
           keptSet={getKeptForGroup(viewerState.group)}
           isGroupSelected={selectedGroupIds.has(viewerState.group.id)}
+          trashPlanMediaKeys={trashPlanMediaKeys}
           onClose={() => setViewerState(null)}
           onToggleKept={
             readOnly

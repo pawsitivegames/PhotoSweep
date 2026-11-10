@@ -18,7 +18,7 @@ import Typography from "@mui/material/Typography"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { buildThumbUrl } from "../lib/photo-url"
-import { isTrustedContentHash } from "../lib/duplicate-classifier"
+import { isLocallyVerifiedOriginalHash } from "../lib/duplicate-classifier"
 import {
   getOriginalContentVerificationUnavailableMessage,
   isVideoForPlayback
@@ -54,18 +54,11 @@ function retainedOriginalHash(
   item: GpdMediaItem
 ): OriginalContentHashResult | undefined {
   const hash = item.contentHash
-  if (
-    !isTrustedContentHash(hash) ||
-    hash.algorithm !== "sha256" ||
-    hash.verificationSource !== "local-original-bytes" ||
-    hash.provenance !== "original-content"
-  ) {
-    return undefined
-  }
+  if (!isLocallyVerifiedOriginalHash(hash)) return undefined
   return {
     mediaKey: item.mediaKey,
     scopeFingerprint: "",
-    contentHash: hash as OriginalContentHashResult["contentHash"],
+    contentHash: hash,
     byteLength:
       Number.isSafeInteger(item.originalByteLength) &&
       (item.originalByteLength ?? 0) > 0
@@ -296,6 +289,7 @@ export interface PhotoViewerModalProps {
   initialIndex: number
   keptSet: Set<string>
   isGroupSelected: boolean
+  trashPlanMediaKeys?: ReadonlySet<string>
   onClose: () => void
   onToggleKept?: (mediaKey: string) => void
   onToggleGroup?: () => void
@@ -327,6 +321,7 @@ export function PhotoViewerModal({
   initialIndex,
   keptSet,
   isGroupSelected,
+  trashPlanMediaKeys,
   onClose,
   onToggleKept,
   onToggleGroup,
@@ -637,18 +632,20 @@ export function PhotoViewerModal({
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "1fr auto 1fr",
+          gridTemplateColumns: "minmax(0, 1fr) auto 44px",
           alignItems: "center",
+          gap: 1,
           px: 1,
           py: 0.75,
           borderBottom: `1px solid ${photoSweepColors.viewerBorder}`,
           bgcolor: "rgba(255,255,255,0.06)"
         }}>
         <Typography
-          variant="caption"
+          variant="body2"
           noWrap
-          sx={{ color: photoSweepColors.viewerMuted, pl: 1 }}>
-          {item.fileName || ""}
+          title={item.fileName}
+          sx={{ color: "white", fontWeight: 700, pl: 1 }}>
+          {item.fileName || "Photo preview"}
         </Typography>
 
         {/* Counter — centered, prominent, slides on navigation */}
@@ -873,7 +870,7 @@ export function PhotoViewerModal({
             )}
             <Typography
               variant="caption"
-              sx={{ color: photoSweepColors.viewerMuted, flex: 1, minWidth: 220 }}>
+              sx={{ color: photoSweepColors.viewerMuted, flex: "1 1 220px", minWidth: 0 }}>
               Choosing Verify original bytes reads this item&apos;s original
               from {providerLabel(item)} into your browser and calculates a
               SHA-256 locally. PhotoSweep saves the digest and byte count, plus
@@ -947,9 +944,9 @@ export function PhotoViewerModal({
               color: photoSweepColors.viewerPrimary
             }}
           />
-        ) : isGroupSelected ? (
+        ) : trashPlanMediaKeys?.has(item.mediaKey) ? (
           <Chip
-            label="Trash"
+            label="Proposed for Trash"
             size="small"
             color="error"
             variant="outlined"

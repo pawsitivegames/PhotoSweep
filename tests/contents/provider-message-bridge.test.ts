@@ -61,7 +61,8 @@ describe.each(entries)("%s production message bridge", (provider, load) => {
   }
 
   it.each(["gptkResult", "gptkProgress", "gptkLog"])("forwards %s unchanged", (action) => {
-    const message = { app: APP_ID, action, payload: "unchanged" }
+    const message = { app: APP_ID, action, command: "healthCheck", requestId: "request",
+      success: true, data: { hasGptk: true }, itemsProcessed: 1, level: "info", message: "Ready", payload: "unchanged" }
     receive(message)
     expect(runtime.sendMessage).toHaveBeenCalledExactlyOnceWith(message)
   })

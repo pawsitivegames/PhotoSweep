@@ -21,6 +21,16 @@ function event(
 }
 
 describe("funnel evidence", () => {
+  it("exports review activity counts without claiming submitted ratings", () => {
+    const summary = buildFunnelEvidenceSummary([
+      event(INSTALL_A, "review_prompt_shown", 1000, "2026-10-29"),
+      event(INSTALL_A, "review_link_clicked", 2000, "2026-10-29"),
+      event(INSTALL_B, "review_prompt_dismissed", 3000, "2026-10-29")
+    ], {currentVersion: CURRENT_VERSION})
+    expect(summary.eventCountsByName).toMatchObject({review_prompt_shown: 1, review_link_clicked: 1, review_prompt_dismissed: 1})
+    expect(summary).not.toHaveProperty("ratingsSubmitted")
+    expect(JSON.stringify(summary)).not.toContain(INSTALL_A)
+  })
   it("distinguishes verified counts from uncorrelated receipt proxies", () => {
     const rows = [
       event(INSTALL_A, "provider_connected", 1_000, "2026-01-01"),

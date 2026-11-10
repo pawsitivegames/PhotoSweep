@@ -134,6 +134,26 @@ function withTimeout(promise, ms, label, signal) {
   })
 }
 
+// Own each read attempt so cancellation and page watchdogs abort fetch and
+// inner API backoff, rather than only stopping the caller's wait.
+async function withGoogleReadTimeout(read, ms, label, signal) {
+  commandHost.throwIfAborted(signal)
+  const controller = new AbortController()
+  try {
+    return await withTimeout(
+      Promise.resolve().then(() => {
+        commandHost.throwIfAborted(signal)
+        return read(controller.signal)
+      }),
+      ms,
+      label,
+      signal
+    )
+  } finally {
+    controller.abort()
+  }
+}
+
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
 }
@@ -196,15 +216,16 @@ async function fetchGooglePageWithRetry(fetchPage, label, signal) {
   for (let attempt = 0; attempt <= MEDIA_PAGE_RETRY_COUNT; attempt += 1) {
     commandHost.throwIfAborted(signal)
     try {
-      return await withTimeout(
-        Promise.resolve().then(fetchPage),
+      return await withGoogleReadTimeout(
+        fetchPage,
         MEDIA_PAGE_TIMEOUT_MS,
         label,
         signal
       )
     } catch (error) {
       lastError = error
-      if (signal?.aborted) throw error
+      if (signal?.aborted || error?.name === "AbortError" ||
+          classifyProviderFailure(error) === "auth_expired") throw error
       if (attempt >= MEDIA_PAGE_RETRY_COUNT) break
       await commandHost.delay(
         MEDIA_PAGE_RETRY_BACKOFF_MS * (attempt + 1),
@@ -829,16 +850,14 @@ async function enrichGoogleSelectionMetadata(
     const requestedKeys = mediaKeys.slice(offset, offset + batchSize)
     let metadataItems
     try {
-      metadataItems = await withTimeout(
-        Promise.resolve().then(() =>
-          api.getBatchMediaInfo(requestedKeys, false)
-        ),
+      metadataItems = await withGoogleReadTimeout(
+        (requestSignal) => api.getBatchMediaInfo(requestedKeys, false, requestSignal),
         MEDIA_PAGE_TIMEOUT_MS,
         "Reading Google Photos quality and file size metadata",
         signal
       )
     } catch (error) {
-      if (signal?.aborted) throw error
+      if (signal?.aborted || classifyProviderFailure(error) === "auth_expired") throw error
       // Recheck identity before treating supplemental data as unavailable, so
       // an account switch during a failed call cannot publish stale results.
       await verifySession()
@@ -988,8 +1007,8 @@ async function fetchGoogleItemInfo(requestId, args, resource, signal) {
   if (typeof api?.getItemInfo !== "function") {
     throw new Error("Google Photos original metadata is unavailable. Reload the page and scan again.")
   }
-  const info = await withTimeout(
-    Promise.resolve().then(() => api.getItemInfo(resource.mediaKey)),
+  const info = await withGoogleReadTimeout(
+    (requestSignal) => api.getItemInfo(resource.mediaKey, null, null, true, requestSignal),
     MEDIA_PAGE_TIMEOUT_MS,
     "Reading Google Photos item metadata",
     signal
@@ -1052,6 +1071,7 @@ function cancelGoogleOriginalHashRequest(requestId, args) {
       {
         app: "GPD",
         action: "providerOriginalHash.cancel",
+        provider: "google",
         requestId,
         providerSessionId: args.providerSessionId,
         scanScopeFingerprint: args.scanScopeFingerprint,
@@ -1127,6 +1147,7 @@ function fetchGoogleOriginalHashViaExtension(requestId, args, resource, resource
         {
           app: "GPD",
           action: "providerOriginalHash.fetch",
+          provider: "google",
           requestId,
           providerSessionId: args.providerSessionId,
           scanScopeFingerprint: args.scanScopeFingerprint,
@@ -1390,7 +1411,7 @@ async function fetchAllAlbums(apiUtils, signal, verifySession) {
       commandHost.throwIfAborted(signal)
       if (verifySession) await verifySession()
       const response = await fetchGooglePageWithRetry(
-        () => api.getAlbums(nextPageId, 100, false),
+        (requestSignal) => api.getAlbums(nextPageId, 100, false, requestSignal),
         `Fetching Google Photos album-list page ${pagesRead + 1}`,
         signal
       )
@@ -1458,7 +1479,7 @@ async function fetchAllMediaInAlbum(
       commandHost.throwIfAborted(signal)
       if (verifySession) await verifySession()
       const rawPage = await fetchGooglePageWithRetry(
-        () => api.getAlbumPage(albumMediaKey, nextPageId),
+        (requestSignal) => api.getAlbumPage(albumMediaKey, nextPageId, null, true, requestSignal),
         `Fetching Google Photos album-media page ${pagesRead + 1}`,
         signal
       )
@@ -1535,7 +1556,7 @@ async function fetchAllMediaInAlbum(
   }
   if (verifySession) await verifySession()
   const items = await fetchGooglePageWithRetry(
-    () => apiUtils.getAllMediaInAlbum(albumMediaKey),
+    (requestSignal) => apiUtils.getAllMediaInAlbum(albumMediaKey, requestSignal),
     "Fetching Google Photos album membership",
     signal
   )
@@ -1901,7 +1922,7 @@ async function getAllMediaItems(requestId, args, signal) {
         `Fetching ${pageLabel}...`
       )
       const rawPage = await fetchGooglePageWithRetry(
-        () => gptkApi.getItemsByUploadedDate(nextPageId),
+        (requestSignal) => gptkApi.getItemsByUploadedDate(nextPageId, true, requestSignal),
         `Fetching ${pageLabel}`,
         signal
       )

@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest"
 import {
   MAX_ORIGINAL_BYTES_PER_ITEM,
   getOriginalContentVerificationUnavailableMessage,
+  isOriginalReviewBudgetExhausted,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
   getProviderRetrievalSessionError,
   isVideoForPlayback,
   isAllowedProviderPlaybackUrl,
+  originalReviewRecovery,
   safeProviderRetrievalError,
   validateOriginalContentHashResult,
   validateVideoPlaybackResult
@@ -15,6 +17,45 @@ import {
 
 const expected = { mediaKey: "item-a", scopeFingerprint: "scope-a" }
 const sha256 = "a".repeat(64)
+
+describe("original review download budget", () => {
+  it.each([
+    "The Google Photos review has reached its approved original-fetch budget.",
+    "The iCloud review has reached its 100 MiB original-fetch budget.",
+    "The Amazon Photos review has reached its 100 MiB original-fetch budget."
+  ])("stops the queue for a depleted review budget: %s", (message) => {
+    expect(isOriginalReviewBudgetExhausted(message)).toBe(true)
+  })
+
+  it("leaves smaller files eligible when only the current original exceeds the remaining budget", () => {
+    expect(isOriginalReviewBudgetExhausted(
+      "The Google Photos original exceeds the remaining approved byte budget."
+    )).toBe(false)
+  })
+})
+
+describe("original review recovery", () => {
+  it.each([
+    "Original media review has expired. Scan again.",
+    "Original media retrieval must match the most recent scan scope in this provider page session. Scan again and review the current items.",
+    "The iCloud review scope changed during original retrieval.",
+    "The Amazon Photos provider session changed. Scan the current account again."
+  ])("stops the whole queue for %s", (message) => {
+    expect(originalReviewRecovery(message)).toBe("stale-review")
+  })
+
+  it.each([
+    "The Google Photos item is not present in this recent review. Scan again.",
+    "The Google Photos item is outside the active scanned review. Scan again before retrieving media.",
+    "The iCloud original is not present in this recent review. Scan again."
+  ])("keeps checking other items after %s", (message) => {
+    expect(originalReviewRecovery(message)).toBe("missing-item")
+  })
+
+  it("leaves ordinary item failures retryable", () => {
+    expect(originalReviewRecovery("The provider media request timed out.")).toBeNull()
+  })
+})
 
 describe("original content verification capability", () => {
   it("returns a fail-closed message before requests for unsupported items or regions", () => {

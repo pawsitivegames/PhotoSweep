@@ -162,6 +162,8 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      accountEmail?: string
+      providerSessionId?: string
       sourceProvider?: PhotoProvider
       scanDate?: number
       scopeFingerprint?: string
@@ -477,12 +479,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           : {})
       }
 
-    case "RESTORE_SNAPSHOT":
+    case "RESTORE_SNAPSHOT": {
+      // A timed-out Trash may have disconnected the app. Restore the captured
+      // review identity with its media instead of relying on that interim state.
+      const { type: _type, ...snapshot } = action
       return {
         status: "results",
-        mediaItems: action.mediaItems,
-        groups: action.groups,
-        totalItems: action.totalItems,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
         providerSessionId:
           "providerSessionId" in state ? state.providerSessionId : undefined,
@@ -500,8 +502,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           : {}),
         ...("scopeFingerprint" in state && state.scopeFingerprint
           ? { scopeFingerprint: state.scopeFingerprint }
-          : {})
+          : {}),
+        ...snapshot
       }
+    }
 
     case "GP_TAB_CLOSED": {
       const provider = action.provider

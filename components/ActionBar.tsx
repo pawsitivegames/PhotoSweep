@@ -1,4 +1,4 @@
-import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined"
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded"
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded"
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank"
 import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined"
@@ -21,7 +21,7 @@ import Stack from "@mui/material/Stack"
 import ToggleButton from "@mui/material/ToggleButton"
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
 import Typography from "@mui/material/Typography"
-import { useState } from "react"
+import { useState, type ReactNode, type Ref } from "react"
 
 import { KEEP_STRATEGY_LABELS, type KeepStrategy } from "../lib/keep-strategy"
 import { photoSweepColors } from "../lib/theme"
@@ -33,6 +33,7 @@ interface ActionBarProps {
   groupCount: number
   totalGroupCount: number
   availableGroupCount?: number
+  exactAvailableGroupCount?: number
   hiddenAvailableGroupCount?: number
   reviewedGroupCount: number
   selectedShownGroupCount: number
@@ -42,6 +43,9 @@ interface ActionBarProps {
   reviewFilter: ReviewFilter
   onReviewFilterChange: (filter: ReviewFilter) => void
   onIncludeAllEligible?: () => void
+  onPrepareAll?: () => void
+  onReviewIndividually?: () => void
+  verificationPanel?: ReactNode
   onSelectAll: () => void
   onDeselectAll: () => void
   onRescan: () => void
@@ -59,6 +63,7 @@ export function ActionBar({
   groupCount,
   totalGroupCount,
   availableGroupCount = totalGroupCount,
+  exactAvailableGroupCount,
   hiddenAvailableGroupCount = 0,
   reviewedGroupCount,
   selectedShownGroupCount,
@@ -68,6 +73,9 @@ export function ActionBar({
   reviewFilter,
   onReviewFilterChange,
   onIncludeAllEligible,
+  onPrepareAll,
+  onReviewIndividually,
+  verificationPanel,
   onSelectAll,
   onDeselectAll,
   onRescan,
@@ -79,6 +87,10 @@ export function ActionBar({
   onClearDecisionMemory,
   compact = false
 }: ActionBarProps) {
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const isExactReview = reviewFilter === "exact"
+  const bulkGroupCount = isExactReview ? (exactAvailableGroupCount ?? 0) : availableGroupCount
+  const exactCleanupUnavailable = isExactReview && groupCount > 0 && exactAvailableGroupCount === 0
   const [keepMenuAnchor, setKeepMenuAnchor] = useState<HTMLElement | null>(null)
   const keepMenuOpen = Boolean(keepMenuAnchor)
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<HTMLElement | null>(null)
@@ -109,90 +121,64 @@ export function ActionBar({
       ? "There are no sets available to review in this scan."
       : "Includes every set available to review across the scan, even outside this filter. Plan-locked sets stay out. Newly included sets return to Needs review."
 
+  const reviewToolsToggle = (
+    <Button
+      size="small"
+      color="inherit"
+      aria-expanded={toolsOpen}
+      aria-controls={toolsOpen ? "advanced-review-tools" : undefined}
+      endIcon={<ExpandMoreRoundedIcon sx={{ transform: toolsOpen ? "rotate(180deg)" : undefined }} />}
+      onClick={() => setToolsOpen((open) => !open)}
+      sx={{ justifySelf: "end" }}>
+      More review tools
+    </Button>
+  )
+
   return (
     <Paper
       elevation={0}
       sx={{
-        position: compact ? "static" : "sticky",
-        top: compact ? undefined : 80,
-        zIndex: 9,
-        px: compact ? 0.75 : { xs: 1.5, md: 2 },
-        py: compact ? 0.75 : 1.25,
-        mb: compact ? 0.75 : 2,
-        borderRadius: compact ? 1.5 : 1.5,
-        border: "1px solid",
-        borderColor: compact
-          ? photoSweepColors.border
-          : photoSweepColors.border,
-        bgcolor: photoSweepColors.surface,
-        backdropFilter: "none",
-        boxShadow: "0 2px 8px rgba(27, 45, 66, 0.05)",
+        p: compact ? 0 : { xs: 1.5, md: 2 },
+        mb: compact ? 0 : 2,
+        borderRadius: 0,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        bgcolor: "transparent",
         display: "flex",
         justifyContent: compact ? "space-between" : "flex-start",
         alignItems: compact ? "center" : "stretch",
         flexWrap: "wrap",
-        gap: compact ? 1 : 1.5
+        gap: compact ? 0.75 : 1.5,
+        pb: compact ? 0.75 : 1.5
       }}>
       <Box
         sx={{
-          minWidth: compact ? "100%" : "100%",
-          display: compact ? "grid" : "block",
+          minWidth: "100%",
+          display: "grid",
           gridTemplateColumns: compact
-            ? "20px minmax(0, 1fr) auto 32px"
-            : undefined,
-          gap: compact ? 0.75 : undefined,
-          alignItems: compact ? "center" : undefined
+            ? "minmax(0, 1fr) 40px"
+            : { xs: "1fr", sm: "minmax(0, 1fr) minmax(150px, 25%)" },
+          gap: 1,
+          alignItems: "center"
         }}>
-        {compact && (
-          <Box
-            sx={{
-              display: "grid",
-              placeItems: "center",
-              color: photoSweepColors.primary
-            }}>
-            <ArticleOutlinedIcon sx={{ fontSize: 19 }} />
-          </Box>
-        )}
         <Box sx={{ minWidth: 0 }}>
           <Typography
-            variant="subtitle2"
+            component="h2"
+            variant={compact ? "subtitle1" : "h5"}
             sx={{
-              fontWeight: 800,
+              fontWeight: 700,
               lineHeight: 1.2
             }}>
             {compact
               ? `${groupCount.toLocaleString()} set${groupCount === 1 ? "" : "s"} to review`
               : `${groupCount.toLocaleString()} duplicate set${groupCount === 1 ? "" : "s"} to review`}
           </Typography>
-          {!compact && (
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                display: "block",
-                mt: 0.2,
-                lineHeight: 1.25
-              }}>
+          {compact ? (
+            <Typography component="div" variant="caption" color="text.secondary">
               {reviewedGroupCount.toLocaleString()} of{" "}
               {groupCount.toLocaleString()} shown sets reviewed
             </Typography>
-          )}
-          {!compact && (
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                display: "block",
-                lineHeight: 1.25
-              }}>
-              {includedGroupCount.toLocaleString()} of{" "}
-              {availableGroupCount.toLocaleString()} available sets included
-              across the scan; {selectedShownGroupCount.toLocaleString()} of{" "}
-              {groupCount.toLocaleString()} shown sets included here. Newly
-              included sets return to Needs review.
-            </Typography>
-          )}
-          {!compact && (
+          ) : (
             <Typography
               variant="caption"
               sx={{
@@ -210,18 +196,23 @@ export function ActionBar({
             </Typography>
           )}
         </Box>
-        {compact && (
-          <Typography
-            variant="caption"
-            aria-label={`${reviewedGroupCount.toLocaleString()} of ${groupCount.toLocaleString()} shown sets reviewed`}
-            sx={{
-              color: "text.secondary",
-              whiteSpace: "nowrap",
-              fontWeight: 750,
-              fontVariantNumeric: "tabular-nums"
-            }}>
-            {reviewedGroupCount.toLocaleString()}/{groupCount.toLocaleString()}
-          </Typography>
+        {!compact && (
+          <Box sx={{ display: "grid", gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {reviewedGroupCount.toLocaleString()} of{" "}
+              {groupCount.toLocaleString()} shown sets reviewed
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={reviewedPercent}
+              aria-label="Review progress for shown sets"
+              sx={{ height: 5, bgcolor: photoSweepColors.primarySoft }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {includedGroupCount.toLocaleString()} of{" "}
+              {availableGroupCount.toLocaleString()} available sets included
+            </Typography>
+          </Box>
         )}
         {compact && (
           <IconButton
@@ -233,8 +224,8 @@ export function ActionBar({
             aria-expanded={moreMenuOpen ? "true" : undefined}
             onClick={(event) => setMoreMenuAnchor(event.currentTarget)}
             sx={{
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               color: photoSweepColors.muted,
               borderRadius: 1,
               "&:hover": { bgcolor: photoSweepColors.surfaceSoft }
@@ -244,6 +235,89 @@ export function ActionBar({
         )}
       </Box>
 
+      {totalGroupCount > 0 && (
+        <ToggleButtonGroup
+          value={reviewFilter}
+          exclusive
+          size="small"
+          fullWidth={compact}
+          aria-label="Review filter"
+          sx={{
+            gap: 0.5,
+            maxWidth: "100%",
+            width: compact ? "100%" : undefined,
+            "& .MuiToggleButton-root": {
+              m: 0,
+              borderRadius: 1,
+              borderColor: "transparent",
+              minWidth: 0,
+              minHeight: 36,
+              px: compact ? 0.5 : 1.25,
+              lineHeight: 1.2,
+              fontWeight: 750
+            }
+          }}
+          onChange={(_, value) => {
+            if (value !== null) onReviewFilterChange(value)
+          }}>
+          <ToggleButton value="all">
+            {compact ? `All ${totalGroupCount.toLocaleString()}` : `All sets (${totalGroupCount.toLocaleString()})`}
+          </ToggleButton>
+          <ToggleButton id="exact-review-filter" value="exact" aria-label={compact ? "Exact identical sets" : undefined}>
+            {compact ? `Exact ${exactGroupCount.toLocaleString()}` : `Verified identical (${exactGroupCount.toLocaleString()})`}
+          </ToggleButton>
+          <ToggleButton value="similar" aria-label={compact ? "Similar candidate sets" : undefined}>
+            {compact ? `Similar ${similarGroupCount.toLocaleString()}` : `Candidates & similar (${similarGroupCount.toLocaleString()})`}
+          </ToggleButton>
+        </ToggleButtonGroup>
+      )}
+
+      {verificationPanel}
+      {(onPrepareAll || onReviewIndividually || exactCleanupUnavailable) && (
+        <Paper
+          component="section"
+          aria-label="Choose how to review"
+          variant="outlined"
+          sx={{
+            width: "100%",
+            p: compact ? 1.25 : 1.5,
+            bgcolor: photoSweepColors.surface,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1
+          }}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700}>
+              {isExactReview ? "Include only exact duplicates" : "Review all sets"}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {exactCleanupUnavailable
+                ? "No exact sets are available for cleanup on your current plan."
+                : isExactReview
+                  ? "See the exact sets and proposed copies before including them."
+                  : "Preview cleanup using the current keeper picks, or decide which sets to include yourself."}
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75}
+            sx={{ width: compact ? "100%" : { xs: "100%", sm: "auto" } }}>
+            {onPrepareAll && (
+              <Button
+                variant={isExactReview || onReviewIndividually ? "contained" : "outlined"}
+                onClick={onPrepareAll}>
+                Preview all {bulkGroupCount.toLocaleString()} {isExactReview ? "exact " : ""}{bulkGroupCount === 1 ? "set" : "sets"}
+              </Button>
+            )}
+            {onReviewIndividually && (
+              <Button variant="outlined" onClick={onReviewIndividually}>
+                Review one at a time
+              </Button>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
       {totalGroupCount > 0 && compact && (
         <Box
           sx={{
@@ -251,168 +325,92 @@ export function ActionBar({
             display: "grid",
             gap: 0.75
           }}>
-          <LinearProgress
-            variant="determinate"
-            value={reviewedPercent}
-            aria-label="Review progress"
-            sx={{
-              height: 3,
-              borderRadius: 2,
-              bgcolor: photoSweepColors.surfaceSoft,
-              "& .MuiLinearProgress-bar": {
-                borderRadius: 2,
-                bgcolor: photoSweepColors.primary
-              }
-            }}
-          />
-          <ToggleButtonGroup
-            value={reviewFilter}
-            exclusive
-            size="small"
-            fullWidth
-            aria-label="Review filter"
-            sx={{
-              bgcolor: photoSweepColors.surfaceSoft,
-              borderRadius: 1.75,
-              p: 0.2,
-              "& .MuiToggleButton-root": {
-                borderColor: "transparent",
-                minWidth: 0,
-                minHeight: 32,
-                px: 0.5,
-                py: 0.25,
-                fontSize: 11.5,
-                lineHeight: 1.1,
-                fontWeight: 750,
-                whiteSpace: "nowrap"
-              }
-            }}
-            onChange={(_, value) => {
-              if (value !== null) onReviewFilterChange(value)
-            }}>
-            <ToggleButton value="all">
-              All {totalGroupCount.toLocaleString()}
-            </ToggleButton>
-            <ToggleButton value="exact" aria-label="Exact identical sets">
-              Exact {exactGroupCount.toLocaleString()}
-            </ToggleButton>
-            <ToggleButton value="similar" aria-label="Similar candidate sets">
-              Similar {similarGroupCount.toLocaleString()}
-            </ToggleButton>
-          </ToggleButtonGroup>
+          {reviewToolsToggle}
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 0.85fr) auto minmax(0, 1.15fr)",
-              alignItems: "center",
-              gap: 0.75,
-              p: 0.75,
-              border: "1px solid",
-              borderColor: photoSweepColors.border,
-              borderRadius: 1.5,
-              bgcolor: photoSweepColors.surfaceSubtle
-            }}>
-            <Box sx={{ display: "grid", gap: 0.4, minWidth: 0 }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "text.secondary",
-                  fontSize: 10,
-                  lineHeight: 1.1,
-                  fontWeight: 850
-                }}>
-                KEEPERS
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                fullWidth
-                startIcon={<TuneRoundedIcon sx={{ fontSize: 16 }} />}
-                disabled={totalGroupCount === 0}
-                onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
-                aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
-                aria-haspopup="menu"
-                aria-expanded={keepMenuOpen ? "true" : undefined}
-                aria-label="Choose keepers automatically"
-                title="Choose a keeper rule across the scan. This does not change which sets are included in cleanup."
-                sx={{
-                  minHeight: 34,
-                  minWidth: 0,
-                  px: 0.5,
-                  fontSize: 11.5,
-                  fontWeight: 800,
-                  bgcolor: photoSweepColors.surface,
-                  whiteSpace: "nowrap",
-                  "& .MuiButton-startIcon": { mr: 0.4 }
-                }}>
-                Auto choose
-              </Button>
-            </Box>
-            <Divider orientation="vertical" flexItem sx={{ my: 0.25 }} />
-            <Box sx={{ display: "grid", gap: 0.4, minWidth: 0 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  gap: 0.5
-                }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "text.secondary",
-                    fontSize: 10,
-                    lineHeight: 1.1,
-                    fontWeight: 850
-                  }}>
-                  CLEANUP
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "text.secondary",
-                    whiteSpace: "nowrap",
-                    fontWeight: 700
-                  }}>
-                  {includedGroupCount.toLocaleString()}/
-                  {availableGroupCount.toLocaleString()} included
-                </Typography>
-              </Box>
-              {onIncludeAllEligible && !allAvailableGroupsIncluded ? (
+          {toolsOpen && (
+            <Box
+              id="advanced-review-tools"
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                alignItems: "start",
+                gap: 0.75
+              }}>
+              <Box sx={{ display: "grid", gap: 0.4, minWidth: 0 }}>
                 <Button
-                  variant="contained"
+                  variant="text"
                   size="small"
                   fullWidth
-                  disabled={availableGroupCount === 0}
-                  onClick={onIncludeAllEligible}
-                  aria-label={includeAllAriaLabel}
-                  title={includeAllTitle}
+                  disabled={totalGroupCount === 0}
+                  onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
+                  aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
+                  aria-haspopup="menu"
+                  aria-expanded={keepMenuOpen ? "true" : undefined}
+                  aria-label="Choose keepers automatically"
+                  title="Choose a keeper rule across the scan. This does not change which sets are included in cleanup."
                   sx={{
-                    minHeight: 34,
+                    minHeight: 36,
                     minWidth: 0,
                     px: 0.5,
                     fontSize: 11.5,
-                    fontWeight: 800,
-                    whiteSpace: "nowrap"
+                    fontWeight: 700
                   }}>
-                  {availableGroupCount === 0 ? "No sets to include" : "Include all"}
+                  Auto-pick keepers
                 </Button>
-              ) : (
-                <Typography
-                  variant="caption"
+              </Box>
+              <Box sx={{ display: "grid", gap: 0.4, minWidth: 0 }}>
+                <Box
                   sx={{
-                    color: "success.dark",
-                    minHeight: 34,
                     display: "flex",
-                    alignItems: "center",
-                    fontWeight: 750
+                    alignItems: "baseline",
+                    justifyContent: "center",
+                    order: 1
                   }}>
-                  {availableGroupCount === 0 ? "No eligible sets" : "All available included"}
-                </Typography>
-              )}
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      whiteSpace: "nowrap",
+                      fontWeight: 500
+                    }}>
+                    {includedGroupCount.toLocaleString()}/
+                    {availableGroupCount.toLocaleString()} included
+                  </Typography>
+                </Box>
+                {onIncludeAllEligible && !allAvailableGroupsIncluded ? (
+                  <Button
+                    variant="text"
+                    size="small"
+                    fullWidth
+                    disabled={availableGroupCount === 0}
+                    onClick={onIncludeAllEligible}
+                    aria-label={includeAllAriaLabel}
+                    title={includeAllTitle}
+                    sx={{
+                      minHeight: 36,
+                      minWidth: 0,
+                      px: 0.5,
+                      fontSize: 11.5,
+                      fontWeight: 700
+                    }}>
+                    {availableGroupCount === 0 ? "No sets to include" : "Include all available"}
+                  </Button>
+                ) : onIncludeAllEligible ? (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "success.dark",
+                      minHeight: 34,
+                      display: "flex",
+                      alignItems: "center",
+                      fontWeight: 750
+                    }}>
+                    {availableGroupCount === 0 ? "No eligible sets" : "All available included"}
+                  </Typography>
+                ) : null}
+              </Box>
             </Box>
-          </Box>
+          )}
 
           <Menu
             id="keep-strategy-menu"
@@ -527,160 +525,142 @@ export function ActionBar({
               whiteSpace: "nowrap"
             }
           }}>
-          <ToggleButtonGroup
-            value={reviewFilter}
-            exclusive
-            size="small"
-            fullWidth={compact}
-            aria-label="Review filter"
-            sx={{
-              bgcolor: photoSweepColors.surfaceSoft,
-              borderRadius: 2,
-              p: 0.25,
-              "& .MuiToggleButton-root": {
-                borderColor: "transparent",
-                px: compact ? 1 : 1.25
-              }
-            }}
-            onChange={(_, value) => {
-              if (value !== null) onReviewFilterChange(value)
-            }}>
-            <ToggleButton value="all">
-              All sets ({totalGroupCount.toLocaleString()})
-            </ToggleButton>
-            <ToggleButton value="exact">
-              Verified identical ({exactGroupCount.toLocaleString()})
-            </ToggleButton>
-            <ToggleButton value="similar">
-              Candidates &amp; similar ({similarGroupCount.toLocaleString()})
-            </ToggleButton>
-          </ToggleButtonGroup>
-          {!compact && (
-            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
-          )}
-          <Button
-            size="small"
-            startIcon={<RefreshRoundedIcon />}
-            onClick={onRescan}>
-            Scan again
-          </Button>
-          <Button
-            size="small"
-            startIcon={<DownloadRoundedIcon />}
-            onClick={onExportJson}>
-            Export report
-          </Button>
-          <Button
-            size="small"
-            startIcon={<DownloadRoundedIcon />}
-            onClick={onExportCsv}>
-            Spreadsheet
-          </Button>
-          {onOpenRecoveryHistory && (
-            <Button
-              size="small"
-              startIcon={<HistoryRoundedIcon />}
-              onClick={onOpenRecoveryHistory}>
-              Recovery{recoveryHistoryCount > 0 ? ` (${recoveryHistoryCount})` : ""}
-            </Button>
-          )}
-          {!compact && (
-            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
-          )}
-          <Button
-            size="small"
-            startIcon={<TuneRoundedIcon />}
-            onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
-            disabled={totalGroupCount === 0}
-            aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
-            aria-haspopup="menu"
-            aria-expanded={keepMenuOpen ? "true" : undefined}>
-            Choose keepers automatically
-          </Button>
-          <Menu
-            id="keep-strategy-menu"
-            anchorEl={keepMenuAnchor}
-            open={keepMenuOpen}
-            onClose={() => setKeepMenuAnchor(null)}>
-            <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
-              <Typography variant="caption" sx={{
-                color: "text.secondary"
-              }}>
-                Choose a rule to pick keeper photos across all{" "}
-                {totalGroupCount.toLocaleString()} scan sets, including sets
-                outside this filter. Manual keeper choices may be replaced;
-                which sets are included in cleanup stays the same.
-              </Typography>
-            </Box>
-            <Divider />
-            {(Object.keys(KEEP_STRATEGY_LABELS) as KeepStrategy[]).map(
-              (strategy) => (
-                <MenuItem
-                  key={strategy}
-                  onClick={() => {
-                    onApplyKeepStrategy(strategy)
-                    setKeepMenuAnchor(null)
+          {reviewToolsToggle}
+          {toolsOpen && (
+            <Stack
+              id="advanced-review-tools"
+              direction="row"
+              spacing={0.6}
+              useFlexGap
+              sx={{ width: "100%", flexWrap: "wrap", alignItems: "center" }}>
+              {!compact && (
+                <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+              )}
+              <Button
+                size="small"
+                startIcon={<RefreshRoundedIcon />}
+                onClick={onRescan}>
+                Scan again
+              </Button>
+              <Button
+                size="small"
+                startIcon={<DownloadRoundedIcon />}
+                onClick={onExportJson}>
+                Export report
+              </Button>
+              <Button
+                size="small"
+                startIcon={<DownloadRoundedIcon />}
+                onClick={onExportCsv}>
+                Spreadsheet
+              </Button>
+              {onOpenRecoveryHistory && (
+                <Button
+                  size="small"
+                  startIcon={<HistoryRoundedIcon />}
+                  onClick={onOpenRecoveryHistory}>
+                  Recovery{recoveryHistoryCount > 0 ? ` (${recoveryHistoryCount})` : ""}
+                </Button>
+              )}
+              {!compact && (
+                <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+              )}
+              <Button
+                size="small"
+                startIcon={<TuneRoundedIcon />}
+                onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
+                disabled={totalGroupCount === 0}
+                aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
+                aria-haspopup="menu"
+                aria-expanded={keepMenuOpen ? "true" : undefined}>
+                Choose keepers automatically
+              </Button>
+              <Menu
+                id="keep-strategy-menu"
+                anchorEl={keepMenuAnchor}
+                open={keepMenuOpen}
+                onClose={() => setKeepMenuAnchor(null)}>
+                <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
                   }}>
-                  {KEEP_STRATEGY_LABELS[strategy]}
-                </MenuItem>
-              )
-            )}
-          </Menu>
-          {!compact && (
-            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+                    Choose a rule to pick keeper photos across all{" "}
+                    {totalGroupCount.toLocaleString()} scan sets, including sets
+                    outside this filter. Manual keeper choices may be replaced;
+                    which sets are included in cleanup stays the same.
+                  </Typography>
+                </Box>
+                <Divider />
+                {(Object.keys(KEEP_STRATEGY_LABELS) as KeepStrategy[]).map(
+                  (strategy) => (
+                    <MenuItem
+                      key={strategy}
+                      onClick={() => {
+                        onApplyKeepStrategy(strategy)
+                        setKeepMenuAnchor(null)
+                      }}>
+                      {KEEP_STRATEGY_LABELS[strategy]}
+                    </MenuItem>
+                  )
+                )}
+              </Menu>
+              {!compact && (
+                <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+              )}
+              {onIncludeAllEligible && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={
+                    allAvailableGroupsIncluded ? (
+                      <CheckBoxOutlinedIcon />
+                    ) : (
+                      <CheckBoxOutlineBlankIcon />
+                    )
+                  }
+                  disabled={availableGroupCount === 0 || allAvailableGroupsIncluded}
+                  onClick={onIncludeAllEligible}
+                  aria-label={includeAllAriaLabel}
+                  title={includeAllTitle}>
+                  {includeAllLabel}
+                </Button>
+              )}
+              <Button
+                size="small"
+                startIcon={
+                  allShownGroupsSelected ? (
+                    <CheckBoxOutlinedIcon />
+                  ) : (
+                    <CheckBoxOutlineBlankIcon />
+                  )
+                }
+                disabled={groupCount === 0 || allShownGroupsSelected}
+                onClick={onSelectAll}
+                aria-label={
+                  allShownGroupsSelected
+                    ? `All ${shownSetCountLabel} already included in cleanup`
+                    : `Include all ${shownSetCountLabel} in cleanup`
+                }
+                title={
+                  allShownGroupsSelected
+                    ? "All sets in the current filter are already included in cleanup."
+                    : "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
+                }>
+                {allShownGroupsSelected
+                  ? `All ${shownSetCountLabel} included`
+                  : `Include all ${shownSetCountLabel}`}
+              </Button>
+              <Button
+                size="small"
+                startIcon={<CheckBoxOutlineBlankIcon />}
+                disabled={selectedShownGroupCount === 0}
+                onClick={onDeselectAll}
+                aria-label={`Remove ${shownSetCountLabel} from cleanup`}
+                title="Removes only sets shown by the current filter from cleanup and marks them reviewed.">
+                Remove shown sets from cleanup
+              </Button>
+            </Stack>
           )}
-          {onIncludeAllEligible && (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={
-                allAvailableGroupsIncluded ? (
-                  <CheckBoxOutlinedIcon />
-                ) : (
-                  <CheckBoxOutlineBlankIcon />
-                )
-              }
-              disabled={availableGroupCount === 0 || allAvailableGroupsIncluded}
-              onClick={onIncludeAllEligible}
-              aria-label={includeAllAriaLabel}
-              title={includeAllTitle}>
-              {includeAllLabel}
-            </Button>
-          )}
-          <Button
-            size="small"
-            startIcon={
-              allShownGroupsSelected ? (
-                <CheckBoxOutlinedIcon />
-              ) : (
-                <CheckBoxOutlineBlankIcon />
-              )
-            }
-            disabled={groupCount === 0 || allShownGroupsSelected}
-            onClick={onSelectAll}
-            aria-label={
-              allShownGroupsSelected
-                ? `All ${shownSetCountLabel} already included in cleanup`
-                : `Include all ${shownSetCountLabel} in cleanup`
-            }
-            title={
-              allShownGroupsSelected
-                ? "All sets in the current filter are already included in cleanup."
-                : "Adds every set in the current filter to cleanup. Newly included sets return to Needs review."
-            }>
-            {allShownGroupsSelected
-              ? `All ${shownSetCountLabel} included`
-              : `Include all ${shownSetCountLabel}`}
-          </Button>
-          <Button
-            size="small"
-            startIcon={<CheckBoxOutlineBlankIcon />}
-            disabled={selectedShownGroupCount === 0}
-            onClick={onDeselectAll}
-            aria-label={`Remove ${shownSetCountLabel} from cleanup`}
-            title="Removes only sets shown by the current filter from cleanup and marks them reviewed.">
-            Remove shown sets from cleanup
-          </Button>
         </Stack>
       )}
     </Paper>
@@ -693,7 +673,8 @@ interface CleanupBarProps {
   reviewedGroupCount: number
   totalGroupCount: number
   onReviewNext?: () => void
-  onReviewAll?: () => void
+  showReviewNext?: boolean
+  proposalButtonRef?: Ref<HTMLButtonElement>
   onTrash: () => void
   compact?: boolean
 }
@@ -704,7 +685,8 @@ export function CleanupBar({
   reviewedGroupCount,
   totalGroupCount,
   onReviewNext,
-  onReviewAll,
+  showReviewNext = true,
+  proposalButtonRef,
   onTrash,
   compact = false
 }: CleanupBarProps) {
@@ -714,9 +696,8 @@ export function CleanupBar({
   const remainingCount = Math.max(0, totalGroupCount - reviewedGroupCount)
   const canReviewNext =
     !reviewComplete && remainingCount > 0 && Boolean(onReviewNext)
-  const showReviewAll = canReviewNext && Boolean(onReviewAll)
   const actionLabel = hasSelection
-    ? "Review & move " + duplicateCount.toLocaleString() + " to Trash"
+    ? `Review ${duplicateCount.toLocaleString()} proposed item${duplicateCount === 1 ? "" : "s"}`
     : reviewComplete
       ? "No media items proposed for Trash"
       : canReviewNext
@@ -729,6 +710,7 @@ export function CleanupBar({
     <Paper
       component="section"
       aria-label="Cleanup summary"
+      tabIndex={-1}
       elevation={0}
       sx={{
         position: "sticky",
@@ -737,13 +719,10 @@ export function CleanupBar({
         mt: compact ? 1 : 1.5,
         p: compact ? 1 : 1.5,
         border: "1px solid",
-        borderColor: hasSelection
-          ? photoSweepColors.primaryBorder
-          : photoSweepColors.border,
+        borderColor: "divider",
         borderRadius: 1.5,
         bgcolor: photoSweepColors.surface,
-        backdropFilter: "none",
-        boxShadow: "0 4px 14px rgba(27, 45, 66, 0.09)",
+        boxShadow: `0 2px 12px ${photoSweepColors.shadow}`,
         display: "grid",
         gridTemplateColumns: compact
           ? "1fr"
@@ -753,85 +732,47 @@ export function CleanupBar({
       }}>
       <Box sx={{ minWidth: 0 }}>
         <Typography
-          variant="subtitle2"
           role="status"
           aria-live="polite"
-          sx={{
-            fontWeight: 850
-          }}>
-          {includedGroupCount.toLocaleString()} set
-          {includedGroupCount === 1 ? "" : "s"} included
-          {!reviewComplete &&
-            ` · ${remainingCount.toLocaleString()} need review`}
+          component="div"
+          sx={{ display: "grid", gap: 0.25 }}>
+          <Typography component="span" variant="subtitle2" fontWeight={700}>
+            {duplicateCount.toLocaleString()} item
+            {duplicateCount === 1 ? "" : "s"} proposed for Trash
+          </Typography>
+          <Typography component="span" variant="caption" color="text.secondary">
+            {includedGroupCount.toLocaleString()} set
+            {includedGroupCount === 1 ? "" : "s"} included
+            {!reviewComplete &&
+              ` · ${remainingCount.toLocaleString()} ${remainingCount === 1 ? "needs" : "need"} review`}
+          </Typography>
         </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            color: "text.secondary",
-            display: "block",
-            lineHeight: 1.35
-          }}>
-          {duplicateCount.toLocaleString()} item
-          {duplicateCount === 1 ? "" : "s"} proposed for Trash. Review each
-          included set, then confirm before anything moves.
-        </Typography>
-      </Box>
-      <Box
-        sx={{
-          display: showReviewAll ? "grid" : undefined,
-          gridTemplateColumns: showReviewAll
-            ? "repeat(2, minmax(0, 1fr))"
-            : undefined,
-          gap: 0.75,
-          minWidth: 0
-        }}>
-        <Button
-          variant="contained"
-          color={reviewComplete ? "error" : "primary"}
-          startIcon={
-            reviewComplete ? (
-              <DeleteOutlineRoundedIcon />
-            ) : (
-              <ArrowForwardRoundedIcon />
-            )
-          }
-          disabled={!hasSelection && !canReviewNext}
-          aria-label={showReviewAll ? actionLabel : undefined}
-          onClick={reviewComplete ? onTrash : onReviewNext}
-          title={
-            canReviewNext
-              ? "Jump to the next unreviewed set. Review every set before moving anything to Trash."
-              : reviewComplete && !hasSelection
-                ? "All sets are reviewed, but no media items are proposed for Trash."
-                : undefined
-          }
-          sx={{
-            minHeight: 44,
-            minWidth: 0,
-            width: "100%",
-            px: compact ? 0.75 : 1.5,
-            fontWeight: 850
-          }}>
-          {showReviewAll ? "Review next" : actionLabel}
-        </Button>
-        {showReviewAll && (
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={onReviewAll}
-            aria-label={`Mark all ${remainingCount.toLocaleString()} eligible sets as reviewed`}
-            title={`Mark all ${remainingCount.toLocaleString()} eligible sets as reviewed. Cleanup inclusion and keeper choices stay unchanged. Moving items to Trash still requires separate confirmation.`}
-            sx={{
-              minHeight: 44,
-              minWidth: 0,
-              width: "100%",
-              px: compact ? 0.75 : 1.5,
-              fontWeight: 850
-            }}>
-            Review all
-          </Button>
+        {(!compact || reviewComplete) && (
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", display: "block", lineHeight: 1.35 }}>
+            {hasSelection
+              ? "Check the proposal and confirm before anything moves."
+              : reviewComplete
+                ? "You can still include a set or change your keeper choices."
+                : showReviewNext
+                  ? "Review the remaining sets before confirming cleanup."
+                  : "Choose a review option above."}
+          </Typography>
         )}
       </Box>
+      {(reviewComplete || showReviewNext) && (
+        <Button
+          ref={proposalButtonRef}
+          variant="contained"
+          startIcon={reviewComplete ? <DeleteOutlineRoundedIcon /> : <ArrowForwardRoundedIcon />}
+          disabled={!hasSelection && !canReviewNext}
+          aria-label={actionLabel}
+          onClick={reviewComplete ? onTrash : onReviewNext}
+          sx={{ minHeight: 44, minWidth: 0, fontWeight: 700 }}>
+          {canReviewNext ? "Review next set" : actionLabel}
+        </Button>
+      )}
     </Paper>
   );
 }

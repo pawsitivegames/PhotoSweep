@@ -121,7 +121,7 @@ export function ScanProgress({
       sx={{
         maxWidth: compact ? "none" : 860,
         mx: compact ? 0 : "auto",
-        py: compact ? 0 : { xs: 2, md: 6 }
+        py: compact ? 0 : { xs: 1, md: 2.5 }
       }}>
       <Paper
         elevation={0}
@@ -130,8 +130,7 @@ export function ScanProgress({
           border: "1px solid",
           borderColor: photoSweepColors.border,
           borderRadius: 1.5,
-          bgcolor: photoSweepColors.surface,
-          boxShadow: compact ? "none" : "0 2px 10px rgba(27, 45, 66, 0.05)"
+          bgcolor: photoSweepColors.surface
         }}>
         <Box
           sx={{
@@ -142,15 +141,24 @@ export function ScanProgress({
             mb: compact ? 1.25 : 2
           }}>
           <Typography
+            component="h2"
             variant={compact ? "subtitle2" : "h5"}
             sx={{
               fontWeight: 800
             }}>
             Finding Duplicates
           </Typography>
-          <Typography variant="caption" noWrap sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              color: "primary.dark",
+              bgcolor: photoSweepColors.primarySoft,
+              px: 1,
+              py: 0.35,
+              borderRadius: 0.75,
+              fontVariantNumeric: "tabular-nums"
+            }}>
             Step {stepNum} of {TOTAL_STEPS}
           </Typography>
         </Box>
@@ -169,7 +177,10 @@ export function ScanProgress({
             alignItems: "flex-end",
             justifyContent: "space-between",
             gap: 2,
-            mb: compact ? 1 : 1.5
+            mb: 1,
+            p: compact ? 1 : 1.75,
+            bgcolor: photoSweepColors.primarySoft,
+            borderRadius: 1
           }}>
           <Box sx={{ minWidth: 0 }}>
             <Typography
@@ -232,8 +243,7 @@ export function ScanProgress({
           {isDeterminate
             ? `${itemsProcessed.toLocaleString()} of ${totalEstimate.toLocaleString()} checked. `
             : ""}
-          You can leave this tab open. Nothing can move to Trash during the
-          scan.
+          Leave the photo library tab open. Review starts when the scan finishes.
         </Typography>
 
         {onPause && (

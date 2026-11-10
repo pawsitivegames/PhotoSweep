@@ -75,6 +75,11 @@ const MEDIA_ITEMS: Record<string, GpdMediaItem> = {
   })
 }
 
+function openReviewTools() {
+  const toggle = screen.getByRole("button", { name: "More review tools" })
+  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle)
+}
+
 function makeItem(
   mediaKey: string,
   overrides: Partial<GpdMediaItem> = {}
@@ -222,6 +227,7 @@ function ReviewHarness({
 }
 
 function chooseStrategy(label: string) {
+  openReviewTools()
   fireEvent.click(
     screen.getByRole("button", { name: /Choose keepers automatically/i })
   )
@@ -339,6 +345,7 @@ describe("Selection strategy application in the review UI", () => {
       const checkbox = screen.getByRole("checkbox", {
         name: "Include this set of 3 photos for cleanup"
       })
+      openReviewTools()
       fireEvent.click(
         screen.getByRole("button", {
           name: "Include all 1 available set in cleanup"
@@ -517,11 +524,11 @@ describe("Selection strategy application in the review UI", () => {
     })
     expect(lastKeeper).toHaveAttribute("aria-pressed", "true")
     expect(lastKeeper).toHaveAccessibleDescription(
-      "At least one copy stays kept. Use “Mark all copies for Trash” to move every copy to Trash."
+      "Keep at least one copy, or choose “Mark all copies for Trash” to propose every eligible copy."
     )
     expect(
       screen.getByText(
-        "At least one copy stays kept. Use “Mark all copies for Trash” to move every copy to Trash."
+        "Keep at least one copy, or choose “Mark all copies for Trash” to propose every eligible copy."
       )
     ).toBeInTheDocument()
 

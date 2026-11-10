@@ -1,5 +1,7 @@
 # PhotoSweep Chrome Web Store Listing Draft
 
+> Storage note (2026-10-26): Raw artifacts under `tmp/verification/` were removed from this checkout to reclaim space. Historical summaries remain, but those files are unavailable for inspection and do not verify the current candidate.
+
 Status: **Current candidate-bound draft; not approved to submit.** This copy
 is tied to PhotoSweep v2.3.6.20, ZIP
 `build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.zip` (SHA-256
@@ -28,7 +30,7 @@ the final immutable candidate, current provider evidence, public policy, and
 saved Dashboard fields before submission. See the [current gate
 ledger](REMAINING_GATES_STATUS.md), [current package
 sidecar](../build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.json), and
-[release evidence](../tmp/verification/release-readiness-20261020-current/release-readiness.md).
+release evidence (former local path: `tmp/verification/release-readiness-20261020-current/release-readiness.md`).
 
 ## Proposed listing text
 
@@ -78,13 +80,13 @@ have independent policies and availability.
   establish full provider parity, matching precision/recall, or Trash/Undo.
 - Synthetic video playback advanced through to the end in the exact current
   package for Google, iCloud, and Amazon Canada. The
-  [all-provider capture manifest](../tmp/verification/release-readiness-20261020-current/video-evidence/manifest.json)
-  and [Amazon Canada capture manifest](../tmp/verification/release-readiness-20261020-current/amazon-video-evidence/manifest.json)
+  all-provider capture manifest (former local path: `tmp/verification/release-readiness-20261020-current/video-evidence/manifest.json`)
+  and Amazon Canada capture manifest (former local path: `tmp/verification/release-readiness-20261020-current/amazon-video-evidence/manifest.json`)
   pass the repository validators. Chrome's optional Amazon download-host
   permission was explicitly approved for this test and revoked afterward.
 - Exact-package evidence is summarized in
   [REMAINING_GATES_STATUS.md](REMAINING_GATES_STATUS.md), the
-  [release report](../tmp/verification/release-readiness-20261020-current/release-readiness.md),
+  release report (former local path: `tmp/verification/release-readiness-20261020-current/release-readiness.md`),
   and the [current candidate sidecar](../build/photosweep-cws-v2.3.6.20-sha256-44cfb7ed4684.json).
 - The public listing's payment label and actual Developer Dashboard
   declaration have not been reconciled. Confirm the saved Dashboard fields,

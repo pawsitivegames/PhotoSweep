@@ -1,4 +1,8 @@
 import {
+  browserDetectionRuntime,
+  type DetectionRuntime
+} from "./detection-runtime"
+import {
   fullDetectDuplicates,
   smartDetectDuplicates,
   type DetectionProgress
@@ -25,6 +29,10 @@ export interface DuplicateDetectionRequest {
 }
 
 export class DuplicateDetectionEngine {
+  constructor(
+    private readonly runtime: DetectionRuntime = browserDetectionRuntime
+  ) {}
+
   async detect(request: DuplicateDetectionRequest): Promise<DuplicateGroup[]> {
     if (request.mode === "smart") {
       return smartDetectDuplicates(
@@ -35,7 +43,8 @@ export class DuplicateDetectionEngine {
         request.signal,
         request.logger,
         request.onPartialGroups,
-        request.cacheNamespace
+        request.cacheNamespace,
+        this.runtime
       )
     }
 
@@ -46,7 +55,8 @@ export class DuplicateDetectionEngine {
       request.signal,
       request.logger,
       request.onPartialGroups,
-      request.cacheNamespace
+      request.cacheNamespace,
+      this.runtime
     )
     return result.groups
   }

@@ -12,6 +12,11 @@ import {
 import { buildSupportDiagnosticsReport } from "../../lib/support-diagnostics"
 
 describe("privacy analytics", () => {
+  it("keeps bounded review context and strips arbitrary review data", () => {
+    expect(buildAnalyticsEvent({name: "review_prompt_dismissed", reviewSource: "cleanup", reviewDismissalReason: "never", reviewText: "private"} as never)).toMatchObject({name: "review_prompt_dismissed", reviewSource: "cleanup", reviewDismissalReason: "never"})
+    expect(buildAnalyticsEvent({name: "review_link_clicked", reviewSource: "https://private.example", reviewText: "private"} as never)).not.toHaveProperty("reviewSource")
+    expect(buildAnalyticsEvent({name: "review_prompt_shown", reviewText: "private"} as never)).not.toHaveProperty("reviewText")
+  })
   it("uses buckets instead of exact counts", () => {
     expect(countBucket(12)).toBe("1-99")
     expect(countBucket(1200)).toBe("1k-5k")

@@ -165,6 +165,14 @@ export async function reviewShownKeepers(page: Page): Promise<void> {
   }
 }
 
+export async function openReviewTools(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "More review tools" })
+  await toggle.waitFor()
+  if ((await toggle.getAttribute("aria-expanded")) === "false") {
+    await toggle.click()
+  }
+}
+
 export async function launchExtension(): Promise<{
   context: BrowserContext
   extensionId: string
@@ -234,13 +242,14 @@ export async function injectScanResults(
   mediaItems: Record<string, object>,
   totalItems: number,
   accountEmail: string | null = "test@example.com",
-  recordCoverage = true
+  recordCoverage = true,
+  providerSessionId?: string
 ): Promise<void> {
   const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
   const storageKey = providerReviewStorageKey("google", "scanResults")
   await withExtensionStorage(context, (page) =>
     page.evaluate(
-      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage }) =>
+      ({ groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage, providerSessionId }) =>
         new Promise<void>((resolve) => {
           chrome.storage.local.set(
             {
@@ -251,6 +260,7 @@ export async function injectScanResults(
                 scanDate: Date.now(),
                 sourceProvider: "google",
                 scopeFingerprint,
+                ...(providerSessionId ? { providerSessionId } : {}),
                 ...(recordCoverage ? {
                   scanCoverage: {
                     status: "complete", stopReason: "exhausted",
@@ -266,7 +276,7 @@ export async function injectScanResults(
             resolve
           )
         }),
-      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage }
+      { groups, mediaItems, totalItems, accountEmail, scopeFingerprint, storageKey, recordCoverage, providerSessionId }
     )
   )
 }
@@ -479,11 +489,11 @@ export async function openGptkStubPage(
   })
 
   const page = await context.newPage()
-  await page.goto(provider === "amazon" ? `${origin}/photos` : `${origin}/`)
 
   // The stub supplies its own provider command handler. Mark it with the same
   // owner identity used by the service worker so test setup does not inject a
-  // second, real command handler that races the stub's responses.
+  // second, real command handler that races the stub's responses. Install this
+  // before navigation: document-idle injection can run before goto completes.
   const extensionId = extensionIds.get(context)
   if (!extensionId) {
     throw new Error("Extension ID is unavailable for the GPTK stub page.")
@@ -501,22 +511,27 @@ export async function openGptkStubPage(
     throw new Error("Extension build identity is unavailable for the GPTK stub.")
   }
   const ownerId = `${extensionId}:${ownerVersion}`
-  await page.evaluate(({ commandOwnerId, provider }) => {
+  await page.addInitScript(({ commandOwnerId, provider }) => {
     const stubWindow = window as unknown as {
       __GPD_COMMAND_HOST__?: unknown
       __GPD_COMMAND_HOST_OWNER_ID__?: string
       __GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__?: string
+      __GPD_GOOGLE_COMMAND_HANDLER_LOADED__?: boolean
       __GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__?: string
       __GPD_AMAZON_COMMAND_HANDLER_LOADED__?: boolean
+      gptkApi?: unknown
     }
     stubWindow.__GPD_COMMAND_HOST__ = { register: () => undefined }
     stubWindow.__GPD_COMMAND_HOST_OWNER_ID__ = commandOwnerId
     stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
+    stubWindow.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
+    stubWindow.gptkApi = {}
     if (provider === "amazon") {
       stubWindow.__GPD_AMAZON_COMMAND_HANDLER_OWNER_ID__ = commandOwnerId
       stubWindow.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
     }
   }, { commandOwnerId: ownerId, provider })
+  await page.goto(provider === "amazon" ? `${origin}/photos` : `${origin}/`)
 
   // Inject overrides so the stub responds as configured
   if (Object.keys(overrides).length > 0) {

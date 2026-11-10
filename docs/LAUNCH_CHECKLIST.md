@@ -1,8 +1,8 @@
 # PhotoSweep Paid Launch Checklist
 
-Last updated: 2026-10-17
+Last updated: 2026-10-20
 
-Current release verdict: **NOT READY**. Use the [current gate ledger](REMAINING_GATES_STATUS.md)
+Current release verdict: **BLOCKED**. Use the [current gate ledger](REMAINING_GATES_STATUS.md)
 for exact-package evidence and blockers; this checklist does not replace that status.
 
 Use this as the release gate for paid multi-provider support. Do not mark a paid

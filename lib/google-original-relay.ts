@@ -21,6 +21,8 @@ export interface GoogleCompletedScanRegistration {
   mediaItems: unknown
 }
 
+type GoogleCompletedScanBinding = Omit<GoogleCompletedScanRegistration, "coverageStatus" | "mediaItems">
+
 interface CompletedScanEntry {
   appTabId: number | null
   clientId?: string
@@ -133,17 +135,23 @@ export class GoogleCompletedScanRegistry {
     return true
   }
 
-  hasItem(input: {
-    appTabId: number | null
-    clientId?: string
-    providerTabId: number
-    provider: PhotoProvider
-    accountEmail: string
-    providerSessionId: string
-    scopeFingerprint: string
+  hasItem(input: GoogleCompletedScanBinding & {
     mediaKey: string
     expectedMediaKind: GoogleOriginalRelayMediaKind
   }): GoogleCompletedScanItem | null {
+    const item = this.getReview(input)?.mediaItems.get(input.mediaKey)
+    return item &&
+      (item.mediaKind === input.expectedMediaKind ||
+        (item.mediaKind === "unknown" && input.expectedMediaKind === "photo"))
+      ? item
+      : null
+  }
+
+  hasReview(input: GoogleCompletedScanBinding): boolean {
+    return this.getReview(input) !== null
+  }
+
+  private getReview(input: GoogleCompletedScanBinding): CompletedScanEntry | null {
     if (input.provider !== "google") return null
     const key = this.key(input)
     const entry = this.entries.get(key)
@@ -151,13 +159,7 @@ export class GoogleCompletedScanRegistry {
       this.entries.delete(key)
       return null
     }
-    if (entry.accountEmail !== normalizeEmail(input.accountEmail)) return null
-    const item = entry.mediaItems.get(input.mediaKey)
-    return item &&
-      (item.mediaKind === input.expectedMediaKind ||
-        (item.mediaKind === "unknown" && input.expectedMediaKind === "photo"))
-      ? item
-      : null
+    return entry.accountEmail === normalizeEmail(input.accountEmail) ? entry : null
   }
 
   invalidateOwner(

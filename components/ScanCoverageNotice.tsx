@@ -113,39 +113,37 @@ export function ScanCoverageNotice({
     </>
   )
 
-  if (compact && coverage.status === "complete") {
+  if (coverage.status === "complete") {
     return (
       <Alert
         aria-label="Scan coverage"
         severity="info"
+        icon={false}
         sx={{
-          mb: 0.75,
-          py: 0.15,
-          "& .MuiAlert-message": { width: "100%" },
-          "& .MuiAlert-icon": { py: 0.35, mr: 0.75 }
+          mb: compact ? 0.25 : 1.5,
+          px: compact ? 0.5 : 0,
+          py: 0,
+          bgcolor: "transparent",
+          color: "text.secondary",
+          "& .MuiAlert-message": { width: "100%", py: 0.5 }
         }}>
-        <Box sx={{ display: "grid", gap: 0.15 }}>
-          <Typography variant="caption" sx={{
-            fontWeight: 800
+        <Box
+          component="details"
+          sx={{
+            "& > summary": {
+              cursor: "pointer",
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              lineHeight: 1.45
+            }
           }}>
+          <Box component="summary">
             Scan complete · {coverage.itemsReturned.toLocaleString()} in scope
             {coverage.itemsSkipped > 0 &&
               ` · ${coverage.itemsSkipped.toLocaleString()} skipped`}
-          </Typography>
-          <Box
-            component="details"
-            sx={{
-              "& > summary": {
-                cursor: "pointer",
-                color: "text.secondary",
-                fontSize: "0.75rem",
-                lineHeight: 1.4
-              }
-            }}>
-            <Box component="summary">Scan details</Box>
-            <Box sx={{ display: "grid", gap: 0.85, pt: 0.75 }}>
-              {coverageDetails}
-            </Box>
+          </Box>
+          <Box sx={{ display: "grid", gap: 0.85, pt: 0.75 }}>
+            {coverageDetails}
           </Box>
         </Box>
       </Alert>

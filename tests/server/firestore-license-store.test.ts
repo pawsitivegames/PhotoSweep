@@ -1,6 +1,9 @@
+import crypto from "node:crypto"
+import { FieldValue } from "@google-cloud/firestore"
 import { describe, expect, it, vi } from "vitest"
 
 import { createFirestoreLicenseStore } from "../../server/firestore-license-store.mjs"
+import { createLicenseApi } from "../../server/license-api.mjs"
 
 class FakeDocSnapshot {
   constructor(
@@ -31,7 +34,15 @@ class FakeDocRef {
     const previous = options?.merge
       ? (this.store.get(this.id) as object)
       : undefined
-    this.store.set(this.id, { ...(previous ?? {}), ...value })
+    const next: Record<string, unknown> = { ...(previous ?? {}) }
+    for (const [field, item] of Object.entries(value)) {
+      if (item instanceof FieldValue && item.isEqual(FieldValue.delete())) {
+        delete next[field]
+      } else {
+        next[field] = item
+      }
+    }
+    this.store.set(this.id, next)
   }
 }
 
@@ -166,6 +177,133 @@ describe("createFirestoreLicenseStore", () => {
     await expect(store.getSessionIdByStripeChargeId("ch_123")).resolves.toBe(
       "sess_1"
     )
+  })
+
+  it.each(["mini_cleanup", "lifetime"])(
+    "removes an old Cleanup Pass expiry when upserting %s without an expiry",
+    async (planId) => {
+      const firestore = new FakeFirestore()
+      const store = createFirestoreLicenseStore({
+        firestore: firestore as never
+      })
+      await store.upsertLicense({
+        sessionId: "sess_upgrade",
+        planId: "cleanup_pass",
+        status: "active",
+        purchasedAt: 1000,
+        expiresAt: 2000,
+        supportNote: "Preserve unrelated license metadata"
+      })
+
+      await store.upsertLicense({
+        sessionId: "sess_upgrade",
+        planId,
+        status: "active",
+        purchasedAt: 1500,
+        expiresAt: undefined
+      })
+
+      const license = await store.getLicenseBySessionId("sess_upgrade")
+      expect(license).toMatchObject({
+        planId,
+        supportNote: "Preserve unrelated license metadata"
+      })
+      expect(license).not.toHaveProperty("expiresAt")
+    }
+  )
+
+  it("keeps a Lifetime upgrade active after the earlier Cleanup Pass expires", async () => {
+    vi.useFakeTimers()
+    try {
+      const purchasedAt = Date.UTC(2026, 7, 19, 16, 45)
+      vi.setSystemTime(purchasedAt)
+      const keys = crypto.generateKeyPairSync("ec", {
+        namedCurve: "prime256v1"
+      })
+      const secret = "whsec_cleanup_lifetime_regression"
+      const store = createFirestoreLicenseStore({
+        firestore: new FakeFirestore() as never
+      })
+      const api = createLicenseApi({
+        store,
+        env: {
+          NODE_ENV: "production",
+          STRIPE_WEBHOOK_SECRET: secret,
+          PHOTOSWEEP_ENTITLEMENT_PRIVATE_KEY: Buffer.from(
+            keys.privateKey.export({ type: "pkcs8", format: "pem" })
+          ).toString("base64url")
+        }
+      })
+      const sessionId = "pls_cleanup_lifetime_regression"
+
+      for (const planId of ["cleanup_pass", "lifetime"]) {
+        const body = JSON.stringify({
+          id: `evt_${planId}`,
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: `cs_test_${planId}`,
+              payment_intent: `pi_${planId}`,
+              payment_status: "paid",
+              created: Math.floor(Date.now() / 1000),
+              metadata: { planId, licenseSessionId: sessionId }
+            }
+          }
+        })
+        const timestamp = Math.floor(Date.now() / 1000)
+        const signature = crypto
+          .createHmac("sha256", secret)
+          .update(`${timestamp}.${body}`)
+          .digest("hex")
+        const response = await api(
+          new Request("https://license.test/stripe/webhook", {
+            method: "POST",
+            headers: {
+              "stripe-signature": `t=${timestamp},v1=${signature}`
+            },
+            body
+          })
+        )
+        expect(response.status).toBe(200)
+        vi.setSystemTime(Date.now() + 5 * 60_000)
+      }
+
+      vi.setSystemTime(purchasedAt + 8 * 24 * 60 * 60_000)
+      const response = await api(
+        new Request("https://license.test/entitlement", {
+          headers: { "x-photosweep-license-session": sessionId }
+        })
+      )
+      expect(response.status).toBe(200)
+      const { token } = await response.json()
+      const [payload, signature] = token.split(".")
+      expect(
+        crypto.verify(
+          "sha256",
+          Buffer.from(payload),
+          { key: keys.publicKey, dsaEncoding: "ieee-p1363" },
+          Buffer.from(signature, "base64url")
+        )
+      ).toBe(true)
+      expect(
+        JSON.parse(Buffer.from(payload, "base64url").toString())
+      ).toMatchObject({
+        planId: "lifetime",
+        active: true
+      })
+      const license = await store.getLicenseBySessionId(sessionId)
+      expect(license).not.toHaveProperty("expiresAt")
+      expect(license.purchases).toEqual([
+        expect.objectContaining({
+          planId: "cleanup_pass",
+          expiresAt: purchasedAt + 7 * 24 * 60 * 60_000
+        }),
+        expect.objectContaining({ planId: "lifetime" })
+      ])
+      expect(license.purchases[1]).not.toHaveProperty("expiresAt")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("claims recovery email cooldowns transactionally per normalized email", async () => {

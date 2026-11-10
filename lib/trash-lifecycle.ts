@@ -1,4 +1,6 @@
 import type { DeleteReport } from "./delete-report"
+import { TrashExecution, type TrashExecutionAdapter } from "./trash-execution"
+import type { GptkProgressMessage, GptkResultMessage } from "./types"
 import type {
   DuplicateReviewSession,
   DuplicateTrashPlan
@@ -641,7 +643,46 @@ export class TrashLifecycle {
   private pendingRestore: PendingRestore | null = null
   private beginInFlight = false
 
-  constructor(private readonly audit: TrashAuditAdapter) {}
+  private readonly execution?: TrashExecution
+
+  constructor(
+    private readonly audit: TrashAuditAdapter,
+    execution?: TrashExecutionAdapter
+  ) {
+    if (execution) this.execution = new TrashExecution(this, execution)
+  }
+
+  get restoreBusy(): boolean {
+    return this.execution?.restoreBusy ?? false
+  }
+
+  dispatch(
+    params: AuthorizedTrashLifecycleBeginParams,
+    onDispatch: (command: TrashCommand) => void
+  ): Promise<TrashCommand | null> {
+    return this.requireExecution().dispatch(params, onDispatch)
+  }
+
+  restoreItems(
+    undo: TrashUndoData,
+    requestId: string,
+    history = false
+  ): Promise<boolean> {
+    return this.requireExecution().restore(undo, requestId, history)
+  }
+
+  receiveResult(result: GptkResultMessage): Promise<void> {
+    return this.requireExecution().receiveResult(result)
+  }
+
+  receiveRestoreProgress(progress: GptkProgressMessage): void {
+    this.requireExecution().receiveRestoreProgress(progress)
+  }
+
+  private requireExecution(): TrashExecution {
+    if (!this.execution) throw new Error("Trash execution adapter is required")
+    return this.execution
+  }
 
   begin(params: AuthorizedTrashLifecycleBeginParams): Promise<TrashCommand | null>
   begin(params: TrashLifecycleBeginParams): Promise<TrashCommand>
@@ -1213,6 +1254,7 @@ export class TrashLifecycle {
       return false
     }
     this.pendingRestore = null
+    this.execution?.invalidateContext(true)
     return true
   }
 
@@ -1563,6 +1605,7 @@ export class TrashLifecycle {
   }
 
   reset(): void {
+    this.execution?.invalidateContext(false)
     this.pending = null
     this.pendingRestore = null
   }
