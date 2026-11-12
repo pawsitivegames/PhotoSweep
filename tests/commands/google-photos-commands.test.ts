@@ -2846,6 +2846,7 @@ describe("Google original media retrieval", () => {
 
   it("[VIDEO-PLAYBACK] hashes the exact photo original and reacquires transient video links when reopened", async () => {
     const scopeFingerprint = "google-retrieval-success-scope"
+    const requestedMaxBytes = 25 * 1024 * 1024
     const { messages, setPostMessageHandler, restore } = collectMessages()
     const expectedDigest = new Uint8Array(
       await window.crypto.subtle.digest("SHA-256", bytesForHash.slice().buffer)
@@ -2933,7 +2934,7 @@ describe("Google original media retrieval", () => {
       userOptIn: true,
       providerSessionId: googleTestSessionId,
       scanScopeFingerprint: scopeFingerprint,
-      maxBytes: bytesForHash.byteLength
+      maxBytes: requestedMaxBytes
     })
     const hashResult = await waitForMessage(messages, "google-original-hash")
     expect(hashResult).toMatchObject({
@@ -2964,7 +2965,7 @@ describe("Google original media retrieval", () => {
       mediaKey: "google-hash-photo",
       resourceUrl: photoUrl,
       mediaKind: "photo",
-      maxBytes: bytesForHash.byteLength,
+      maxBytes: requestedMaxBytes,
       aggregateBudgetBytes: 100 * 1024 * 1024
     })
     expect(JSON.stringify(relayRequest)).not.toContain(bytesForHash.toString())
@@ -4022,6 +4023,15 @@ describe("Google original media retrieval", () => {
     expect(
       await waitForMessage(messages, "google-budget-lru-churn-one")
     ).toMatchObject({ scanCoverage: { status: "complete", itemsReturned: 10001 } })
+    sendCommand(
+      "getOriginalContentHash",
+      "google-evicted-original",
+      hashArgs("google-evicted-original", "google-lru-0")
+    )
+    expect(await waitForMessage(messages, "google-evicted-original")).toMatchObject({
+      success: false,
+      error: "The Google Photos review is too large to retain every original. Scan a smaller range or album."
+    })
     sendCommand(
       "getOriginalContentHash",
       "google-budget-post-churn",

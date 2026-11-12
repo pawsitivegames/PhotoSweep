@@ -8,7 +8,7 @@
  * - All callback props fire on the correct user action
  */
 import { ThemeProvider } from "@mui/material/styles"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { ActionBar, CleanupBar } from "../../components/ActionBar"
@@ -536,7 +536,7 @@ describe("ActionBar", () => {
       )
     })
 
-    it("keeps compact toolbar actions accessible by name", () => {
+    it("keeps compact toolbar actions accessible by name", async () => {
       const { callbacks } = renderActionBar({
         compact: true,
         hiddenAvailableGroupCount: 2
@@ -544,6 +544,8 @@ describe("ActionBar", () => {
 
       fireEvent.click(screen.getByRole("button", { name: /More review actions/i }))
       fireEvent.click(screen.getByRole("menuitem", { name: /Scan again/i }))
+      expect(callbacks.onRescan).not.toHaveBeenCalled()
+      await waitFor(() => expect(callbacks.onRescan).toHaveBeenCalledOnce())
       fireEvent.click(screen.getByRole("button", { name: /More review actions/i }))
       fireEvent.click(
         screen.getByRole("menuitem", { name: /Export audit report/i })

@@ -934,6 +934,9 @@ function requireGoogleScannedResource(requestId, args) {
     args.mediaKey
   )
   if (!resource) {
+    if (commandHost.originalMediaRetrieval.hasEvictedResources("google", args.scanScopeFingerprint)) {
+      throw new Error("The Google Photos review is too large to retain every original. Scan a smaller range or album.")
+    }
     throw new Error("The Google Photos item is not present in this recent review. Scan again.")
   }
   return { resource }
@@ -1084,7 +1087,7 @@ function cancelGoogleOriginalHashRequest(requestId, args) {
   }
 }
 
-function fetchGoogleOriginalHashViaExtension(requestId, args, resource, resourceUrl, maxBytes, signal) {
+function fetchGoogleOriginalHashViaExtension(requestId, args, resource, resourceUrl, signal) {
   commandHost.throwIfAborted(signal)
   return new Promise((resolve, reject) => {
     let settled = false
@@ -1154,7 +1157,8 @@ function fetchGoogleOriginalHashViaExtension(requestId, args, resource, resource
           mediaKey: args.mediaKey,
           resourceUrl: resourceUrl.href,
           mediaKind: resource.mediaKind,
-          maxBytes,
+          // The worker binds this field to the original authorized request.
+          maxBytes: args.maxBytes,
           aggregateBudgetBytes: args.aggregateBudgetBytes
         },
         "*"
@@ -1190,7 +1194,6 @@ async function getOriginalContentHash(requestId, args, signal) {
       args,
       resource,
       resourceUrl,
-      reservation.maxBytes,
       signal
     )
     commandHost.throwIfAborted(signal)

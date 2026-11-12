@@ -88,6 +88,34 @@ describe("keeper decision contract", () => {
     }
   )
 
+  it("requires a new review if verified original sizes change an accepted automatic keeper", () => {
+    const similar = group("similar", "a", "b")
+    const items = { a: item("a"), b: item("b") }
+    const accepted = new DuplicateReviewSession({
+      groups: [similar],
+      mediaItems: items
+    }).transition({ type: "select_groups", groupIds: [similar.id] })
+    expect(accepted.keptFor(similar)).toEqual(new Set(["a"]))
+    expect(accepted.reviewedGroupIds).toEqual(new Set([similar.id]))
+
+    const verifiedItems = {
+      a: { ...items.a, originalByteLength: 1000 },
+      b: { ...items.b, originalByteLength: 2000 }
+    }
+    const reloaded = new DuplicateReviewSession({
+      groups: [similar],
+      mediaItems: verifiedItems,
+      selections: hydrateSelections(accepted.serialize())
+    })
+    expect(reloaded.keptFor(similar)).toEqual(new Set(["b"]))
+    expect(reloaded.selectedGroupIds).toEqual(new Set([similar.id]))
+    expect(reloaded.reviewedGroupIds).toEqual(new Set())
+
+    const reviewedAgain = reloaded.transition({ type: "select_groups", groupIds: [similar.id] })
+    expect(reviewedAgain.reviewedGroupIds).toEqual(new Set([similar.id]))
+    expect(reviewedAgain.keptFor(similar)).toEqual(new Set(["b"]))
+  })
+
   it("retains the automatic path for provenance-only automatic snapshots", () => {
     const restored = session({
       selectedGroupIds: new Set([g1.id]),

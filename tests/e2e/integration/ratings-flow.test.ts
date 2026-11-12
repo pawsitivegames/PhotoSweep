@@ -159,6 +159,7 @@ test("scan-only results have a voluntary review link and no automatic invitation
   await expect(link).toHaveAttribute("href", CHROME_WEB_STORE_REVIEWS_URL)
   await openReviewTools(page)
   await page.getByRole("button", { name: /Scan again/i }).click()
+  await page.getByRole("button", { name: "Discard review", exact: true }).click()
   await page.getByText("Help & feedback", { exact: true }).click()
   await expect(
     page.getByRole("link", { name: "Leave an honest review" }).first()

@@ -323,6 +323,85 @@ function ThumbnailImage({
   )
 }
 
+export function CleanupProposal({
+  groups,
+  mediaItems,
+  proposedMediaKeys
+}: {
+  groups: DuplicateGroup[]
+  mediaItems: Record<string, GpdMediaItem>
+  proposedMediaKeys: string[]
+}) {
+  const proposed = new Set(proposedMediaKeys)
+  const proposalGroups = groups.filter((group) => group.mediaKeys.some((key) => proposed.has(key)))
+
+  return (
+    <Box
+      component="section"
+      aria-label="Cleanup proposal"
+      tabIndex={0}
+      sx={{ mb: 1.5, maxHeight: 280, overflow: "auto", overflowWrap: "anywhere" }}>
+      {proposalGroups.map((group) => {
+        const count = group.mediaKeys.filter((key) => proposed.has(key)).length
+        const filenames = new Map<string, number>()
+        for (const key of group.mediaKeys) {
+          const name = mediaItems[key]?.fileName ?? ""
+          filenames.set(name, (filenames.get(name) ?? 0) + 1)
+        }
+
+        return (
+          <Box key={group.id} sx={{ borderTop: "1px solid", borderColor: "divider", px: 0.75, py: 1 }}>
+            <Typography variant="subtitle2" color={count === group.mediaKeys.length ? "error.main" : "text.primary"}>
+              {count === group.mediaKeys.length
+                ? "All copies proposed for Trash"
+                : `${count.toLocaleString()} of ${group.mediaKeys.length.toLocaleString()} proposed for Trash`}
+            </Typography>
+            <Stack component="ul" spacing={0.75} sx={{ listStyle: "none", m: 0, p: 0, pt: 0.5 }}>
+              {group.mediaKeys.map((key, index) => {
+                const item = mediaItems[key]
+                const name = item?.fileName
+                const status = proposed.has(key) ? "Proposed for Trash" : "Stays in library"
+                const thumbnail = item?.thumb && (!name || (filenames.get(name) ?? 0) > 1)
+                  ? item.provider && item.provider !== "google"
+                    ? item.thumb
+                    : buildThumbUrl(item.thumb, { height: 96 })
+                  : ""
+                const date = item?.timestamp ? new Date(item.timestamp).toLocaleString() : null
+                const dimensions = item?.resWidth && item.resHeight ? `${item.resWidth}×${item.resHeight}` : null
+                const bytes = item?.originalByteLength ?? item?.size
+                const details = [date, dimensions, bytes ? `${bytes.toLocaleString()} bytes` : null]
+                  .filter(Boolean)
+                  .join(" · ")
+                return (
+                  <Stack
+                    component="li"
+                    direction="row"
+                    spacing={1}
+                    key={key}
+                    aria-label={`Copy ${index + 1}, ${status}, ${name || "Unnamed item"}`}>
+                    {thumbnail && (
+                      <Box sx={{ width: 48, flexShrink: 0, borderRadius: 0.75, overflow: "hidden" }}>
+                        <ThumbnailImage src={thumbnail} alt="" height={48} />
+                      </Box>
+                    )}
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2">{name || "Unnamed item"}</Typography>
+                      <Typography variant="caption" display="block" color={proposed.has(key) ? "error.main" : "text.secondary"}>
+                        Copy {index + 1} · {status}
+                      </Typography>
+                      {details && <Typography variant="caption" color="text.secondary">{details}</Typography>}
+                    </Box>
+                  </Stack>
+                )
+              })}
+            </Stack>
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
 interface DuplicateGroupRowProps {
   group: DuplicateGroup
   mediaItems: Record<string, GpdMediaItem>
