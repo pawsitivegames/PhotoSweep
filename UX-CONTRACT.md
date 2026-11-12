@@ -91,7 +91,8 @@ Photo keeper choices and cleanup inclusion are independent decisions.
 - “Include all available sets” adds every set available to review to the cleanup
   selection, including sets hidden by the current filter. Newly included sets
   return to “Needs review”; already included sets keep their review state.
-  Plan-locked sets remain outside the available scope.
+  Apply the plan limit to the scan before filtering. Plan-locked sets stay
+  outside individual review, bulk verification, and cleanup.
 - “Mark all copies for Trash” is the explicit per-set exception that clears
   all keeper choices and includes that set in cleanup. Existing favorite, identity,
   eligibility, and provider guards still apply.
@@ -122,7 +123,9 @@ Photo keeper choices and cleanup inclusion are independent decisions.
   and “Review one at a time.” The preview covers all available sets, including
   any that were skipped. Explicit acceptance includes those sets and accepts
   their current keeper choices. The preview and separate Trash confirmation
-  list the proposed copies.
+  group proposed copies with the copies that stay in the library. Show
+  distinguishing details for matching or missing filenames and flag proposals
+  that include every copy in a set.
 - With Exact selected, “Preview all exact sets” previews the eligible
   verified-identical sets and lists the copies proposed for Trash. Accepting
   the preview includes only those sets and skips the other sets in scope,
@@ -130,10 +133,13 @@ Photo keeper choices and cleanup inclusion are independent decisions.
 - Verify similar originals directly from an empty Exact filter or from Similar.
   Verification keeps the active filter, reports how many originals were checked
   and how many sets moved to Exact, and leaves cleanup selection untouched.
+  If the evidence changes an accepted automatic keeper, the included set
+  returns to “Needs review.”
   If the scan belongs to an earlier provider session, offer a fresh scan.
-  If the review download limit is reached, preserve the matches already verified
-  and offer to change the scan settings. Ask before discarding the current
-  review to rescan or change settings.
+  If remaining originals cannot fit the review budget or the Google review
+  exceeds the provider resource cache, preserve verified matches and offer a
+  smaller scope. Both verification recovery and “Scan again” in review tools
+  ask before discarding the current review.
   The scan-wide inclusion action is available from All.
 - Individual review focuses the next set that needs a decision. The set
   checkbox includes it and Skip cleanup leaves it out. The cleanup summary

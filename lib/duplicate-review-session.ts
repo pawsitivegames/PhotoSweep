@@ -202,6 +202,19 @@ export class DuplicateReviewSession {
     this.#keepDecisionByGroupId = new Map(
       this.groups.map((group) => [group.id, this.resolveDecision(group)])
     )
+    for (const groupId of this.selectionState.selectedGroupIds) {
+      const acceptedKeeper = this.selectionState.keptOverrides[groupId]
+      const decision = this.#keepDecisionByGroupId.get(groupId)
+      if (
+        this.selectionState.reviewedGroupIds.has(groupId) &&
+        acceptedKeeper &&
+        decision?.source === "automatic" &&
+        !sameMediaKeySet(acceptedKeeper, decision.keptMediaKeys)
+      ) {
+        // Updated scan evidence can change the automatic Trash proposal.
+        this.selectionState.reviewedGroupIds.delete(groupId)
+      }
+    }
     this.#keptByGroupId = new Map(
       this.groups.map((group) => [
         group.id,
@@ -226,7 +239,6 @@ export class DuplicateReviewSession {
 
   update(action: DuplicateReviewAction): DuplicateReviewSelections {
     const current = cloneSelections(this.selectionState)
-
     switch (action.type) {
       case "include_groups_for_cleanup":
         for (const groupId of action.groupIds) {
@@ -251,6 +263,14 @@ export class DuplicateReviewSession {
           if (this.groupsById.has(groupId)) {
             current.selectedGroupIds.add(groupId)
             current.reviewedGroupIds.add(groupId)
+            const decision = this.#keepDecisionByGroupId.get(groupId)
+            if (decision?.source === "automatic") {
+              current.keptOverrides[groupId] = new Set(decision.keptMediaKeys)
+              current.keepDecisionProvenance![groupId] = {
+                source: "automatic",
+                strategy: decision.strategy
+              }
+            }
           }
         }
         break

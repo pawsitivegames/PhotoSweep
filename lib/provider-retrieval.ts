@@ -14,7 +14,14 @@ export function isOriginalReviewBudgetExhausted(message: string): boolean {
   )
 }
 
-export function originalReviewRecovery(message: string): "stale-review" | "missing-item" | null {
+export function isOriginalLargerThanRemainingReviewBudget(message: string): boolean {
+  return /^(The Google Photos original exceeds the remaining approved byte budget|The (Amazon Photos|iCloud) original exceeds the remaining review byte budget)\.$/.test(message)
+}
+
+export function originalReviewRecovery(message: string): "stale-review" | "missing-item" | "narrower-scope" | null {
+  if (message === "The Google Photos review is too large to retain every original. Scan a smaller range or album.") {
+    return "narrower-scope"
+  }
   if (
     /^The (Google Photos item|Amazon Photos original|iCloud original) is not present in this recent review\. Scan again\.$/.test(message) ||
     message === "The Google Photos item is outside the active scanned review. Scan again before retrieving media."

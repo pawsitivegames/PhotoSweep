@@ -21,7 +21,7 @@ import Stack from "@mui/material/Stack"
 import ToggleButton from "@mui/material/ToggleButton"
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
 import Typography from "@mui/material/Typography"
-import { useState, type ReactNode, type Ref } from "react"
+import { useRef, useState, type ReactNode, type Ref } from "react"
 
 import { KEEP_STRATEGY_LABELS, type KeepStrategy } from "../lib/keep-strategy"
 import { photoSweepColors } from "../lib/theme"
@@ -90,11 +90,12 @@ export function ActionBar({
   const [toolsOpen, setToolsOpen] = useState(false)
   const isExactReview = reviewFilter === "exact"
   const bulkGroupCount = isExactReview ? (exactAvailableGroupCount ?? 0) : availableGroupCount
-  const exactCleanupUnavailable = isExactReview && groupCount > 0 && exactAvailableGroupCount === 0
+  const exactCleanupUnavailable = isExactReview && exactGroupCount > 0 && exactAvailableGroupCount === 0
   const [keepMenuAnchor, setKeepMenuAnchor] = useState<HTMLElement | null>(null)
   const keepMenuOpen = Boolean(keepMenuAnchor)
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<HTMLElement | null>(null)
   const moreMenuOpen = Boolean(moreMenuAnchor)
+  const rescanAfterMenuClose = useRef<(() => void) | null>(null)
   const allShownGroupsSelected =
     groupCount > 0 && selectedShownGroupCount >= groupCount
   const allAvailableGroupsIncluded =
@@ -260,7 +261,7 @@ export function ActionBar({
           onChange={(_, value) => {
             if (value !== null) onReviewFilterChange(value)
           }}>
-          <ToggleButton value="all">
+          <ToggleButton id="all-review-filter" value="all">
             {compact ? `All ${totalGroupCount.toLocaleString()}` : `All sets (${totalGroupCount.toLocaleString()})`}
           </ToggleButton>
           <ToggleButton id="exact-review-filter" value="exact" aria-label={compact ? "Exact identical sets" : undefined}>
@@ -445,10 +446,19 @@ export function ActionBar({
             id="review-more-menu"
             anchorEl={moreMenuAnchor}
             open={moreMenuOpen}
-            onClose={() => setMoreMenuAnchor(null)}>
+            onClose={() => setMoreMenuAnchor(null)}
+            slotProps={{
+              transition: {
+                onExited: () => {
+                  const rescan = rescanAfterMenuClose.current
+                  rescanAfterMenuClose.current = null
+                  rescan?.()
+                }
+              }
+            }}>
             <MenuItem
               onClick={() => {
-                onRescan()
+                rescanAfterMenuClose.current = onRescan
                 setMoreMenuAnchor(null)
               }}>
               Scan again
