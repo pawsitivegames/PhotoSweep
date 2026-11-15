@@ -230,6 +230,7 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
   const originalMediaRetrieval = (() => {
     const resources = new Map()
     let newestResource = null
+    let lastResourceEviction = null
     const budgets = new Map()
     const reservationStates = new WeakMap()
     const budgetViews = new WeakMap()
@@ -319,6 +320,7 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
             : `The ${label} review byte budget changed. Start a new review before retrieving originals.`,
         "empty-original": "Google Photos did not report a nonempty original file size.",
         "review-budget-exhausted": `The ${label} review has reached its 100 MiB original-fetch budget.`,
+        "original-exceeds-item-limit": `The ${label} original exceeds the per-file byte limit.`,
         "original-exceeds-budget":
           provider === "google"
             ? "The Google Photos original exceeds the remaining approved byte budget."
@@ -361,6 +363,7 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
       // One call can increase the cache by at most one entry, so one eviction suffices.
       if (resources.size > ORIGINAL_MEDIA_RESOURCE_CACHE_MAX) {
         resources.delete(resources.keys().next().value)
+        lastResourceEviction = { provider, scopeFingerprint }
       }
       return true
     }
@@ -409,6 +412,7 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
 
     function clearResources(provider) {
       if (!provider || newestResource?.provider === provider) newestResource = null
+      if (!provider || lastResourceEviction?.provider === provider) lastResourceEviction = null
       if (!provider) {
         resources.clear()
         return
@@ -464,6 +468,9 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
 
       if (provider === "google" && resourceSize === 0) {
         throw policyError(provider, "empty-original")
+      }
+      if (Number.isFinite(resourceSize) && resourceSize > maxBytes) {
+        throw policyError(provider, "original-exceeds-item-limit")
       }
       const availableBytes =
         budget.limitBytes - budget.bytesRead - budget.bytesReserved
@@ -558,6 +565,10 @@ function createCommandHost(targetWindow, publicKey, ownerId) {
       rememberResource,
       getResource,
       isCurrentResource,
+      hasEvictedResources(provider, scopeFingerprint) {
+        return lastResourceEviction?.provider === provider &&
+          lastResourceEviction.scopeFingerprint === scopeFingerprint
+      },
       hasExpiredResources(provider, scopeFingerprint) {
         return newestResource?.provider === provider &&
           newestResource.scopeFingerprint === scopeFingerprint &&

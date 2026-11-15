@@ -48,7 +48,7 @@ import {
 
 import { ActionBar, CleanupBar } from "../components/ActionBar"
 import type { ReviewFilter } from "../components/ActionBar"
-import { DuplicateGroups } from "../components/DuplicateGroups"
+import { CleanupProposal, DuplicateGroups } from "../components/DuplicateGroups"
 import { KeepStrategyFeedbackSnackbar } from "../components/KeepStrategyFeedbackSnackbar"
 import { PhotoSweepBrandMark } from "../components/PhotoSweepBrandMark"
 import { RatingPrompt } from "../components/RatingPrompt"
@@ -152,6 +152,7 @@ import {
   MAX_ORIGINAL_BYTES_PER_REVIEW,
   getOriginalContentVerificationUnavailableMessage,
   getProviderRetrievalSessionError,
+  isOriginalLargerThanRemainingReviewBudget,
   isOriginalReviewBudgetExhausted,
   isProviderRetrievalResponseBound,
   isProviderRetrievalBindingCurrent,
@@ -1031,7 +1032,6 @@ export default function App() {
       keptOverrides: {}
     })
   const selectedGroupIds = reviewSelections.selectedGroupIds
-  const reviewedGroupIds = reviewSelections.reviewedGroupIds
   const keptOverrides = reviewSelections.keptOverrides
   const setSelectedGroupIds = useCallback<
     Dispatch<SetStateAction<Set<string>>>
@@ -1102,7 +1102,7 @@ export default function App() {
   const [resumeCheckpoint, setResumeCheckpoint] =
     useState<ScanCheckpoint | null>(null)
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all")
-  const [verificationRescanScope, setVerificationRescanScope] = useState<string | null>(null)
+  const [discardReviewScope, setDiscardReviewScope] = useState<string | null>(null)
   const [bulkVerification, setBulkVerification] = useState<{
     startedFromExact: boolean
     setsMovedToExact: number
@@ -1113,6 +1113,7 @@ export default function App() {
     stopped: boolean
     stopReason: "budget" | "session" | null
     needsFreshScan: boolean
+    needsNarrowerScan: boolean
     lastError?: string
   } | null>(null)
   const bulkVerificationControllerRef = useRef<AbortController | null>(null)
@@ -3769,9 +3770,15 @@ export default function App() {
       (group) => groupClassificationById.get(group.id) === reviewFilter
     )
   }, [groups, groupClassificationById, reviewFilter])
+  const cleanupScopeGroups = useMemo(
+    () => getVisibleGroups(groups, entitlement),
+    [groups, entitlement]
+  )
   const visibleGroups = useMemo(
-    () => getVisibleGroups(filteredGroups, entitlement),
-    [filteredGroups, entitlement]
+    () => reviewFilter === "all" ? cleanupScopeGroups : cleanupScopeGroups.filter(
+      (group) => groupClassificationById.get(group.id) === reviewFilter
+    ),
+    [cleanupScopeGroups, groupClassificationById, reviewFilter]
   )
   const verificationScope = state.status === "results" && stateIdentityValidated
     ? JSON.stringify([
@@ -3792,6 +3799,7 @@ export default function App() {
   )
   useEffect(() => {
     setBulkVerification(null)
+    setDiscardReviewScope(null)
     return () => {
       const controller = bulkVerificationControllerRef.current
       bulkVerificationControllerRef.current = null
@@ -3803,11 +3811,8 @@ export default function App() {
     if (!verificationScope) return []
     if (reviewFilter === "similar") return visibleGroups
     if (!exactFilterEmpty) return []
-    return getVisibleGroups(
-      groups.filter((group) => groupClassificationById.get(group.id) === "similar"),
-      entitlement
-    )
-  }, [entitlement, exactFilterEmpty, groupClassificationById, groups, reviewFilter, verificationScope, visibleGroups])
+    return cleanupScopeGroups
+  }, [cleanupScopeGroups, exactFilterEmpty, reviewFilter, verificationScope, visibleGroups])
   const similarItemsToVerify = useMemo(() => {
     const mediaKeys = new Set(similarGroupsToVerify.flatMap((group) => group.mediaKeys))
     return Array.from(mediaKeys).flatMap((key) => {
@@ -3828,6 +3833,7 @@ export default function App() {
       bulkVerificationControllerRef.current ||
       bulkVerification?.stopReason === "budget" ||
       bulkVerification?.needsFreshScan ||
+      bulkVerification?.needsNarrowerScan ||
       similarItemsToVerify.length === 0
     ) return
 
@@ -3844,8 +3850,10 @@ export default function App() {
       stopped: false,
       stopReason: null as "budget" | "session" | null,
       needsFreshScan: false,
+      needsNarrowerScan: false,
       lastError: undefined as string | undefined
     }
+    let hitRemainingBudget = false
     setBulkVerification({ ...progress })
     try {
       // Use a fixed queue. Groups can leave Similar as their hashes match.
@@ -3882,8 +3890,12 @@ export default function App() {
             progress.stopReason = "budget"
             break
           }
+          if (isOriginalLargerThanRemainingReviewBudget(progress.lastError)) {
+            hitRemainingBudget = true
+          }
           const recovery = originalReviewRecovery(progress.lastError)
-          if (recovery) progress.needsFreshScan = true
+          if (recovery === "narrower-scope") progress.needsNarrowerScan = true
+          else if (recovery) progress.needsFreshScan = true
           if (recovery === "stale-review") {
             progress.stopReason = "session"
             break
@@ -3896,6 +3908,9 @@ export default function App() {
     } finally {
       if (bulkVerificationControllerRef.current === controller) {
         bulkVerificationControllerRef.current = null
+        if (!controller.signal.aborted && !progress.stopReason && hitRemainingBudget) {
+          progress.stopReason = "budget"
+        }
         setBulkVerification({
           ...progress,
           setsMovedToExact: similarGroupsToVerify.filter(
@@ -3907,18 +3922,11 @@ export default function App() {
       }
     }
   }
-  const cleanupScopeGroups = useMemo(
-    () => getVisibleGroups(groups, entitlement),
-    [groups, entitlement]
-  )
   const exactCleanupGroups = useMemo(
     () => cleanupScopeGroups.filter((group) => groupClassificationById.get(group.id) === "exact"),
     [cleanupScopeGroups, groupClassificationById]
   )
-  const lockedGroupCount = useMemo(
-    () => getLockedGroupCount(filteredGroups, entitlement),
-    [filteredGroups, entitlement]
-  )
+  const lockedGroupCount = filteredGroups.length - visibleGroups.length
   const provisionalGroups = state.status === "scanning" ? groups : visibleGroups
   const reviewSession = useMemo(
     () =>
@@ -4030,10 +4038,11 @@ export default function App() {
       // Explicitly choosing only exact sets also skips the other sets in
       // scope. Commit both decisions together with the existing keeper picks.
       const selections = reviewSession.update({
-        type: "mark_groups_reviewed",
-        groupIds: cleanupScopeGroups.map((group) => group.id)
+        type: "select_groups",
+        groupIds: batchGroups.map((group) => group.id)
       })
       selections.selectedGroupIds = new Set(batchGroups.map((group) => group.id))
+      for (const group of cleanupScopeGroups) selections.reviewedGroupIds.add(group.id)
       action = { type: "replace", selections }
     }
     const plan = reviewSession.transition(action).trashPlan(cleanupScopeGroups)
@@ -5599,8 +5608,9 @@ export default function App() {
   const needsFreshVerificationScan =
     (hasUncheckedOriginals && !verificationSessionCurrent) ||
     bulkVerification?.needsFreshScan
-  const verificationRecovery = reviewBudgetExhausted
-    ? "Scan a smaller date range to check more originals."
+  const needsNarrowerVerificationScan = reviewBudgetExhausted || bulkVerification?.needsNarrowerScan
+  const verificationRecovery = needsNarrowerVerificationScan
+    ? "Choose a smaller date range or album to check more originals."
     : needsFreshVerificationScan
       ? "Scan again to verify originals in the current provider session."
       : null
@@ -5609,6 +5619,7 @@ export default function App() {
     (exactFilterEmpty && !bulkVerification.running && !hasUncheckedOriginals)
   const verificationPanel = (bulkVerification?.running ||
     bulkVerification?.needsFreshScan ||
+    needsNarrowerVerificationScan ||
     exactFilterEmpty ||
     (exactBulkReview && bulkVerification?.startedFromExact) ||
     (reviewFilter === "similar" && (visibleGroups.length > 0 || bulkVerification))) ? (
@@ -5694,8 +5705,8 @@ export default function App() {
           {verificationRecovery && (
             <Button
               variant={setsMovedToExact > 0 ? "outlined" : "contained"}
-              onClick={() => setVerificationRescanScope(verificationScope)}>
-              {reviewBudgetExhausted ? "Change scan settings" : "Scan again"}
+              onClick={() => setDiscardReviewScope(verificationScope)}>
+              {needsNarrowerVerificationScan ? "Change scan settings" : "Scan again"}
             </Button>
           )}
         </Stack>
@@ -5757,7 +5768,7 @@ export default function App() {
         verificationPanel={verificationPanel}
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}
-        onRescan={handleReset}
+        onRescan={() => setDiscardReviewScope(verificationScope)}
         onExportJson={handleExportJson}
         onExportCsv={handleExportCsv}
         onApplyKeepStrategy={handleApplyKeepStrategy}
@@ -5776,13 +5787,16 @@ export default function App() {
       {!exactFilterEmpty && (
         <DuplicateGroups
           groups={visibleGroups}
-          onClearFilter={reviewFilter === "all" ? undefined : () => setReviewFilter("all")}
+          onClearFilter={reviewFilter === "all" ? undefined : () => {
+            setReviewFilter("all")
+            document.getElementById("all-review-filter")?.focus()
+          }}
           focusGroupId={reviewFocusGroupId}
           onFocusGroupHandled={handleReviewFocusGroupHandled}
           mediaItems={displayMediaItems}
           trashPlanMediaKeys={trashPlanMediaKeys}
           selectedGroupIds={selectedGroupIds}
-          reviewedGroupIds={reviewedGroupIds}
+          reviewedGroupIds={reviewSession.reviewedGroupIds}
           onToggleGroup={handleToggleGroup}
           onSkipGroup={handleSkipGroup}
           getKeptForGroup={getKept}
@@ -6460,16 +6474,11 @@ export default function App() {
                 : "Review sets one at a time if you want to change which copies are kept."}
             </Typography>
             {bulkReview.plan.mediaKeysToTrash.length > 0 && (
-              <Box
-                component="ul"
-                aria-label="Copies proposed for Trash"
-                sx={{ mt: 1, mb: 0, pl: 2.5, overflowWrap: "anywhere" }}>
-                {bulkReview.plan.mediaKeysToTrash.map((mediaKey) => (
-                  <Typography component="li" variant="body2" key={mediaKey}>
-                    {displayMediaItems[mediaKey]?.fileName || "Unnamed item"}
-                  </Typography>
-                ))}
-              </Box>
+              <CleanupProposal
+                groups={cleanupScopeGroups}
+                mediaItems={displayMediaItems}
+                proposedMediaKeys={bulkReview.plan.mediaKeysToTrash}
+              />
             )}
           </DialogContent>
         )}
@@ -6486,22 +6495,23 @@ export default function App() {
       </Dialog>
 
       <Dialog
-        open={verificationRescanScope !== null && verificationRescanScope === verificationScope}
-        onClose={() => setVerificationRescanScope(null)}
+        open={discardReviewScope !== null && discardReviewScope === verificationScope}
+        onClose={() => setDiscardReviewScope(null)}
         aria-labelledby="verification-rescan-title"
         aria-describedby="verification-rescan-description">
         <DialogTitle id="verification-rescan-title">Discard this review?</DialogTitle>
         <DialogContent>
           <DialogContentText id="verification-rescan-description">
             Continuing clears this scan’s verified matches, keeper choices, and Trash proposal.
+            {needsNarrowerVerificationScan && " Choose a smaller date range or album before scanning again."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button autoFocus onClick={() => setVerificationRescanScope(null)}>Keep reviewing</Button>
+          <Button autoFocus onClick={() => setDiscardReviewScope(null)}>Keep reviewing</Button>
           <Button
             color="error"
             onClick={() => {
-              setVerificationRescanScope(null)
+              setDiscardReviewScope(null)
               handleReset()
             }}>
             Discard review
@@ -6561,17 +6571,11 @@ export default function App() {
             </Typography>
           </Box>
           {trashConfirm && (
-            <Box
-              component="ul"
-              aria-label="Copies proposed for Trash"
-              tabIndex={0}
-              sx={{ mt: 0, mb: 1.5, pl: 2.5, maxHeight: 160, overflow: "auto", overflowWrap: "anywhere" }}>
-              {trashConfirm.mediaKeysToTrash.map((mediaKey) => (
-                <Typography component="li" variant="body2" key={mediaKey}>
-                  {displayMediaItems[mediaKey]?.fileName || "Unnamed item"}
-                </Typography>
-              ))}
-            </Box>
+            <CleanupProposal
+              groups={groups}
+              mediaItems={displayMediaItems}
+              proposedMediaKeys={trashConfirm.mediaKeysToTrash}
+            />
           )}
           {reportError && (
             <Alert severity="error" sx={{ mb: 2 }}>

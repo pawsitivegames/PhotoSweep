@@ -137,6 +137,7 @@ test("a scan paused during cache lookup emits no scan attempt or provider dispat
     await expect.poll(() => events.filter(event => event.name === "provider_connected").length).toBe(1)
     await openReviewTools(page)
     await page.getByRole("button", { name: /Scan again/i }).click()
+    await page.getByRole("button", { name: "Discard review", exact: true }).click()
     await expect(page.getByRole("button", { name: /^Scan the last 30 days$/ })).toBeVisible()
     await page.evaluate(() => {
       const original = chrome.storage.local.get.bind(chrome.storage.local)

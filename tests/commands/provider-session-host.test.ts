@@ -2216,8 +2216,8 @@ describe("provider command-host retrieval cache and budget oracles", () => {
         aggregateBudgetBytes: 8,
         resourceSize: 2
       })),
-      "original-exceeds-budget",
-      "The Google Photos original exceeds the remaining approved byte budget."
+      "original-exceeds-item-limit",
+      "The Google Photos original exceeds the per-file byte limit."
     )
   })
 
@@ -2259,6 +2259,36 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     )
 
     cache.reset()
+    const partial = cache.reserveBudget(
+      reservationInput(host, "amazon", scope, {
+        maxBytes: 8,
+        aggregateBudgetBytes: 10,
+        resourceSize: 6,
+        reserveKnownResourceSize: true
+      })
+    )
+    cache.accountResult(partial, 6)
+    cache.releaseBudget(partial)
+    expectPolicyError(
+      () => cache.reserveBudget(reservationInput(host, "amazon", scope, {
+        maxBytes: 8,
+        aggregateBudgetBytes: 10,
+        resourceSize: 5
+      })),
+      "original-exceeds-budget",
+      "The Amazon Photos original exceeds the remaining review byte budget."
+    )
+    const smaller = cache.reserveBudget(
+      reservationInput(host, "amazon", scope, {
+        maxBytes: 8,
+        aggregateBudgetBytes: 10,
+        resourceSize: 4
+      })
+    )
+    expect(smaller.maxBytes).toBe(4)
+    cache.releaseBudget(smaller)
+
+    cache.reset()
     const filled = cache.reserveBudget(
       reservationInput(host, "amazon", scope, {
         maxBytes: 8,
@@ -2286,8 +2316,8 @@ describe("provider command-host retrieval cache and budget oracles", () => {
     await activateScope(host, "amazon", oversizeScope)
     expectPolicyError(
       () => cache.reserveBudget(reservationInput(host, "amazon", oversizeScope, { maxBytes: 1, aggregateBudgetBytes: 4, resourceSize: 2 })),
-      "original-exceeds-budget",
-      "The Amazon Photos original exceeds the remaining review byte budget."
+      "original-exceeds-item-limit",
+      "The Amazon Photos original exceeds the per-file byte limit."
     )
 
     const emptyGoogleScope = "google-empty-original-scope"

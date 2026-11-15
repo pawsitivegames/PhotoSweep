@@ -336,6 +336,7 @@ test("guided review previews all available sets from All before including them",
       verificationSource: "local-original-bytes"
     }
   }
+  for (const key of groups[0].mediaKeys) mediaItems[key].fileName = "same-name.jpg"
   await injectScanResults(context, groups, mediaItems, 4)
   await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
@@ -356,9 +357,10 @@ test("guided review previews all available sets from All before including them",
   await prepare.click()
   const preview = page.getByRole("dialog", { name: "Preview all sets" })
   await expect(preview).toContainText("2 copies proposed for Trash")
-  const proposedNames = ["photo-group0-item1.jpg", "photo-group1-item1.jpg"]
-  await expect(preview.getByRole("list", { name: "Copies proposed for Trash" })
-    .getByRole("listitem")).toHaveText(proposedNames)
+  const proposal = preview.getByRole("region", { name: "Cleanup proposal" })
+  await expect(proposal.getByRole("listitem", { name: "Copy 1, Stays in library, same-name.jpg" })).toBeVisible()
+  await expect(proposal.getByRole("listitem", { name: "Copy 2, Proposed for Trash, same-name.jpg" })).toBeVisible()
+  await expect(proposal.getByRole("listitem", { name: "Copy 2, Proposed for Trash, photo-group1-item1.jpg" })).toBeVisible()
   await preview.getByRole("button", { name: "Cancel" }).click()
   await expect(summary).toContainText("0 sets included")
 
@@ -370,10 +372,51 @@ test("guided review previews all available sets from All before including them",
   await expect(page.getByRole("dialog")).toHaveCount(0)
   await reviewProposal.click()
   const confirmation = page.getByRole("dialog", { name: "Move to Trash" })
-  await expect(confirmation.getByRole("list", { name: "Copies proposed for Trash" })
-    .getByRole("listitem")).toHaveText(proposedNames)
+  const finalProposal = confirmation.getByRole("region", { name: "Cleanup proposal" })
+  await expect(finalProposal.getByRole("listitem", { name: "Copy 1, Stays in library, same-name.jpg" })).toBeVisible()
+  await expect(finalProposal.getByRole("listitem", { name: /^Copy 2, Proposed for Trash/ })).toHaveCount(2)
   await expect(confirmation.getByLabel("Type 2 to confirm")).toBeVisible()
   await expect(confirmation.getByRole("button", { name: "Move to Trash" })).toBeDisabled()
+})
+
+test("compact review identifies an all-copies proposal and confirms discarding it", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(1, 2)
+  for (const item of Object.values(mediaItems)) delete item.fileName
+  await injectScanResults(context, groups, mediaItems, 2)
+  await injectSelections(context, [], { [groups[0].id]: [] }, "google", {
+    [groups[0].id]: { source: "manual" }
+  })
+  const stub = await openGptkStubPage(context)
+  const page = await context.newPage()
+  await page.setViewportSize({ width: 390, height: 700 })
+  await stub.bringToFront()
+  await page.goto(`chrome-extension://${extensionId}/tabs/scanner-panel.html`)
+  const openPreview = page.getByRole("button", { name: "Preview all 1 set" })
+  await expect(openPreview).toBeVisible()
+  // The fixture establishes the provider host first. Exercise controls in the
+  // foreground so Chromium does not throttle the panel's menu and dialog.
+  await page.bringToFront()
+  await openPreview.click()
+  const preview = page.getByRole("dialog", { name: "Preview all sets" })
+  await expect(preview.getByText("All copies proposed for Trash", { exact: true })).toBeVisible()
+  await expect(preview.getByRole("listitem", { name: /^Copy [12], Proposed for Trash, Unnamed item$/ })).toHaveCount(2)
+  await preview.getByRole("button", { name: "Cancel" }).click()
+
+  const more = page.getByRole("button", { name: "More review actions" })
+  const discard = page.getByRole("dialog", { name: "Discard this review?" })
+  await more.click()
+  await page.getByRole("menuitem", { name: "Scan again" }).click()
+  const keepReviewing = discard.getByRole("button", { name: "Keep reviewing" })
+  await expect(keepReviewing).toBeFocused()
+  await keepReviewing.press("Enter")
+  await expect(discard).toHaveCount(0)
+  await expect(more).toBeFocused()
+  expect((await readLocalStorage(context, "scanResults")).scanResults).toBeDefined()
+  await more.click()
+  await page.getByRole("menuitem", { name: "Scan again" }).click()
+  await discard.getByRole("button", { name: "Discard review" }).click()
+  await expect.poll(async () => (await readLocalStorage(context, "scanResults")).scanResults).toBeUndefined()
 })
 
 test("the Exact filter previews and includes only verified identical sets", async () => {
@@ -400,11 +443,10 @@ test("the Exact filter previews and includes only verified identical sets", asyn
   const preview = page.getByRole("dialog", { name: "Preview exact sets" })
   await exactAction.click()
   await expect(preview).toContainText("2 copies proposed for Trash")
-  const copies = preview.getByRole("list", { name: "Copies proposed for Trash" })
-  await expect(copies.getByRole("listitem")).toHaveText([
-    "photo-group1-item1.jpg",
-    "photo-group2-item1.jpg"
-  ])
+  const copies = preview.getByRole("region", { name: "Cleanup proposal" })
+  await expect(copies.getByRole("listitem", { name: /^Copy 2, Proposed for Trash/ })).toHaveCount(2)
+  await expect(copies.getByRole("listitem", { name: "Copy 2, Proposed for Trash, photo-group1-item1.jpg" })).toBeVisible()
+  await expect(copies.getByRole("listitem", { name: "Copy 2, Proposed for Trash, photo-group2-item1.jpg" })).toBeVisible()
   await preview.getByRole("button", { name: "Cancel" }).click()
   await expect(summary).toContainText("1 set included")
 
@@ -422,6 +464,32 @@ test("the Exact filter previews and includes only verified identical sets", asyn
   const confirmation = page.getByRole("dialog", { name: "Move to Trash" })
   await expect(confirmation.getByLabel("Type 2 to confirm")).toBeVisible()
   await expect(confirmation.getByRole("button", { name: "Move to Trash" })).toBeDisabled()
+})
+
+test("Exact review keeps plan-locked sets out of selection and restores filter focus", async () => {
+  await clearStorage(context)
+  const { groups, mediaItems } = makeGroups(26, 2)
+  for (const key of groups[25].mediaKeys) {
+    mediaItems[key].contentHash = {
+      value: "a".repeat(64),
+      algorithm: "sha256",
+      provenance: "original-content",
+      verificationSource: "local-original-bytes"
+    }
+  }
+  await injectScanResults(context, groups, mediaItems, 52)
+  await openGptkStubPage(context)
+  const page = await openAppTab(context, extensionId)
+  const all = page.getByRole("button", { name: "All sets (26)" })
+  await page.getByRole("button", { name: "Verified identical (1)" }).click()
+  await expect(page.getByText("No exact sets are available for cleanup on your current plan.")).toBeVisible()
+  await expect(page.getByText(/1 more duplicate set found/)).toBeVisible()
+  await expect(page.locator('[data-review-group-id="group-25"]')).toHaveCount(0)
+  const showAll = page.getByRole("button", { name: "Show all sets" })
+  await showAll.focus()
+  await showAll.press("Enter")
+  await expect(all).toBeFocused()
+  await expect(all).toHaveAttribute("aria-pressed", "true")
 })
 
 test("an empty Exact filter explains when a saved scan needs a fresh provider session", async () => {
@@ -460,7 +528,9 @@ test("an empty Exact filter explains when a saved scan needs a fresh provider se
 for (const recovery of [
   { error: "Original media review has expired. Scan again.", requests: 2, action: "Scan again" },
   { error: "The Google Photos item is not present in this recent review. Scan again.", requests: 4, action: "Scan again" },
-  { error: "The Google Photos review has reached its 100 MiB original-fetch budget.", requests: 2, action: "Change scan settings" }
+  { error: "The Google Photos review has reached its 100 MiB original-fetch budget.", requests: 2, action: "Change scan settings" },
+  { error: "The Google Photos original exceeds the remaining approved byte budget.", requests: 4, action: "Change scan settings" },
+  { error: "The Google Photos review is too large to retain every original. Scan a smaller range or album.", requests: 4, action: "Change scan settings" }
 ]) {
   test(`preserves a partial original verification after ${recovery.error}`, async () => {
     await clearStorage(context)
@@ -469,9 +539,14 @@ for (const recovery of [
       item.provider = "google"
       item.mediaKind = "photo"
       item.originalContentVerificationCapability = "available"
+      item.isOriginalQuality = true
+      item.timestampProvenance = "capture"
     }
     const scopeFingerprint = buildScanScopeFingerprint(DEFAULT_SETTINGS)
     const firstMediaKey = groups[0].mediaKeys[0]
+    // The first verified file starts as a non-keeper. Its newly known size
+    // changes the proposal, so the existing inclusion must require re-review.
+    mediaItems[firstMediaKey].timestamp += 1000
     const originalUrl = "https://lh3.google.com/synthetic-roundtable-original"
     const originalText = "Synthetic original bytes"
     const contentHash = {
@@ -565,7 +640,9 @@ for (const recovery of [
     const discard = page.getByRole("dialog", { name: "Discard this review?" })
     await discard.getByRole("button", { name: "Keep reviewing" }).click()
     await expect(discard).toHaveCount(0)
-    await expect(page.getByRole("region", { name: "Cleanup summary" })).toContainText("1 set included")
+    const summary = page.getByRole("region", { name: "Cleanup summary" })
+    await expect(summary).toContainText("1 set included")
+    await expect(summary.getByRole("button", { name: "Review next set (1 left)" })).toBeVisible()
     await expect.poll(async () => (await readLocalStorage(context, "scanResults")).scanResults)
       .toMatchObject({ mediaItems: { [firstMediaKey]: { contentHash } } })
   })
@@ -1474,6 +1551,7 @@ test("does not open a stale checkout tab after results reset", async () => {
       .click()
     await openReviewTools(page)
     await page.getByRole("button", { name: "Scan again", exact: true }).click()
+    await page.getByRole("button", { name: "Discard review", exact: true }).click()
 
     releaseCheckout()
     await page.waitForTimeout(300)
@@ -2898,7 +2976,15 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
 
   await openReviewTools(page)
 
-  await page.getByRole("button", { name: /Scan again/i }).click()
+  const scanAgain = page.getByRole("button", { name: /Scan again/i })
+  await scanAgain.click()
+  const discard = page.getByRole("dialog", { name: "Discard this review?" })
+  await expect(discard.getByRole("button", { name: "Keep reviewing" })).toBeFocused()
+  await discard.getByRole("button", { name: "Keep reviewing" }).click()
+  await expect(scanAgain).toBeFocused()
+  expect((await readLocalStorage(context, "scanResults")).scanResults).toBeDefined()
+  await scanAgain.click()
+  await discard.getByRole("button", { name: "Discard review" }).click()
   await expect(
     page.getByText("Find copies across your photo library")
   ).toBeVisible({
